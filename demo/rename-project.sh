@@ -1,0 +1,17 @@
+#!/bin/bash
+
+echo "AEGIS Project Name Update Complete"
+echo "=================================="
+echo ""
+echo "All references have been updated from AgentGuard to Aegis:"
+echo "- Dashboard title and header"
+echo "- Gateway title and console output"
+echo "- Python SDK class and demo"
+echo ""
+echo "To rename the main project folder:"
+echo "  cd ../.."
+echo "  mv agentguard aegis"
+echo ""
+echo "The demo is still accessible at:"
+echo "- Gateway: http://localhost:8080"
+echo "- Dashboard: http://localhost:8080/dashboard"

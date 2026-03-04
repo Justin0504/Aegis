@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentguard"
+version = "1.0.0"
+description = "Python SDK for AI agent auditing and tracing"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "agentguard-core-schema",
+    "cryptography>=41.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-instrumentation>=0.40b0",
+    "aiohttp>=3.9.0",
+    "asyncio>=3.4.3",
+    "contextvars>=2.4",
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "openai>=1.0.0",
+    "anthropic>=0.20.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentguard*"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

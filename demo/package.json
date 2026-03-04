@@ -1,0 +1,14 @@
+{
+  "name": "agentguard-demo",
+  "version": "1.0.0",
+  "description": "AgentGuard 快速演示",
+  "main": "simple-gateway.js",
+  "scripts": {
+    "start": "node simple-gateway.js",
+    "install-deps": "npm install express sqlite3"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "sqlite3": "^5.1.0"
+  }
+}

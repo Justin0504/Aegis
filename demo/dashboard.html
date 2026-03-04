@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis | Security Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #0a0a0a;
+        }
+
+        .glass-effect {
+            background: rgba(17, 17, 17, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .status-glow-yellow {
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+        }
+
+        .status-glow-red {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .gradient-border {
+            background: linear-gradient(45deg, #1e293b, #334155);
+            padding: 1px;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 100, 100, 0.5);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 100, 100, 0.7);
+        }
+    </style>
+</head>
+<body class="text-gray-100">
+    <div x-data="dashboard()" x-init="init()" class="min-h-screen">
+        <!-- Background gradient -->
+        <div class="fixed inset-0 bg-gradient-to-br from-gray-950 via-gray-900 to-black -z-10"></div>
+
+        <!-- Header -->
+        <header class="glass-effect border-b border-gray-800">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-light text-gray-100 tracking-wide">AEGIS</h1>
+                        <p class="text-sm text-gray-400 mt-1">Real-time Security Monitoring</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span class="text-sm text-gray-400">System Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="gradient-border rounded-lg">
+                    <div class="glass-effect p-6 rounded-lg">
+                        <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Traces</h3>
+                        <p class="mt-3 text-3xl font-light text-gray-100" x-text="stats.total"></p>
+                        <p class="mt-1 text-xs text-gray-500">All time</p>
+                    </div>
+                </div>
+
+                <div class="gradient-border rounded-lg">
+                    <div class="glass-effect p-6 rounded-lg">
+                        <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Approved</h3>
+                        <p class="mt-3 text-3xl font-light text-green-400" x-text="stats.approved"></p>
+                        <p class="mt-1 text-xs text-gray-500">Validated requests</p>
+                    </div>
+                </div>
+
+                <div class="gradient-border rounded-lg">
+                    <div class="glass-effect p-6 rounded-lg">
+                        <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Pending</h3>
+                        <p class="mt-3 text-3xl font-light text-yellow-400" x-text="stats.pending"></p>
+                        <p class="mt-1 text-xs text-gray-500">Awaiting review</p>
+                    </div>
+                </div>
+
+                <div class="gradient-border rounded-lg">
+                    <div class="glass-effect p-6 rounded-lg">
+                        <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">Rejected</h3>
+                        <p class="mt-3 text-3xl font-light text-red-400" x-text="stats.rejected"></p>
+                        <p class="mt-1 text-xs text-gray-500">Policy violations</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traces Table -->
+            <div class="gradient-border rounded-lg mb-8">
+                <div class="glass-effect rounded-lg">
+                    <div class="px-6 py-4 border-b border-gray-800">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-light text-gray-100">Recent Traces</h3>
+                            <button @click="fetchTraces()"
+                                    class="px-4 py-2 text-xs font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors duration-200">
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-800">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Trace ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Agent ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Tool Call</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Timestamp</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-800">
+                                <template x-for="trace in traces" :key="trace.trace_id">
+                                    <tr class="hover:bg-gray-800/30 transition-colors duration-200">
+                                        <td class="px-6 py-4 text-sm text-gray-300 font-mono" x-text="trace.trace_id.substring(0, 20) + '...'"></td>
+                                        <td class="px-6 py-4 text-sm text-gray-400" x-text="trace.agent_id"></td>
+                                        <td class="px-6 py-4 text-sm text-gray-300" x-text="trace.tool_call.tool_name"></td>
+                                        <td class="px-6 py-4 text-sm text-gray-400" x-text="formatDate(trace.timestamp)"></td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-3 py-1 text-xs font-medium rounded-full"
+                                                  :class="{
+                                                    'bg-green-900/50 text-green-300 status-glow-green': trace.approval_status === 'APPROVED' || trace.approval_status === 'AUTO_APPROVED',
+                                                    'bg-yellow-900/50 text-yellow-300 status-glow-yellow': trace.approval_status === 'PENDING_APPROVAL',
+                                                    'bg-red-900/50 text-red-300 status-glow-red': trace.approval_status === 'REJECTED'
+                                                  }"
+                                                  x-text="trace.approval_status">
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="traces.length === 0" class="text-center py-12 text-gray-500">
+                            No traces recorded yet
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Trace Form -->
+            <div class="gradient-border rounded-lg">
+                <div class="glass-effect rounded-lg p-6">
+                    <h3 class="text-lg font-light text-gray-100 mb-6">Test Trace Injection</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text"
+                               x-model="newTrace.agent_id"
+                               placeholder="Agent ID"
+                               class="px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-300 placeholder-gray-500 focus:border-gray-600 focus:outline-none transition-colors duration-200">
+                        <input type="text"
+                               x-model="newTrace.tool_name"
+                               placeholder="Tool Name"
+                               class="px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-gray-300 placeholder-gray-500 focus:border-gray-600 focus:outline-none transition-colors duration-200">
+                    </div>
+                    <button @click="addTrace()"
+                            class="mt-4 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-colors duration-200">
+                        Add Trace
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                traces: [],
+                stats: {
+                    total: 0,
+                    approved: 0,
+                    pending: 0,
+                    rejected: 0
+                },
+                newTrace: {
+                    agent_id: 'agent-001',
+                    tool_name: 'execute_code'
+                },
+                apiUrl: 'http://localhost:8080',
+
+                async init() {
+                    await this.fetchTraces();
+                    setInterval(() => this.fetchTraces(), 5000);
+                },
+
+                async fetchTraces() {
+                    try {
+                        const response = await fetch(`${this.apiUrl}/api/v1/traces`);
+                        const data = await response.json();
+                        this.traces = data.traces || [];
+                        this.updateStats();
+                    } catch (error) {
+                        console.error('Failed to fetch traces:', error);
+                    }
+                },
+
+                updateStats() {
+                    this.stats.total = this.traces.length;
+                    this.stats.approved = this.traces.filter(t =>
+                        t.approval_status === 'APPROVED' || t.approval_status === 'AUTO_APPROVED'
+                    ).length;
+                    this.stats.pending = this.traces.filter(t =>
+                        t.approval_status === 'PENDING_APPROVAL'
+                    ).length;
+                    this.stats.rejected = this.traces.filter(t =>
+                        t.approval_status === 'REJECTED'
+                    ).length;
+                },
+
+                formatDate(timestamp) {
+                    const date = new Date(timestamp);
+                    return date.toLocaleString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    });
+                },
+
+                async addTrace() {
+                    try {
+                        const response = await fetch(`${this.apiUrl}/api/v1/traces`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                trace_id: `trace-${Date.now()}`,
+                                agent_id: this.newTrace.agent_id,
+                                tool_call: {
+                                    tool_name: this.newTrace.tool_name,
+                                    function: this.newTrace.tool_name,
+                                    arguments: { test: true }
+                                }
+                            })
+                        });
+
+                        if (response.ok) {
+                            await this.fetchTraces();
+                            this.newTrace.agent_id = 'agent-001';
+                            this.newTrace.tool_name = 'execute_code';
+                        }
+                    } catch (error) {
+                        console.error('Failed to add trace:', error);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
