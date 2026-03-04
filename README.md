@@ -93,6 +93,10 @@ See [GETTING_STARTED.md](GETTING_STARTED.md) for a full local setup walkthrough.
 
 ### Python
 
+```bash
+pip install agentguard-core-schema agentguard-aegis
+```
+
 ```python
 from agentguard import AgentGuard
 from agentguard.config import AgentGuardConfig

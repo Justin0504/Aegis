@@ -46,15 +46,11 @@ Additional services in dev mode:
 
 ## Python SDK
 
-The SDK is not yet published to PyPI. Install it directly from the repo:
-
 ```bash
-# Must install core-schema first — the SDK depends on it
-pip install -e ./packages/core-schema/python
-pip install -e ./packages/sdk-python
+pip install agentguard-core-schema agentguard-aegis
 ```
 
-Or use the Makefile shortcut:
+For local development from source:
 
 ```bash
 make install-sdk
