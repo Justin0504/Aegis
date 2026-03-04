@@ -78,6 +78,10 @@ export const AgentActionTraceSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
+// Enum exports (for runtime use)
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ApprovalStatus = 'APPROVED' | 'PENDING_APPROVAL' | 'REJECTED' | 'AUTO_APPROVED';
+
 // Type exports
 export type AgentActionTrace = z.infer<typeof AgentActionTraceSchema>;
 export type ToolCall = z.infer<typeof ToolCallSchema>;

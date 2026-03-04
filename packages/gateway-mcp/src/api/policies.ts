@@ -40,7 +40,7 @@ export class PolicyAPI {
     this.router.post('/', async (req: Request, res: Response) => {
       try {
         const policy = CreatePolicySchema.parse(req.body);
-        await this.policyEngine.addPolicy(policy);
+        await this.policyEngine.addPolicy(policy as any);
         res.status(201).json({ id: policy.id });
       } catch (error) {
         if (error instanceof z.ZodError) {

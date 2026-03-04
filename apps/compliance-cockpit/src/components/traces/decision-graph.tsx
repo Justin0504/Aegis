@@ -6,9 +6,10 @@ import ReactFlow, {
   Controls,
   MiniMap,
   Background,
+  BackgroundVariant,
   useNodesState,
   useEdgesState,
-} from 'react-flow-renderer'
+} from 'reactflow'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useEffect } from 'react'
 import { getRiskLevelColor } from '@/lib/utils'
@@ -79,7 +80,7 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
         >
           <Controls />
           <MiniMap />
-          <Background variant="dots" gap={12} size={1} />
+          <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
         </ReactFlow>
       </CardContent>
     </Card>

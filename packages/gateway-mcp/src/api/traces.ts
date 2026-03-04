@@ -156,17 +156,17 @@ export class TraceAPI {
         sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
         params.push(query.limit, query.offset);
 
-        const traces = this.db.prepare(sql).all(...params);
+        const traces = this.db.prepare(sql).all(...params) as any[];
 
         // Parse JSON fields
         const parsedTraces = traces.map(t => ({
           ...t,
-          input_context: JSON.parse(t.input_context as string),
-          thought_chain: JSON.parse(t.thought_chain as string),
-          tool_call: JSON.parse(t.tool_call as string),
-          observation: JSON.parse(t.observation as string),
-          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation as string) : null,
-          tags: t.tags ? JSON.parse(t.tags as string) : null,
+          input_context: JSON.parse(t.input_context),
+          thought_chain: JSON.parse(t.thought_chain),
+          tool_call: JSON.parse(t.tool_call),
+          observation: JSON.parse(t.observation),
+          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
+          tags: t.tags ? JSON.parse(t.tags) : null,
         }));
 
         res.json({
@@ -184,7 +184,7 @@ export class TraceAPI {
     // Get single trace
     this.router.get('/:traceId', async (req: Request, res: Response) => {
       try {
-        const trace = this.db.prepare('SELECT * FROM traces WHERE trace_id = ?').get(req.params.traceId);
+        const trace = this.db.prepare('SELECT * FROM traces WHERE trace_id = ?').get(req.params.traceId) as any;
 
         if (!trace) {
           return res.status(404).json({ error: 'Trace not found' });
@@ -193,12 +193,12 @@ export class TraceAPI {
         // Parse JSON fields
         const parsedTrace = {
           ...trace,
-          input_context: JSON.parse(trace.input_context as string),
-          thought_chain: JSON.parse(trace.thought_chain as string),
-          tool_call: JSON.parse(trace.tool_call as string),
-          observation: JSON.parse(trace.observation as string),
-          safety_validation: trace.safety_validation ? JSON.parse(trace.safety_validation as string) : null,
-          tags: trace.tags ? JSON.parse(trace.tags as string) : null,
+          input_context: JSON.parse(trace.input_context),
+          thought_chain: JSON.parse(trace.thought_chain),
+          tool_call: JSON.parse(trace.tool_call),
+          observation: JSON.parse(trace.observation),
+          safety_validation: trace.safety_validation ? JSON.parse(trace.safety_validation) : null,
+          tags: trace.tags ? JSON.parse(trace.tags) : null,
         };
 
         res.json(parsedTrace);
@@ -228,17 +228,17 @@ export class TraceAPI {
 
         sql += ' ORDER BY sequence_number ASC';
 
-        const traces = this.db.prepare(sql).all(...params);
+        const traces = this.db.prepare(sql).all(...params) as any[];
 
         // Parse and validate traces
         const parsedTraces = traces.map(t => ({
           ...t,
-          input_context: JSON.parse(t.input_context as string),
-          thought_chain: JSON.parse(t.thought_chain as string),
-          tool_call: JSON.parse(t.tool_call as string),
-          observation: JSON.parse(t.observation as string),
-          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation as string) : null,
-          tags: t.tags ? JSON.parse(t.tags as string) : null,
+          input_context: JSON.parse(t.input_context),
+          thought_chain: JSON.parse(t.thought_chain),
+          tool_call: JSON.parse(t.tool_call),
+          observation: JSON.parse(t.observation),
+          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
+          tags: t.tags ? JSON.parse(t.tags) : null,
         }));
 
         // Create bundle

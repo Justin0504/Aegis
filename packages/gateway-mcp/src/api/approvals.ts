@@ -32,11 +32,11 @@ export class ApprovalAPI {
             WHERE a.status = 'PENDING' AND a.expires_at > datetime('now')
             ORDER BY a.created_at DESC
           `)
-          .all();
+          .all() as any[];
 
-        const parsed = approvals.map(a => ({
+        const parsed = approvals.map((a: any) => ({
           ...a,
-          tool_call: JSON.parse(a.tool_call as string),
+          tool_call: JSON.parse(a.tool_call),
         }));
 
         res.json(parsed);
@@ -56,7 +56,7 @@ export class ApprovalAPI {
             JOIN traces t ON a.trace_id = t.trace_id
             WHERE a.id = ?
           `)
-          .get(req.params.approvalId);
+          .get(req.params.approvalId) as any;
 
         if (!approval) {
           return res.status(404).json({ error: 'Approval not found' });
@@ -65,11 +65,11 @@ export class ApprovalAPI {
         // Parse JSON fields
         const parsed = {
           ...approval,
-          input_context: JSON.parse(approval.input_context as string),
-          thought_chain: JSON.parse(approval.thought_chain as string),
-          tool_call: JSON.parse(approval.tool_call as string),
-          observation: JSON.parse(approval.observation as string),
-          safety_validation: approval.safety_validation ? JSON.parse(approval.safety_validation as string) : null,
+          input_context: JSON.parse(approval.input_context),
+          thought_chain: JSON.parse(approval.thought_chain),
+          tool_call: JSON.parse(approval.tool_call),
+          observation: JSON.parse(approval.observation),
+          safety_validation: approval.safety_validation ? JSON.parse(approval.safety_validation) : null,
         };
 
         res.json(parsed);
@@ -88,14 +88,14 @@ export class ApprovalAPI {
         // Get current approval
         const approval = this.db
           .prepare('SELECT * FROM approvals WHERE id = ? AND status = "PENDING"')
-          .get(approvalId);
+          .get(approvalId) as any;
 
         if (!approval) {
           return res.status(404).json({ error: 'Approval not found or already decided' });
         }
 
         // Check if expired
-        if (new Date(approval.expires_at as string) < new Date()) {
+        if (new Date(approval.expires_at) < new Date()) {
           return res.status(400).json({ error: 'Approval has expired' });
         }
 

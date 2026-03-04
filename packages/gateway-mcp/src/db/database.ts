@@ -88,12 +88,12 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
       environment TEXT NOT NULL,
       version TEXT NOT NULL,
       tags TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_agent_id (agent_id),
-      INDEX idx_timestamp (timestamp),
-      INDEX idx_parent_trace (parent_trace_id),
-      INDEX idx_approval_status (approval_status)
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE INDEX IF NOT EXISTS idx_agent_id ON traces (agent_id);
+    CREATE INDEX IF NOT EXISTS idx_timestamp ON traces (timestamp);
+    CREATE INDEX IF NOT EXISTS idx_parent_trace ON traces (parent_trace_id);
+    CREATE INDEX IF NOT EXISTS idx_approval_status ON traces (approval_status);
 
     -- Policies table
     CREATE TABLE IF NOT EXISTS policies (
@@ -117,9 +117,9 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
       details TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (policy_id) REFERENCES policies(id),
-      FOREIGN KEY (trace_id) REFERENCES traces(trace_id),
-      INDEX idx_agent_violations (agent_id, created_at)
+      FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
     );
+    CREATE INDEX IF NOT EXISTS idx_agent_violations ON violations (agent_id, created_at);
 
     -- Approvals table
     CREATE TABLE IF NOT EXISTS approvals (
@@ -134,10 +134,10 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
       rejection_reason TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       expires_at TEXT NOT NULL,
-      FOREIGN KEY (trace_id) REFERENCES traces(trace_id),
-      INDEX idx_pending_approvals (status, expires_at),
-      INDEX idx_agent_approvals (agent_id, status)
+      FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
     );
+    CREATE INDEX IF NOT EXISTS idx_pending_approvals ON approvals (status, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_agent_approvals ON approvals (agent_id, status);
 
     -- API keys table (for kill switch)
     CREATE TABLE IF NOT EXISTS api_keys (
