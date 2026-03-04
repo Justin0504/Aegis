@@ -1,24 +1,32 @@
-# AgentGuard 🛡️
+# AgentGuard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js](https://img.shields.io/badge/node.js-20+-green.svg)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 
-A high-integrity auditing system for AI agents with cryptographic verification, real-time monitoring, and compliance visualization.
+**Cryptographic auditing and real-time control for AI agents.**
 
-## 🌟 Features
+AgentGuard wraps your AI agent's tool calls with Ed25519-signed audit traces, tamper-proof hash chains, and a live dashboard — giving you full visibility and instant kill-switch control over everything your agents do.
 
-- **🔐 Cryptographic Audit Trail**: Ed25519 signatures with SHA-256 hash chains
-- **📊 Real-time Monitoring**: WebSocket-based live dashboard
-- **🚨 Anomaly Detection**: Automatic detection and alerting of dangerous operations
-- **⚡ Kill Switch**: Instant API key revocation on policy violations
-- **🎯 Policy Engine**: Customizable risk-based access control
-- **📈 Advanced Analytics**: Comprehensive metrics and insights
-- **🔍 Time-travel Debugging**: Replay and analyze agent decision chains
-- **🏗️ Enterprise Ready**: Docker, Kubernetes, and cloud-native deployment
+---
 
-## 🏗️ Architecture
+## Features
+
+| Capability | Description |
+|---|---|
+| Cryptographic Audit Trail | Ed25519 signatures + SHA-256 hash chains on every trace |
+| Real-time Monitoring | WebSocket-based live dashboard with zero polling |
+| Anomaly Detection | Automatic flagging and alerting on dangerous operations |
+| Kill Switch | Instant API key revocation on policy violation |
+| Policy Engine | Customizable risk-based access control rules |
+| Analytics | Comprehensive metrics, latency histograms, and agent insights |
+| Time-travel Debugging | Replay and inspect full agent decision chains |
+| Enterprise Deployment | Docker, Kubernetes, and cloud-native ready |
+
+---
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -33,7 +41,7 @@ A high-integrity auditing system for AI agents with cryptographic verification, 
 │  • Automatic capture & signing                              │
 │  • Ed25519 cryptographic signatures                         │
 └────────────────────────┬───────────────────────────────────┘
-                         │ HTTPS/WebSocket
+                         │ HTTPS / WebSocket
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Gateway Service                           │
@@ -44,44 +52,44 @@ A high-integrity auditing system for AI agents with cryptographic verification, 
         │                                 │
         ▼                                 ▼
 ┌───────────────┐                ┌────────────────┐
-│   Database    │                │   Dashboard    │
-│  (PostgreSQL) │◀───────────────│   (Next.js)    │
+│   PostgreSQL  │                │   Dashboard    │
+│               │◀───────────────│   (Next.js)    │
 └───────────────┘                └────────────────┘
 ```
 
-## 🚀 Quick Start
+---
 
-### Option 1: Docker (Recommended)
+## Quick Start
+
+### Docker (Recommended)
 
 ```bash
-# Clone the repository
 git clone https://github.com/Justin0504/Aegis.git agentguard
 cd agentguard
-
-# Start with Docker Compose
 docker-compose up -d
-
-# Access services
-# Dashboard: http://localhost:3000
-# API: http://localhost:8080
 ```
 
-### Option 2: Enhanced Demo
+Services available at:
+- Dashboard — `http://localhost:3000`
+- API — `http://localhost:8080`
+
+### Enhanced Demo
 
 ```bash
 cd demo/aegis-enhanced
-npm install
-npm start
+npm install && npm start
 
-# In another terminal
+# In a second terminal:
 python demo_agent.py
 ```
 
-### Option 3: Local Development
+### Local Development
 
-See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed setup instructions.
+See [GETTING_STARTED.md](GETTING_STARTED.md) for a full local setup walkthrough.
 
-## 💻 SDK Usage
+---
+
+## SDK Usage
 
 ### Python
 
@@ -89,7 +97,6 @@ See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed setup instructions.
 from agentguard import AgentGuard
 from agentguard.config import AgentGuardConfig
 
-# Initialize
 config = AgentGuardConfig(
     agent_id="my-ai-agent",
     gateway_url="http://localhost:8080",
@@ -97,14 +104,12 @@ config = AgentGuardConfig(
 )
 agent_guard = AgentGuard(config)
 
-# Trace any function
 @agent_guard.trace(tool_name="database_query")
 def query_database(sql: str):
-    # Your code here
     return results
 ```
 
-### TypeScript/JavaScript (Coming Soon)
+### TypeScript / JavaScript (Coming Soon)
 
 ```typescript
 import { AgentGuard } from '@agentguard/sdk';
@@ -116,38 +121,51 @@ const guard = new AgentGuard({
 
 @guard.trace('api_call')
 async function callExternalAPI(endpoint: string) {
-  // Your code here
+  // your code here
 }
 ```
 
-## 📊 Dashboard Features
+---
 
-- **Real-time Monitoring**: Live trace updates via WebSocket
-- **Anomaly Detection**: Automatic flagging of suspicious operations
-- **Agent Management**: Track and control multiple AI agents
-- **Policy Configuration**: Define and enforce security policies
-- **Metrics & Analytics**: Comprehensive performance insights
-- **Audit Logs**: Immutable, cryptographically signed records
+## Security Model
 
-## 🔒 Security Features
+Every tool call your agent makes is:
 
-- **Ed25519 Digital Signatures**: Every trace is cryptographically signed
-- **Hash Chain Integrity**: Tamper-proof linked audit trail
-- **Role-based Access Control**: Fine-grained permissions
-- **API Key Rotation**: Automatic key management
-- **Kill Switch**: Emergency agent termination
-- **Compliance Ready**: GDPR, SOC2, HIPAA compatible
+1. **Captured** — arguments, outputs, timestamps, and agent identity
+2. **Signed** — Ed25519 private key signature bound to the agent
+3. **Chained** — SHA-256 hash linking each trace to the previous, making the log tamper-evident
+4. **Evaluated** — policy engine scores risk and can block, warn, or terminate
 
-## 🚀 Production Deployment
+Additional controls: role-based access, automatic API key rotation, and compliance-ready export for GDPR, SOC2, and HIPAA.
 
-For production deployment, see [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md).
+---
+
+## Production Deployment
 
 ```bash
-# Quick production setup
 ./deploy-production.sh
 ```
 
-## 📖 Documentation
+See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for the full pre-launch checklist.
+
+---
+
+## Testing
+
+```bash
+# All tests
+npm test
+
+# Python SDK
+cd packages/sdk-python && pytest
+
+# Integration
+npm run test:integration
+```
+
+---
+
+## Documentation
 
 - [Getting Started](GETTING_STARTED.md)
 - [API Reference](docs/API.md)
@@ -155,35 +173,19 @@ For production deployment, see [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md
 - [Security Model](docs/SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-## 🧪 Testing
+---
 
-```bash
-# Run all tests
-npm test
+## Contributing
 
-# Python SDK tests
-cd packages/sdk-python
-pytest
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-# Integration tests
-npm run test:integration
-```
+## License
 
-## 🤝 Contributing
+MIT — see [LICENSE](LICENSE).
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## Support
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-Built with ❤️ for the AI safety community.
-
-## 📞 Support
-
-- 📧 Email: support@agentguard.ai
-- 💬 Discord: [Join our community](https://discord.gg/agentguard)
-- 📚 Documentation: [docs.agentguard.ai](https://docs.agentguard.ai)
-- 🐛 Issues: [GitHub Issues](https://github.com/Justin0504/Aegis/issues)
+- Email: support@agentguard.ai
+- Discord: [Join the community](https://discord.gg/agentguard)
+- Docs: [docs.agentguard.ai](https://docs.agentguard.ai)
+- Issues: [GitHub Issues](https://github.com/Justin0504/Aegis/issues)
