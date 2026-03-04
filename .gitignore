@@ -61,3 +61,24 @@ build/
 *.pem
 *.key
 private_key.pem
+*.cert
+*.crt
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+tmp/
+
+# Backup files
+backup/
+*.bak
+
+# Upload directories
+uploads/
+data/uploads/
+
+# Personal/test files
+test_agentguard.py
+cleanup-project.sh
+.env.production
