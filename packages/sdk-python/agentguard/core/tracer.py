@@ -66,6 +66,8 @@ class AgentGuard:
         if self.config.capture_llm_calls:
             self._llm_interceptor.patch_openai()
             self._llm_interceptor.patch_anthropic()
+            self._llm_interceptor.patch_langchain()
+            self._llm_interceptor.patch_claude_agent_sdk()
 
         # Start background workers
         if self.config.enable_async:
