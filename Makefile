@@ -1,16 +1,16 @@
-.PHONY: help build up down logs shell clean dev prod
+.PHONY: help build up down logs shell clean dev prod install-sdk
 
 # Default target
 help:
-	@echo "AgentGuard Docker Commands:"
-	@echo "  make build    - Build all Docker images"
-	@echo "  make up       - Start all services in production mode"
-	@echo "  make down     - Stop all services"
-	@echo "  make logs     - View logs from all services"
-	@echo "  make shell    - Open shell in gateway container"
-	@echo "  make clean    - Remove all containers and volumes"
-	@echo "  make dev      - Start in development mode with hot-reload"
-	@echo "  make prod     - Start in production mode"
+	@echo "AgentGuard Commands:"
+	@echo "  make build        - Build all Docker images"
+	@echo "  make up           - Start all services (production)"
+	@echo "  make dev          - Start all services (dev, hot-reload)"
+	@echo "  make down         - Stop all services"
+	@echo "  make logs         - Tail logs from all services"
+	@echo "  make shell        - Shell into gateway container"
+	@echo "  make clean        - Remove all containers and volumes"
+	@echo "  make install-sdk  - Install Python SDK and core-schema locally"
 
 # Build all images
 build:
@@ -64,6 +64,11 @@ db-backup:
 
 db-shell:
 	docker-compose exec gateway sqlite3 /data/agentguard.db
+
+# Install Python SDK and its local dependency (core-schema) into the active venv
+install-sdk:
+	pip install -e ./packages/core-schema/python
+	pip install -e ./packages/sdk-python
 
 # Python SDK testing environment
 test-sdk:

@@ -66,7 +66,7 @@ services:
     environment:
       - POSTGRES_DB=agentguard
       - POSTGRES_USER=agentguard
-      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
