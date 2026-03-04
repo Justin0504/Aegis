@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEGIS - AI Agent Security Gateway</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1a1a1a;
+            --bg-hover: #242424;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1a1;
+            --text-muted: #707070;
+            --border-color: #262626;
+            --accent-gold: #a68a5b;
+            --accent-blue: #5b7c99;
+            --success: #4a7c59;
+            --error: #9b4444;
+            --warning: #8b6f38;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.011em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Logo */
+        .logo {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: var(--accent-gold);
+        }
+
+        /* Navigation */
+        .nav {
+            flex: 1;
+            padding: 12px;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 8px 12px;
+        }
+
+        .nav-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+            position: relative;
+            font-weight: 600;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .nav-item.active {
+            background: var(--bg-hover);
+            color: var(--accent-gold);
+        }
+
+        .nav-item-icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-item.active .nav-item-icon {
+            opacity: 1;
+        }
+
+        .nav-badge {
+            position: absolute;
+            right: 12px;
+            background: var(--error);
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            justify-content: space-between;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4a7c59;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Content */
+        .content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .stat-change {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-change.positive {
+            color: var(--text-secondary);
+        }
+
+        .stat-change.negative {
+            color: var(--text-secondary);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-secondary);
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 16px 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.success {
+            background: rgba(74, 124, 89, 0.15);
+            color: #62a373;
+            border: 1px solid rgba(74, 124, 89, 0.2);
+        }
+
+        .status-badge.error {
+            background: rgba(155, 68, 68, 0.15);
+            color: #c57676;
+            border: 1px solid rgba(155, 68, 68, 0.2);
+        }
+
+        .status-badge.warning {
+            background: rgba(139, 111, 56, 0.15);
+            color: #b89860;
+            border: 1px solid rgba(139, 111, 56, 0.2);
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-gold);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: -0.01em;
+        }
+
+        .btn-primary {
+            background: var(--accent-gold);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: #b8935e;
+        }
+
+        .btn-secondary {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        /* Page sections */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .chart-container.small {
+            height: 200px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            margin: 8px 0;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        /* Icon replacements */
+        .icon {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo" onclick="showPage('dashboard')">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#e6c584;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#c29d5a;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Shield -->
+                        <path d="M50 10 L70 20 L70 45 C70 65 60 80 50 85 C40 80 30 65 30 45 L30 20 Z"
+                              fill="none" stroke="url(#goldGradient)" stroke-width="3"/>
+                        <!-- Wings -->
+                        <path d="M30 25 C20 20 10 25 10 35 C10 45 20 45 25 40 L30 35
+                                 M70 25 C80 20 90 25 90 35 C90 45 80 45 75 40 L70 35"
+                              fill="none" stroke="url(#goldGradient)" stroke-width="2"/>
+                        <!-- Letter A -->
+                        <path d="M50 35 L40 60 M50 35 L60 60 M45 50 L55 50"
+                              stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="logo-text">AEGIS</div>
+            </div>
+
+            <nav class="nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Main</div>
+                    <div class="nav-item active" onclick="showPage('dashboard')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        </div>
+                        <span>Dashboard</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('traces')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <span>Traces</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('anomalies')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                        </div>
+                        <span>Anomalies</span>
+                        <span class="nav-badge" id="anomaly-count">0</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('metrics')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+                        </div>
+                        <span>Metrics</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Security</div>
+                    <div class="nav-item" onclick="showPage('agents')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4l-3-3"/></svg>
+                        </div>
+                        <span>AI Agents</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('policies')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><path d="M12 2L2 7v8c0 5.5 3.8 10.7 10 12 6.2-1.3 10-6.5 10-12V7l-10-5z"/></svg>
+                        </div>
+                        <span>Policies</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('integrations')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        </div>
+                        <span>Integrations</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">System</div>
+                    <div class="nav-item" onclick="showPage('settings')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg>
+                        </div>
+                        <span>Settings</span>
+                    </div>
+                    <div class="nav-item" onclick="showPage('logs')">
+                        <div class="nav-item-icon">
+                            <svg class="icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <span>Logs</span>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+            <div class="header">
+                <h1 class="page-title" id="page-title">Dashboard</h1>
+                <div class="header-actions">
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>Connected</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content">
+                <!-- Dashboard Page -->
+                <div class="page active" id="dashboard">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Operations</div>
+                            <div class="stat-value" id="total-operations">0</div>
+                            <div class="stat-change positive">
+                                <svg class="icon" width="16" height="16"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/></svg>
+                                <span>+12.5%</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Active Agents</div>
+                            <div class="stat-value" id="active-agents">0</div>
+                            <div class="stat-change">
+                                <span>Real-time</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Anomalies Detected</div>
+                            <div class="stat-value" id="anomalies-detected">0</div>
+                            <div class="stat-change negative">
+                                <svg class="icon" width="16" height="16"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                                <span>Requires attention</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">System Health</div>
+                            <div class="stat-value" id="error-rate">0%</div>
+                            <div class="stat-change positive">
+                                <span>Optimal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Activity Timeline</h2>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Recent Activity</h2>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Agent</th>
+                                    <th>Operation</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-activity">
+                                <tr>
+                                    <td colspan="4" class="empty-state">
+                                        <svg class="icon"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                        <p>No recent activity</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Traces Page -->
+                <div class="page" id="traces">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">All Traces</h2>
+                            <button class="btn btn-secondary" onclick="refreshTraces()">
+                                <svg class="icon" width="16" height="16"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/></svg>
+                                Refresh
+                            </button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Trace ID</th>
+                                    <th>Agent</th>
+                                    <th>Operation</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="traces-table">
+                                <tr>
+                                    <td colspan="5" class="empty-state">
+                                        <svg class="icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                                        <p>No traces recorded</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Anomalies Page -->
+                <div class="page" id="anomalies">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Detected Anomalies</h2>
+                            <button class="btn btn-primary" onclick="exportAnomalies()">
+                                <svg class="icon" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export
+                            </button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Agent ID</th>
+                                    <th>Operation</th>
+                                    <th>Risk Level</th>
+                                    <th>Description</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="anomalies-table">
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <svg class="icon"><path d="M12 2L2 7v8c0 5.5 3.8 10.7 10 12 6.2-1.3 10-6.5 10-12V7l-10-5z"/></svg>
+                                        <p>No anomalies detected</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Metrics Page -->
+                <div class="page" id="metrics">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Average Response Time</div>
+                            <div class="metric-value">124ms</div>
+                            <div class="chart-container small">
+                                <canvas id="responseTimeChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Success Rate</div>
+                            <div class="metric-value">98.2%</div>
+                            <div class="chart-container small">
+                                <canvas id="successRateChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 20px;">
+                        <h2 class="card-title">Operation Distribution</h2>
+                        <div class="metrics-grid">
+                            <div>
+                                <div class="chart-container small">
+                                    <canvas id="operationChart"></canvas>
+                                </div>
+                            </div>
+                            <div style="padding: 20px;">
+                                <div id="operation-stats"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agents Page -->
+                <div class="page" id="agents">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Registered AI Agents</h2>
+                            <button class="btn btn-primary" onclick="registerAgent()">
+                                <svg class="icon" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                Register New
+                            </button>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Agent ID</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Last Seen</th>
+                                    <th>Operations</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agents-table">
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        <svg class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4l-3-3"/></svg>
+                                        <p>No registered agents</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Policies Page -->
+                <div class="page" id="policies">
+                    <div class="stats-grid" style="margin-bottom: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-label">Active Policies</div>
+                            <div class="stat-value">12</div>
+                            <div class="stat-change">3 critical, 9 standard</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Policy Violations</div>
+                            <div class="stat-value">3</div>
+                            <div class="stat-change">Last 24 hours</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Compliance Score</div>
+                            <div class="stat-value">94%</div>
+                            <div class="stat-change">Industry benchmark: 85%</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Risk Management Framework</h2>
+                            <button class="btn btn-secondary">
+                                <svg class="icon" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export Policy
+                            </button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                            <div>
+                                <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Critical Operations</h3>
+                                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-weight: 600;">Database Modifications</span>
+                                            <span class="status-badge error">BLOCK</span>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Prevents unauthorized database schema changes</p>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-weight: 600;">System Configuration</span>
+                                            <span class="status-badge warning">APPROVAL</span>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Requires manual approval for system-level changes</p>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-weight: 600;">External API Calls</span>
+                                            <span class="status-badge success">MONITOR</span>
+                                        </div>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Logs and monitors all external communications</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Threshold Configuration</h3>
+                                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <div class="form-group" style="margin-bottom: 16px;">
+                                        <label class="form-label">Risk Tolerance Level</label>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <input type="range" class="form-control" min="1" max="10" value="3" style="flex: 1;">
+                                            <span style="font-weight: 600; min-width: 80px;">Low (3/10)</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 16px;">
+                                        <label class="form-label">Anomaly Sensitivity</label>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <input type="range" class="form-control" min="1" max="10" value="7" style="flex: 1;">
+                                            <span style="font-weight: 600; min-width: 80px;">High (7/10)</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label">Auto-Response Time</label>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <input type="range" class="form-control" min="0" max="60" value="5" style="flex: 1;">
+                                            <span style="font-weight: 600; min-width: 80px;">5 seconds</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                            <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Policy Rules Engine</h3>
+                            <table style="font-size: 13px;">
+                                <thead>
+                                    <tr>
+                                        <th style="font-weight: 600;">Rule Name</th>
+                                        <th style="font-weight: 600;">Condition</th>
+                                        <th style="font-weight: 600;">Action</th>
+                                        <th style="font-weight: 600;">Status</th>
+                                        <th style="font-weight: 600;">Last Triggered</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="font-weight: 600;">Privilege Escalation</td>
+                                        <td>Agent requests sudo/admin access</td>
+                                        <td>Block + Alert</td>
+                                        <td><span class="status-badge success">ACTIVE</span></td>
+                                        <td>2 hours ago</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 600;">Data Exfiltration</td>
+                                        <td>Transfer > 100MB external</td>
+                                        <td>Require approval</td>
+                                        <td><span class="status-badge success">ACTIVE</span></td>
+                                        <td>Never</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 600;">Rate Limiting</td>
+                                        <td>API calls > 1000/min</td>
+                                        <td>Throttle to 100/min</td>
+                                        <td><span class="status-badge success">ACTIVE</span></td>
+                                        <td>1 day ago</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 600;">Anomaly Pattern</td>
+                                        <td>Deviation > 3σ from baseline</td>
+                                        <td>Flag for review</td>
+                                        <td><span class="status-badge warning">TESTING</span></td>
+                                        <td>In development</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-primary">Apply Changes</button>
+                            <button class="btn btn-secondary">Reset to Defaults</button>
+                            <button class="btn btn-secondary">Import Policy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integrations Page -->
+                <div class="page" id="integrations">
+                    <div class="card">
+                        <h2 class="card-title">Connected Services</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Status</th>
+                                    <th>Last Sync</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>OpenAI API</td>
+                                    <td><span class="status-badge success">Connected</span></td>
+                                    <td>2 mins ago</td>
+                                    <td><button class="btn btn-secondary">Configure</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Anthropic Claude</td>
+                                    <td><span class="status-badge warning">Limited</span></td>
+                                    <td>5 mins ago</td>
+                                    <td><button class="btn btn-secondary">Configure</button></td>
+                                </tr>
+                                <tr>
+                                    <td>Slack Notifications</td>
+                                    <td><span class="status-badge error">Disconnected</span></td>
+                                    <td>Never</td>
+                                    <td><button class="btn btn-primary">Connect</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div class="page" id="settings">
+                    <div style="display: grid; grid-template-columns: 240px 1fr; gap: 24px;">
+                        <!-- Settings Navigation -->
+                        <div class="card" style="padding: 12px;">
+                            <div class="nav-item active" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">General</span>
+                            </div>
+                            <div class="nav-item" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">Security</span>
+                            </div>
+                            <div class="nav-item" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">Performance</span>
+                            </div>
+                            <div class="nav-item" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">Notifications</span>
+                            </div>
+                            <div class="nav-item" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">API Keys</span>
+                            </div>
+                            <div class="nav-item" style="margin-bottom: 4px;">
+                                <span style="font-weight: 600;">Advanced</span>
+                            </div>
+                        </div>
+
+                        <!-- Settings Content -->
+                        <div>
+                            <div class="card" style="margin-bottom: 20px;">
+                                <h2 class="card-title">System Configuration</h2>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Instance Name</label>
+                                        <input type="text" class="form-control" value="AEGIS Security Gateway" style="font-weight: 600;">
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Identifies this gateway in multi-instance deployments</p>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Environment</label>
+                                        <select class="form-control" style="font-weight: 600;">
+                                            <option>Production</option>
+                                            <option>Staging</option>
+                                            <option>Development</option>
+                                        </select>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Determines security policy strictness</p>
+                                    </div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Primary API Endpoint</label>
+                                        <input type="text" class="form-control" value="https://api.aegis.security/v1" style="font-weight: 600;">
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Main endpoint for agent connections</p>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Backup API Endpoint</label>
+                                        <input type="text" class="form-control" value="https://backup.aegis.security/v1" style="font-weight: 600;">
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Failover endpoint for high availability</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card" style="margin-bottom: 20px;">
+                                <h2 class="card-title">Data Management</h2>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                                    <div>
+                                        <label class="form-label">Trace Retention</label>
+                                        <select class="form-control" style="font-weight: 600;">
+                                            <option>7 days</option>
+                                            <option selected>30 days</option>
+                                            <option>90 days</option>
+                                            <option>1 year</option>
+                                            <option>Unlimited</option>
+                                        </select>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">52.3 GB used</p>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Log Level</label>
+                                        <select class="form-control" style="font-weight: 600;">
+                                            <option>Error only</option>
+                                            <option>Warning</option>
+                                            <option selected>Info</option>
+                                            <option>Debug</option>
+                                            <option>Verbose</option>
+                                        </select>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">8.1 GB logs</p>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Archive Policy</label>
+                                        <select class="form-control" style="font-weight: 600;">
+                                            <option>Delete after retention</option>
+                                            <option selected>Compress & archive</option>
+                                            <option>Export to S3</option>
+                                            <option>Export to GCS</option>
+                                        </select>
+                                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">12 TB archived</p>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top: 24px; padding: 16px; background: var(--bg-secondary); border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Storage Usage</h4>
+                                            <p style="font-size: 13px; color: var(--text-secondary);">60.4 GB of 500 GB used (12.1%)</p>
+                                        </div>
+                                        <button class="btn btn-secondary">Manage Storage</button>
+                                    </div>
+                                    <div style="margin-top: 12px; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                        <div style="width: 12.1%; height: 100%; background: var(--accent-gold);"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <h2 class="card-title">System Performance</h2>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                                    <div>
+                                        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Resource Limits</h3>
+                                        <div class="form-group">
+                                            <label class="form-label">Max Concurrent Agents</label>
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <input type="range" class="form-control" min="10" max="1000" value="100" style="flex: 1;">
+                                                <span style="font-weight: 600; min-width: 60px;">100</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Request Timeout (seconds)</label>
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <input type="range" class="form-control" min="5" max="300" value="30" style="flex: 1;">
+                                                <span style="font-weight: 600; min-width: 60px;">30s</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Memory Limit (GB)</label>
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <input type="range" class="form-control" min="1" max="16" value="8" style="flex: 1;">
+                                                <span style="font-weight: 600; min-width: 60px;">8 GB</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Optimization Settings</h3>
+                                        <div style="space-y-3">
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                                                <input type="checkbox" checked style="width: 16px; height: 16px;">
+                                                <span style="font-weight: 600;">Enable response caching</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                                                <input type="checkbox" checked style="width: 16px; height: 16px;">
+                                                <span style="font-weight: 600;">Compress large payloads</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                                                <input type="checkbox" style="width: 16px; height: 16px;">
+                                                <span style="font-weight: 600;">Enable debug profiling</span>
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                                                <input type="checkbox" checked style="width: 16px; height: 16px;">
+                                                <span style="font-weight: 600;">Auto-scale workers</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+                                    <button class="btn btn-primary">Save All Changes</button>
+                                    <button class="btn btn-secondary">Export Configuration</button>
+                                    <button class="btn btn-secondary">Reset to Defaults</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Page -->
+                <div class="page" id="logs">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">System Logs</h2>
+                            <div>
+                                <button class="btn btn-secondary" onclick="downloadLogs()">
+                                    <svg class="icon" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 16px; border-radius: 6px; font-family: monospace; font-size: 13px; max-height: 500px; overflow-y: auto;">
+                            <div id="logs-content">
+                                <div style="color: var(--text-secondary);">[2024-03-04 03:52:20] System initialized</div>
+                                <div style="color: var(--success);">[2024-03-04 03:52:21] WebSocket server started on port 8080</div>
+                                <div style="color: var(--text-secondary);">[2024-03-04 03:52:22] Waiting for agent connections...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data storage
+        let allTraces = [];
+        let anomalies = [];
+        let stats = {
+            totalOperations: 0,
+            activeAgents: 0,
+            anomaliesDetected: 0,
+            errorRate: 0
+        };
+
+        // WebSocket connection
+        let ws = null;
+
+        // Page navigation
+        function showPage(pageId) {
+            // Update active nav item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                traces: 'Traces',
+                anomalies: 'Anomalies',
+                metrics: 'Metrics',
+                agents: 'AI Agents',
+                policies: 'Policies',
+                integrations: 'Integrations',
+                settings: 'Settings',
+                logs: 'System Logs'
+            };
+            document.getElementById('page-title').textContent = titles[pageId] || 'Dashboard';
+
+            // Show selected page
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+
+            // Initialize page-specific features
+            if (pageId === 'dashboard') {
+                updateDashboard();
+            } else if (pageId === 'metrics') {
+                initializeMetricsCharts();
+            } else if (pageId === 'agents') {
+                updateAgentsTable();
+            }
+        }
+
+        // Initialize WebSocket
+        function initWebSocket() {
+            ws = new WebSocket('ws://localhost:8080');
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.querySelector('.status-dot').style.background = 'var(--success)';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                document.querySelector('.status-dot').style.background = 'var(--error)';
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.querySelector('.status-dot').style.background = 'var(--error)';
+                // Reconnect after 3 seconds
+                setTimeout(initWebSocket, 3000);
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            if (data.type === 'initial_state') {
+                processTraceData(data.data.traces);
+                stats = data.data.stats;
+                updateDashboard();
+            } else if (data.type === 'new_trace') {
+                allTraces.push(data.data);
+                processTraceData(allTraces);
+                updateDashboard();
+            } else if (data.type === 'alert') {
+                console.log('Alert:', data.data.message);
+            }
+        }
+
+        // Process trace data
+        function processTraceData(traces) {
+            allTraces = traces || [];
+            anomalies = [];
+
+            // Find anomalies
+            allTraces.forEach(trace => {
+                if (trace.status === 'error' && trace.error) {
+                    const errorLower = trace.error.toLowerCase();
+                    const isDangerous = errorLower.includes('dangerous') ||
+                                       trace.error.includes('Dangerous');
+                    const isHighRisk = trace.tool_call?.risk_level === 'HIGH';
+                    const isDenied = errorLower.includes('denied') ||
+                                    errorLower.includes('blocked');
+
+                    if (isDangerous || isHighRisk || isDenied) {
+                        anomalies.push(trace);
+                    }
+                }
+            });
+
+            // Update UI
+            updateTracesTable();
+            updateAnomaliesTable();
+            updateRecentActivity();
+
+            // Update anomaly count badge
+            const badge = document.getElementById('anomaly-count');
+            badge.textContent = anomalies.length;
+            badge.style.display = anomalies.length > 0 ? 'block' : 'none';
+        }
+
+        // Update dashboard
+        function updateDashboard() {
+            document.getElementById('total-operations').textContent = stats.totalOperations || 0;
+            document.getElementById('active-agents').textContent = stats.activeAgents || 0;
+            document.getElementById('anomalies-detected').textContent = stats.anomaliesDetected || 0;
+            document.getElementById('error-rate').textContent = `${stats.errorRate || 0}%`;
+            updateActivityChart();
+            updateAgentsTable();
+        }
+
+        // Update traces table
+        function updateTracesTable() {
+            const tbody = document.getElementById('traces-table');
+            if (allTraces.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <svg class="icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                            <p>No traces recorded</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = allTraces.slice(-50).reverse().map(trace => {
+                const time = new Date(trace.timestamp).toLocaleTimeString();
+                const statusClass = trace.status === 'success' ? 'success' : 'error';
+                return `
+                    <tr>
+                        <td>${time}</td>
+                        <td style="font-size: 12px; color: var(--text-secondary);">${trace.trace_id}</td>
+                        <td>${trace.agent_id}</td>
+                        <td>${trace.tool_call.tool_name}</td>
+                        <td><span class="status-badge ${statusClass}">${trace.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update anomalies table
+        function updateAnomaliesTable() {
+            const tbody = document.getElementById('anomalies-table');
+            if (anomalies.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <svg class="icon"><path d="M12 2L2 7v8c0 5.5 3.8 10.7 10 12 6.2-1.3 10-6.5 10-12V7l-10-5z"/></svg>
+                            <p>No anomalies detected</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = anomalies.map(trace => {
+                const time = new Date(trace.timestamp).toLocaleTimeString();
+                return `
+                    <tr>
+                        <td>${time}</td>
+                        <td>${trace.agent_id}</td>
+                        <td>${trace.tool_call.tool_name}</td>
+                        <td><span class="status-badge error">${trace.tool_call.risk_level || 'HIGH'}</span></td>
+                        <td>${trace.error}</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="blockAgent('${trace.agent_id}')">Block</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update recent activity
+        function updateRecentActivity() {
+            const tbody = document.getElementById('recent-activity');
+            const recent = allTraces.slice(-5).reverse();
+
+            if (recent.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            <svg class="icon"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            <p>No recent activity</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = recent.map(trace => {
+                const time = new Date(trace.timestamp).toLocaleTimeString();
+                const statusClass = trace.status === 'success' ? 'success' : 'error';
+                return `
+                    <tr>
+                        <td>${time}</td>
+                        <td>${trace.agent_id}</td>
+                        <td>${trace.tool_call.tool_name}</td>
+                        <td><span class="status-badge ${statusClass}">${trace.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Chart initialization
+        let activityChart = null;
+        let performanceChart = null;
+        let toolUsageChart = null;
+
+        function updateActivityChart() {
+            const ctx = document.getElementById('activityChart')?.getContext('2d');
+            if (!ctx) return;
+
+            // Generate time series data
+            const labels = [];
+            const data = [];
+            const errors = [];
+
+            for (let i = 9; i >= 0; i--) {
+                const time = new Date(Date.now() - i * 60000);
+                labels.push(time.toLocaleTimeString());
+
+                // Count traces in this time window
+                const windowStart = time.getTime();
+                const windowEnd = windowStart + 60000;
+                let successCount = 0;
+                let errorCount = 0;
+
+                allTraces.forEach(trace => {
+                    const traceTime = new Date(trace.timestamp).getTime();
+                    if (traceTime >= windowStart && traceTime < windowEnd) {
+                        if (trace.status === 'success') successCount++;
+                        else errorCount++;
+                    }
+                });
+
+                data.push(successCount);
+                errors.push(errorCount);
+            }
+
+            if (activityChart) {
+                activityChart.destroy();
+            }
+
+            activityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Successful Operations',
+                        data,
+                        borderColor: '#4a7c59',
+                        backgroundColor: 'rgba(74, 124, 89, 0.05)',
+                        tension: 0.4,
+                        borderWidth: 2
+                    }, {
+                        label: 'Failed Operations',
+                        data: errors,
+                        borderColor: '#9b4444',
+                        backgroundColor: 'rgba(155, 68, 68, 0.05)',
+                        tension: 0.4,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#707070',
+                                font: {
+                                    family: 'Inter',
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'line'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#707070',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                color: '#1a1a1a',
+                                drawBorder: false
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#707070',
+                                font: {
+                                    family: 'Inter',
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                color: '#1a1a1a',
+                                drawBorder: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initializeMetricsCharts() {
+            // Response time trend
+            const responseCtx = document.getElementById('responseTimeChart')?.getContext('2d');
+            if (responseCtx) {
+                new Chart(responseCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['', '', '', '', '', ''],
+                        datasets: [{
+                            data: [120, 125, 118, 130, 124, 124],
+                            borderColor: '#707070',
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(112, 112, 112, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: {
+                                display: false,
+                                min: 100,
+                                max: 150
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Success rate trend
+            const successCtx = document.getElementById('successRateChart')?.getContext('2d');
+            if (successCtx) {
+                new Chart(successCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['', '', '', '', '', ''],
+                        datasets: [{
+                            data: [97.5, 98.1, 97.8, 98.5, 98.2, 98.2],
+                            borderColor: '#5b7c99',
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(91, 124, 153, 0.1)',
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: {
+                                display: false,
+                                min: 95,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Operation distribution
+            const opCtx = document.getElementById('operationChart')?.getContext('2d');
+            if (opCtx) {
+                const toolCounts = {};
+                allTraces.forEach(trace => {
+                    const tool = trace.tool_call.tool_name;
+                    toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+                });
+
+                const sortedTools = Object.entries(toolCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                new Chart(opCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedTools.map(t => t[0]),
+                        datasets: [{
+                            data: sortedTools.map(t => t[1]),
+                            backgroundColor: '#2a2a2a',
+                            hoverBackgroundColor: '#3a3a3a',
+                            borderRadius: 4,
+                            barThickness: 40
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: '#1a1a1a',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#707070',
+                                    font: { size: 11 }
+                                }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: '#a1a1a1',
+                                    font: { size: 12 }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Update operation stats
+                const statsDiv = document.getElementById('operation-stats');
+                const total = Object.values(toolCounts).reduce((a, b) => a + b, 0);
+                statsDiv.innerHTML = sortedTools.map(([tool, count]) => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">${tool}</span>
+                        <span style="color: var(--text-primary); font-weight: 500;">${((count/total)*100).toFixed(1)}%</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Update agents table
+        function updateAgentsTable() {
+            const agentMap = new Map();
+
+            // Collect agent information from traces
+            allTraces.forEach(trace => {
+                if (!agentMap.has(trace.agent_id)) {
+                    agentMap.set(trace.agent_id, {
+                        id: trace.agent_id,
+                        name: trace.agent_id.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        firstSeen: trace.timestamp,
+                        lastSeen: trace.timestamp,
+                        operationCount: 0,
+                        errorCount: 0
+                    });
+                }
+
+                const agent = agentMap.get(trace.agent_id);
+                agent.operationCount++;
+                agent.lastSeen = trace.timestamp;
+                if (trace.status === 'error') {
+                    agent.errorCount++;
+                }
+            });
+
+            const tbody = document.getElementById('agents-table');
+            if (agentMap.size === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <svg class="icon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4l-3-3"/></svg>
+                            <p>No registered agents</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = Array.from(agentMap.values()).map(agent => {
+                const lastSeenTime = new Date(agent.lastSeen);
+                const minutesAgo = Math.floor((Date.now() - lastSeenTime) / 60000);
+                const status = minutesAgo < 5 ? 'success' : (minutesAgo < 30 ? 'warning' : 'error');
+                const statusText = minutesAgo < 5 ? 'ACTIVE' : (minutesAgo < 30 ? 'IDLE' : 'OFFLINE');
+                const successRate = agent.operationCount > 0 ?
+                    ((agent.operationCount - agent.errorCount) / agent.operationCount * 100).toFixed(1) : 100;
+
+                return `
+                    <tr>
+                        <td style="font-family: monospace;">${agent.id}</td>
+                        <td>${agent.name}</td>
+                        <td><span class="status-badge ${status}">${statusText}</span></td>
+                        <td>${minutesAgo < 1 ? 'Just now' : minutesAgo + ' min ago'}</td>
+                        <td>${agent.operationCount} (${successRate}% success)</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="viewAgentDetails('${agent.id}')">Details</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Action functions
+        function refreshTraces() {
+            fetch('/api/v1/traces')
+                .then(response => response.json())
+                .then(data => {
+                    processTraceData(data.traces);
+                    stats = data.stats;
+                    updateDashboard();
+                });
+        }
+
+        function exportAnomalies() {
+            const csv = [
+                ['Time', 'Agent ID', 'Operation', 'Risk Level', 'Error'].join(','),
+                ...anomalies.map(a => [
+                    new Date(a.timestamp).toISOString(),
+                    a.agent_id,
+                    a.tool_call.tool_name,
+                    a.tool_call.risk_level || 'HIGH',
+                    `"${a.error.replace(/"/g, '""')}"`
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `aegis-anomalies-${new Date().toISOString()}.csv`;
+            a.click();
+        }
+
+        function blockAgent(agentId) {
+            if (confirm(`Block agent ${agentId}? This will prevent all future operations.`)) {
+                console.log('Blocking agent:', agentId);
+                // In a real implementation, this would call an API
+            }
+        }
+
+        function registerAgent() {
+            console.log('Register new agent');
+            // In a real implementation, this would open a modal
+        }
+
+        function downloadLogs() {
+            console.log('Download logs');
+            // In a real implementation, this would download log files
+        }
+
+        function viewAgentDetails(agentId) {
+            console.log('View details for agent:', agentId);
+            // In a real implementation, this would show a modal with agent details
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initWebSocket();
+            refreshTraces();
+        };
+    </script>
+</body>
+</html>

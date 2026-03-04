@@ -1,0 +1,12 @@
+{
+  "name": "aegis-enhanced-demo",
+  "version": "1.0.0",
+  "description": "Enhanced Aegis dashboard with real-time monitoring",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}

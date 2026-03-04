@@ -22,6 +22,19 @@ agentguard/
 - Python 3.10+
 - Docker & Docker Compose
 
+### Demo Options
+
+1. **Basic Demo** - Simple HTTP-based monitoring in `/demo`
+2. **Enhanced Demo** - Advanced Notion-style dashboard with real-time WebSocket monitoring in `/demo/aegis-enhanced`
+
+For the enhanced experience:
+```bash
+cd demo/aegis-enhanced
+npm install
+npm start
+# Visit http://localhost:8080
+```
+
 ### Setup
 ```bash
 # Install dependencies
