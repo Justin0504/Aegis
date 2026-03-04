@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Base schemas
 export const AgentIdSchema = z.string().uuid();
 export const TraceIdSchema = z.string().uuid();
-export const TimestampSchema = z.string().datetime();
+export const TimestampSchema = z.string();
 export const HashSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
 // Tool call schema
@@ -21,37 +21,37 @@ export const InputContextSchema = z.object({
     source: z.string(),
     content: z.string(),
     relevance_score: z.number().min(0).max(1),
-  })).optional(),
-  system_context: z.record(z.any()).optional(),
+  })).nullable().optional(),
+  system_context: z.record(z.any()).nullable().optional(),
 });
 
 // Thought chain schema
 export const ThoughtChainSchema = z.object({
   raw_tokens: z.string(),
-  parsed_steps: z.array(z.string()).optional(),
-  confidence_score: z.number().min(0).max(1).optional(),
+  parsed_steps: z.array(z.string()).nullable().optional(),
+  confidence_score: z.number().min(0).max(1).nullable().optional(),
 });
 
 // Observation schema
 export const ObservationSchema = z.object({
   raw_output: z.any(),
-  error: z.string().optional(),
+  error: z.string().nullable().optional(),
   duration_ms: z.number().positive(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.any()).nullable().optional(),
 });
 
 // Safety policy validation
 export const SafetyValidationSchema = z.object({
   policy_name: z.string(),
   passed: z.boolean(),
-  violations: z.array(z.string()).optional(),
+  violations: z.array(z.string()).nullable().optional(),
   risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
 });
 
 // Main trace schema
 export const AgentActionTraceSchema = z.object({
   trace_id: TraceIdSchema,
-  parent_trace_id: TraceIdSchema.optional(),
+  parent_trace_id: TraceIdSchema.nullable().optional(),
   agent_id: AgentIdSchema,
   timestamp: TimestampSchema,
   sequence_number: z.number().int().nonnegative(),
@@ -64,18 +64,18 @@ export const AgentActionTraceSchema = z.object({
 
   // Security & Integrity
   integrity_hash: HashSchema,
-  previous_hash: HashSchema.optional(),
-  signature: z.string().optional(),
+  previous_hash: HashSchema.nullable().optional(),
+  signature: z.string().nullable().optional(),
 
   // Safety & Compliance
-  safety_validation: SafetyValidationSchema.optional(),
-  approval_status: z.enum(['APPROVED', 'PENDING_APPROVAL', 'REJECTED', 'AUTO_APPROVED']).optional(),
-  approved_by: z.string().optional(),
+  safety_validation: SafetyValidationSchema.nullable().optional(),
+  approval_status: z.enum(['APPROVED', 'PENDING_APPROVAL', 'REJECTED', 'AUTO_APPROVED']).nullable().optional(),
+  approved_by: z.string().nullable().optional(),
 
   // Metadata
   environment: z.enum(['DEVELOPMENT', 'STAGING', 'PRODUCTION']).default('DEVELOPMENT'),
   version: z.string().default('1.0.0'),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).nullable().optional(),
 });
 
 // Enum exports (for runtime use)

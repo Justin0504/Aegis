@@ -1,6 +1,6 @@
 """Transport service for sending traces to the gateway."""
 
-import asyncio
+import atexit
 import json
 import queue
 import threading
@@ -35,6 +35,9 @@ class TransportService:
         if config.enable_async:
             self._worker_thread = threading.Thread(target=self._background_worker, daemon=True)
             self._worker_thread.start()
+
+        # Flush on clean exit
+        atexit.register(self.shutdown)
 
     def send_trace(self, trace: AgentActionTrace) -> bool:
         """Send a trace to the gateway."""
@@ -71,21 +74,20 @@ class TransportService:
         """Background worker for async trace sending."""
         while not self._shutdown:
             try:
-                # Check if we should flush
-                should_flush = (
-                    len(self._batch) >= self.config.batch_size
-                    or (time.time() - self._last_flush) >= self.config.flush_interval_seconds
-                )
-
-                if should_flush and self._batch:
-                    self._flush_batch()
-
-                # Get next trace with timeout
+                # Drain queue into batch
                 try:
                     trace = self._trace_queue.get(timeout=0.1)
                     self._batch.append(trace)
                 except queue.Empty:
-                    continue
+                    pass
+
+                # Flush if batch is full or interval elapsed
+                should_flush = (
+                    len(self._batch) >= self.config.batch_size
+                    or (time.time() - self._last_flush) >= self.config.flush_interval_seconds
+                )
+                if should_flush and self._batch:
+                    self._flush_batch()
 
             except Exception as e:
                 print(f"Transport worker error: {e}")
@@ -132,7 +134,16 @@ class TransportService:
 
     def shutdown(self):
         """Shutdown the transport service."""
+        if self._shutdown:
+            return
         self._shutdown = True
+
+        # Drain queue into batch
+        while not self._trace_queue.empty():
+            try:
+                self._batch.append(self._trace_queue.get_nowait())
+            except queue.Empty:
+                break
 
         # Flush remaining traces
         if self._batch:
