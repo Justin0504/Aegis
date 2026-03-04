@@ -81,8 +81,8 @@ class AgentActionTrace(BaseModel):
     observation: Observation
 
     # Security & Integrity
-    integrity_hash: str = Field(regex=r"^[a-f0-9]{64}$", description="SHA-256 hash")
-    previous_hash: Optional[str] = Field(None, regex=r"^[a-f0-9]{64}$")
+    integrity_hash: str = Field(pattern=r"^[a-f0-9]{64}$", description="SHA-256 hash")
+    previous_hash: Optional[str] = Field(None, pattern=r"^[a-f0-9]{64}$")
     signature: Optional[str] = None
 
     # Safety & Compliance
@@ -130,7 +130,7 @@ class CreateTraceRequest(BaseModel):
     tool_call: ToolCall
     observation: Observation
 
-    previous_hash: Optional[str] = Field(None, regex=r"^[a-f0-9]{64}$")
+    previous_hash: Optional[str] = Field(None, pattern=r"^[a-f0-9]{64}$")
 
     safety_validation: Optional[SafetyValidation] = None
     approval_status: Optional[ApprovalStatus] = None

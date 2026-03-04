@@ -3,7 +3,6 @@
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -40,12 +39,16 @@ class TelemetryService:
 
         # Add OTLP exporter if endpoint is configured
         if self.config.otel_endpoint:
-            otlp_exporter = OTLPSpanExporter(
-                endpoint=self.config.otel_endpoint,
-                headers=self.config.otel_headers,
-            )
-            processor = BatchSpanProcessor(otlp_exporter)
-            provider.add_span_processor(processor)
+            try:
+                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+                otlp_exporter = OTLPSpanExporter(
+                    endpoint=self.config.otel_endpoint,
+                    headers=self.config.otel_headers,
+                )
+                processor = BatchSpanProcessor(otlp_exporter)
+                provider.add_span_processor(processor)
+            except ImportError:
+                print("Warning: opentelemetry-exporter-otlp-proto-grpc not installed, OTLP export disabled.")
 
         # Set global tracer provider
         trace.set_tracer_provider(provider)

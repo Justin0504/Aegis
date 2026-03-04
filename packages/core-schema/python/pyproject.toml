@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentguard-core-schema"
-version = "1.0.0"
+version = "1.0.1"
 description = "Core schemas for AgentGuard forensic trace format"
 readme = "README.md"
 requires-python = ">=3.10"

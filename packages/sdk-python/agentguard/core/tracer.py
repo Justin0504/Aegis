@@ -21,7 +21,7 @@ from agentguard_core_schema import (
     calculate_trace_hash,
 )
 
-from ..config import AgentGuardConfig
+from .config import AgentGuardConfig
 from ..crypto import SigningService, load_private_key
 from ..interceptors import LLMInterceptor, StdioInterceptor
 from ..transport import TransportService
@@ -310,7 +310,7 @@ class AgentGuard:
 
         # Create trace request
         trace_request = CreateTraceRequest(
-            agent_id=UUID(self.config.agent_id),
+            agent_id=UUID(self.config.agent_id) if self._is_valid_uuid(self.config.agent_id) else uuid4(),
             parent_trace_id=ctx.parent_trace_id,
             sequence_number=ctx.sequence_number,
             input_context=input_context,
@@ -346,6 +346,13 @@ class AgentGuard:
 
         # Record telemetry
         self._telemetry.record_trace(trace)
+
+    def _is_valid_uuid(self, value: str) -> bool:
+        try:
+            UUID(value)
+            return True
+        except ValueError:
+            return False
 
     def _create_thought_chain(
         self, ctx: TraceContext, capture_thought_chain: bool
