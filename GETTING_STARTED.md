@@ -47,7 +47,7 @@ Additional services in dev mode:
 ## Python SDK
 
 ```bash
-pip install agentguard-core-schema agentguard-aegis
+pip install agentguard-aegis
 ```
 
 For local development from source:
