@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentguard-aegis"
-version = "1.1.6"
+version = "1.1.7"
 description = "Python SDK for AI agent auditing and tracing"
 readme = "README.md"
 requires-python = ">=3.10"
