@@ -21,6 +21,34 @@ export class ApprovalAPI {
   }
 
   private setupRoutes() {
+    // List all approvals (or pending if ?status=PENDING)
+    this.router.get('/', (req: Request, res: Response) => {
+      try {
+        const status = req.query.status as string | undefined;
+        const query = status
+          ? `SELECT a.*, t.tool_call, t.agent_id, t.timestamp as trace_timestamp
+             FROM approvals a
+             JOIN traces t ON a.trace_id = t.trace_id
+             WHERE a.status = ?
+             ORDER BY a.created_at DESC`
+          : `SELECT a.*, t.tool_call, t.agent_id, t.timestamp as trace_timestamp
+             FROM approvals a
+             JOIN traces t ON a.trace_id = t.trace_id
+             ORDER BY a.created_at DESC`;
+        const rows = (status
+          ? this.db.prepare(query).all(status)
+          : this.db.prepare(query).all()) as any[];
+        const parsed = rows.map((a: any) => ({
+          ...a,
+          tool_call: JSON.parse(a.tool_call),
+        }));
+        res.json(parsed);
+      } catch (error) {
+        this.logger.error({ error }, 'Failed to list approvals');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     // List pending approvals
     this.router.get('/pending', (req: Request, res: Response) => {
       try {

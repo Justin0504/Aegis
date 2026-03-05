@@ -119,8 +119,8 @@ export const TraceQuerySchema = z.object({
   end_time: TimestampSchema.optional(),
   risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
   approval_status: z.enum(['APPROVED', 'PENDING_APPROVAL', 'REJECTED', 'AUTO_APPROVED']).optional(),
-  limit: z.number().int().positive().max(1000).default(100),
-  offset: z.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().positive().max(1000).default(100),
+  offset: z.coerce.number().int().nonnegative().default(0),
 });
 
 export type CreateTraceRequest = z.infer<typeof CreateTraceRequestSchema>;

@@ -1,18 +1,17 @@
 'use client'
 
-import ReactFlow, {
-  Node,
-  Edge,
-  Controls,
-  MiniMap,
-  Background,
-  BackgroundVariant,
-  useNodesState,
-  useEdgesState,
-} from 'reactflow'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useEffect } from 'react'
-import { getRiskLevelColor } from '@/lib/utils'
+import { Globe, FileText, Database, Send, Zap, CheckCircle, AlertCircle, ArrowDown } from 'lucide-react'
+
+const TOOL_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  web_search:   { icon: Globe,     color: 'hsl(200 80% 55%)', label: 'Web Search'   },
+  read_file:    { icon: FileText,  color: 'hsl(260 70% 65%)', label: 'Read File'    },
+  execute_sql:  { icon: Database,  color: 'hsl(43 80% 55%)',  label: 'SQL Query'    },
+  send_request: { icon: Send,      color: 'hsl(140 60% 50%)', label: 'HTTP Request' },
+}
+
+function getToolMeta(name: string) {
+  return TOOL_META[name] || { icon: Zap, color: 'hsl(0 0% 55%)', label: name }
+}
 
 interface DecisionGraphProps {
   agentId: string | null
@@ -20,69 +19,132 @@ interface DecisionGraphProps {
 }
 
 export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const sorted = [...traces].sort(
+    (a, b) => a.sequence_number - b.sequence_number
+  )
 
-  useEffect(() => {
-    // Convert traces to flow nodes and edges
-    const flowNodes: Node[] = traces.map((trace, index) => ({
-      id: trace.trace_id,
-      position: { x: 250 * (index % 4), y: 150 * Math.floor(index / 4) },
-      data: {
-        label: (
-          <div className="text-xs">
-            <p className="font-medium">{trace.tool_call.tool_name}</p>
-            <p className="text-[10px] text-gray-500">
-              {new Date(trace.timestamp).toLocaleTimeString()}
-            </p>
-          </div>
-        ),
-      },
-      style: {
-        background: trace.safety_validation?.passed === false ? '#fef2f2' : '#f0fdf4',
-        border: trace.safety_validation?.passed === false ? '2px solid #ef4444' : '2px solid #10b981',
-        borderRadius: 8,
-        padding: 10,
-      },
-    }))
-
-    const flowEdges: Edge[] = traces
-      .filter((trace) => trace.parent_trace_id)
-      .map((trace) => ({
-        id: `${trace.parent_trace_id}-${trace.trace_id}`,
-        source: trace.parent_trace_id,
-        target: trace.trace_id,
-        animated: trace.safety_validation?.risk_level === 'CRITICAL',
-        style: {
-          stroke: trace.safety_validation?.passed === false ? '#ef4444' : '#10b981',
-        },
-      }))
-
-    setNodes(flowNodes)
-    setEdges(flowEdges)
-  }, [traces, setNodes, setEdges])
+  if (sorted.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg h-64 text-sm"
+        style={{ background: 'hsl(0 0% 10%)', color: 'hsl(0 0% 40%)' }}
+      >
+        Select a trace session to view execution flow
+      </div>
+    )
+  }
 
   return (
-    <Card className="h-[calc(100vh-200px)]">
-      <CardHeader>
-        <CardTitle>Agent Decision Graph</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Visual representation of agent reasoning and tool calls
-        </p>
-      </CardHeader>
-      <CardContent className="h-[calc(100%-100px)]">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          fitView
+    <div
+      className="rounded-lg border overflow-y-auto p-6"
+      style={{
+        background: 'hsl(0 0% 9%)',
+        borderColor: 'hsl(0 0% 15%)',
+        maxHeight: 'calc(100vh - 280px)',
+      }}
+    >
+      <div className="flex flex-col items-center gap-0">
+        {/* Start node */}
+        <div
+          className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-0"
+          style={{ background: 'hsl(43 56% 52% / 0.15)', color: 'hsl(43 56% 62%)', border: '1px solid hsl(43 56% 52% / 0.3)' }}
         >
-          <Controls />
-          <MiniMap />
-          <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-        </ReactFlow>
-      </CardContent>
-    </Card>
+          Agent Session
+        </div>
+
+        {sorted.map((trace, i) => {
+          const meta   = getToolMeta(trace.tool_call?.tool_name || '')
+          const Icon   = meta.icon
+          const hasErr = !!trace.observation?.error
+          const dur    = trace.observation?.duration_ms
+          const prompt = String(trace.input_context?.prompt || '').slice(0, 80)
+          const output = String(trace.observation?.raw_output || '').slice(0, 80)
+
+          return (
+            <div key={trace.trace_id} className="flex flex-col items-center w-full max-w-xl">
+              {/* Arrow */}
+              <div className="flex flex-col items-center py-1">
+                <div className="w-px h-4" style={{ background: 'hsl(0 0% 20%)' }} />
+                <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(0 0% 25%)' }} />
+              </div>
+
+              {/* Step card */}
+              <div
+                className="w-full rounded-lg border p-4 relative"
+                style={{ background: 'hsl(0 0% 12%)', borderColor: hasErr ? 'hsl(0 62% 40% / 0.6)' : `${meta.color}30` }}
+              >
+                {/* Step number */}
+                <span
+                  className="absolute -top-2.5 left-4 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                  style={{ background: 'hsl(0 0% 9%)', color: 'hsl(0 0% 35%)', border: '1px solid hsl(0 0% 18%)' }}
+                >
+                  STEP {i + 1}
+                </span>
+
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div
+                    className="mt-0.5 p-2 rounded-md flex-shrink-0"
+                    style={{ background: `${meta.color}18` }}
+                  >
+                    <Icon className="h-4 w-4" style={{ color: meta.color }} />
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-2">
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-sm" style={{ color: meta.color }}>
+                        {meta.label}
+                      </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {dur !== undefined && (
+                          <span className="text-[11px]" style={{ color: 'hsl(0 0% 35%)' }}>
+                            {dur < 1 ? '<1ms' : `${Math.round(dur)}ms`}
+                          </span>
+                        )}
+                        {hasErr
+                          ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 62% 50%)' }} />
+                          : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(140 60% 45%)' }} />
+                        }
+                      </div>
+                    </div>
+
+                    {/* Input */}
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'hsl(0 0% 35%)' }}>Input</span>
+                      <p className="text-xs mt-0.5 break-all" style={{ color: 'hsl(0 0% 70%)' }}>{prompt}</p>
+                    </div>
+
+                    {/* Output */}
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: hasErr ? 'hsl(0 62% 50%)' : 'hsl(0 0% 35%)' }}>
+                        {hasErr ? 'Error' : 'Output'}
+                      </span>
+                      <p className="text-xs mt-0.5 break-all" style={{ color: hasErr ? 'hsl(0 62% 60%)' : 'hsl(0 0% 55%)' }}>
+                        {hasErr ? trace.observation.error : output}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* End arrow */}
+        <div className="flex flex-col items-center py-1">
+          <div className="w-px h-4" style={{ background: 'hsl(0 0% 20%)' }} />
+          <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(0 0% 25%)' }} />
+        </div>
+
+        {/* End node */}
+        <div
+          className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase"
+          style={{ background: 'hsl(140 40% 30% / 0.2)', color: 'hsl(140 60% 50%)', border: '1px solid hsl(140 40% 30% / 0.4)' }}
+        >
+          Complete — {sorted.length} steps
+        </div>
+      </div>
+    </div>
   )
 }

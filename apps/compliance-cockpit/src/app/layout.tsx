@@ -6,7 +6,7 @@ import { Providers } from '@/components/providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AgentGuard Compliance Cockpit',
+  title: 'AEGIS — AI Agent Intelligence & Security',
   description: 'Real-time monitoring and auditing for AI agents',
 }
 
@@ -16,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={inter.className}>
         <Providers>{children}</Providers>
       </body>
