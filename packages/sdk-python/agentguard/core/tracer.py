@@ -347,6 +347,68 @@ class AgentGuard:
         # Record telemetry
         self._telemetry.record_trace(trace)
 
+    # ── @guard.tool — shorthand decorator, no arguments needed ───────────
+
+    @property
+    def tool(self):
+        """
+        Shorthand decorator — uses the function name as tool_name automatically.
+
+        Usage:
+            @guard.tool                    # instead of @guard.trace(tool_name="web_search")
+            def web_search(query): ...
+        """
+        def decorator(f: Callable) -> Callable:
+            return self.trace(f, tool_name=f.__name__)
+        return decorator
+
+    # ── guard.tools — class decorator, traces every public method ─────────
+
+    def tools(self, cls):
+        """
+        Class decorator — traces all public methods automatically.
+
+        Usage:
+            @guard.tools
+            class MyTools:
+                def web_search(self, query): ...
+                def execute_sql(self, sql): ...
+
+            t = MyTools()
+            t.web_search(query="hello")  # auto-traced
+        """
+        import inspect
+        for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
+            if not name.startswith("_"):
+                setattr(cls, name, self.trace(method, tool_name=name))
+        return cls
+
+    # ── guard.watch(locals()) — scan a namespace and wrap in-place ────────
+
+    def watch(self, namespace: Dict[str, Any]) -> Dict[str, Callable]:
+        """
+        Scan a namespace (dict of names→values) and wrap all callables in-place.
+        Returns a new dict with all callables traced.
+
+        Usage:
+            def web_search(query): ...
+            def execute_sql(sql): ...
+
+            # At the end of your tool definitions:
+            tool_fn = guard.watch(locals())
+
+            # tool_fn now has all callables traced, ready to use
+        """
+        wrapped: Dict[str, Callable] = {}
+        for name, obj in namespace.items():
+            if callable(obj) and not name.startswith("_") and not isinstance(obj, type):
+                wrapped[name] = self.trace(obj, tool_name=name)
+            else:
+                wrapped[name] = obj
+        return wrapped
+
+    # ── wrap_tools — wrap an explicit dict ────────────────────────────────
+
     def wrap_tools(self, tool_dict: Dict[str, Callable]) -> Dict[str, Callable]:
         """
         Wrap a dict of tool functions with tracing — no decorators needed.
@@ -356,7 +418,6 @@ class AgentGuard:
                 "web_search":  web_search,
                 "execute_sql": execute_sql,
             })
-            result = tools["web_search"](query="hello")
         """
         return {
             name: self.trace(fn, tool_name=name)

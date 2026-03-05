@@ -21,19 +21,20 @@ def trace(func=None, *, tool_name=None, **kwargs):
 
 
 def wrap_tools(tool_dict: dict) -> dict:
+    """Wrap a dict of tool functions with tracing."""
+    return _get_default_guard().wrap_tools(tool_dict)
+
+
+def watch(namespace: dict) -> dict:
     """
-    Wrap a dict of tool functions with tracing — no decorators needed.
+    Scan a namespace and wrap all callables with tracing in-place.
 
     Usage:
-        import agentguard
-        agentguard.patch("http://localhost:8080", agent_id="my-agent")
-
-        tools = agentguard.wrap_tools({
-            "web_search":  web_search,
-            "execute_sql": execute_sql,
-        })
+        def web_search(query): ...
+        def execute_sql(sql): ...
+        tool_fn = agentguard.watch(locals())
     """
-    return _get_default_guard().wrap_tools(tool_dict)
+    return _get_default_guard().watch(namespace)
 
 
 def patch(
@@ -116,7 +117,8 @@ __all__ = [
     "auto",
     "patch",
     "trace",
+    "watch",
     "wrap_tools",
 ]
 
-__version__ = "1.1.7"
+__version__ = "1.1.8"
