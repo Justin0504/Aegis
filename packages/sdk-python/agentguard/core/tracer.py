@@ -347,6 +347,22 @@ class AgentGuard:
         # Record telemetry
         self._telemetry.record_trace(trace)
 
+    def wrap_tools(self, tool_dict: Dict[str, Callable]) -> Dict[str, Callable]:
+        """
+        Wrap a dict of tool functions with tracing — no decorators needed.
+
+        Usage:
+            tools = guard.wrap_tools({
+                "web_search":  web_search,
+                "execute_sql": execute_sql,
+            })
+            result = tools["web_search"](query="hello")
+        """
+        return {
+            name: self.trace(fn, tool_name=name)
+            for name, fn in tool_dict.items()
+        }
+
     def _is_valid_uuid(self, value: str) -> bool:
         try:
             UUID(value)
