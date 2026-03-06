@@ -2,6 +2,7 @@
 
 from .core.tracer import AgentGuard
 from .core.config import AgentGuardConfig
+from .interceptors.auto import AgentGuardBlockedError
 from typing import Optional
 
 # Lazy default instance (only created on first use)
@@ -65,6 +66,13 @@ def patch(
 def auto(
     gateway_url: str = "http://localhost:8080",
     agent_id: Optional[str] = None,
+    blocking_mode: bool = False,
+    fail_open: bool = True,
+    blocking_timeout_ms: int = 3000,
+    human_approval_timeout_s: int = 300,
+    poll_interval_s: float = 2.0,
+    session_id: Optional[str] = None,
+    tool_categories: Optional[dict] = None,
 ) -> AgentGuard:
     """
     Fully automatic instrumentation — zero code changes to your agent.
@@ -91,22 +99,33 @@ def auto(
         agent_id=agent_id or str(uuid4()),
         gateway_url=gateway_url,
         enable_signing=False,
+        blocking_mode=blocking_mode,
+        fail_open=fail_open,
+        blocking_timeout_ms=blocking_timeout_ms,
+        human_approval_timeout_s=human_approval_timeout_s,
+        poll_interval_s=poll_interval_s,
+        session_id=session_id,
+        tool_categories=tool_categories or {},
     )
     guard = AgentGuard(config)
     _default_guard = guard
 
     instrument = AutoInstrument(guard)
-    anthropic_ok = instrument.patch_anthropic()
-    openai_ok    = instrument.patch_openai()
+    anthropic_ok  = instrument.patch_anthropic()
+    openai_ok     = instrument.patch_openai()
+    langgraph_ok  = instrument.patch_langgraph()
+    crewai_ok     = instrument.patch_crewai()
 
     patched = []
-    if anthropic_ok: patched.append("Anthropic")
-    if openai_ok:    patched.append("OpenAI")
+    if anthropic_ok:  patched.append("Anthropic")
+    if openai_ok:     patched.append("OpenAI")
+    if langgraph_ok:  patched.append("LangGraph")
+    if crewai_ok:     patched.append("CrewAI")
 
     if patched:
         print(f"[AEGIS] Auto-instrumented: {', '.join(patched)} → {gateway_url}")
     else:
-        print("[AEGIS] No supported SDK found (install anthropic or openai)")
+        print("[AEGIS] No supported SDK found (install anthropic, openai, langchain-core, or crewai)")
 
     return guard
 
@@ -114,6 +133,7 @@ def auto(
 __all__ = [
     "AgentGuard",
     "AgentGuardConfig",
+    "AgentGuardBlockedError",
     "auto",
     "patch",
     "trace",

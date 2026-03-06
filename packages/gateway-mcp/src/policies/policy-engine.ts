@@ -3,6 +3,7 @@ import { Logger } from 'pino';
 import { z } from 'zod';
 import { SafetyValidation, RiskLevel } from '@agentguard/core-schema';
 import Ajv from 'ajv';
+import { classifyToolCall, ClassificationResult, ToolCategory } from '../services/classifier';
 
 interface Policy {
   id: string;
@@ -16,6 +17,17 @@ interface Policy {
 interface ToolCallRequest {
   tool: string;
   arguments: any;
+  /** Optional user-declared overrides: { "my_tool": "database" } */
+  userCategoryOverrides?: Record<string, ToolCategory>;
+}
+
+/** Which categories each built-in policy applies to (replaces hardcoded tool names) */
+const POLICY_CATEGORIES: Record<string, ToolCategory[]> = {
+  'sql-injection':    ['database'],
+  'file-access':      ['file'],
+  'network-access':   ['network'],
+  'prompt-injection': [],         // empty = applies to all
+  'data-exfiltration':['network', 'communication'],
 }
 
 export class PolicyEngine {
@@ -48,15 +60,35 @@ export class PolicyEngine {
     }
   }
 
-  async validateToolCall(request: ToolCallRequest): Promise<SafetyValidation> {
+  async validateToolCall(request: ToolCallRequest): Promise<SafetyValidation & { classification: ClassificationResult }> {
+    // Run classifier first — feeds into policy matching
+    const classification = classifyToolCall(
+      request.tool,
+      request.arguments,
+      request.userCategoryOverrides ?? {},
+    );
+
+    this.logger.debug(
+      { tool: request.tool, category: classification.category, source: classification.source },
+      'Tool classified'
+    );
+
     const violations: string[] = [];
     let highestRiskLevel: RiskLevel = 'LOW';
     let failedPolicy: string | null = null;
 
-    // Apply all relevant policies
+    // Promote any content-level risk signals into violations
+    for (const risk of classification.risks) {
+      violations.push(risk.detail);
+      if (this.compareRiskLevels(risk.severity, highestRiskLevel) > 0) {
+        highestRiskLevel = risk.severity;
+      }
+      if (!failedPolicy) failedPolicy = `content-scan:${risk.type}`;
+    }
+
+    // Apply all policies that match this tool's category
     for (const [name, policy] of this.policies) {
-      // Check if policy applies to this tool
-      if (this.policyApplies(policy, request)) {
+      if (this.policyApplies(policy, request, classification.category)) {
         const validate = this.ajv.compile(policy.policy_schema);
         const valid = validate(request.arguments);
 
@@ -64,91 +96,73 @@ export class PolicyEngine {
           failedPolicy = name;
           violations.push(...(validate.errors?.map(e => e.message || 'Unknown error') || []));
 
-          // Update highest risk level
           if (this.compareRiskLevels(policy.risk_level, highestRiskLevel) > 0) {
             highestRiskLevel = policy.risk_level;
           }
 
           this.logger.warn(
-            {
-              policy: name,
-              tool: request.tool,
-              errors: validate.errors
-            },
+            { policy: name, tool: request.tool, category: classification.category, errors: validate.errors },
             'Policy validation failed'
           );
         }
       }
     }
 
-    // Additional built-in validations
-    const builtInValidation = this.performBuiltInValidations(request);
-    if (!builtInValidation.passed) {
-      violations.push(...(builtInValidation.violations || []));
-      if (this.compareRiskLevels(builtInValidation.risk_level, highestRiskLevel) > 0) {
-        highestRiskLevel = builtInValidation.risk_level;
-      }
-    }
-
     return {
-      policy_name: failedPolicy || 'built-in',
+      policy_name: failedPolicy || 'none',
       passed: violations.length === 0,
       violations: violations.length > 0 ? violations : undefined,
       risk_level: highestRiskLevel,
+      classification,
     };
   }
 
-  private policyApplies(policy: Policy, request: ToolCallRequest): boolean {
-    // Check if policy has tool-specific rules
-    const toolPatterns = {
-      'sql-injection': ['execute_sql', 'query_database', 'run_query'],
-      'file-access': ['read_file', 'write_file', 'delete_file', 'list_directory'],
-      'network-access': ['http_request', 'fetch_url', 'send_email'],
-    };
+  private policyApplies(policy: Policy, request: ToolCallRequest, category: ToolCategory): boolean {
+    const categories = POLICY_CATEGORIES[policy.id];
 
-    const patterns = toolPatterns[policy.id as keyof typeof toolPatterns];
-    if (patterns) {
-      return patterns.some(pattern => request.tool.toLowerCase().includes(pattern));
-    }
+    // No category restriction defined → applies to all tools
+    if (!categories || categories.length === 0) return true;
 
-    // Default: apply to all tools
-    return true;
+    // Apply if tool's category matches
+    return categories.includes(category);
   }
 
   private performBuiltInValidations(request: ToolCallRequest): SafetyValidation {
     const violations: string[] = [];
     let riskLevel: RiskLevel = 'LOW';
 
-    // Check for command injection patterns
-    const commandInjectionPattern = /[;&|`$(){}[\]<>]/;
-    const argString = JSON.stringify(request.arguments);
+    // Extract only string leaf values from arguments (avoid false positives from JSON structure)
+    const stringValues = this.extractStringValues(request.arguments);
+    const combinedValues = stringValues.join('\n');
 
-    if (commandInjectionPattern.test(argString)) {
-      violations.push('Potential command injection detected');
+    // Command injection: check string values only (not JSON keys/braces)
+    const commandInjectionPattern = /[;&|`$]|\$\(|`[^`]*`/;
+    if (commandInjectionPattern.test(combinedValues)) {
+      violations.push('Potential command injection detected in arguments');
       riskLevel = 'HIGH';
     }
 
-    // Check for path traversal
-    if (argString.includes('..') || argString.includes('~')) {
+    // Path traversal: check string values
+    if (stringValues.some(v => v.includes('../') || v.includes('..\\') || /^~\//.test(v))) {
       violations.push('Potential path traversal detected');
-      riskLevel = 'MEDIUM';
+      if (this.compareRiskLevels('MEDIUM', riskLevel) > 0) riskLevel = 'MEDIUM';
     }
 
-    // Check for sensitive file access
+    // Sensitive file access: check string values
     const sensitiveFiles = ['/etc/passwd', '/etc/shadow', '.ssh/', '.aws/', '.env'];
     for (const file of sensitiveFiles) {
-      if (argString.includes(file)) {
+      if (stringValues.some(v => v.includes(file))) {
         violations.push(`Access to sensitive file detected: ${file}`);
         riskLevel = 'CRITICAL';
       }
     }
 
-    // Check for destructive operations
+    // Destructive tool names
     const destructiveTools = ['delete', 'drop', 'truncate', 'remove', 'destroy'];
     for (const op of destructiveTools) {
       if (request.tool.toLowerCase().includes(op)) {
-        violations.push(`Destructive operation: ${op}`);
-        riskLevel = this.compareRiskLevels('HIGH', riskLevel) > 0 ? 'HIGH' : riskLevel;
+        violations.push(`Destructive operation in tool name: ${op}`);
+        if (this.compareRiskLevels('HIGH', riskLevel) > 0) riskLevel = 'HIGH';
       }
     }
 
@@ -158,6 +172,16 @@ export class PolicyEngine {
       violations: violations.length > 0 ? violations : undefined,
       risk_level: riskLevel,
     };
+  }
+
+  private extractStringValues(obj: unknown, depth = 0): string[] {
+    if (depth > 10) return [];
+    if (typeof obj === 'string') return [obj];
+    if (Array.isArray(obj)) return obj.flatMap(v => this.extractStringValues(v, depth + 1));
+    if (obj && typeof obj === 'object') {
+      return Object.values(obj).flatMap(v => this.extractStringValues(v, depth + 1));
+    }
+    return [];
   }
 
   private compareRiskLevels(a: RiskLevel, b: RiskLevel): number {
@@ -202,5 +226,22 @@ export class PolicyEngine {
 
   getPolicies(): Policy[] {
     return Array.from(this.policies.values());
+  }
+
+  getAllPolicies(): Policy[] {
+    const rows = this.db.prepare('SELECT * FROM policies ORDER BY created_at ASC').all() as any[];
+    return rows.map(r => ({ ...r, policy_schema: JSON.parse(r.policy_schema), enabled: r.enabled === 1 }));
+  }
+
+  async deletePolicy(policyId: string): Promise<void> {
+    this.db.prepare('DELETE FROM policies WHERE id = ?').run(policyId);
+    this.policies.delete(policyId);
+    // Also try deleting by name (since map is keyed by name)
+    for (const [name, policy] of this.policies) {
+      if (policy.id === policyId) {
+        this.policies.delete(name);
+        break;
+      }
+    }
   }
 }

@@ -1,195 +1,273 @@
-# AgentGuard
+<div align="center">
+
+# AEGIS
+
+**Your AI agent tried to `DELETE` your production database. AEGIS stopped it.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Node.js](https://img.shields.io/badge/node.js-20+-green.svg)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
+[![PyPI](https://img.shields.io/badge/PyPI-agentguard--aegis-blue)](https://pypi.org/project/agentguard-aegis/)
+[![npm](https://img.shields.io/badge/npm-agentguard-red)](https://www.npmjs.com/package/agentguard)
+[![Docker](https://img.shields.io/badge/docker-ready-0db7ed)](https://hub.docker.com/r/agentguard/aegis)
 
-**Cryptographic auditing and real-time control for AI agents.**
+*Pre-execution blocking · Cryptographic audit trail · Human-in-the-loop approvals · Zero code changes*
 
-AgentGuard wraps your AI agent's tool calls with Ed25519-signed audit traces, tamper-proof hash chains, and a live dashboard — giving you full visibility and instant kill-switch control over everything your agents do.
+<!-- demo GIF goes here -->
+<!-- ![AEGIS Demo](docs/demo.gif) -->
 
----
-
-## Features
-
-| Capability | Description |
-|---|---|
-| Cryptographic Audit Trail | Ed25519 signatures + SHA-256 hash chains on every trace |
-| Real-time Monitoring | WebSocket-based live dashboard with zero polling |
-| Anomaly Detection | Automatic flagging and alerting on dangerous operations |
-| Kill Switch | Instant API key revocation on policy violation |
-| Policy Engine | Customizable risk-based access control rules |
-| Analytics | Comprehensive metrics, latency histograms, and agent insights |
-| Time-travel Debugging | Replay and inspect full agent decision chains |
-| Enterprise Deployment | Docker, Kubernetes, and cloud-native ready |
+</div>
 
 ---
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        AI Agent                              │
-│                    (Your Application)                        │
-└────────────────────────┬───────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   AgentGuard SDK                             │
-│  • @agent_guard.trace() decorator                           │
-│  • Automatic capture & signing                              │
-│  • Ed25519 cryptographic signatures                         │
-└────────────────────────┬───────────────────────────────────┘
-                         │ HTTPS / WebSocket
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Gateway Service                           │
-│  • Policy validation & enforcement                          │
-│  • Real-time anomaly detection                              │
-│  • WebSocket event streaming                                │
-└───────┬────────────────┴───────────────┬───────────────────┘
-        │                                 │
-        ▼                                 ▼
-┌───────────────┐                ┌────────────────┐
-│   PostgreSQL  │                │   Dashboard    │
-│               │◀───────────────│   (Next.js)    │
-└───────────────┘                └────────────────┘
-```
-
----
-
-## Quick Start
-
-### Docker (Recommended)
+## 30-second setup
 
 ```bash
-git clone https://github.com/Justin0504/Aegis.git agentguard
+git clone https://github.com/agentguard/agentguard
 cd agentguard
-docker-compose up -d
+docker compose up -d
 ```
 
-Services available at:
-- Dashboard — `http://localhost:3000`
-- API — `http://localhost:8080`
+| Service | URL |
+|---------|-----|
+| **Compliance Cockpit** (dashboard) | http://localhost:3000 |
+| **Gateway API** | http://localhost:8080 |
 
-### Enhanced Demo
+Then add **one line** to your agent:
 
-```bash
-cd demo/aegis-enhanced
-npm install && npm start
+```python
+import agentguard
+agentguard.auto("http://localhost:8080", agent_id="my-agent", blocking_mode=True)
 
-# In a second terminal:
-python demo_agent.py
+# Everything below is unchanged — AEGIS intercepts automatically
+import anthropic
+client = anthropic.Anthropic()
+response = client.messages.create(model="claude-opus-4-6", tools=[...], messages=[...])
 ```
 
-### Local Development
-
-See [GETTING_STARTED.md](GETTING_STARTED.md) for a full local setup walkthrough.
+That's it. Every tool call is now classified, policy-checked, and logged — before execution.
 
 ---
 
-## SDK Usage
+## How it works
 
-### Python
+```
+  Your agent calls a tool
+          │
+          ▼  (SDK intercepts — zero code changes)
+  ┌───────────────────────────────────────────┐
+  │  AEGIS Gateway  POST /api/v1/check        │
+  │                                           │
+  │  ① Classify tool  (SQL? file? network?)   │
+  │  ② Match policies (injection? exfil?)     │
+  │  ③ Decide: allow / block / pending        │
+  └──────────┬────────────────────────────────┘
+             │
+      ┌──────┴──────────────┐
+      │                     │
+   allow                 pending ──► Human reviews in dashboard
+      │                     │              │
+      ▼                     └──── allow ───┘
+  Tool executes                        │
+      │                             block
+      ▼                                │
+  Trace signed (Ed25519)               ▼
+  Hash-chained (SHA-256)      AgentGuardBlockedError
+  Stored in dashboard
+```
+
+**The classifier works on any tool name.** No configuration required.
+
+| Tool name | Detected as |
+|-----------|-------------|
+| `run_query` | `database` (keyword) |
+| `execute("SELECT * FROM users")` | `database` (SQL in args) |
+| `my_custom_tool(path="/etc/passwd")` | `file` (path in args) |
+| `call_api(url="http://...")` | `network` (URL in args) |
+| `do_thing(cmd="rm -rf /")` | `shell` (command injection) |
+
+---
+
+## Blocking mode — human in the loop
+
+When an agent attempts a HIGH or CRITICAL risk action, you decide:
+
+```python
+agentguard.auto(
+    "http://localhost:8080",
+    blocking_mode=True,           # hold dangerous calls for human review
+    human_approval_timeout_s=300, # auto-block after 5 min with no decision
+    poll_interval_s=2.0,
+)
+```
+
+The agent **pauses and waits**. You see the pending check in the dashboard, review the arguments, and click Allow or Block. The agent resumes instantly.
+
+```python
+from agentguard import AgentGuardBlockedError
+
+try:
+    response = client.messages.create(...)
+except AgentGuardBlockedError as e:
+    print(f"Blocked: {e.tool_name} — {e.reason} ({e.risk_level})")
+    # Handle gracefully: inform user, log incident, etc.
+```
+
+---
+
+## Why AEGIS?
+
+Every other agent observability tool logs what happened. AEGIS can **prove** it — and **stop** it.
+
+|  | LangFuse | Helicone | AEGIS |
+|--|----------|----------|-------|
+| Observability dashboard | ✅ | ✅ | ✅ |
+| **Pre-execution blocking** | ❌ | ❌ | ✅ |
+| **Human-in-the-loop approvals** | ❌ | ❌ | ✅ |
+| **Auto-classifies any tool name** | ❌ | ❌ | ✅ |
+| **Ed25519 signed traces** | ❌ | ❌ | ✅ |
+| **SHA-256 tamper-evident chain** | ❌ | ❌ | ✅ |
+| **Kill switch** | ❌ | ❌ | ✅ |
+| **Forensic PDF export** | ❌ | ❌ | ✅ |
+| Self-hostable | ✅ | ❌ | ✅ |
+
+---
+
+## SDK support
+
+**Python** — auto-patches at the SDK level, zero changes to your agent:
 
 ```bash
 pip install agentguard-aegis
 ```
 
-```python
-from agentguard import AgentGuard
-from agentguard.config import AgentGuardConfig
+| Framework | Auto-patched | Blocking |
+|-----------|-------------|---------|
+| `anthropic` | ✅ | ✅ |
+| `openai` | ✅ | ✅ |
+| LangChain / LangGraph | ✅ | ✅ |
+| CrewAI | ✅ | ✅ |
 
-config = AgentGuardConfig(
-    agent_id="my-ai-agent",
-    gateway_url="http://localhost:8080",
-    enable_signing=True
-)
-agent_guard = AgentGuard(config)
+**JavaScript / TypeScript:**
 
-@agent_guard.trace(tool_name="database_query")
-def query_database(sql: str):
-    return results
+```bash
+npm install agentguard
 ```
-
-### TypeScript / JavaScript (Coming Soon)
 
 ```typescript
-import { AgentGuard } from '@agentguard/sdk';
-
-const guard = new AgentGuard({
-  agentId: 'my-ai-agent',
-  gatewayUrl: 'http://localhost:8080'
-});
-
-@guard.trace('api_call')
-async function callExternalAPI(endpoint: string) {
-  // your code here
-}
+import agentguard from 'agentguard'
+agentguard.auto('http://localhost:8080', { agentId: 'my-agent', blockingMode: true })
+// existing Anthropic / OpenAI code unchanged
 ```
 
 ---
 
-## Security Model
+## Policy engine
 
-Every tool call your agent makes is:
+Five policies ship by default. The classifier maps **any** tool to a category — so policies apply even when tool names don't match.
 
-1. **Captured** — arguments, outputs, timestamps, and agent identity
-2. **Signed** — Ed25519 private key signature bound to the agent
-3. **Chained** — SHA-256 hash linking each trace to the previous, making the log tamper-evident
-4. **Evaluated** — policy engine scores risk and can block, warn, or terminate
+| Policy | Risk | Category |
+|--------|------|----------|
+| SQL Injection Prevention | HIGH | `database` |
+| File Access Control | MEDIUM | `file` |
+| Network Access Control | MEDIUM | `network` |
+| Prompt Injection Detection | CRITICAL | all |
+| Data Exfiltration Prevention | HIGH | `network`, `communication` |
 
-Additional controls: role-based access, automatic API key rotation, and compliance-ready export for GDPR, SOC2, and HIPAA.
-
----
-
-## Production Deployment
+Add your own via the dashboard or API:
 
 ```bash
-./deploy-production.sh
+curl -X POST http://localhost:8080/api/v1/policies \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "no-prod-deletes",
+    "name": "No Production Deletes",
+    "risk_level": "CRITICAL",
+    "policy_schema": {
+      "properties": { "sql": { "not": { "pattern": "DELETE|TRUNCATE" } } }
+    }
+  }'
 ```
 
-See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) for the full pre-launch checklist.
+Override categories for your own tool names:
+
+```python
+agentguard.auto(
+    "http://localhost:8080",
+    tool_categories={
+        "my_query_runner": "database",
+        "send_email":      "communication",
+        "s3_upload":       "network",
+    }
+)
+```
 
 ---
 
-## Testing
+## Compliance Cockpit
+
+The dashboard gives you full visibility and control:
+
+- **Live trace stream** — every tool call in real time
+- **Pending approvals** — one-click allow/block for human-in-the-loop checks
+- **Anomaly detection** — automatic flagging of spikes and error bursts
+- **Agent comparison** — side-by-side metrics across agents
+- **Decision graph** — visual reasoning chain explorer
+- **Time-travel debugger** — replay any execution step by step
+- **Policy management** — create, toggle, test policies
+- **PDF forensic reports** — export tamper-evident audit bundles
+
+---
+
+## Security model
+
+```
+Tool call received
+  → Pre-execution check   (block before damage, zero tolerance for CRITICAL)
+  → Tool executes         (if allowed)
+  → Ed25519 signature     (optional, per-agent key)
+  → SHA-256 hash chain    (every trace commits to the previous)
+  → Kill switch           (3 violations in 24h → auto-revoke)
+```
+
+Forensic export — any third party can independently verify the log:
 
 ```bash
-# All tests
-npm test
-
-# Python SDK
-cd packages/sdk-python && pytest
-
-# Integration
-npm run test:integration
+curl "http://localhost:8080/api/v1/traces?export=bundle" > audit.json
 ```
 
 ---
 
-## Documentation
+## Self-hosting
 
-- [Getting Started](GETTING_STARTED.md)
-- [API Reference](docs/API.md)
-- [Architecture Guide](docs/ARCHITECTURE.md)
-- [Security Model](docs/SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
+MIT-licensed. No telemetry. No data leaves your infra.
+
+```
+packages/
+  gateway-mcp/          Node.js gateway (Express + SQLite)
+  sdk-python/           pip install agentguard-aegis
+  core-schema/          shared TypeScript types
+
+apps/
+  compliance-cockpit/   Next.js 14 dashboard
+```
+
+**Kubernetes:** Helm chart and manifests in `kubernetes/`
+**Production:** `docker compose -f docker-compose.prod.yml up -d` (adds nginx, postgres, redis)
+**Monitoring:** OpenTelemetry + Prometheus in `monitoring/`
 
 ---
 
 ## Contributing
 
-Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+git clone https://github.com/agentguard/agentguard
+cd agentguard
+docker compose -f docker-compose.dev.yml up
+```
+
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-## Support
-
-- Email: support@agentguard.ai
-- Discord: [Join the community](https://discord.gg/agentguard)
-- Docs: [docs.agentguard.ai](https://docs.agentguard.ai)
-- Issues: [GitHub Issues](https://github.com/Justin0504/Aegis/issues)
+[MIT](LICENSE)

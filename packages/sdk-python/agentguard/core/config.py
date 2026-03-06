@@ -49,5 +49,45 @@ class AgentGuardConfig(BaseModel):
     local_storage_path: Optional[Path] = Field(default=None)
     enable_local_fallback: bool = Field(default=True)
 
+    # Session tracking
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Optional session ID to group related traces together."
+    )
+
+    # Blocking mode — pre-execution policy enforcement
+    blocking_mode: bool = Field(
+        default=False,
+        description="If True, calls /api/v1/check before every tool execution. "
+                    "HIGH/CRITICAL risk tools wait for human approval in the dashboard."
+    )
+    blocking_timeout_ms: int = Field(
+        default=3000,
+        description="Max ms to wait for a fast-path blocking check response."
+    )
+    human_approval_timeout_s: int = Field(
+        default=300,
+        description="Max seconds to wait for a human to approve/reject a pending check. "
+                    "After this, the tool is blocked (fail-safe)."
+    )
+    poll_interval_s: float = Field(
+        default=2.0,
+        description="How often (seconds) to poll for a human approval decision."
+    )
+    fail_open: bool = Field(
+        default=True,
+        description="If True and gateway is unreachable, allow the tool call (fail-open). "
+                    "Set to False for strict enforcement."
+    )
+
+    # Tool category overrides — { "my_tool_name": "database" }
+    # Overrides auto-classification. Highest priority.
+    # Valid categories: database, file, network, shell, communication, data, unknown
+    tool_categories: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Map tool names to categories to override auto-classification. "
+                    "E.g. {'run_query': 'database', 'call_api': 'network'}"
+    )
+
     class Config:
         use_enum_values = True

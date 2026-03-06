@@ -150,18 +150,54 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Insert default policies
-    INSERT OR IGNORE INTO policies (id, name, description, policy_schema, risk_level) VALUES
-    ('sql-injection', 'SQL Injection Prevention', 'Prevents SQL injection attacks',
-     '{"type":"object","properties":{"sql":{"type":"string","pattern":"^(?!.*(\bDROP\b|\bDELETE\b|\bTRUNCATE\b|\bEXEC\b)).*$"}}}',
+    -- Insert default policies (OR REPLACE so broken schemas from old installs get fixed)
+    INSERT OR REPLACE INTO policies (id, name, description, policy_schema, risk_level) VALUES
+    ('sql-injection', 'SQL Injection Prevention', 'Blocks destructive SQL operations: DROP, DELETE, TRUNCATE, EXEC on database tool calls.',
+     '{"type":"object","properties":{"sql":{"type":"string","not":{"pattern":"(DROP|DELETE|TRUNCATE|EXEC|ALTER|CREATE|INSERT)"}}},"additionalProperties":true}',
      'HIGH'),
-    ('file-access', 'File Access Control', 'Controls file system access',
-     '{"type":"object","properties":{"path":{"type":"string","pattern":"^(?!.*(\\.\\.|~|/etc/|/root/)).*$"}}}',
+    ('file-access', 'File Access Control', 'Prevents path traversal attacks and access to sensitive system directories.',
+     '{"type":"object","properties":{"path":{"type":"string","not":{"pattern":"([.][.]/|/etc/|/root/|/proc/)"}}},"additionalProperties":true}',
      'MEDIUM'),
-    ('network-access', 'Network Access Control', 'Controls network requests',
-     '{"type":"object","properties":{"url":{"type":"string","format":"uri","pattern":"^https://"}}}',
-     'MEDIUM');
+    ('network-access', 'Network Access Control', 'Enforces HTTPS-only outbound network requests to prevent plaintext data transmission.',
+     '{"type":"object","properties":{"url":{"type":"string","pattern":"^https://"}},"additionalProperties":true}',
+     'MEDIUM'),
+    ('prompt-injection', 'Prompt Injection Detection', 'Detects and blocks prompt injection attempts in agent inputs that try to override system instructions.',
+     '{"type":"object","properties":{"query":{"type":"string","not":{"pattern":"ignore previous|ignore above|disregard all|you are now|act as if"}},"prompt":{"type":"string","not":{"pattern":"ignore previous|ignore above|disregard all|you are now|act as if"}}},"additionalProperties":true}',
+     'CRITICAL'),
+    ('data-exfiltration', 'Data Exfiltration Prevention', 'Blocks tool calls that attempt to send large volumes of data to external endpoints.',
+     '{"type":"object","properties":{"body":{"type":"string","maxLength":10000},"data":{"type":"string","maxLength":10000},"content":{"type":"string","maxLength":10000}},"additionalProperties":true}',
+     'HIGH');
   `);
+
+  // ── Migrations: add columns to existing DBs (SQLite ignores IF NOT EXISTS for ALTER) ──
+  const migrations = [
+    // Token cost tracking (P1.A)
+    `ALTER TABLE traces ADD COLUMN model TEXT`,
+    `ALTER TABLE traces ADD COLUMN input_tokens INTEGER DEFAULT 0`,
+    `ALTER TABLE traces ADD COLUMN output_tokens INTEGER DEFAULT 0`,
+    `ALTER TABLE traces ADD COLUMN cost_usd REAL DEFAULT 0`,
+    // Evaluation / scoring (P1.B)
+    `ALTER TABLE traces ADD COLUMN score INTEGER`,
+    `ALTER TABLE traces ADD COLUMN score_label TEXT`,
+    `ALTER TABLE traces ADD COLUMN feedback TEXT`,
+    `ALTER TABLE traces ADD COLUMN scored_by TEXT`,
+    `ALTER TABLE traces ADD COLUMN scored_at TEXT`,
+    // Session tracking (P1.C)
+    `ALTER TABLE traces ADD COLUMN session_id TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_session_id ON traces (session_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_model ON traces (model)`,
+    `ALTER TABLE traces ADD COLUMN pii_detected INTEGER DEFAULT 0`,
+    // Tool classifier (Step 1 — category + risk signals)
+    `ALTER TABLE traces ADD COLUMN tool_category TEXT`,
+    `ALTER TABLE traces ADD COLUMN risk_signals TEXT`,
+    // Blocking mode (Step 3 — pending check)
+    `ALTER TABLE traces ADD COLUMN blocked INTEGER DEFAULT 0`,
+    `ALTER TABLE traces ADD COLUMN block_reason TEXT`,
+  ];
+
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* column already exists — safe to ignore */ }
+  }
 
   return db;
 }

@@ -17,10 +17,10 @@ function ToolIcon({ name }: { name: string }) {
 }
 
 const TOOL_COLORS: Record<string, string> = {
-  web_search:   'hsl(200 80% 55%)',
-  read_file:    'hsl(260 70% 65%)',
-  execute_sql:  'hsl(43 80% 55%)',
-  send_request: 'hsl(140 60% 50%)',
+  web_search:   'hsl(210 20% 48%)',
+  read_file:    'hsl(255 18% 52%)',
+  execute_sql:  'hsl(38 22% 48%)',
+  send_request: 'hsl(150 18% 44%)',
 }
 
 export function AgentActivity() {
@@ -31,7 +31,7 @@ export function AgentActivity() {
       if (!res.ok) throw new Error('Failed')
       return res.json()
     },
-    refetchInterval: 5000,
+    staleTime: 0,
   })
 
   const traces: any[] = data?.traces || []
@@ -40,7 +40,7 @@ export function AgentActivity() {
     return (
       <div className="space-y-2">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-9 rounded animate-pulse" style={{ background: 'hsl(0 0% 14%)' }} />
+          <div key={i} className="h-9 rounded animate-pulse" style={{ background: 'hsl(36 14% 91%)' }} />
         ))}
       </div>
     )
@@ -48,7 +48,7 @@ export function AgentActivity() {
 
   if (traces.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-sm" style={{ color: 'hsl(0 0% 40%)' }}>
+      <div className="flex items-center justify-center h-32 text-sm" style={{ color: 'hsl(30 8% 50%)' }}>
         No activity yet
       </div>
     )
@@ -67,7 +67,7 @@ export function AgentActivity() {
           <div
             key={trace.trace_id}
             className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors"
-            style={{ background: 'hsl(0 0% 12%)' }}
+            style={{ background: 'hsl(36 14% 93%)' }}
           >
             {/* Tool badge */}
             <div
@@ -79,13 +79,13 @@ export function AgentActivity() {
             </div>
 
             {/* Prompt preview */}
-            <span className="flex-1 text-xs truncate" style={{ color: 'hsl(0 0% 55%)' }}>
+            <span className="flex-1 text-xs truncate" style={{ color: 'hsl(30 8% 46%)' }}>
               {String(prompt).slice(0, 60)}
             </span>
 
             {/* Duration */}
             {durationMs !== undefined && (
-              <span className="text-[11px] flex-shrink-0" style={{ color: 'hsl(0 0% 35%)' }}>
+              <span className="text-[11px] flex-shrink-0" style={{ color: 'hsl(30 8% 56%)' }}>
                 {durationMs < 1 ? '<1ms' : `${Math.round(durationMs)}ms`}
               </span>
             )}
@@ -93,8 +93,8 @@ export function AgentActivity() {
             {/* Status */}
             <div className="flex-shrink-0">
               {hasError
-                ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 62% 50%)' }} />
-                : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(140 60% 45%)' }} />
+                ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 18% 50%)' }} />
+                : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(150 18% 44%)' }} />
               }
             </div>
           </div>

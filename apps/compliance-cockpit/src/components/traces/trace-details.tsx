@@ -1,11 +1,16 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download, Shield, AlertCircle } from 'lucide-react'
+import { Download, Shield, AlertCircle, ThumbsUp, ThumbsDown, EyeOff } from 'lucide-react'
 import { formatDate, getStatusColor, getRiskLevelColor } from '@/lib/utils'
+import { useState } from 'react'
+
+const BORDER = 'hsl(36 12% 88%)'
+const MUTED  = 'hsl(30 8% 55%)'
+const TEXT   = 'hsl(30 10% 15%)'
 
 interface TraceDetailsProps {
   traceId: string
@@ -13,12 +18,34 @@ interface TraceDetailsProps {
 }
 
 export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
+  const queryClient = useQueryClient()
+  const [feedback, setFeedback] = useState('')
+  const [pendingScore, setPendingScore] = useState<number | null>(null)
+
   const { data: trace, isLoading } = useQuery({
     queryKey: ['trace', traceId],
     queryFn: async () => {
       const response = await fetch(`/api/gateway/traces/${traceId}`)
       if (!response.ok) throw new Error('Failed to fetch trace')
       return response.json()
+    },
+  })
+
+  const scoreMutation = useMutation({
+    mutationFn: async (score: number) => {
+      const res = await fetch(`/api/gateway/traces/${traceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score, feedback: feedback || null }),
+      })
+      if (!res.ok) throw new Error('Failed to score')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trace', traceId] })
+      queryClient.invalidateQueries({ queryKey: ['eval-stats'] })
+      setFeedback('')
+      setPendingScore(null)
     },
   })
 
@@ -38,7 +65,16 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
     <Card className="h-[calc(100vh-200px)] overflow-hidden flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Trace Details</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Trace Details</CardTitle>
+            {trace.pii_detected > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{ background: 'hsl(38 22% 48% / 0.12)', color: 'hsl(38 22% 40%)' }}>
+                <EyeOff className="h-2.5 w-2.5" />
+                {trace.pii_detected} PII redacted
+              </span>
+            )}
+          </div>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -140,6 +176,75 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
               </pre>
             )}
           </div>
+        </div>
+
+        {/* Evaluation / Scoring */}
+        <div style={{ border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '14px 16px' }}>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: TEXT }}>Quality Score</h3>
+          {trace.score !== null && trace.score !== undefined ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {trace.score > 0
+                  ? <ThumbsUp className="h-4 w-4" style={{ color: 'hsl(150 18% 44%)' }} />
+                  : <ThumbsDown className="h-4 w-4" style={{ color: 'hsl(0 18% 50%)' }} />
+                }
+                <span className="text-sm font-medium" style={{ color: trace.score > 0 ? 'hsl(150 18% 40%)' : 'hsl(0 14% 46%)' }}>
+                  {trace.score > 0 ? 'Good' : 'Bad'}
+                </span>
+                {trace.scored_by && (
+                  <span className="text-xs" style={{ color: MUTED }}>by {trace.scored_by}</span>
+                )}
+              </div>
+              {trace.feedback && (
+                <p className="text-xs" style={{ color: MUTED }}>{trace.feedback}</p>
+              )}
+              <button
+                className="text-[11px] mt-1"
+                style={{ color: 'hsl(210 18% 48%)' }}
+                onClick={() => scoreMutation.reset()}
+              >
+                Re-score
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs" style={{ color: MUTED }}>Was this trace behavior correct?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setPendingScore(1); scoreMutation.mutate(1) }}
+                  disabled={scoreMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border transition-colors"
+                  style={{
+                    borderColor: pendingScore === 1 ? 'hsl(150 18% 44%)' : BORDER,
+                    color: pendingScore === 1 ? 'hsl(150 18% 40%)' : MUTED,
+                    background: pendingScore === 1 ? 'hsl(150 18% 44% / 0.08)' : '#fff',
+                  }}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" /> Good
+                </button>
+                <button
+                  onClick={() => { setPendingScore(-1); scoreMutation.mutate(-1) }}
+                  disabled={scoreMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border transition-colors"
+                  style={{
+                    borderColor: pendingScore === -1 ? 'hsl(0 18% 50%)' : BORDER,
+                    color: pendingScore === -1 ? 'hsl(0 14% 46%)' : MUTED,
+                    background: pendingScore === -1 ? 'hsl(0 18% 50% / 0.08)' : '#fff',
+                  }}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" /> Bad
+                </button>
+              </div>
+              <textarea
+                className="w-full text-xs rounded-md border px-2 py-1.5 resize-none outline-none"
+                style={{ borderColor: BORDER, color: TEXT, background: '#fff' }}
+                placeholder="Optional feedback…"
+                rows={2}
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Hash Chain */}

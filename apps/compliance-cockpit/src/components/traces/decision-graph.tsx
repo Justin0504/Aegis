@@ -3,14 +3,14 @@
 import { Globe, FileText, Database, Send, Zap, CheckCircle, AlertCircle, ArrowDown } from 'lucide-react'
 
 const TOOL_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  web_search:   { icon: Globe,     color: 'hsl(200 80% 55%)', label: 'Web Search'   },
-  read_file:    { icon: FileText,  color: 'hsl(260 70% 65%)', label: 'Read File'    },
-  execute_sql:  { icon: Database,  color: 'hsl(43 80% 55%)',  label: 'SQL Query'    },
-  send_request: { icon: Send,      color: 'hsl(140 60% 50%)', label: 'HTTP Request' },
+  web_search:   { icon: Globe,     color: 'hsl(210 20% 48%)', label: 'Web Search'   },
+  read_file:    { icon: FileText,  color: 'hsl(255 18% 52%)', label: 'Read File'    },
+  execute_sql:  { icon: Database,  color: 'hsl(38 22% 48%)',  label: 'SQL Query'    },
+  send_request: { icon: Send,      color: 'hsl(150 18% 44%)', label: 'HTTP Request' },
 }
 
 function getToolMeta(name: string) {
-  return TOOL_META[name] || { icon: Zap, color: 'hsl(0 0% 55%)', label: name }
+  return TOOL_META[name] || { icon: Zap, color: 'hsl(30 8% 46%)', label: name }
 }
 
 interface DecisionGraphProps {
@@ -27,7 +27,7 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
     return (
       <div
         className="flex items-center justify-center rounded-lg h-64 text-sm"
-        style={{ background: 'hsl(0 0% 10%)', color: 'hsl(0 0% 40%)' }}
+        style={{ background: 'hsl(36 20% 97%)', color: 'hsl(30 8% 55%)' }}
       >
         Select a trace session to view execution flow
       </div>
@@ -38,8 +38,8 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
     <div
       className="rounded-lg border overflow-y-auto p-6"
       style={{
-        background: 'hsl(0 0% 9%)',
-        borderColor: 'hsl(0 0% 15%)',
+        background: 'hsl(36 20% 97%)',
+        borderColor: 'hsl(36 12% 88%)',
         maxHeight: 'calc(100vh - 280px)',
       }}
     >
@@ -47,7 +47,7 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
         {/* Start node */}
         <div
           className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase mb-0"
-          style={{ background: 'hsl(43 56% 52% / 0.15)', color: 'hsl(43 56% 62%)', border: '1px solid hsl(43 56% 52% / 0.3)' }}
+          style={{ background: 'hsl(38 20% 46% / 0.12)', color: 'hsl(38 20% 42%)', border: '1px solid hsl(38 20% 46% / 0.3)' }}
         >
           Agent Session
         </div>
@@ -64,19 +64,19 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
             <div key={trace.trace_id} className="flex flex-col items-center w-full max-w-xl">
               {/* Arrow */}
               <div className="flex flex-col items-center py-1">
-                <div className="w-px h-4" style={{ background: 'hsl(0 0% 20%)' }} />
-                <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(0 0% 25%)' }} />
+                <div className="w-px h-4" style={{ background: 'hsl(36 12% 80%)' }} />
+                <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(36 12% 72%)' }} />
               </div>
 
               {/* Step card */}
               <div
                 className="w-full rounded-lg border p-4 relative"
-                style={{ background: 'hsl(0 0% 12%)', borderColor: hasErr ? 'hsl(0 62% 40% / 0.6)' : `${meta.color}30` }}
+                style={{ background: '#ffffff', borderColor: hasErr ? 'hsl(0 10% 84%)' : `${meta.color}40` }}
               >
                 {/* Step number */}
                 <span
                   className="absolute -top-2.5 left-4 text-[10px] font-bold px-1.5 py-0.5 rounded"
-                  style={{ background: 'hsl(0 0% 9%)', color: 'hsl(0 0% 35%)', border: '1px solid hsl(0 0% 18%)' }}
+                  style={{ background: '#ffffff', color: 'hsl(30 8% 55%)', border: '1px solid hsl(36 12% 85%)' }}
                 >
                   STEP {i + 1}
                 </span>
@@ -85,7 +85,7 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
                   {/* Icon */}
                   <div
                     className="mt-0.5 p-2 rounded-md flex-shrink-0"
-                    style={{ background: `${meta.color}18` }}
+                    style={{ background: `${meta.color}15` }}
                   >
                     <Icon className="h-4 w-4" style={{ color: meta.color }} />
                   </div>
@@ -98,29 +98,29 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
                       </span>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {dur !== undefined && (
-                          <span className="text-[11px]" style={{ color: 'hsl(0 0% 35%)' }}>
+                          <span className="text-[11px]" style={{ color: 'hsl(30 8% 55%)' }}>
                             {dur < 1 ? '<1ms' : `${Math.round(dur)}ms`}
                           </span>
                         )}
                         {hasErr
-                          ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 62% 50%)' }} />
-                          : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(140 60% 45%)' }} />
+                          ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 18% 50%)' }} />
+                          : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(150 18% 44%)' }} />
                         }
                       </div>
                     </div>
 
                     {/* Input */}
                     <div>
-                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'hsl(0 0% 35%)' }}>Input</span>
-                      <p className="text-xs mt-0.5 break-all" style={{ color: 'hsl(0 0% 70%)' }}>{prompt}</p>
+                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'hsl(30 8% 55%)' }}>Input</span>
+                      <p className="text-xs mt-0.5 break-all" style={{ color: 'hsl(30 10% 25%)' }}>{prompt}</p>
                     </div>
 
                     {/* Output */}
                     <div>
-                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: hasErr ? 'hsl(0 62% 50%)' : 'hsl(0 0% 35%)' }}>
+                      <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: hasErr ? 'hsl(0 18% 50%)' : 'hsl(30 8% 55%)' }}>
                         {hasErr ? 'Error' : 'Output'}
                       </span>
-                      <p className="text-xs mt-0.5 break-all" style={{ color: hasErr ? 'hsl(0 62% 60%)' : 'hsl(0 0% 55%)' }}>
+                      <p className="text-xs mt-0.5 break-all" style={{ color: hasErr ? 'hsl(0 18% 50%)' : 'hsl(30 8% 40%)' }}>
                         {hasErr ? trace.observation.error : output}
                       </p>
                     </div>
@@ -133,14 +133,14 @@ export function DecisionGraph({ agentId, traces }: DecisionGraphProps) {
 
         {/* End arrow */}
         <div className="flex flex-col items-center py-1">
-          <div className="w-px h-4" style={{ background: 'hsl(0 0% 20%)' }} />
-          <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(0 0% 25%)' }} />
+          <div className="w-px h-4" style={{ background: 'hsl(36 12% 80%)' }} />
+          <ArrowDown className="h-3 w-3 -mt-0.5" style={{ color: 'hsl(36 12% 72%)' }} />
         </div>
 
         {/* End node */}
         <div
           className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase"
-          style={{ background: 'hsl(140 40% 30% / 0.2)', color: 'hsl(140 60% 50%)', border: '1px solid hsl(140 40% 30% / 0.4)' }}
+          style={{ background: 'hsl(150 10% 92%)', color: 'hsl(150 18% 36%)', border: '1px solid hsl(150 10% 80%)' }}
         >
           Complete — {sorted.length} steps
         </div>
