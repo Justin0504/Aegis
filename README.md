@@ -176,6 +176,56 @@ agentguard.auto('http://localhost:8080', { agentId: 'my-agent', blockingMode: tr
 // existing Anthropic / OpenAI / LangChain code unchanged
 ```
 
+**Go:**
+
+```bash
+go get github.com/Justin0504/Aegis/packages/sdk-go@latest
+```
+
+```go
+import agentguard "github.com/Justin0504/Aegis/packages/sdk-go"
+
+guard := agentguard.Auto() // reads AGENTGUARD_URL, AGENTGUARD_AGENT_ID env vars
+defer guard.Close()
+
+result, err := guard.Wrap("query_db", args, func() (any, error) {
+    return db.Query("SELECT ...")
+})
+
+var blocked *agentguard.BlockedError
+if errors.As(err, &blocked) {
+    log.Printf("Blocked: %s — %s", blocked.ToolName, blocked.Reason)
+}
+```
+
+Zero external dependencies. Standard library only.
+
+---
+
+## OpenTelemetry export
+
+Every AEGIS trace can be forwarded as an OTEL span to Datadog, Grafana, Jaeger, or any OTLP-compatible collector:
+
+```bash
+OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_SERVICE_NAME=aegis-gateway \
+node dist/server.js
+```
+
+Each span is named `tool_call/<tool_name>` and carries these attributes:
+
+| Attribute | Value |
+|-----------|-------|
+| `aegis.agent_id` | agent identifier |
+| `aegis.tool_name` | tool being called |
+| `aegis.risk_level` | LOW / MEDIUM / HIGH / CRITICAL |
+| `aegis.blocked` | true if the call was blocked |
+| `aegis.cost_usd` | estimated LLM cost |
+| `aegis.pii_detected` | 1 if PII was found in arguments |
+
+OTEL errors are silently ignored — they never break your agent's execution path.
+
 ---
 
 ## Policy engine
@@ -304,6 +354,7 @@ packages/
   gateway-mcp/          Node.js gateway (Express + SQLite)
   sdk-python/           pip install agentguard-aegis
   sdk-js/               npm install @justinnn/agentguard
+  sdk-go/               go get github.com/Justin0504/Aegis/packages/sdk-go
   core-schema/          shared TypeScript types
 
 apps/

@@ -16,31 +16,33 @@ async function fetchRecentTraces(): Promise<any[]> {
   }
 }
 
-async function fireWebhook(url: string, event: AlertEvent): Promise<void> {
+async function hmacSignature(secret: string, body: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(body))
+  const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
+  return `sha256=${hex}`
+}
+
+async function fireWebhook(url: string, event: AlertEvent, secret?: string): Promise<void> {
   if (!url) return
   try {
-    await fetch('/api/alerts/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        webhookUrl: url,
-        payload: buildSlackPayload(event),
-      }),
-    })
+    const body = JSON.stringify({ webhookUrl: url, payload: buildSlackPayload(event) })
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (secret) headers['X-AEGIS-Signature'] = await hmacSignature(secret, body)
+    await fetch('/api/alerts/webhook', { method: 'POST', headers, body })
   } catch { /* best effort */ }
 }
 
-async function fireSlack(url: string, event: AlertEvent): Promise<void> {
+async function fireSlack(url: string, event: AlertEvent, secret?: string): Promise<void> {
   if (!url) return
   try {
-    await fetch('/api/alerts/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        webhookUrl: url,
-        payload: buildSlackPayload(event),
-      }),
-    })
+    const body = JSON.stringify({ webhookUrl: url, payload: buildSlackPayload(event) })
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (secret) headers['X-AEGIS-Signature'] = await hmacSignature(secret, body)
+    await fetch('/api/alerts/webhook', { method: 'POST', headers, body })
   } catch { /* best effort */ }
 }
 
@@ -103,9 +105,9 @@ async function dispatchAlert(rule: AlertRule, event: AlertEvent): Promise<void> 
   if (dest === 'pagerduty') {
     await firePagerDuty(val, event)
   } else if (dest === 'slack') {
-    await fireSlack(val, event)
+    await fireSlack(val, event, rule.signingSecret)
   } else {
-    await fireWebhook(val, event)
+    await fireWebhook(val, event, rule.signingSecret)
   }
 }
 

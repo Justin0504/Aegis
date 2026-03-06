@@ -12,6 +12,7 @@ export interface AlertRule {
   severity: AlertSeverity
   destinationType?: AlertDestination  // default: 'webhook'
   webhookUrl?: string      // webhook/slack URL or PagerDuty integration key
+  signingSecret?: string   // HMAC-SHA256 signing secret for webhook/slack
   cooldownMinutes: number  // don't re-fire within this period
 }
 

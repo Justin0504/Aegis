@@ -22,4 +22,9 @@ export const config = {
     enabled: process.env.REDIS_ENABLED === 'true',
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
+  otel: {
+    enabled: process.env.OTEL_ENABLED === 'true',
+    endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318',
+    serviceName: process.env.OTEL_SERVICE_NAME || 'aegis-gateway',
+  },
 } as const;

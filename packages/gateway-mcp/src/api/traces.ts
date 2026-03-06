@@ -10,6 +10,7 @@ import {
 } from '@agentguard/core-schema';
 import { calculateCost } from '../services/cost';
 import { redactObjectPii } from '../services/pii';
+import { emitTraceSpan } from '../services/otel';
 
 export class TraceAPI {
   public readonly router: Router;
@@ -378,6 +379,24 @@ export class TraceAPI {
       sessionId,
       piiDetected,
     );
+
+    // Emit OTEL span async, non-blocking
+    const toolName = trace.tool_call?.tool_name ?? trace.tool_call?.function ?? 'unknown';
+    const riskLevel = trace.safety_validation?.risk_level ?? 'LOW';
+    const blocked = trace.safety_validation?.passed === false;
+    const durationMs = raw.observation?.duration_ms ?? 0;
+    const errorMsg = raw.observation?.error ?? null;
+    setImmediate(() => emitTraceSpan({
+      traceId: String(trace.trace_id),
+      agentId: String(trace.agent_id),
+      toolName,
+      riskLevel,
+      blocked,
+      costUsd: costUsd,
+      piiDetected,
+      durationMs,
+      error: errorMsg,
+    }));
   }
 
   private getPreviousTrace(agentId: string): any | null {

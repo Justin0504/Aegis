@@ -17,6 +17,7 @@ import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
 import { errorMiddleware } from './middleware/error';
 import { createAuthMiddleware } from './middleware/auth';
+import { initOtel, shutdownOtel } from './services/otel';
 
 const logger = pino({
   transport: {
@@ -29,6 +30,9 @@ const logger = pino({
 });
 
 async function main() {
+  // Initialize OpenTelemetry (before anything else)
+  initOtel();
+
   // Initialize database
   logger.info('Initializing database...');
   const db = await initializeDatabase(config.database.path);
@@ -127,7 +131,7 @@ async function main() {
     logger.info('Received SIGTERM, shutting down gracefully...');
     server.close(() => {
       db.close();
-      process.exit(0);
+      shutdownOtel().finally(() => process.exit(0));
     });
   });
 }

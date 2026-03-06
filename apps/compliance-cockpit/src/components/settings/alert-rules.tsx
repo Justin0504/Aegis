@@ -194,6 +194,23 @@ export function AlertRules() {
               />
             </div>
           </div>
+
+          {/* Row 4: signing secret (webhook/slack only) */}
+          {(rule.destinationType ?? 'webhook') !== 'pagerduty' && (
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'hsl(30 8% 50%)' }}>
+                Signing Secret <span style={{ color: 'hsl(30 8% 65%)', fontWeight: 400, textTransform: 'none' }}>(optional — adds X-AEGIS-Signature header)</span>
+              </label>
+              <input
+                type="password"
+                className={INPUT.base}
+                style={INPUT.style}
+                value={rule.signingSecret || ''}
+                onChange={e => update(rule.id, { signingSecret: e.target.value })}
+                placeholder="your-webhook-secret"
+              />
+            </div>
+          )}
         </div>
       ))}
 

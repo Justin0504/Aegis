@@ -89,3 +89,22 @@ jobs:
       - name: Build
         working-directory: packages/sdk-js
         run: npm run build
+
+  sdk-go:
+    name: Go SDK Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build
+        working-directory: packages/sdk-go
+        run: go build ./...
+
+      - name: Vet
+        working-directory: packages/sdk-go
+        run: go vet ./...

@@ -14,40 +14,56 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.test.ts"],
-    "moduleFileExtensions": ["ts", "js"],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
     "transform": {
-      "^.+\\.ts$": ["ts-jest", { "tsconfig": { "strict": false } }]
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "strict": false
+          }
+        }
+      ]
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@agentguard/core-schema": "file:../core-schema",
-    "express": "^4.18.0",
-    "ws": "^8.16.0",
-    "sqlite3": "^5.1.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "ajv": "^8.12.0",
     "better-sqlite3": "^9.0.0",
-    "zod": "^3.22.0",
+    "express": "^4.18.0",
+    "ioredis": "^5.3.0",
+    "node-cron": "^3.0.0",
     "pino": "^8.0.0",
     "pino-pretty": "^10.0.0",
-    "node-cron": "^3.0.0",
-    "ioredis": "^5.3.0",
+    "sqlite3": "^5.1.0",
     "uuid": "^9.0.0",
-    "ajv": "^8.12.0"
+    "ws": "^8.16.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/express": "^4.17.0",
-    "@types/ws": "^8.5.0",
     "@types/better-sqlite3": "^7.6.0",
-    "@types/uuid": "^9.0.0",
-    "typescript": "^5.0.0",
-    "tsx": "^4.0.0",
-    "jest": "^29.0.0",
+    "@types/express": "^4.17.0",
     "@types/jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "eslint": "^8.0.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "@types/ws": "^8.5.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0"
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }
