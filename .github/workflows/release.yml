@@ -47,8 +47,7 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        working-directory: packages/sdk-js
+      - name: Install (root workspace)
         run: npm ci
 
       - name: Build
