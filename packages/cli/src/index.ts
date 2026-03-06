@@ -262,4 +262,218 @@ program
     );
   });
 
+// ── Helpers for hook commands ────────────────────────────────────────────────
+
+function readStdin(): Promise<string> {
+  return new Promise(resolve => {
+    let data = '';
+    if (process.stdin.isTTY) { resolve(''); return; }
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => data += chunk);
+    process.stdin.on('end', () => resolve(data.trim()));
+    process.stdin.on('error', () => resolve(data.trim()));
+    setTimeout(() => resolve(data.trim()), 3000);
+  });
+}
+
+async function pollCheckDecision(checkId: string, gw: string, timeoutMs = 300_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const res = await request('GET', `${gw}/api/v1/check/${checkId}/decision`);
+      if (res.decision === 'allow' || res.decision === 'block') return res.decision;
+    } catch {}
+  }
+  return 'block'; // fail-safe on timeout
+}
+
+// ── hook ─────────────────────────────────────────────────────────────────────
+const hook = program.command('hook').description('Hook handlers (invoked by Claude Code — not for direct use)');
+
+hook
+  .command('pre-tool-use')
+  .description('PreToolUse hook: check tool call against AEGIS policies')
+  .action(async () => {
+    const raw = await readStdin();
+    let event: any = {};
+    try { event = raw ? JSON.parse(raw) : {}; } catch {}
+
+    const toolName  = String(event.tool_name  ?? '');
+    const toolInput = event.tool_input ?? {};
+    const sessionId = String(event.session_id ?? '');
+    const gw        = process.env.AGENTGUARD_URL ?? loadConfig().gateway_url;
+    const agentId   = process.env.AGENTGUARD_AGENT_ID ?? 'claude-code';
+    const blocking  = process.env.AGENTGUARD_BLOCKING === 'true';
+
+    if (!toolName) process.exit(0);
+
+    try {
+      const result = await request('POST', `${gw}/api/v1/check`, {
+        agent_id:    agentId,
+        tool_name:   toolName,
+        arguments:   toolInput,
+        environment: 'claude-code',
+        blocking:    false,
+      });
+
+      if (result.decision === 'block') {
+        const reason = result.reason ?? `${result.risk_level ?? 'HIGH'} risk tool blocked by AEGIS policy`;
+        process.stdout.write(JSON.stringify({ decision: 'block', reason }));
+        process.exit(2);
+      }
+
+      if (blocking && result.decision === 'pending') {
+        process.stderr.write(`[AEGIS] Waiting for human approval (check: ${result.check_id})...\n`);
+        const decision = await pollCheckDecision(result.check_id, gw);
+        if (decision !== 'allow') {
+          process.stdout.write(JSON.stringify({ decision: 'block', reason: 'Rejected by reviewer' }));
+          process.exit(2);
+        }
+      }
+
+      process.exit(0);
+    } catch {
+      // Fail-open: gateway unreachable should not block the user
+      process.stderr.write('[AEGIS] Gateway unreachable — allowing tool call (fail-open)\n');
+      process.exit(0);
+    }
+  });
+
+hook
+  .command('post-tool-use')
+  .description('PostToolUse hook: record trace to AEGIS gateway')
+  .action(async () => {
+    const raw = await readStdin();
+    let event: any = {};
+    try { event = raw ? JSON.parse(raw) : {}; } catch {}
+
+    const gw       = process.env.AGENTGUARD_URL ?? loadConfig().gateway_url;
+    const agentId  = process.env.AGENTGUARD_AGENT_ID ?? 'claude-code';
+    const toolName = String(event.tool_name ?? '');
+    const sessionId = String(event.session_id ?? '');
+
+    // Fire-and-forget — never block Claude Code
+    request('POST', `${gw}/api/v1/traces`, [{
+      agent_id:    agentId,
+      session_id:  sessionId,
+      tool_name:   toolName,
+      tool_call:   event.tool_input ?? {},
+      observation: { raw_output: event.tool_response ?? null },
+      timestamp:   new Date().toISOString(),
+      environment: 'claude-code',
+      hash_chain:  'hook',
+      blocked:     false,
+    }]).catch(() => {});
+
+    process.exit(0);
+  });
+
+// ── claude-code ───────────────────────────────────────────────────────────────
+const cc = program.command('claude-code').description('Claude Code integration');
+
+cc
+  .command('setup')
+  .description('Configure Claude Code hooks to audit every tool call via AEGIS')
+  .option('--gateway <url>',   'AEGIS gateway URL', '')
+  .option('--agent-id <id>',   'Agent ID to tag traces with', 'claude-code')
+  .option('--blocking',        'Block HIGH/CRITICAL risk tools (requires human approval)')
+  .option('--dry-run',         'Print config without writing to disk')
+  .action((opts) => {
+    const gw      = opts.gateway || loadConfig().gateway_url;
+    const agentId = opts.agentId;
+    const blockEnv = opts.blocking ? ' AGENTGUARD_BLOCKING=true' : '';
+
+    const preCmd  = `AGENTGUARD_URL=${gw} AGENTGUARD_AGENT_ID=${agentId}${blockEnv} agentguard hook pre-tool-use`;
+    const postCmd = `AGENTGUARD_URL=${gw} AGENTGUARD_AGENT_ID=${agentId} agentguard hook post-tool-use`;
+
+    const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    let settings: any = {};
+    try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch {}
+
+    settings.hooks = settings.hooks ?? {};
+    settings.hooks.PreToolUse = [{ matcher: '.*', hooks: [{ type: 'command', command: preCmd }] }];
+    settings.hooks.PostToolUse = [{ matcher: '.*', hooks: [{ type: 'command', command: postCmd }] }];
+
+    if (opts.dryRun) {
+      console.log('Would write to:', settingsPath);
+      console.log(JSON.stringify(settings, null, 2));
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    console.log(`✓ Hooks configured in ${settingsPath}`);
+    console.log(`  Gateway:  ${gw}`);
+    console.log(`  Agent ID: ${agentId}`);
+    console.log(`  Blocking: ${opts.blocking ? 'enabled (HIGH/CRITICAL requires approval)' : 'disabled (audit-only)'}`);
+    console.log('\nRestart Claude Code for changes to take effect.');
+  });
+
+cc
+  .command('status')
+  .description('Show Claude Code integration status and recent traces')
+  .option('-a, --agent-id <id>', 'Agent ID', 'claude-code')
+  .action(async (opts) => {
+    // Check hook config
+    const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    let hooksOk = false;
+    try {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      hooksOk = settings.hooks?.PreToolUse?.some(
+        (h: any) => h.hooks?.some((hh: any) => String(hh.command ?? '').includes('agentguard'))
+      ) ?? false;
+    } catch {}
+
+    console.log(`\nClaude Code hooks:  ${hooksOk ? '✓ configured' : '✗ not configured  (run: agentguard claude-code setup)'}`);
+
+    // Gateway health
+    try {
+      const health = await request('GET', `${gatewayUrl()}/health`);
+      console.log(`Gateway:            ✓ UP  (${health.timestamp ?? 'ok'})`);
+    } catch {
+      console.log(`Gateway:            ✗ unreachable at ${gatewayUrl()}`);
+    }
+
+    // Recent traces
+    try {
+      const params = new URLSearchParams({ limit: '5', agent_id: opts.agentId });
+      const data = await request('GET', `${gatewayUrl()}/api/v1/traces?${params}`);
+      const list: any[] = data.traces ?? [];
+      console.log(`\nRecent traces (agent=${opts.agentId}):`);
+      if (!list.length) {
+        console.log('  No traces yet — run Claude Code and AEGIS will appear here.');
+      } else {
+        printTable(
+          ['TOOL', 'STATUS', 'TIMESTAMP'],
+          [28, 14, 22],
+          list.map((t: any) => [
+            t.tool_call?.tool_name ?? t.tool_name ?? '?',
+            t.approval_status ?? 'RECORDED',
+            fmtDate(t.timestamp),
+          ])
+        );
+      }
+    } catch {}
+    console.log('');
+  });
+
+cc
+  .command('mcp-config')
+  .description('Print MCP server config snippet to add AEGIS audit tools to Claude Code')
+  .option('--gateway <url>', 'AEGIS gateway URL', '')
+  .action((opts) => {
+    const gw = opts.gateway || loadConfig().gateway_url;
+    const wsUrl = gw.replace(/^http/, 'ws');
+    const snippet = {
+      mcpServers: {
+        'aegis-audit': { url: `${wsUrl}/mcp-audit` },
+      },
+    };
+    console.log('\nAdd this to ~/.claude/claude_desktop_config.json (merge with existing mcpServers):\n');
+    console.log(JSON.stringify(snippet, null, 2));
+    console.log('\nThen Claude Code can use tools like:');
+    console.log('  query_traces, list_violations, get_agent_stats, list_policies\n');
+  });
+
 program.parse(process.argv);
