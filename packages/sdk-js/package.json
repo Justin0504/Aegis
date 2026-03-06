@@ -1,6 +1,6 @@
 {
   "name": "@justinnn/agentguard",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Cryptographic auditing and real-time control for AI agents — JavaScript/TypeScript SDK",
   "keywords": ["ai", "agent", "security", "observability", "audit", "llm", "anthropic", "openai", "langchain"],
   "homepage": "https://github.com/agentguard/agentguard",

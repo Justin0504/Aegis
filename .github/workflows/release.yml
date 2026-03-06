@@ -31,7 +31,7 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: twine upload dist/* --non-interactive
+        run: twine upload dist/* --non-interactive --skip-existing
 
   publish-npm:
     name: Publish JS SDK to npm
