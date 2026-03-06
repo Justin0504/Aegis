@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install workspace deps (resolves local packages)
+      - name: Install (root workspace)
         run: npm ci
 
       - name: Build
@@ -36,9 +36,12 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install & build
+      - name: Install (root workspace)
+        run: npm ci
+
+      - name: Build
         working-directory: apps/compliance-cockpit
-        run: npm ci && npm run build
+        run: npm run build
 
   sdk-python:
     name: Python SDK
@@ -73,7 +76,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install workspace deps (resolves local packages)
+      - name: Install (root workspace)
         run: npm ci
 
       - name: Build
