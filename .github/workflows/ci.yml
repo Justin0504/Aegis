@@ -18,9 +18,12 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install & build
+      - name: Install workspace deps (resolves local packages)
+        run: npm ci
+
+      - name: Build
         working-directory: packages/gateway-mcp
-        run: npm ci && npm run build
+        run: npm run build
 
   cockpit:
     name: Cockpit Build
@@ -42,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +73,9 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install & build
+      - name: Install workspace deps (resolves local packages)
+        run: npm ci
+
+      - name: Build
         working-directory: packages/sdk-js
-        run: npm ci && npm run build
+        run: npm run build
