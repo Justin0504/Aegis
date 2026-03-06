@@ -26,9 +26,10 @@ export class EventBus {
     }
   }
 
-  /** Return events newer than `since` ISO string (or all if omitted). */
+  /** Return events newer than `since` ISO string.
+   *  Without `since`, returns only the last 60 seconds (no history flood on page open). */
   since(since?: string): BlockEvent[] {
-    if (!since) return [...this.events]
-    return this.events.filter(e => e.timestamp > since)
+    const floor = since ?? new Date(Date.now() - 60_000).toISOString()
+    return this.events.filter(e => e.timestamp > floor)
   }
 }

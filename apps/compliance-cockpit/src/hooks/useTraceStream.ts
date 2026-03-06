@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useBlockNotifications } from './useBlockNotifications'
 
 export interface BlockAlert {
   id:         string
@@ -16,6 +17,7 @@ export interface BlockAlert {
 
 export function useTraceStream() {
   const queryClient = useQueryClient()
+  const { notify, permission, requestPermission } = useBlockNotifications()
   const [connected,  setConnected]  = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [alerts,     setAlerts]     = useState<BlockAlert[]>([])
@@ -60,10 +62,11 @@ export function useTraceStream() {
     es.addEventListener('alert', (e) => {
       try {
         const alert: BlockAlert = JSON.parse(e.data)
+        // OS-level notification (works even when tab is in background)
+        notify(alert)
         setAlerts(prev => {
-          // deduplicate by id
           if (prev.some(a => a.id === alert.id)) return prev
-          return [...prev, alert].slice(-10) // max 10 toasts
+          return [...prev, alert].slice(-10)
         })
       } catch { /* ignore */ }
     })
@@ -77,5 +80,5 @@ export function useTraceStream() {
     }
   }, [queryClient])
 
-  return { connected, lastUpdate, alerts, dismissAlert }
+  return { connected, lastUpdate, alerts, dismissAlert, notifPermission: permission, requestNotifPermission: requestPermission }
 }

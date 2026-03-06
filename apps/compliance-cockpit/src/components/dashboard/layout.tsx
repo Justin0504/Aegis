@@ -32,7 +32,7 @@ const GOLD      = 'hsl(38 20% 42%)'
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { connected, lastUpdate, alerts, dismissAlert } = useTraceStream()
+  const { connected, lastUpdate, alerts, dismissAlert, notifPermission, requestNotifPermission } = useTraceStream()
 
   return (
     <div className="flex h-screen" style={{ background: MAIN_BG }}>
@@ -111,6 +111,19 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               </span>
             )}
           </div>
+          {notifPermission !== 'granted' && (
+            <button
+              onClick={requestNotifPermission}
+              className="w-full text-left text-[11px] px-2 py-1 rounded transition-opacity hover:opacity-70"
+              style={{
+                background:  notifPermission === 'denied' ? 'hsl(0 10% 95%)' : 'hsl(36 14% 90%)',
+                color:       notifPermission === 'denied' ? 'hsl(0 14% 50%)' : 'hsl(30 10% 35%)',
+              }}
+              title={notifPermission === 'denied' ? 'Blocked in browser — enable in System Settings' : 'Get notified even when this tab is in background'}
+            >
+              {notifPermission === 'denied' ? '🔕 Notifications blocked' : '🔔 Enable notifications'}
+            </button>
+          )}
           <p className="text-[11px]" style={{ color: 'hsl(30 8% 60%)' }}>v1.1.8</p>
         </div>
       </aside>
