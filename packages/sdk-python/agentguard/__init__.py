@@ -95,6 +95,7 @@ def auto(
     # ── Precision controls ─────────────────────────────────────────────────
     block_threshold: str = "HIGH",
     allow_tools: Optional[list] = None,
+    allow_categories: Optional[list] = None,
     audit_only: bool = False,
 ) -> AgentGuard:
     """
@@ -131,6 +132,7 @@ def auto(
         tool_categories=tool_categories or {},
         block_threshold=block_threshold,
         allow_tools=allow_tools or [],
+        allow_categories=allow_categories or [],
         audit_only=audit_only,
     )
     guard = AgentGuard(config)
@@ -166,19 +168,23 @@ def auto(
 #   AGENTGUARD_BLOCKING=1                       enable blocking mode (default: off)
 #   AGENTGUARD_BLOCK_LEVEL=CRITICAL             threshold: LOW|MEDIUM|HIGH|CRITICAL (default: HIGH)
 #   AGENTGUARD_AUDIT_ONLY=1                     log but never block (default: off)
-#   AGENTGUARD_ALLOW_TOOLS=fetch_page,crawl_url always-allow list (comma-separated)
-#   AGENTGUARD_AGENT_ID=my-agent               agent identifier (default: random uuid)
+#   AGENTGUARD_ALLOW_TOOLS=fetch_page,crawl_url      tool name allow-list (case-insensitive, comma-sep)
+#   AGENTGUARD_ALLOW_CATEGORIES=network,file          category allow-list (comma-separated)
+#   AGENTGUARD_AGENT_ID=my-agent                      agent identifier (default: random uuid)
 #
 _env_url = os.environ.get("AGENTGUARD_URL", "").strip()
 if _env_url:
-    _env_allow_raw = os.environ.get("AGENTGUARD_ALLOW_TOOLS", "").strip()
+    def _csv(key: str):
+        raw = os.environ.get(key, "").strip()
+        return [t.strip() for t in raw.split(",") if t.strip()] if raw else []
     auto(
         gateway_url=_env_url,
         agent_id=os.environ.get("AGENTGUARD_AGENT_ID") or None,
         blocking_mode=os.environ.get("AGENTGUARD_BLOCKING", "").lower() in ("1", "true", "yes"),
         block_threshold=os.environ.get("AGENTGUARD_BLOCK_LEVEL", "HIGH"),
         audit_only=os.environ.get("AGENTGUARD_AUDIT_ONLY", "").lower() in ("1", "true", "yes"),
-        allow_tools=[t.strip() for t in _env_allow_raw.split(",") if t.strip()] if _env_allow_raw else [],
+        allow_tools=_csv("AGENTGUARD_ALLOW_TOOLS"),
+        allow_categories=_csv("AGENTGUARD_ALLOW_CATEGORIES"),
     )
 
 

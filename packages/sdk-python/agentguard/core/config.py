@@ -101,8 +101,16 @@ class AgentGuardConfig(BaseModel):
         default_factory=list,
         description=(
             "Tool names that are always allowed, skipping all checks. "
-            "Use for trusted tools that should never be blocked. "
-            "E.g. ['fetch_page', 'crawl_url'] for a web crawler agent."
+            "Case-insensitive. E.g. ['fetch_page', 'crawl_url']."
+        )
+    )
+
+    allow_categories: list = Field(
+        default_factory=list,
+        description=(
+            "Tool categories that are always allowed, skipping all checks. "
+            "Options: network | file | database | shell | communication | unknown. "
+            "E.g. ['network'] to allow all web/crawl tools regardless of name."
         )
     )
 

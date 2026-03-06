@@ -80,11 +80,17 @@ class AutoInstrument:
 
     _SEV = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
 
-    def _should_skip(self, tool_name: str) -> bool:
-        """Return True if this tool is on the allow-list → skip all checks."""
+    def _should_skip_by_name(self, tool_name: str) -> bool:
+        """Return True if tool name is on the allow-list (case-insensitive)."""
         cfg         = self._guard.config
-        allow_tools = getattr(cfg, 'allow_tools', [])
-        return tool_name in allow_tools
+        allow_tools = [t.lower() for t in getattr(cfg, 'allow_tools', [])]
+        return tool_name.lower() in allow_tools
+
+    def _should_skip_by_category(self, category: str) -> bool:
+        """Return True if the tool's category is on the allow-list."""
+        cfg              = self._guard.config
+        allow_categories = getattr(cfg, 'allow_categories', [])
+        return category in allow_categories
 
     def _is_above_threshold(self, risk_level: str) -> bool:
         """Return True if risk_level meets or exceeds block_threshold."""
@@ -105,8 +111,9 @@ class AutoInstrument:
         cfg = self._guard.config
         if not getattr(cfg, 'blocking_mode', False):
             return
-        if self._should_skip(tool_name):
-            return  # whitelisted tool — always allow
+        if self._should_skip_by_name(tool_name):
+            print(f"[AEGIS] ⬜ '{tool_name}' in allow_tools — skipped")
+            return
 
         gateway_url = cfg.gateway_url.rstrip('/')
         timeout_s   = getattr(cfg, 'blocking_timeout_ms', 3000) / 1000
@@ -124,6 +131,12 @@ class AutoInstrument:
                 result = _json_mod.loads(resp.read())
 
             risk_level = result.get("risk_level", "LOW")
+            category   = result.get("category", "unknown")
+
+            # Category allow-list — e.g. allow_categories=["network"]
+            if self._should_skip_by_category(category):
+                print(f"[AEGIS] ⬜ '{tool_name}' ({category}) in allow_categories — skipped")
+                return
 
             # Threshold check — below threshold → audit only, don't block
             if not self._is_above_threshold(risk_level):
@@ -203,7 +216,8 @@ class AutoInstrument:
         cfg = self._guard.config
         if not getattr(cfg, 'blocking_mode', False):
             return
-        if self._should_skip(tool_name):
+        if self._should_skip_by_name(tool_name):
+            print(f"[AEGIS] ⬜ '{tool_name}' in allow_tools — skipped")
             return
 
         gateway_url = cfg.gateway_url.rstrip('/')
@@ -229,6 +243,11 @@ class AutoInstrument:
             result = await loop.run_in_executor(None, _do_check)
 
             risk_level = result.get("risk_level", "LOW")
+            category   = result.get("category", "unknown")
+
+            if self._should_skip_by_category(category):
+                print(f"[AEGIS] ⬜ '{tool_name}' ({category}) in allow_categories — skipped")
+                return
 
             if not self._is_above_threshold(risk_level):
                 return
