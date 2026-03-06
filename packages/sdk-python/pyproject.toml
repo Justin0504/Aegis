@@ -33,6 +33,9 @@ dev = [
     "anthropic>=0.20.0"
 ]
 
+[project.scripts]
+agentguard = "agentguard.dev_server:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["agentguard*"]

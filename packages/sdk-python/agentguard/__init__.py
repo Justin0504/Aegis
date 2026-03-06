@@ -63,6 +63,24 @@ def patch(
     return _default_guard
 
 
+def dev(
+    port: int = 8080,
+    db_path: str = ":memory:",
+    background: bool = False,
+    quiet: bool = False,
+):
+    """
+    Start an in-process AEGIS dev gateway — zero docker, zero setup.
+
+    Usage:
+        import agentguard
+        agentguard.dev(background=True)          # non-blocking
+        agentguard.auto("http://localhost:8080")  # then instrument
+    """
+    from .dev_server import start
+    return start(port=port, db_path=db_path, background=background, quiet=quiet)
+
+
 def auto(
     gateway_url: str = "http://localhost:8080",
     agent_id: Optional[str] = None,
@@ -111,16 +129,18 @@ def auto(
     _default_guard = guard
 
     instrument = AutoInstrument(guard)
-    anthropic_ok  = instrument.patch_anthropic()
-    openai_ok     = instrument.patch_openai()
-    langgraph_ok  = instrument.patch_langgraph()
-    crewai_ok     = instrument.patch_crewai()
+    anthropic_ok       = instrument.patch_anthropic()
+    anthropic_async_ok = instrument.patch_anthropic_async()
+    openai_ok          = instrument.patch_openai()
+    openai_async_ok    = instrument.patch_openai_async()
+    langgraph_ok       = instrument.patch_langgraph()
+    crewai_ok          = instrument.patch_crewai()
 
     patched = []
-    if anthropic_ok:  patched.append("Anthropic")
-    if openai_ok:     patched.append("OpenAI")
-    if langgraph_ok:  patched.append("LangGraph")
-    if crewai_ok:     patched.append("CrewAI")
+    if anthropic_ok or anthropic_async_ok: patched.append("Anthropic")
+    if openai_ok or openai_async_ok:       patched.append("OpenAI")
+    if langgraph_ok:                       patched.append("LangGraph")
+    if crewai_ok:                          patched.append("CrewAI")
 
     if patched:
         print(f"[AEGIS] Auto-instrumented: {', '.join(patched)} → {gateway_url}")
@@ -135,6 +155,7 @@ __all__ = [
     "AgentGuardConfig",
     "AgentGuardBlockedError",
     "auto",
+    "dev",
     "patch",
     "trace",
     "watch",

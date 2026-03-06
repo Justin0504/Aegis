@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { PolicyEngine } from '../policies/policy-engine';
 import { ToolCategory } from '../services/classifier';
+import { WebhookService } from '../services/webhooks';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,8 @@ export class CheckAPI {
   constructor(
     private db: Database.Database,
     private policyEngine: PolicyEngine,
-    private logger: Logger
+    private logger: Logger,
+    private webhooks?: WebhookService,
   ) {
     this.router = Router()
     this.initTable()
@@ -129,6 +131,14 @@ export class CheckAPI {
             risk_level: validation.risk_level,
           }, 'Check PENDING — awaiting human review')
 
+          this.webhooks?.fire({
+            event: 'pending', check_id: checkId,
+            agent_id: body.agent_id, tool_name: body.tool_name,
+            category: classification.category, risk_level: validation.risk_level,
+            reason: validation.violations?.[0],
+            timestamp: new Date().toISOString(),
+          })
+
           return res.json({
             decision:   'pending',
             check_id:   checkId,
@@ -141,6 +151,16 @@ export class CheckAPI {
 
         // ── FAST-PATH: auto decision ──────────────────────────────────────────
         const decision = validation.passed ? 'allow' : 'block'
+
+        if (decision === 'block') {
+          this.webhooks?.fire({
+            event: 'block', check_id: checkId,
+            agent_id: body.agent_id, tool_name: body.tool_name,
+            category: classification.category, risk_level: validation.risk_level,
+            reason: validation.violations?.[0],
+            timestamp: new Date().toISOString(),
+          })
+        }
 
         this.logger.info({
           check_id:   checkId,

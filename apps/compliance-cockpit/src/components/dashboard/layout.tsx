@@ -6,17 +6,18 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, Shield,
-  CheckCircle, AlertTriangle, Settings,
+  CheckCircle, AlertTriangle, Settings, FlaskConical,
 } from 'lucide-react'
 import { useTraceStream } from '@/hooks/useTraceStream'
 
 const navigation = [
-  { name: 'Overview',   href: '/',           icon: LayoutDashboard },
-  { name: 'Traces',     href: '/traces',     icon: FileText        },
-  { name: 'Policies',   href: '/policies',   icon: Shield          },
-  { name: 'Approvals',  href: '/approvals',  icon: CheckCircle     },
-  { name: 'Violations', href: '/violations', icon: AlertTriangle   },
-  { name: 'Settings',   href: '/settings',   icon: Settings        },
+  { name: 'Overview',    href: '/',            icon: LayoutDashboard },
+  { name: 'Traces',      href: '/traces',      icon: FileText        },
+  { name: 'Policies',    href: '/policies',    icon: Shield          },
+  { name: 'Approvals',   href: '/approvals',   icon: CheckCircle     },
+  { name: 'Violations',  href: '/violations',  icon: AlertTriangle   },
+  { name: 'Playground',  href: '/playground',  icon: FlaskConical    },
+  { name: 'Settings',    href: '/settings',    icon: Settings        },
 ]
 
 // Warm palette matching Claude's UI

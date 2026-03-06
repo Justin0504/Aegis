@@ -8,8 +8,11 @@ import { MCPProxyService } from './mcp/proxy-service';
 import { TraceAPI } from './api/traces';
 import { PolicyAPI } from './api/policies';
 import { ApprovalAPI } from './api/approvals';
+import { CheckAPI } from './api/check';
 import { PolicyEngine } from './policies/policy-engine';
 import { KillSwitchService } from './services/kill-switch';
+import { WebhookService } from './services/webhooks';
+import { WebhookAPI } from './api/webhooks';
 import { errorMiddleware } from './middleware/error';
 
 const logger = pino({
@@ -29,8 +32,9 @@ async function main() {
 
   // Initialize services
   const policyEngine = new PolicyEngine(db, logger);
-  const killSwitch = new KillSwitchService(db, logger);
-  const mcpProxy = new MCPProxyService(db, policyEngine, killSwitch, logger);
+  const killSwitch   = new KillSwitchService(db, logger);
+  const webhooks     = new WebhookService(db, logger);
+  const mcpProxy     = new MCPProxyService(db, policyEngine, killSwitch, logger);
 
   // Create Express app
   const app = express();
@@ -45,15 +49,21 @@ async function main() {
   app.use('/api/v1/traces', new TraceAPI(db, logger).router);
   app.use('/api/v1/policies', new PolicyAPI(db, policyEngine, logger).router);
   app.use('/api/v1/approvals', new ApprovalAPI(db, logger).router);
+  app.use('/api/v1/check',    new CheckAPI(db, policyEngine, logger, webhooks).router);
+  app.use('/api/v1/webhooks', new WebhookAPI(webhooks).router);
 
   // Stats endpoint
   app.get('/api/v1/stats', (req, res) => {
     try {
-      const totalTraces = (db.prepare('SELECT COUNT(*) as n FROM traces').get() as any).n;
-      const activeAgents = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE created_at > datetime('now', '-1 day')").get() as any).n;
-      const pendingApprovals = (db.prepare("SELECT COUNT(*) as n FROM approvals WHERE status = 'PENDING'").get() as any).n;
-      const violations24h = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-1 day')").get() as any).n;
-      res.json({ totalTraces, activeAgents, newAgents: activeAgents, pendingApprovals, criticalApprovals: 0, violations24h, blockedAgents: 0 });
+      const totalTraces    = (db.prepare('SELECT COUNT(*) as n FROM traces').get() as any).n;
+      const activeAgents   = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE timestamp > datetime('now', '-1 day')").get() as any).n;
+      const pendingApprovals = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE approval_status IS NULL").get() as any).n;
+      const rejectedCount  = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE approval_status = 'REJECTED'").get() as any).n;
+      let violations24h = 0;
+      try {
+        violations24h = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-1 day')").get() as any).n;
+      } catch {}
+      res.json({ totalTraces, activeAgents, newAgents: activeAgents, pendingApprovals, criticalApprovals: rejectedCount, violations24h, blockedAgents: rejectedCount });
     } catch (error) {
       logger.error({ error }, 'Failed to get stats');
       res.status(500).json({ error: 'Internal server error' });
