@@ -1,5 +1,6 @@
 export type AlertCondition = 'violation_count' | 'error_rate' | 'consecutive_errors' | 'tool_latency'
 export type AlertSeverity = 'warning' | 'critical'
+export type AlertDestination = 'webhook' | 'slack' | 'pagerduty'
 
 export interface AlertRule {
   id: string
@@ -9,7 +10,8 @@ export interface AlertRule {
   threshold: number        // e.g. 3 violations, 50% error rate, 5000ms
   windowMinutes: number    // time window to evaluate over
   severity: AlertSeverity
-  webhookUrl?: string      // Slack or generic webhook
+  destinationType?: AlertDestination  // default: 'webhook'
+  webhookUrl?: string      // webhook/slack URL or PagerDuty integration key
   cooldownMinutes: number  // don't re-fire within this period
 }
 
@@ -80,17 +82,22 @@ export function evaluateRules(rules: AlertRule[], traces: any[]): AlertEvent[] {
     let value = 0
     let message = ''
 
+    // A trace is "failed" if it was blocked OR safety_validation.passed === false
+    const isFailed = (t: any): boolean =>
+      t.blocked === 1 || t.blocked === true ||
+      (t.safety_validation && t.safety_validation.passed === false)
+
     switch (rule.condition) {
       case 'violation_count': {
-        value = recent.filter(t => t.observation?.error).length
-        message = `${value} errors in last ${rule.windowMinutes}min`
+        value = recent.filter(isFailed).length
+        message = `${value} violations in last ${rule.windowMinutes}min`
         break
       }
       case 'error_rate': {
         if (recent.length === 0) continue
-        const errors = recent.filter(t => t.observation?.error).length
+        const errors = recent.filter(isFailed).length
         value = Math.round((errors / recent.length) * 100)
-        message = `Error rate ${value}% (${errors}/${recent.length} traces)`
+        message = `Violation rate ${value}% (${errors}/${recent.length} traces)`
         break
       }
       case 'consecutive_errors': {
@@ -99,19 +106,20 @@ export function evaluateRules(rules: AlertRule[], traces: any[]): AlertEvent[] {
         )
         let count = 0
         for (const t of sorted) {
-          if (t.observation?.error) count++
+          if (isFailed(t)) count++
           else break
         }
         value = count
-        message = `${value} consecutive errors`
+        message = `${value} consecutive violations`
         break
       }
       case 'tool_latency': {
-        const withDur = recent.filter(t => t.observation?.duration_ms !== undefined)
-        if (withDur.length === 0) continue
-        const avg = withDur.reduce((s, t) => s + t.observation.duration_ms, 0) / withDur.length
+        // cost_usd * 1000 as a proxy if no duration; skip if no data
+        const withCost = recent.filter(t => t.cost_usd > 0)
+        if (withCost.length === 0) continue
+        const avg = withCost.reduce((s: number, t: any) => s + (t.cost_usd * 100000), 0) / withCost.length
         value = Math.round(avg)
-        message = `Average latency ${value}ms`
+        message = `Avg cost index ${value} (scaled)`
         break
       }
     }

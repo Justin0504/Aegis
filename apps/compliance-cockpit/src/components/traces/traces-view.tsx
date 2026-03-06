@@ -26,6 +26,30 @@ export function TracesView() {
     }
   }
 
+  function handleExportCsv(allTraces: any[]) {
+    const rows = allTraces.map(t => {
+      const tool = (() => { try { return JSON.parse(t.tool_call) } catch { return {} } })()
+      const safe = (() => { try { return JSON.parse(t.safety_validation) } catch { return {} } })()
+      return [
+        t.trace_id, t.agent_id, t.timestamp, t.environment,
+        tool?.name ?? '', safe?.risk_level ?? '', safe?.passed ? 'pass' : 'fail',
+        t.blocked ? 'blocked' : '', t.session_id ?? '', t.model ?? '',
+        t.cost_usd ?? 0, t.pii_detected ? 'yes' : 'no',
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    })
+    const csv = [
+      'trace_id,agent_id,timestamp,environment,tool_name,risk_level,result,blocked,session_id,model,cost_usd,pii',
+      ...rows,
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `aegis-traces-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const { data: traces } = useQuery({
     queryKey: ['traces', selectedAgent],
     queryFn: async () => {
@@ -48,15 +72,26 @@ export function TracesView() {
           <h1 className="text-3xl font-bold tracking-tight">Traces</h1>
           <p className="text-muted-foreground">Forensic audit trail of all agent actions</p>
         </div>
-        <button
-          onClick={() => handleExport(traces?.traces || [])}
-          disabled={exporting || !traces?.traces?.length}
-          className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border font-medium transition-colors disabled:opacity-40"
-          style={{ borderColor: 'hsl(36 12% 85%)', color: 'hsl(30 10% 25%)', background: '#fff' }}
-        >
-          <FileDown className="h-4 w-4" />
-          {exporting ? 'Generating…' : 'Export PDF'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExportCsv(traces?.traces || [])}
+            disabled={!traces?.traces?.length}
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border font-medium transition-colors disabled:opacity-40"
+            style={{ borderColor: 'hsl(36 12% 85%)', color: 'hsl(30 10% 25%)', background: '#fff' }}
+          >
+            <FileDown className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => handleExport(traces?.traces || [])}
+            disabled={exporting || !traces?.traces?.length}
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border font-medium transition-colors disabled:opacity-40"
+            style={{ borderColor: 'hsl(36 12% 85%)', color: 'hsl(30 10% 25%)', background: '#fff' }}
+          >
+            <FileDown className="h-4 w-4" />
+            {exporting ? 'Generating…' : 'Export PDF'}
+          </button>
+        </div>
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">

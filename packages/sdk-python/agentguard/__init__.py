@@ -145,12 +145,22 @@ def auto(
     openai_async_ok    = instrument.patch_openai_async()
     langgraph_ok       = instrument.patch_langgraph()
     crewai_ok          = instrument.patch_crewai()
+    gemini_ok          = instrument.patch_gemini()
+    bedrock_ok         = instrument.patch_bedrock()
+    mistral_ok         = instrument.patch_mistral()
+    llamaindex_ok      = instrument.patch_llamaindex()
+    smolagents_ok      = instrument.patch_smolagents()
 
     patched = []
     if anthropic_ok or anthropic_async_ok: patched.append("Anthropic")
     if openai_ok or openai_async_ok:       patched.append("OpenAI")
     if langgraph_ok:                       patched.append("LangGraph")
     if crewai_ok:                          patched.append("CrewAI")
+    if gemini_ok:                          patched.append("Gemini")
+    if bedrock_ok:                         patched.append("Bedrock")
+    if mistral_ok:                         patched.append("Mistral")
+    if llamaindex_ok:                      patched.append("LlamaIndex")
+    if smolagents_ok:                      patched.append("smolagents")
 
     if patched:
         print(f"[AEGIS] Auto-instrumented: {', '.join(patched)} → {gateway_url}")
@@ -200,4 +210,4 @@ __all__ = [
     "wrap_tools",
 ]
 
-__version__ = "1.1.8"
+__version__ = "1.2.0"

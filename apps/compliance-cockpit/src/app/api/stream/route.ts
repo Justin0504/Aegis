@@ -6,8 +6,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   const encoder = new TextEncoder()
+  const { searchParams } = new URL(request.url)
   let lastTimestamp: string | null = null
-  let lastEventTimestamp: string | null = null
+  // Client passes its last-seen alert timestamp so we don't replay on refresh
+  let lastEventTimestamp: string | null = searchParams.get('alertSince') ?? new Date().toISOString()
   let closed = false
 
   const stream = new ReadableStream({

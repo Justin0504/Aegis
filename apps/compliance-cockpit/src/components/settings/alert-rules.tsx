@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Bell, BellOff } from 'lucide-react'
-import { loadRules, saveRules, AlertRule, AlertCondition, AlertSeverity } from '@/lib/alerts'
+import { loadRules, saveRules, AlertRule, AlertCondition, AlertSeverity, AlertDestination } from '@/lib/alerts'
 
 const CONDITION_LABELS: Record<AlertCondition, string> = {
   violation_count: 'Error count in window',
@@ -39,6 +39,7 @@ export function AlertRules() {
       threshold: 5,
       windowMinutes: 10,
       severity: 'warning',
+      destinationType: 'webhook',
       webhookUrl: '',
       cooldownMinutes: 15,
     }
@@ -146,18 +147,37 @@ export function AlertRules() {
             </div>
           </div>
 
-          {/* Row 3: webhook + cooldown */}
+          {/* Row 3: destination type + value + cooldown */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2">
+            <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'hsl(30 8% 50%)' }}>
-                Webhook URL (Slack / custom)
+                Destination
+              </label>
+              <select
+                className={INPUT.base}
+                style={INPUT.style}
+                value={rule.destinationType ?? 'webhook'}
+                onChange={e => update(rule.id, { destinationType: e.target.value as AlertDestination })}
+              >
+                <option value="webhook">Webhook</option>
+                <option value="slack">Slack</option>
+                <option value="pagerduty">PagerDuty</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'hsl(30 8% 50%)' }}>
+                {(rule.destinationType ?? 'webhook') === 'pagerduty' ? 'Integration Key' : 'URL'}
               </label>
               <input
                 className={INPUT.base}
                 style={INPUT.style}
                 value={rule.webhookUrl || ''}
                 onChange={e => update(rule.id, { webhookUrl: e.target.value })}
-                placeholder="https://hooks.slack.com/services/…"
+                placeholder={
+                  (rule.destinationType ?? 'webhook') === 'slack' ? 'https://hooks.slack.com/…' :
+                  (rule.destinationType ?? 'webhook') === 'pagerduty' ? 'abc123xyz integration key' :
+                  'https://your-webhook-url.com'
+                }
               />
             </div>
             <div>

@@ -1,5 +1,15 @@
 import Database from 'better-sqlite3';
 import { Logger } from 'pino';
+import { randomUUID } from 'crypto';
+
+export function getOrCreateDashboardKey(db: Database.Database): string {
+  db.exec(`CREATE TABLE IF NOT EXISTS gateway_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+  const row = db.prepare('SELECT value FROM gateway_config WHERE key = ?').get('dashboard_api_key') as { value: string } | undefined;
+  if (row) return row.value;
+  const key = randomUUID();
+  db.prepare('INSERT INTO gateway_config (key, value) VALUES (?, ?)').run('dashboard_api_key', key);
+  return key;
+}
 
 export interface TraceRecord {
   id: string;
@@ -198,6 +208,9 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists — safe to ignore */ }
   }
+
+  // Ensure gateway_config table exists (for dashboard API key)
+  db.exec(`CREATE TABLE IF NOT EXISTS gateway_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
 
   return db;
 }

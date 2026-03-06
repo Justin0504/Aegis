@@ -701,6 +701,296 @@ class AutoInstrument:
             print(f"[AEGIS] CrewAI auto-patch failed: {e}")
             return False
 
+    # ── Google Gemini ───────────────────────────────────────────────────────
+
+    def patch_gemini(self) -> bool:
+        """Patches google.generativeai GenerativeModel (sync + async)."""
+        patched_any = False
+        try:
+            import google.generativeai.generative_models as _mod
+            original_generate = _mod.GenerativeModel.generate_content
+            instrument = self
+
+            def patched_generate(self_model, contents, **kwargs):
+                # Extract function calls from previous response if present
+                tool_name = "gemini_generate"
+                args = {"contents": str(contents)[:500]}
+                instrument._check_block(tool_name, args)
+                start = time.time()
+                response = original_generate(self_model, contents, **kwargs)
+                # Detect function calls in response
+                for candidate in getattr(response, "candidates", []):
+                    for part in getattr(candidate.content, "parts", []):
+                        fc = getattr(part, "function_call", None)
+                        if fc and fc.name:
+                            import json as _j
+                            fc_args = dict(fc.args) if fc.args else {}
+                            instrument._check_block(fc.name, fc_args)
+                            instrument._send_trace(
+                                tool_name=fc.name, input_prompt=str(contents)[:500],
+                                arguments=fc_args, result=None,
+                                start_time=start, error=None,
+                            )
+                return response
+
+            _mod.GenerativeModel.generate_content = patched_generate
+            patched_any = True
+        except Exception as e:
+            print(f"[AEGIS] Gemini sync auto-patch failed: {e}")
+
+        try:
+            import google.generativeai.generative_models as _mod
+            original_async = _mod.GenerativeModel.generate_content_async
+            instrument = self
+
+            async def patched_generate_async(self_model, contents, **kwargs):
+                start = time.time()
+                response = await original_async(self_model, contents, **kwargs)
+                for candidate in getattr(response, "candidates", []):
+                    for part in getattr(candidate.content, "parts", []):
+                        fc = getattr(part, "function_call", None)
+                        if fc and fc.name:
+                            fc_args = dict(fc.args) if fc.args else {}
+                            await instrument._async_check_block(fc.name, fc_args)
+                            instrument._send_trace(
+                                tool_name=fc.name, input_prompt=str(contents)[:500],
+                                arguments=fc_args, result=None,
+                                start_time=start, error=None,
+                            )
+                return response
+
+            _mod.GenerativeModel.generate_content_async = patched_generate_async
+        except Exception as e:
+            print(f"[AEGIS] Gemini async auto-patch failed: {e}")
+
+        return patched_any
+
+    # ── AWS Bedrock ─────────────────────────────────────────────────────────
+
+    def patch_bedrock(self) -> bool:
+        """Patches boto3 bedrock-runtime client converse() method."""
+        try:
+            import boto3
+            import botocore.client as _bc
+            original_make_api_call = _bc.ClientCreator._create_api_method
+            instrument = self
+
+            # Patch at the session level — intercept converse calls
+            original_make_call = None
+            try:
+                import botocore.endpoint as _ep
+                original_http = _ep.BotocoreHTTPSession.send
+            except Exception:
+                pass
+
+            # Simpler approach: patch via event system
+            session = boto3.Session()
+            original_create = session.__class__.client
+
+            def patched_client(self_sess, service_name, **kwargs):
+                client = original_create(self_sess, service_name, **kwargs)
+                if service_name == "bedrock-runtime":
+                    orig_converse = client.converse
+
+                    def patched_converse(**kw):
+                        msgs = kw.get("messages", [])
+                        tool_name = "bedrock_converse"
+                        args = {"model": kw.get("modelId", ""), "messages": len(msgs)}
+                        instrument._check_block(tool_name, args)
+                        start = time.time()
+                        resp = orig_converse(**kw)
+                        # Detect toolUse in output
+                        output = resp.get("output", {}).get("message", {})
+                        for block in output.get("content", []):
+                            if "toolUse" in block:
+                                tu = block["toolUse"]
+                                instrument._check_block(tu.get("name", ""), tu.get("input", {}))
+                                instrument._send_trace(
+                                    tool_name=tu.get("name", "bedrock_tool"),
+                                    input_prompt=str(msgs[-1] if msgs else ""),
+                                    arguments=tu.get("input", {}),
+                                    result=None, start_time=start, error=None,
+                                )
+                        return resp
+
+                    client.converse = patched_converse
+                return client
+
+            session.__class__.client = patched_client
+            return True
+        except Exception as e:
+            print(f"[AEGIS] Bedrock auto-patch failed: {e}")
+            return False
+
+    # ── Mistral ─────────────────────────────────────────────────────────────
+
+    def patch_mistral(self) -> bool:
+        """Patches mistralai SDK chat.complete (sync + async)."""
+        patched_any = False
+        try:
+            import mistralai.client as _mod
+            original_complete = _mod.MistralClient.chat
+            instrument = self
+
+            def patched_chat(self_client, messages, **kwargs):
+                start = time.time()
+                resp = original_complete(self_client, messages, **kwargs)
+                choice = resp.choices[0] if resp.choices else None
+                if choice and getattr(choice.message, "tool_calls", None):
+                    import json as _j
+                    for tc in choice.message.tool_calls:
+                        try:
+                            args = _j.loads(tc.function.arguments or "{}")
+                        except Exception:
+                            args = {}
+                        instrument._check_block(tc.function.name, args)
+                        instrument._send_trace(
+                            tool_name=tc.function.name,
+                            input_prompt=str(messages[-1] if messages else ""),
+                            arguments=args, result=None,
+                            start_time=start, error=None,
+                        )
+                return resp
+
+            _mod.MistralClient.chat = patched_chat
+            patched_any = True
+        except Exception:
+            pass
+
+        # mistralai >= 1.0 uses Mistral client
+        try:
+            import mistralai as _mistral
+            if hasattr(_mistral, "Mistral"):
+                original_complete = _mistral.Mistral.chat.complete
+                instrument = self
+
+                def patched_complete(self_chat, messages=None, **kwargs):
+                    start = time.time()
+                    resp = original_complete(self_chat, messages=messages, **kwargs)
+                    choice = resp.choices[0] if resp.choices else None
+                    if choice and getattr(choice.message, "tool_calls", None):
+                        import json as _j
+                        for tc in choice.message.tool_calls:
+                            try:
+                                args = _j.loads(tc.function.arguments or "{}")
+                            except Exception:
+                                args = {}
+                            instrument._check_block(tc.function.name, args)
+                            instrument._send_trace(
+                                tool_name=tc.function.name,
+                                input_prompt="mistral_chat",
+                                arguments=args, result=None,
+                                start_time=start, error=None,
+                            )
+                    return resp
+
+                _mistral.Mistral.chat.complete = patched_complete
+                patched_any = True
+        except Exception as e:
+            print(f"[AEGIS] Mistral auto-patch failed: {e}")
+
+        return patched_any
+
+    # ── LlamaIndex ──────────────────────────────────────────────────────────
+
+    def patch_llamaindex(self) -> bool:
+        """Patches llama_index.core.tools FunctionTool._call and _acall."""
+        patched_any = False
+        try:
+            import llama_index.core.tools.function_tool as _mod
+            original_call = _mod.FunctionTool._call
+            instrument = self
+
+            def patched_call(self_tool, *args, **kwargs):
+                tool_name = getattr(self_tool.metadata, "name", self_tool.__class__.__name__)
+                tool_args = {"args": str(args)[:200], **kwargs}
+                instrument._check_block(tool_name, tool_args)
+                start  = time.time()
+                error: Optional[str] = None
+                result = None
+                try:
+                    result = original_call(self_tool, *args, **kwargs)
+                    return result
+                except Exception as e:
+                    error = str(e); raise
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name, input_prompt=str(args)[:500],
+                        arguments=tool_args, result=str(result) if result else None,
+                        start_time=start, error=error,
+                    )
+
+            _mod.FunctionTool._call = patched_call
+            patched_any = True
+        except Exception as e:
+            print(f"[AEGIS] LlamaIndex sync auto-patch failed: {e}")
+
+        try:
+            import llama_index.core.tools.function_tool as _mod
+            original_acall = _mod.FunctionTool._acall
+            instrument = self
+
+            async def patched_acall(self_tool, *args, **kwargs):
+                tool_name = getattr(self_tool.metadata, "name", self_tool.__class__.__name__)
+                tool_args = {"args": str(args)[:200], **kwargs}
+                await instrument._async_check_block(tool_name, tool_args)
+                start  = time.time()
+                error: Optional[str] = None
+                result = None
+                try:
+                    result = await original_acall(self_tool, *args, **kwargs)
+                    return result
+                except Exception as e:
+                    error = str(e); raise
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name, input_prompt=str(args)[:500],
+                        arguments=tool_args, result=str(result) if result else None,
+                        start_time=start, error=error,
+                    )
+
+            _mod.FunctionTool._acall = patched_acall
+        except Exception as e:
+            print(f"[AEGIS] LlamaIndex async auto-patch failed: {e}")
+
+        return patched_any
+
+    # ── smolagents (Hugging Face) ────────────────────────────────────────────
+
+    def patch_smolagents(self) -> bool:
+        """Patches smolagents.tools.Tool.__call__."""
+        try:
+            import smolagents.tools as _mod
+            original_call = _mod.Tool.__call__
+            instrument = self
+
+            def patched_call(self_tool, *args, **kwargs):
+                tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
+                import json as _j
+                tool_args = kwargs if kwargs else ({"input": str(args[0])} if args else {})
+                instrument._check_block(tool_name, tool_args)
+                start  = time.time()
+                error: Optional[str] = None
+                result = None
+                try:
+                    result = original_call(self_tool, *args, **kwargs)
+                    return result
+                except Exception as e:
+                    error = str(e); raise
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name,
+                        input_prompt=str(args[0])[:500] if args else tool_name,
+                        arguments=tool_args, result=str(result) if result else None,
+                        start_time=start, error=error,
+                    )
+
+            _mod.Tool.__call__ = patched_call
+            return True
+        except Exception as e:
+            print(f"[AEGIS] smolagents auto-patch failed: {e}")
+            return False
+
     # ── Send trace ─────────────────────────────────────────────────────────
 
     def _send_trace(

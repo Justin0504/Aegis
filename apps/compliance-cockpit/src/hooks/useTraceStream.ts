@@ -28,7 +28,9 @@ export function useTraceStream() {
   }, [])
 
   useEffect(() => {
-    const es = new EventSource('/api/stream')
+    // Resume from last seen alert timestamp — survives page refresh
+    const alertSince = sessionStorage.getItem('aegis_alert_since') ?? new Date().toISOString()
+    const es = new EventSource(`/api/stream?alertSince=${encodeURIComponent(alertSince)}`)
     esRef.current = es
 
     es.addEventListener('connected', () => setConnected(true))
@@ -62,7 +64,8 @@ export function useTraceStream() {
     es.addEventListener('alert', (e) => {
       try {
         const alert: BlockAlert = JSON.parse(e.data)
-        // OS-level notification (works even when tab is in background)
+        // Persist timestamp so refresh doesn't replay old alerts
+        sessionStorage.setItem('aegis_alert_since', alert.timestamp)
         notify(alert)
         setAlerts(prev => {
           if (prev.some(a => a.id === alert.id)) return prev
