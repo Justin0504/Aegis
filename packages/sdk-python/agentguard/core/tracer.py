@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import json
+import os
 import time
 import traceback
 from contextlib import contextmanager
@@ -459,7 +460,3 @@ class AgentGuard:
             parsed_steps=[],
             confidence_score=None,
         )
-
-
-# Import os at module level
-import os

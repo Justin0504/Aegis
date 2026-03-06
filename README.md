@@ -6,8 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI](https://img.shields.io/pypi/v/agentguard-aegis?label=PyPI&color=blue)](https://pypi.org/project/agentguard-aegis/)
-[![npm](https://img.shields.io/badge/npm-agentguard-red)](https://www.npmjs.com/package/agentguard)
-[![Docker](https://img.shields.io/badge/docker-ready-0db7ed)](https://hub.docker.com/r/agentguard/aegis)
+[![npm](https://img.shields.io/badge/npm-%40justinnn%2Fagentguard-red)](https://www.npmjs.com/package/@justinnn/agentguard)
+[![Docker](https://img.shields.io/badge/ghcr.io-aegis--gateway-0db7ed)](https://github.com/Justin0504/Aegis/pkgs/container/aegis-gateway)
 
 *Pre-execution blocking · Human-in-the-loop approvals · Cryptographic audit trail · 9 frameworks · Zero code changes*
 
@@ -30,8 +30,8 @@ Logging what happened is not enough. You need to **stop it before it happens**.
 ## 30-second setup
 
 ```bash
-git clone https://github.com/agentguard/agentguard
-cd agentguard
+git clone https://github.com/Justin0504/Aegis
+cd Aegis
 docker compose up -d
 ```
 
@@ -141,6 +141,7 @@ Every other agent observability tool tells you **what happened**. AEGIS **preven
 | **Kill switch** | ❌ | ❌ | ❌ | ✅ |
 | **Natural language policy editor** | ❌ | ❌ | ❌ | ✅ |
 | **Claude Desktop MCP integration** | ❌ | ❌ | ❌ | ✅ |
+| **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable | ✅ | ❌ | ❌ | ✅ |
 
 ---
@@ -166,11 +167,11 @@ pip install agentguard-aegis
 **JavaScript / TypeScript:**
 
 ```bash
-npm install agentguard
+npm install @justinnn/agentguard
 ```
 
 ```typescript
-import agentguard from 'agentguard'
+import agentguard from '@justinnn/agentguard'
 agentguard.auto('http://localhost:8080', { agentId: 'my-agent', blockingMode: true })
 // existing Anthropic / OpenAI / LangChain code unchanged
 ```
@@ -302,7 +303,7 @@ MIT-licensed. No telemetry. No data leaves your infrastructure.
 packages/
   gateway-mcp/          Node.js gateway (Express + SQLite)
   sdk-python/           pip install agentguard-aegis
-  sdk-js/               npm install agentguard
+  sdk-js/               npm install @justinnn/agentguard
   core-schema/          shared TypeScript types
 
 apps/
@@ -314,8 +315,6 @@ apps/
 docker compose up -d
 ```
 
-**Kubernetes:** Helm chart and manifests in `kubernetes/`
-
 ---
 
 ## Contributing
@@ -323,8 +322,8 @@ docker compose up -d
 Issues and PRs welcome.
 
 ```bash
-git clone https://github.com/agentguard/agentguard
-cd agentguard
+git clone https://github.com/Justin0504/Aegis
+cd Aegis
 docker compose -f docker-compose.dev.yml up
 ```
 

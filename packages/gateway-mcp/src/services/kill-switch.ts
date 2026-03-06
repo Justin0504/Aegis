@@ -149,7 +149,8 @@ export class KillSwitchService {
     windowRemaining: number;
   } {
     const violations = this.violationCounts.get(agentId);
-    const blocked = this.isAgentBlocked(agentId);
+    const row = this.db.prepare(`SELECT status FROM api_keys WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1`).get(agentId) as any;
+    const blocked = row?.status === 'REVOKED';
 
     if (!violations) {
       return {
@@ -164,7 +165,7 @@ export class KillSwitchService {
     const windowRemaining = Math.max(0, windowEnd - now);
 
     return {
-      blocked: false,
+      blocked,
       violationCount: violations.count,
       windowRemaining: Math.floor(windowRemaining / 1000), // seconds
     };

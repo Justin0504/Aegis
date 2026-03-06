@@ -40,7 +40,7 @@ export class ApprovalAPI {
           : this.db.prepare(query).all()) as any[];
         const parsed = rows.map((a: any) => ({
           ...a,
-          tool_call: JSON.parse(a.tool_call),
+          tool_call: a.tool_call ? JSON.parse(a.tool_call) : null,
         }));
         res.json(parsed);
       } catch (error) {
@@ -64,7 +64,7 @@ export class ApprovalAPI {
 
         const parsed = approvals.map((a: any) => ({
           ...a,
-          tool_call: JSON.parse(a.tool_call),
+          tool_call: a.tool_call ? JSON.parse(a.tool_call) : null,
         }));
 
         res.json(parsed);
