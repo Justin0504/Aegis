@@ -1,13 +1,14 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertRules } from './alert-rules'
 
 export function SettingsView() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Gateway configuration and SDK connection details</p>
+        <p className="text-muted-foreground">Gateway configuration, alerts, and SDK connection details</p>
       </div>
 
       <Card>
@@ -25,22 +26,26 @@ export function SettingsView() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Alert Rules</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AlertRules />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">SDK Quick Start</CardTitle>
         </CardHeader>
         <CardContent>
           <pre className="text-xs bg-muted rounded p-4 overflow-auto">{`pip install agentguard-aegis
 
-from agentguard import AgentGuard, AgentGuardConfig
+import agentguard
+agentguard.auto("http://localhost:8080", agent_id="my-agent")
 
-guard = AgentGuard(AgentGuardConfig(
-    agent_id="my-agent",
-    gateway_url="http://localhost:8080",
-    enable_signing=False,
-))
-
-@guard.trace(tool_name="my_tool")
-def my_tool(query: str):
-    return "result"`}</pre>
+# Everything below is unchanged — no decorators needed
+client = anthropic.Anthropic()
+response = client.messages.create(...)`}</pre>
         </CardContent>
       </Card>
 

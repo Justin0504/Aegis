@@ -39,6 +39,23 @@ class TransportService:
         # Flush on clean exit
         atexit.register(self.shutdown)
 
+    def send_trace_dict(self, trace_dict: dict) -> bool:
+        """Send a pre-serialized trace dict (allows extra fields like session_id)."""
+        if self.config.enable_async:
+            try:
+                self._trace_queue.put_nowait(trace_dict)
+                return True
+            except queue.Full:
+                return False
+        else:
+            try:
+                response = self._client.post("/api/v1/traces", json=trace_dict)
+                response.raise_for_status()
+                return True
+            except Exception as e:
+                print(f"Failed to send trace: {e}")
+                return False
+
     def send_trace(self, trace: AgentActionTrace) -> bool:
         """Send a trace to the gateway."""
         if self.config.enable_async:
@@ -76,8 +93,8 @@ class TransportService:
             try:
                 # Drain queue into batch
                 try:
-                    trace = self._trace_queue.get(timeout=0.1)
-                    self._batch.append(trace)
+                    item = self._trace_queue.get(timeout=0.1)
+                    self._batch.append(item)
                 except queue.Empty:
                     pass
 
@@ -103,11 +120,13 @@ class TransportService:
         self._last_flush = time.time()
 
         try:
+            def _serialise(t):
+                return t if isinstance(t, dict) else t.model_dump(mode="json")
             # Send batch
             response = self._client.post(
                 "/api/v1/traces/batch",
                 json={
-                    "traces": [trace.model_dump(mode="json") for trace in batch],
+                    "traces": [_serialise(t) for t in batch],
                     "agent_id": self.config.agent_id,
                 },
             )
@@ -118,7 +137,7 @@ class TransportService:
                 for trace in batch:
                     self._save_trace_locally(trace)
 
-    def _save_trace_locally(self, trace: AgentActionTrace):
+    def _save_trace_locally(self, trace):
         """Save trace to local storage as fallback."""
         if not self.config.local_storage_path:
             storage_path = Path.home() / ".agentguard" / "traces"
@@ -127,10 +146,10 @@ class TransportService:
 
         storage_path.mkdir(parents=True, exist_ok=True)
 
-        # Save trace as JSON file
-        trace_file = storage_path / f"{trace.trace_id}_{trace.timestamp.isoformat()}.json"
+        data = trace if isinstance(trace, dict) else trace.model_dump(mode="json")
+        trace_file = storage_path / f"{data.get('trace_id', 'unknown')}.json"
         with open(trace_file, "w") as f:
-            json.dump(trace.model_dump(mode="json"), f, indent=2)
+            json.dump(data, f, indent=2)
 
     def shutdown(self):
         """Shutdown the transport service."""

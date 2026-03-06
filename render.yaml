@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: agentguard-gateway
+    runtime: docker
+    dockerfilePath: ./docker/gateway.Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DB_PATH
+        value: /data/agentguard.db
+    disk:
+      name: agentguard-data
+      mountPath: /data
+      sizeGB: 1
+
+  - type: web
+    name: agentguard-cockpit
+    runtime: docker
+    dockerfilePath: ./docker/cockpit.Dockerfile
+    plan: free
+    envVars:
+      - key: GATEWAY_URL
+        fromService:
+          type: web
+          name: agentguard-gateway
+          property: host

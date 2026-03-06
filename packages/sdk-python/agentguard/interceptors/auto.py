@@ -76,23 +76,42 @@ class AutoInstrument:
             return check_id, risk_level, category
         return None
 
+    # ── Shared pre-check helpers ────────────────────────────────────────────
+
+    _SEV = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+
+    def _should_skip(self, tool_name: str) -> bool:
+        """Return True if this tool is on the allow-list → skip all checks."""
+        cfg         = self._guard.config
+        allow_tools = getattr(cfg, 'allow_tools', [])
+        return tool_name in allow_tools
+
+    def _is_above_threshold(self, risk_level: str) -> bool:
+        """Return True if risk_level meets or exceeds block_threshold."""
+        cfg       = self._guard.config
+        threshold = getattr(cfg, 'block_threshold', 'HIGH')
+        return self._SEV.get(risk_level, 0) >= self._SEV.get(threshold, 2)
+
     # ── Sync blocking check ─────────────────────────────────────────────────
 
     def _check_block(self, tool_name: str, arguments: dict) -> None:
         """
         Call /api/v1/check synchronously.
         decision=allow   → return
-        decision=block   → raise AgentGuardBlockedError
+        decision=block   → raise AgentGuardBlockedError (unless audit_only)
         decision=pending → poll synchronously until human decides or timeout
         On network error → fail-open or fail-closed per config.
         """
         cfg = self._guard.config
         if not getattr(cfg, 'blocking_mode', False):
             return
+        if self._should_skip(tool_name):
+            return  # whitelisted tool — always allow
 
         gateway_url = cfg.gateway_url.rstrip('/')
         timeout_s   = getattr(cfg, 'blocking_timeout_ms', 3000) / 1000
         fail_open   = getattr(cfg, 'fail_open', True)
+        audit_only  = getattr(cfg, 'audit_only', False)
 
         try:
             req = urllib.request.Request(
@@ -103,6 +122,20 @@ class AutoInstrument:
             )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 result = _json_mod.loads(resp.read())
+
+            risk_level = result.get("risk_level", "LOW")
+
+            # Threshold check — below threshold → audit only, don't block
+            if not self._is_above_threshold(risk_level):
+                if result.get("decision") == "block":
+                    print(f"[AEGIS] 📋 '{tool_name}' ({risk_level}) below threshold — audited, not blocked")
+                return
+
+            if audit_only:
+                decision = result.get("decision", "allow")
+                if decision == "block":
+                    print(f"[AEGIS] 📋 AUDIT '{tool_name}' would be {decision} ({risk_level}) — audit_only=True, allowing")
+                return
 
             pending_info = self._raise_if_blocked(tool_name, result)
             if pending_info:
@@ -166,17 +199,17 @@ class AutoInstrument:
     # ── Async blocking check ────────────────────────────────────────────────
 
     async def _async_check_block(self, tool_name: str, arguments: dict) -> None:
-        """
-        Async version of _check_block. Uses asyncio.sleep for polling.
-        Falls back to running sync version in executor if event loop issues arise.
-        """
+        """Async version of _check_block."""
         cfg = self._guard.config
         if not getattr(cfg, 'blocking_mode', False):
+            return
+        if self._should_skip(tool_name):
             return
 
         gateway_url = cfg.gateway_url.rstrip('/')
         timeout_s   = getattr(cfg, 'blocking_timeout_ms', 3000) / 1000
         fail_open   = getattr(cfg, 'fail_open', True)
+        audit_only  = getattr(cfg, 'audit_only', False)
 
         try:
             # Use asyncio-friendly HTTP (run blocking urllib in thread pool)
@@ -194,6 +227,17 @@ class AutoInstrument:
                     return _json_mod.loads(resp.read())
 
             result = await loop.run_in_executor(None, _do_check)
+
+            risk_level = result.get("risk_level", "LOW")
+
+            if not self._is_above_threshold(risk_level):
+                return
+
+            if audit_only:
+                decision = result.get("decision", "allow")
+                if decision == "block":
+                    print(f"[AEGIS] 📋 AUDIT '{tool_name}' would be {decision} ({risk_level}) — audit_only=True, allowing")
+                return
 
             pending_info = self._raise_if_blocked(tool_name, result)
             if pending_info:

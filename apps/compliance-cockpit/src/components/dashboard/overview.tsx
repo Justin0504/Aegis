@@ -13,6 +13,10 @@ import { RecentTraces } from './recent-traces'
 import { ViolationChart } from './violation-chart'
 import { ApprovalStats } from './approval-stats'
 import { AgentActivity } from './agent-activity'
+import { AnomalyPanel } from './anomaly-panel'
+import { CostPanel } from './cost-panel'
+import { EvalPanel } from './eval-panel'
+import { SessionsPanel } from './sessions-panel'
 
 export function DashboardOverview() {
   const { data: stats } = useQuery({
@@ -91,8 +95,12 @@ export function DashboardOverview() {
       <Tabs defaultValue="activity" className="space-y-4">
         <TabsList>
           <TabsTrigger value="activity">Agent Activity</TabsTrigger>
+          <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
           <TabsTrigger value="violations">Violations</TabsTrigger>
           <TabsTrigger value="approvals">Approval Stats</TabsTrigger>
+          <TabsTrigger value="costs">Costs</TabsTrigger>
+          <TabsTrigger value="eval">Eval</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
         </TabsList>
         <TabsContent value="activity" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -120,6 +128,20 @@ export function DashboardOverview() {
             </Card>
           </div>
         </TabsContent>
+        <TabsContent value="anomalies" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Anomaly Detection</CardTitle>
+              <CardDescription>
+                Statistical anomalies: frequency spikes, latency outliers, failure streaks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AnomalyPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="violations" className="space-y-4">
           <Card>
             <CardHeader>
@@ -143,6 +165,45 @@ export function DashboardOverview() {
             </CardHeader>
             <CardContent>
               <ApprovalStats />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="costs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Token Cost Tracking</CardTitle>
+              <CardDescription>
+                Token usage and USD spend across models and agents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CostPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="eval" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Evaluation & Scoring</CardTitle>
+              <CardDescription>
+                Thumbs up/down quality scores on individual traces
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EvalPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="sessions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sessions</CardTitle>
+              <CardDescription>
+                Grouped trace sessions across agents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SessionsPanel />
             </CardContent>
           </Card>
         </TabsContent>

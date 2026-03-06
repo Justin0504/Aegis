@@ -56,6 +56,13 @@ class AgentGuard:
         self._previous_hash: Optional[str] = None
         self._trace_stack: List[TraceContext] = []
 
+        # Normalise agent_id to UUID once — reused for every trace
+        try:
+            self._agent_uuid: UUID = UUID(self.config.agent_id)
+        except (ValueError, AttributeError):
+            self._agent_uuid = uuid4()
+            self.config.agent_id = str(self._agent_uuid)
+
         # Initialize components
         self._signing_service = self._init_signing_service()
         self._transport = TransportService(self.config)
@@ -310,7 +317,7 @@ class AgentGuard:
 
         # Create trace request
         trace_request = CreateTraceRequest(
-            agent_id=UUID(self.config.agent_id) if self._is_valid_uuid(self.config.agent_id) else uuid4(),
+            agent_id=self._agent_uuid,
             parent_trace_id=ctx.parent_trace_id,
             sequence_number=ctx.sequence_number,
             input_context=input_context,

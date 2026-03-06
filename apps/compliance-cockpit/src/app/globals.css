@@ -4,40 +4,51 @@
 
 @layer base {
   :root {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 93%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 93%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 93%;
-    --primary: 43 56% 52%;
-    --primary-foreground: 0 0% 7%;
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 0 0% 93%;
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 50%;
-    --accent: 43 56% 52%;
-    --accent-foreground: 0 0% 7%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 93%;
-    --border: 0 0% 15%;
-    --input: 0 0% 14%;
-    --ring: 43 56% 52%;
-    --radius: 0.375rem;
+    --background:           36 20% 95%;
+    --foreground:           30 10% 11%;
+    --card:                 0 0% 100%;
+    --card-foreground:      30 10% 11%;
+    --popover:              0 0% 100%;
+    --popover-foreground:   30 10% 11%;
+    --primary:              43 56% 42%;
+    --primary-foreground:   0 0% 100%;
+    --secondary:            36 14% 91%;
+    --secondary-foreground: 30 10% 30%;
+    --muted:                36 14% 91%;
+    --muted-foreground:     30 8% 46%;
+    --accent:               36 14% 88%;
+    --accent-foreground:    30 10% 20%;
+    --destructive:          0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border:               36 12% 88%;
+    --input:                36 12% 88%;
+    --ring:                 43 56% 42%;
+    --radius:               0.5rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  html { color-scheme: dark; }
+  html { color-scheme: light; }
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-plus-jakarta), var(--font-geist-sans), system-ui, sans-serif;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+  code, pre, .font-mono {
+    font-family: var(--font-geist-mono), 'Fira Code', monospace;
   }
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(0 0% 22%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 30%); }
+::-webkit-scrollbar-thumb { background: hsl(36 12% 80%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(36 12% 70%); }

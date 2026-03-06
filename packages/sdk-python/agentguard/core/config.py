@@ -81,12 +81,37 @@ class AgentGuardConfig(BaseModel):
     )
 
     # Tool category overrides — { "my_tool_name": "database" }
-    # Overrides auto-classification. Highest priority.
-    # Valid categories: database, file, network, shell, communication, data, unknown
     tool_categories: Dict[str, str] = Field(
         default_factory=dict,
-        description="Map tool names to categories to override auto-classification. "
-                    "E.g. {'run_query': 'database', 'call_api': 'network'}"
+        description="Map tool names to categories to override auto-classification."
+    )
+
+    # ── Precision controls (prevent over-blocking) ─────────────────────────
+
+    block_threshold: str = Field(
+        default="HIGH",
+        description=(
+            "Minimum risk level to block. Options: LOW | MEDIUM | HIGH | CRITICAL. "
+            "E.g. 'CRITICAL' only blocks the most dangerous calls, lets HIGH/MEDIUM through. "
+            "Default 'HIGH' blocks HIGH and CRITICAL, audits MEDIUM/LOW."
+        )
+    )
+
+    allow_tools: list = Field(
+        default_factory=list,
+        description=(
+            "Tool names that are always allowed, skipping all checks. "
+            "Use for trusted tools that should never be blocked. "
+            "E.g. ['fetch_page', 'crawl_url'] for a web crawler agent."
+        )
+    )
+
+    audit_only: bool = Field(
+        default=False,
+        description=(
+            "If True, log everything but never block. "
+            "Useful for discovering what AEGIS would block before enabling enforcement."
+        )
     )
 
     class Config:

@@ -8,6 +8,8 @@ import {
   TraceBundleSchema,
   validateTraceChain,
 } from '@agentguard/core-schema';
+import { calculateCost } from '../services/cost';
+import { redactObjectPii } from '../services/pii';
 
 export class TraceAPI {
   public readonly router: Router;
@@ -26,19 +28,16 @@ export class TraceAPI {
       try {
         const trace = AgentActionTraceSchema.parse(req.body);
 
-        // Verify hash chain
-        const previousTrace = this.getPreviousTrace(trace.agent_id);
-        if (previousTrace && trace.previous_hash !== previousTrace.integrity_hash) {
-          return res.status(400).json({
-            error: 'Invalid hash chain',
+        // Verify hash chain (soft validation — log but don't reject)
+        const previousTrace = this.getPreviousTrace(trace.agent_id as string);
+        if (previousTrace && trace.previous_hash && trace.previous_hash !== previousTrace.integrity_hash) {
+          this.logger.warn({
             expected: previousTrace.integrity_hash,
             received: trace.previous_hash,
-          });
+          }, 'Hash chain gap detected');
         }
 
-        // Store trace
-        await this.storeTrace(trace);
-
+        await this.storeTrace(trace, req.body);
         res.status(201).json({ trace_id: trace.trace_id });
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -52,68 +51,16 @@ export class TraceAPI {
     // Batch create traces
     this.router.post('/batch', async (req: Request, res: Response) => {
       try {
-        const { traces, agent_id } = req.body;
-
+        const { traces } = req.body;
         if (!Array.isArray(traces)) {
           return res.status(400).json({ error: 'traces must be an array' });
         }
-
-        // Validate all traces
-        const validTraces = traces.map(t => AgentActionTraceSchema.parse(t));
-
-        // Verify hash chain
-        if (!validateTraceChain(validTraces)) {
-          return res.status(400).json({ error: 'Invalid hash chain in batch' });
-        }
-
-        // Store all traces in transaction
-        const insertStmt = this.db.prepare(`
-          INSERT INTO traces (
-            trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
-            input_context, thought_chain, tool_call, observation,
-            integrity_hash, previous_hash, signature,
-            safety_validation, approval_status, approved_by,
-            environment, version, tags
-          ) VALUES (
-            ?, ?, ?, ?, ?,
-            ?, ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?,
-            ?, ?, ?
-          )
-        `);
-
-        const transaction = this.db.transaction((traces: any[]) => {
-          for (const trace of traces) {
-            insertStmt.run(
-              trace.trace_id,
-              trace.parent_trace_id || null,
-              trace.agent_id,
-              trace.timestamp,
-              trace.sequence_number,
-              JSON.stringify(trace.input_context),
-              JSON.stringify(trace.thought_chain),
-              JSON.stringify(trace.tool_call),
-              JSON.stringify(trace.observation),
-              trace.integrity_hash,
-              trace.previous_hash || null,
-              trace.signature || null,
-              JSON.stringify(trace.safety_validation || null),
-              trace.approval_status || null,
-              trace.approved_by || null,
-              trace.environment,
-              trace.version,
-              JSON.stringify(trace.tags || null)
-            );
-          }
+        const validTraces = traces.map((t, i) => ({ parsed: AgentActionTraceSchema.parse(t), raw: t }));
+        const transaction = this.db.transaction((rows: any[]) => {
+          for (const { parsed, raw } of rows) this.insertTrace(parsed, raw);
         });
-
         transaction(validTraces);
-
-        res.status(201).json({
-          created: validTraces.length,
-          trace_ids: validTraces.map(t => t.trace_id),
-        });
+        res.status(201).json({ created: validTraces.length, trace_ids: validTraces.map(({ parsed }) => parsed.trace_id) });
       } catch (error) {
         this.logger.error({ error }, 'Failed to create batch traces');
         res.status(500).json({ error: 'Internal server error' });
@@ -128,131 +75,208 @@ export class TraceAPI {
         let sql = 'SELECT * FROM traces WHERE 1=1';
         const params: any[] = [];
 
-        if (query.agent_id) {
-          sql += ' AND agent_id = ?';
-          params.push(query.agent_id);
-        }
-
-        if (query.start_time) {
-          sql += ' AND timestamp >= ?';
-          params.push(query.start_time);
-        }
-
-        if (query.end_time) {
-          sql += ' AND timestamp <= ?';
-          params.push(query.end_time);
-        }
-
+        if (query.agent_id) { sql += ' AND agent_id = ?'; params.push(query.agent_id); }
+        if (query.start_time) { sql += ' AND timestamp >= ?'; params.push(query.start_time); }
+        if (query.end_time) { sql += ' AND timestamp <= ?'; params.push(query.end_time); }
         if (query.risk_level) {
           sql += " AND json_extract(safety_validation, '$.risk_level') = ?";
           params.push(query.risk_level);
         }
-
-        if (query.approval_status) {
-          sql += ' AND approval_status = ?';
-          params.push(query.approval_status);
-        }
+        if (query.approval_status) { sql += ' AND approval_status = ?'; params.push(query.approval_status); }
 
         sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
         params.push(query.limit, query.offset);
 
         const traces = this.db.prepare(sql).all(...params) as any[];
-
-        // Parse JSON fields
-        const parsedTraces = traces.map(t => ({
-          ...t,
-          input_context: JSON.parse(t.input_context),
-          thought_chain: JSON.parse(t.thought_chain),
-          tool_call: JSON.parse(t.tool_call),
-          observation: JSON.parse(t.observation),
-          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
-          tags: t.tags ? JSON.parse(t.tags) : null,
-        }));
-
-        res.json({
-          traces: parsedTraces,
-          total: parsedTraces.length,
-          limit: query.limit,
-          offset: query.offset,
-        });
+        res.json({ traces: traces.map(this.parseTrace), total: traces.length, limit: query.limit, offset: query.offset });
       } catch (error) {
         this.logger.error({ error }, 'Failed to query traces');
         res.status(500).json({ error: 'Internal server error' });
       }
     });
 
-    // Get single trace
+    // Update trace (approval + score)  [defined before GET /:traceId intentionally]
+    this.router.patch('/:traceId', async (req: Request, res: Response) => {
+      try {
+        const { approval_status, approved_by, score, score_label, feedback, scored_by } = req.body;
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (approval_status !== undefined) {
+          if (!['APPROVED', 'REJECTED', 'PENDING'].includes(approval_status)) {
+            return res.status(400).json({ error: 'Invalid approval_status' });
+          }
+          updates.push('approval_status = ?', 'approved_by = ?');
+          values.push(approval_status, approved_by || 'human-reviewer');
+        }
+
+        if (score !== undefined) {
+          updates.push('score = ?', 'score_label = ?', 'feedback = ?', 'scored_by = ?', "scored_at = datetime('now')");
+          values.push(score, score_label ?? (score > 0 ? 'good' : 'bad'), feedback ?? null, scored_by ?? 'dashboard-user');
+        }
+
+        if (updates.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+
+        values.push(req.params.traceId);
+        const result = this.db.prepare(
+          `UPDATE traces SET ${updates.join(', ')} WHERE trace_id = ?`
+        ).run(...values);
+
+        if (result.changes === 0) return res.status(404).json({ error: 'Trace not found' });
+        res.json({ trace_id: req.params.traceId, updated: true });
+      } catch (error) {
+        this.logger.error({ error }, 'Failed to update trace');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // Cost summary endpoint
+    this.router.get('/stats/cost', async (req: Request, res: Response) => {
+      try {
+        const { agent_id, since } = req.query as Record<string, string>;
+        let sql = `SELECT
+          agent_id,
+          model,
+          COUNT(*) as trace_count,
+          SUM(input_tokens) as total_input_tokens,
+          SUM(output_tokens) as total_output_tokens,
+          SUM(cost_usd) as total_cost_usd
+        FROM traces WHERE 1=1`;
+        const params: any[] = [];
+        if (agent_id) { sql += ' AND agent_id = ?'; params.push(agent_id); }
+        if (since)    { sql += ' AND timestamp >= ?'; params.push(since); }
+        sql += ' GROUP BY agent_id, model ORDER BY total_cost_usd DESC';
+        const rows = this.db.prepare(sql).all(...params);
+
+        const overall = this.db.prepare(
+          `SELECT SUM(cost_usd) as total, SUM(input_tokens) as inp, SUM(output_tokens) as out
+           FROM traces WHERE cost_usd > 0 ${agent_id ? 'AND agent_id = ?' : ''}`
+        ).get(...(agent_id ? [agent_id] : [])) as any;
+
+        res.json({ by_agent_model: rows, total_cost_usd: overall?.total ?? 0,
+          total_input_tokens: overall?.inp ?? 0, total_output_tokens: overall?.out ?? 0 });
+      } catch (error) {
+        this.logger.error({ error }, 'Cost stats error');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // Sessions list endpoint
+    this.router.get('/sessions', async (req: Request, res: Response) => {
+      try {
+        const { agent_id, since, limit = '50' } = req.query as Record<string, string>;
+        const params: any[] = [];
+        let where = "WHERE session_id IS NOT NULL AND session_id != ''";
+        if (agent_id) { where += ' AND agent_id = ?'; params.push(agent_id); }
+        if (since)    { where += ' AND timestamp >= ?'; params.push(since); }
+
+        const sessions = this.db.prepare(`
+          SELECT
+            session_id,
+            agent_id,
+            COUNT(*) as trace_count,
+            MIN(timestamp) as started_at,
+            MAX(timestamp) as last_seen_at,
+            SUM(cost_usd) as total_cost_usd,
+            SUM(input_tokens + output_tokens) as total_tokens,
+            SUM(CASE WHEN json_extract(observation, '$.error') IS NOT NULL THEN 1 ELSE 0 END) as error_count
+          FROM traces ${where}
+          GROUP BY session_id, agent_id
+          ORDER BY last_seen_at DESC
+          LIMIT ?
+        `).all(...params, Number(limit)) as any[];
+
+        res.json({ sessions, total: sessions.length });
+      } catch (error) {
+        this.logger.error({ error }, 'Sessions list error');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // Evaluation/scoring stats endpoint
+    this.router.get('/stats/eval', async (req: Request, res: Response) => {
+      try {
+        const { agent_id, since } = req.query as Record<string, string>;
+        const params: any[] = [];
+        let where = 'WHERE score IS NOT NULL';
+        if (agent_id) { where += ' AND agent_id = ?'; params.push(agent_id); }
+        if (since)    { where += ' AND timestamp >= ?'; params.push(since); }
+
+        const overall = this.db.prepare(`
+          SELECT
+            COUNT(*) as scored_count,
+            SUM(CASE WHEN score > 0 THEN 1 ELSE 0 END) as thumbs_up,
+            SUM(CASE WHEN score < 0 THEN 1 ELSE 0 END) as thumbs_down,
+            AVG(score) as avg_score
+          FROM traces ${where}
+        `).get(...params) as any;
+
+        const byAgent = this.db.prepare(`
+          SELECT
+            agent_id,
+            COUNT(*) as scored,
+            SUM(CASE WHEN score > 0 THEN 1 ELSE 0 END) as good,
+            SUM(CASE WHEN score < 0 THEN 1 ELSE 0 END) as bad
+          FROM traces ${where}
+          GROUP BY agent_id ORDER BY good DESC
+        `).all(...params);
+
+        const recent = this.db.prepare(`
+          SELECT trace_id, agent_id, tool_call, score, score_label, feedback, scored_at
+          FROM traces ${where}
+          ORDER BY scored_at DESC LIMIT 20
+        `).all(...params) as any[];
+
+        res.json({
+          scored_count: overall?.scored_count ?? 0,
+          thumbs_up:    overall?.thumbs_up    ?? 0,
+          thumbs_down:  overall?.thumbs_down  ?? 0,
+          avg_score:    overall?.avg_score    ?? 0,
+          by_agent:     byAgent,
+          recent_scored: recent.map(r => ({
+            ...r,
+            tool_call: r.tool_call ? JSON.parse(r.tool_call) : null,
+          })),
+        });
+      } catch (error) {
+        this.logger.error({ error }, 'Eval stats error');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // Get single trace  [must be after all /stats/* and /sessions routes]
     this.router.get('/:traceId', async (req: Request, res: Response) => {
       try {
         const trace = this.db.prepare('SELECT * FROM traces WHERE trace_id = ?').get(req.params.traceId) as any;
-
-        if (!trace) {
-          return res.status(404).json({ error: 'Trace not found' });
-        }
-
-        // Parse JSON fields
-        const parsedTrace = {
-          ...trace,
-          input_context: JSON.parse(trace.input_context),
-          thought_chain: JSON.parse(trace.thought_chain),
-          tool_call: JSON.parse(trace.tool_call),
-          observation: JSON.parse(trace.observation),
-          safety_validation: trace.safety_validation ? JSON.parse(trace.safety_validation) : null,
-          tags: trace.tags ? JSON.parse(trace.tags) : null,
-        };
-
-        res.json(parsedTrace);
+        if (!trace) return res.status(404).json({ error: 'Trace not found' });
+        res.json(this.parseTrace(trace));
       } catch (error) {
         this.logger.error({ error }, 'Failed to get trace');
         res.status(500).json({ error: 'Internal server error' });
       }
     });
 
-    // Export traces as bundle
+    // Export traces as forensic bundle
     this.router.post('/export', async (req: Request, res: Response) => {
       try {
         const { agent_id, start_time, end_time, reason } = req.body;
-
         let sql = 'SELECT * FROM traces WHERE agent_id = ?';
         const params: any[] = [agent_id];
-
-        if (start_time) {
-          sql += ' AND timestamp >= ?';
-          params.push(start_time);
-        }
-
-        if (end_time) {
-          sql += ' AND timestamp <= ?';
-          params.push(end_time);
-        }
-
+        if (start_time) { sql += ' AND timestamp >= ?'; params.push(start_time); }
+        if (end_time)   { sql += ' AND timestamp <= ?'; params.push(end_time); }
         sql += ' ORDER BY sequence_number ASC';
 
-        const traces = this.db.prepare(sql).all(...params) as any[];
-
-        // Parse and validate traces
-        const parsedTraces = traces.map(t => ({
-          ...t,
-          input_context: JSON.parse(t.input_context),
-          thought_chain: JSON.parse(t.thought_chain),
-          tool_call: JSON.parse(t.tool_call),
-          observation: JSON.parse(t.observation),
-          safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
-          tags: t.tags ? JSON.parse(t.tags) : null,
-        }));
-
-        // Create bundle
+        const traces = (this.db.prepare(sql).all(...params) as any[]).map(this.parseTrace);
         const bundle = TraceBundleSchema.parse({
-          traces: parsedTraces,
+          traces,
           metadata: {
             agent_id,
             session_id: req.body.session_id || 'unknown',
             export_reason: reason || 'Manual export',
-            total_traces: parsedTraces.length,
-            hash_chain_valid: validateTraceChain(parsedTraces),
+            total_traces: traces.length,
+            hash_chain_valid: validateTraceChain(traces),
           },
         });
-
         res.json(bundle);
       } catch (error) {
         this.logger.error({ error }, 'Failed to export traces');
@@ -261,42 +285,98 @@ export class TraceAPI {
     });
   }
 
-  private async storeTrace(trace: any) {
-    const stmt = this.db.prepare(`
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  private parseTrace = (t: any) => ({
+    ...t,
+    input_context:    JSON.parse(t.input_context),
+    thought_chain:    JSON.parse(t.thought_chain),
+    tool_call:        JSON.parse(t.tool_call),
+    observation:      JSON.parse(t.observation),
+    safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
+    tags:             t.tags ? JSON.parse(t.tags) : null,
+  });
+
+  private extractTokenUsage(raw: any): { model: string | null; inputTokens: number; outputTokens: number } {
+    // SDK embeds token data in observation.metadata.token_usage
+    let meta: any = {};
+    try {
+      const obs = typeof raw.observation === 'string' ? JSON.parse(raw.observation) : raw.observation;
+      meta = obs?.metadata?.token_usage ?? obs?.metadata ?? {};
+    } catch { /* */ }
+
+    const model = meta.model ?? raw.model ?? null;
+    const inputTokens  = Number(meta.input_tokens  ?? meta.prompt_tokens    ?? 0);
+    const outputTokens = Number(meta.output_tokens ?? meta.completion_tokens ?? 0);
+    return { model, inputTokens, outputTokens };
+  }
+
+  private async storeTrace(trace: any, raw: any) {
+    this.insertTrace(trace, raw);
+  }
+
+  private insertTrace(trace: any, raw: any) {
+    const { model, inputTokens, outputTokens } = this.extractTokenUsage(raw);
+    const costUsd = (model && (inputTokens || outputTokens))
+      ? calculateCost(model, inputTokens, outputTokens)
+      : 0;
+
+    const sessionId = raw.session_id ?? raw.metadata?.session_id ?? null;
+
+    // PII redaction on mutable trace fields
+    const { redacted: redactedInput,  count: c1 } = redactObjectPii(trace.input_context);
+    const { redacted: redactedThought, count: c2 } = redactObjectPii(trace.thought_chain);
+    const { redacted: redactedTool,   count: c3 } = redactObjectPii(trace.tool_call);
+    const { redacted: redactedObs,    count: c4 } = redactObjectPii(trace.observation);
+    const piiDetected = c1 + c2 + c3 + c4;
+
+    if (piiDetected > 0) {
+      this.logger.warn({ trace_id: String(trace.trace_id), pii_count: piiDetected }, 'PII redacted from trace');
+    }
+
+    this.db.prepare(`
       INSERT INTO traces (
         trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
         input_context, thought_chain, tool_call, observation,
         integrity_hash, previous_hash, signature,
         safety_validation, approval_status, approved_by,
-        environment, version, tags
+        environment, version, tags,
+        model, input_tokens, output_tokens, cost_usd,
+        session_id, pii_detected
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?,
-        ?, ?, ?
+        ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?
       )
-    `);
-
-    stmt.run(
-      trace.trace_id,
-      trace.parent_trace_id || null,
-      trace.agent_id,
-      trace.timestamp,
-      trace.sequence_number,
-      JSON.stringify(trace.input_context),
-      JSON.stringify(trace.thought_chain),
-      JSON.stringify(trace.tool_call),
-      JSON.stringify(trace.observation),
-      trace.integrity_hash,
-      trace.previous_hash || null,
-      trace.signature || null,
-      JSON.stringify(trace.safety_validation || null),
-      trace.approval_status || null,
-      trace.approved_by || null,
-      trace.environment,
-      trace.version,
-      JSON.stringify(trace.tags || null)
+    `).run(
+      String(trace.trace_id),
+      trace.parent_trace_id ? String(trace.parent_trace_id) : null,
+      String(trace.agent_id),
+      trace.timestamp instanceof Date ? trace.timestamp.toISOString() : String(trace.timestamp),
+      Number(trace.sequence_number),
+      JSON.stringify(redactedInput),
+      JSON.stringify(redactedThought),
+      JSON.stringify(redactedTool),
+      JSON.stringify(redactedObs),
+      String(trace.integrity_hash),
+      trace.previous_hash ? String(trace.previous_hash) : null,
+      trace.signature ? String(trace.signature) : null,
+      JSON.stringify(trace.safety_validation ?? null),
+      trace.approval_status ? String(trace.approval_status) : null,
+      trace.approved_by ? String(trace.approved_by) : null,
+      String(trace.environment ?? 'DEVELOPMENT'),
+      String(trace.version ?? '1.0.0'),
+      JSON.stringify(trace.tags ?? null),
+      model,
+      inputTokens,
+      outputTokens,
+      costUsd,
+      sessionId,
+      piiDetected,
     );
   }
 

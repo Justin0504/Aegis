@@ -1,0 +1,40 @@
+{
+  "name": "agentguard",
+  "version": "1.0.0",
+  "description": "Cryptographic auditing and real-time control for AI agents — JavaScript/TypeScript SDK",
+  "keywords": ["ai", "agent", "security", "observability", "audit", "llm", "anthropic", "openai", "langchain"],
+  "homepage": "https://github.com/agentguard/agentguard",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.20.0",
+    "openai": ">=4.0.0",
+    "@langchain/core": ">=0.1.0",
+    "ai": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "openai": { "optional": true },
+    "@langchain/core": { "optional": true },
+    "ai": { "optional": true }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

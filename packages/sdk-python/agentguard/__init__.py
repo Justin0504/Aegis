@@ -1,5 +1,6 @@
 """AgentGuard: High-integrity auditing system for AI Agents."""
 
+import os
 from .core.tracer import AgentGuard
 from .core.config import AgentGuardConfig
 from .interceptors.auto import AgentGuardBlockedError
@@ -91,6 +92,10 @@ def auto(
     poll_interval_s: float = 2.0,
     session_id: Optional[str] = None,
     tool_categories: Optional[dict] = None,
+    # ── Precision controls ─────────────────────────────────────────────────
+    block_threshold: str = "HIGH",
+    allow_tools: Optional[list] = None,
+    audit_only: bool = False,
 ) -> AgentGuard:
     """
     Fully automatic instrumentation — zero code changes to your agent.
@@ -124,6 +129,9 @@ def auto(
         poll_interval_s=poll_interval_s,
         session_id=session_id,
         tool_categories=tool_categories or {},
+        block_threshold=block_threshold,
+        allow_tools=allow_tools or [],
+        audit_only=audit_only,
     )
     guard = AgentGuard(config)
     _default_guard = guard
@@ -148,6 +156,30 @@ def auto(
         print("[AEGIS] No supported SDK found (install anthropic, openai, langchain-core, or crewai)")
 
     return guard
+
+
+# ── Zero-code env-var activation ────────────────────────────────────────────
+# Set AGENTGUARD_URL=http://localhost:8080 and agentguard auto-instruments on import.
+# No code changes needed — just set env vars.
+#
+#   AGENTGUARD_URL=http://localhost:8080        required to activate
+#   AGENTGUARD_BLOCKING=1                       enable blocking mode (default: off)
+#   AGENTGUARD_BLOCK_LEVEL=CRITICAL             threshold: LOW|MEDIUM|HIGH|CRITICAL (default: HIGH)
+#   AGENTGUARD_AUDIT_ONLY=1                     log but never block (default: off)
+#   AGENTGUARD_ALLOW_TOOLS=fetch_page,crawl_url always-allow list (comma-separated)
+#   AGENTGUARD_AGENT_ID=my-agent               agent identifier (default: random uuid)
+#
+_env_url = os.environ.get("AGENTGUARD_URL", "").strip()
+if _env_url:
+    _env_allow_raw = os.environ.get("AGENTGUARD_ALLOW_TOOLS", "").strip()
+    auto(
+        gateway_url=_env_url,
+        agent_id=os.environ.get("AGENTGUARD_AGENT_ID") or None,
+        blocking_mode=os.environ.get("AGENTGUARD_BLOCKING", "").lower() in ("1", "true", "yes"),
+        block_threshold=os.environ.get("AGENTGUARD_BLOCK_LEVEL", "HIGH"),
+        audit_only=os.environ.get("AGENTGUARD_AUDIT_ONLY", "").lower() in ("1", "true", "yes"),
+        allow_tools=[t.strip() for t in _env_allow_raw.split(",") if t.strip()] if _env_allow_raw else [],
+    )
 
 
 __all__ = [

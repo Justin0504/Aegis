@@ -1,0 +1,20 @@
+{
+  "name": "@agentguard/cli",
+  "version": "1.0.0",
+  "description": "CLI for AgentGuard / AEGIS gateway",
+  "bin": {
+    "agentguard": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3"
+  }
+}

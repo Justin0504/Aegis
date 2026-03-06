@@ -7,11 +7,24 @@ import { TracesList } from './traces-list'
 import { TraceDetails } from './trace-details'
 import { DecisionGraph } from './decision-graph'
 import { TimeTravel } from './time-travel'
-import { AgentActionTrace } from '@agentguard/core-schema'
+import { useAlerts } from '@/hooks/useAlerts'
+import { AgentCompare } from './agent-compare'
+import { FileDown } from 'lucide-react'
 
 export function TracesView() {
   const [selectedTrace, setSelectedTrace] = useState<string | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport(allTraces: any[]) {
+    setExporting(true)
+    try {
+      const { exportComplianceReport } = await import('@/lib/export-pdf')
+      await exportComplianceReport({ traces: allTraces, generatedAt: new Date() })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { data: traces } = useQuery({
     queryKey: ['traces', selectedAgent],
@@ -26,13 +39,24 @@ export function TracesView() {
     },
   })
 
+  useAlerts(traces?.traces || [])
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Traces</h1>
-        <p className="text-muted-foreground">
-          Forensic audit trail of all agent actions
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Traces</h1>
+          <p className="text-muted-foreground">Forensic audit trail of all agent actions</p>
+        </div>
+        <button
+          onClick={() => handleExport(traces?.traces || [])}
+          disabled={exporting || !traces?.traces?.length}
+          className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border font-medium transition-colors disabled:opacity-40"
+          style={{ borderColor: 'hsl(36 12% 85%)', color: 'hsl(30 10% 25%)', background: '#fff' }}
+        >
+          <FileDown className="h-4 w-4" />
+          {exporting ? 'Generating…' : 'Export PDF'}
+        </button>
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">
@@ -40,6 +64,7 @@ export function TracesView() {
           <TabsTrigger value="list">Trace List</TabsTrigger>
           <TabsTrigger value="graph">Decision Graph</TabsTrigger>
           <TabsTrigger value="timetravel">Time Travel</TabsTrigger>
+          <TabsTrigger value="compare">Agent Compare</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -75,6 +100,10 @@ export function TracesView() {
             traces={traces?.traces || []}
             selectedAgent={selectedAgent}
           />
+        </TabsContent>
+
+        <TabsContent value="compare" className="space-y-4">
+          <AgentCompare traces={traces?.traces || []} />
         </TabsContent>
       </Tabs>
     </div>

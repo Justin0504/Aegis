@@ -25,10 +25,10 @@ export class PolicyAPI {
   }
 
   private setupRoutes() {
-    // List all policies
+    // List all policies (enabled and disabled)
     this.router.get('/', (req: Request, res: Response) => {
       try {
-        const policies = this.policyEngine.getPolicies();
+        const policies = this.policyEngine.getAllPolicies();
         res.json(policies);
       } catch (error) {
         this.logger.error({ error }, 'Failed to list policies');
@@ -69,6 +69,17 @@ export class PolicyAPI {
         res.json({ status: 'disabled' });
       } catch (error) {
         this.logger.error({ error }, 'Failed to disable policy');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    // Delete policy
+    this.router.delete('/:policyId', async (req: Request, res: Response) => {
+      try {
+        await this.policyEngine.deletePolicy(req.params.policyId);
+        res.json({ status: 'deleted' });
+      } catch (error) {
+        this.logger.error({ error }, 'Failed to delete policy');
         res.status(500).json({ error: 'Internal server error' });
       }
     });
