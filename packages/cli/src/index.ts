@@ -476,4 +476,110 @@ cc
     console.log('  query_traces, list_violations, get_agent_stats, list_policies\n');
   });
 
+// ── openclaw ──────────────────────────────────────────────────────────────────
+const oc = program.command('openclaw').description('OpenClaw integration');
+
+oc
+  .command('mcp-config')
+  .description('Generate AEGIS-proxied MCP server config for OpenClaw skills')
+  .option('--gateway <url>',    'AEGIS gateway URL', '')
+  .option('--agent-id <id>',    'Agent ID to tag traces with', 'openclaw')
+  .option('--servers <list>',   'Comma-separated MCP servers to proxy (e.g. filesystem,github,postgres)')
+  .action((opts) => {
+    const gw      = opts.gateway || loadConfig().gateway_url;
+    const agentId = opts.agentId;
+    const servers = (opts.servers ?? 'filesystem').split(',').map((s: string) => s.trim());
+
+    // Known MCP servers with their launch commands
+    const knownServers: Record<string, { cmd: string; args: string[] }> = {
+      filesystem: { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/'] },
+      github:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+      postgres:   { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] },
+      memory:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] },
+      brave:      { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-brave-search'] },
+    };
+
+    const mcpServers: Record<string, any> = {};
+    for (const name of servers) {
+      const known = knownServers[name];
+      if (known) {
+        mcpServers[`aegis-${name}`] = {
+          command: 'python',
+          args: [
+            '-m', 'agentguard.mcp_proxy',
+            '--server', known.cmd, ...known.args,
+            '--gateway', gw,
+            '--agent-id', agentId,
+          ],
+        };
+      } else {
+        mcpServers[`aegis-${name}`] = {
+          command: 'python',
+          args: [
+            '-m', 'agentguard.mcp_proxy',
+            '--server', `npx -y @modelcontextprotocol/server-${name}`,
+            '--gateway', gw,
+            '--agent-id', agentId,
+          ],
+          _note: `Replace --server value with the actual command for ${name}`,
+        };
+      }
+    }
+
+    console.log('\nAdd to your OpenClaw config (openclaw config set mcp.servers ...)');
+    console.log('or merge into ~/.openclaw/config.json:\n');
+    console.log(JSON.stringify({ mcpServers }, null, 2));
+    console.log('\nHow it works:');
+    console.log('  OpenClaw → AEGIS MCP Proxy → Real MCP Server');
+    console.log('  Every tool call is policy-checked and logged before execution.\n');
+    console.log('Prerequisites:');
+    console.log('  pip install agentguard-aegis');
+    console.log(`  AEGIS gateway running at ${gw}\n`);
+    console.log('Coverage:');
+    console.log('  MCP skills:           intercepted (policy check + audit trail)');
+    console.log('  OpenClaw built-ins:   NOT intercepted (use SDK patching below)\n');
+    console.log('For full coverage, also add to your OpenClaw startup environment:');
+    console.log(`  AGENTGUARD_URL=${gw} AGENTGUARD_AGENT_ID=${agentId} openclaw start\n`);
+  });
+
+oc
+  .command('status')
+  .description('Show OpenClaw integration status and recent traces')
+  .option('-a, --agent-id <id>', 'Agent ID', 'openclaw')
+  .action(async (opts) => {
+    // Gateway health
+    try {
+      const health = await request('GET', `${gatewayUrl()}/health`);
+      console.log(`\nGateway:  ✓ UP  (${health.timestamp ?? 'ok'})`);
+    } catch {
+      console.log(`\nGateway:  ✗ unreachable at ${gatewayUrl()}`);
+    }
+
+    // Recent traces
+    try {
+      const params = new URLSearchParams({ limit: '5', agent_id: opts.agentId });
+      const data   = await request('GET', `${gatewayUrl()}/api/v1/traces?${params}`);
+      const list: any[] = data.traces ?? [];
+      console.log(`\nRecent traces (agent=${opts.agentId}):`);
+      if (!list.length) {
+        console.log('  No traces yet — start OpenClaw with AGENTGUARD_URL set to see traces here.');
+      } else {
+        printTable(
+          ['TOOL', 'STATUS', 'TIMESTAMP'],
+          [28, 14, 22],
+          list.map((t: any) => [
+            t.tool_call?.tool_name ?? t.tool_name ?? '?',
+            t.approval_status ?? 'RECORDED',
+            fmtDate(t.timestamp),
+          ])
+        );
+      }
+    } catch {}
+
+    console.log('\nCoverage matrix:');
+    console.log('  MCP skills (filesystem, github …)   intercepted if proxy configured');
+    console.log('  OpenClaw messaging (Telegram, Slack) NOT intercepted');
+    console.log('  Python SDK auto-patch                intercepted if AGENTGUARD_URL set\n');
+  });
+
 program.parse(process.argv);
