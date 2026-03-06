@@ -101,7 +101,10 @@ func (t *transport) send(trace GatewayTrace) error {
 
 func (t *transport) check(agentID, toolName string, toolCall interface{}) (*CheckResponse, error) {
 	req := CheckRequest{AgentID: agentID, ToolName: toolName, ToolCall: toolCall}
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
 	httpReq, err := http.NewRequest("POST", t.gatewayURL+"/api/v1/check", bytes.NewReader(body))
 	if err != nil {
 		return nil, err

@@ -43,7 +43,8 @@ export function emitTraceSpan(params: {
 
   try {
     const tracer = trace.getTracer(TRACER_NAME);
-    const span = tracer.startSpan(`tool_call/${params.toolName}`, {}, context.active());
+    const startTime = new Date(Date.now() - params.durationMs);
+    const span = tracer.startSpan(`tool_call/${params.toolName}`, { startTime }, context.active());
 
     span.setAttributes({
       'aegis.trace_id':     params.traceId,
@@ -61,8 +62,7 @@ export function emitTraceSpan(params: {
       span.setStatus({ code: SpanStatusCode.OK });
     }
 
-    // Simulate duration by ending with offset
-    span.end(new Date(Date.now() - params.durationMs));
+    span.end();
   } catch {
     // Never let OTEL errors break the trace flow
   }

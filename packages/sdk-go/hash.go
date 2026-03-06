@@ -20,7 +20,10 @@ func (h *hashChain) next(agentID, toolName string, payload interface{}) string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	payloadBytes, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		payloadBytes = []byte("{}")
+	}
 	raw := fmt.Sprintf("%s|%s|%s|%s", h.prev, agentID, toolName, string(payloadBytes))
 	sum := sha256.Sum256([]byte(raw))
 	hash := hex.EncodeToString(sum[:])
