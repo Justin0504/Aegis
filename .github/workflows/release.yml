@@ -80,8 +80,9 @@ jobs:
         id: meta
         run: |
           TAG=${GITHUB_REF#refs/tags/v}
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "version=$TAG" >> $GITHUB_OUTPUT
-          echo "image=ghcr.io/${{ github.repository_owner }}/aegis-gateway" >> $GITHUB_OUTPUT
+          echo "image=ghcr.io/${OWNER}/aegis-gateway" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v5
