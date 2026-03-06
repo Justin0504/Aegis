@@ -24,6 +24,10 @@ jobs:
       - name: Install (root workspace)
         run: npm ci
 
+      - name: Build core-schema
+        working-directory: packages/core-schema
+        run: npm run build
+
       - name: Build
         working-directory: packages/gateway-mcp
         run: npm run build
