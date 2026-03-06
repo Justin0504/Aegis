@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createHash } from 'crypto';
 
 // Base schemas
 export const AgentIdSchema = z.string().uuid();
@@ -152,6 +153,5 @@ export function calculateTraceHash(trace: Omit<AgentActionTrace, 'integrity_hash
     previous_hash: trace.previous_hash || '',
   });
 
-  // In real implementation, use crypto.createHash('sha256')
-  return 'sha256_' + Buffer.from(content).toString('base64').replace(/[^a-f0-9]/gi, '').substring(0, 64);
+  return createHash('sha256').update(content).digest('hex');
 }

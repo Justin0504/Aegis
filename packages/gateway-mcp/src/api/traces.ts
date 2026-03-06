@@ -73,23 +73,23 @@ export class TraceAPI {
       try {
         const query = TraceQuerySchema.parse(req.query);
 
-        let sql = 'SELECT * FROM traces WHERE 1=1';
+        let baseSql = 'FROM traces WHERE 1=1';
         const params: any[] = [];
 
-        if (query.agent_id) { sql += ' AND agent_id = ?'; params.push(query.agent_id); }
-        if (query.start_time) { sql += ' AND timestamp >= ?'; params.push(query.start_time); }
-        if (query.end_time) { sql += ' AND timestamp <= ?'; params.push(query.end_time); }
+        if (query.agent_id) { baseSql += ' AND agent_id = ?'; params.push(query.agent_id); }
+        if (query.start_time) { baseSql += ' AND timestamp >= ?'; params.push(query.start_time); }
+        if (query.end_time) { baseSql += ' AND timestamp <= ?'; params.push(query.end_time); }
         if (query.risk_level) {
-          sql += " AND json_extract(safety_validation, '$.risk_level') = ?";
+          baseSql += " AND json_extract(safety_validation, '$.risk_level') = ?";
           params.push(query.risk_level);
         }
-        if (query.approval_status) { sql += ' AND approval_status = ?'; params.push(query.approval_status); }
+        if (query.approval_status) { baseSql += ' AND approval_status = ?'; params.push(query.approval_status); }
 
-        sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
-        params.push(query.limit, query.offset);
+        const total = (this.db.prepare(`SELECT COUNT(*) as n ${baseSql}`).get(...params) as any).n as number;
 
-        const traces = this.db.prepare(sql).all(...params) as any[];
-        res.json({ traces: traces.map(this.parseTrace), total: traces.length, limit: query.limit, offset: query.offset });
+        const sql = `SELECT * ${baseSql} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+        const traces = this.db.prepare(sql).all(...params, query.limit, query.offset) as any[];
+        res.json({ traces: traces.map(this.parseTrace), total, limit: query.limit, offset: query.offset });
       } catch (error) {
         this.logger.error({ error }, 'Failed to query traces');
         res.status(500).json({ error: 'Internal server error' });
@@ -288,14 +288,19 @@ export class TraceAPI {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
+  private safeJsonParse(json: string | null | undefined, fallback: any = null): any {
+    if (json == null) return fallback;
+    try { return JSON.parse(json); } catch { return fallback; }
+  }
+
   private parseTrace = (t: any) => ({
     ...t,
-    input_context:    JSON.parse(t.input_context),
-    thought_chain:    JSON.parse(t.thought_chain),
-    tool_call:        JSON.parse(t.tool_call),
-    observation:      JSON.parse(t.observation),
-    safety_validation: t.safety_validation ? JSON.parse(t.safety_validation) : null,
-    tags:             t.tags ? JSON.parse(t.tags) : null,
+    input_context:     this.safeJsonParse(t.input_context, {}),
+    thought_chain:     this.safeJsonParse(t.thought_chain, { raw_tokens: '' }),
+    tool_call:         this.safeJsonParse(t.tool_call, {}),
+    observation:       this.safeJsonParse(t.observation, {}),
+    safety_validation: this.safeJsonParse(t.safety_validation, null),
+    tags:              this.safeJsonParse(t.tags, null),
   });
 
   private extractTokenUsage(raw: any): { model: string | null; inputTokens: number; outputTokens: number } {

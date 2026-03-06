@@ -235,9 +235,27 @@ class AgentGuard:
         **kwargs,
     ) -> Any:
         """Execute an async function with tracing."""
-        # Similar to sync version but with await
-        # (Implementation omitted for brevity - follows same pattern)
-        pass
+        if self.config.capture_llm_calls:
+            self._llm_interceptor.clear_captured_calls()
+
+        input_context = self._capture_input_context(func, args, kwargs)
+
+        result = None
+        try:
+            result = await func(*args, **kwargs)
+        except Exception as e:
+            ctx.exception = e
+            raise
+        finally:
+            if self.config.capture_llm_calls:
+                ctx.captured_llm_calls = self._llm_interceptor.get_captured_calls()
+
+            duration_ms = (time.time() - ctx.start_time) * 1000
+            self._create_and_send_trace(
+                ctx, tool_name, input_context, result, duration_ms, capture_thought_chain
+            )
+
+        return result
 
     def _capture_input_context(
         self, func: Callable, args: tuple, kwargs: dict
