@@ -7,16 +7,17 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const encoder = new TextEncoder()
   let lastTimestamp: string | null = null
+  let lastEventTimestamp: string | null = null
   let closed = false
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Send initial connection event
       controller.enqueue(encoder.encode('event: connected\ndata: {}\n\n'))
 
       const poll = async () => {
         if (closed) return
 
+        // ── Trace feed ─────────────────────────────────────────────────────
         try {
           const url = lastTimestamp
             ? `${GATEWAY}/api/v1/traces?limit=20&since=${encodeURIComponent(lastTimestamp)}`
@@ -26,24 +27,40 @@ export async function GET(request: NextRequest) {
           if (res.ok) {
             const data = await res.json()
             const traces: any[] = data.traces || []
-
             if (traces.length > 0) {
-              // Update cursor to newest trace timestamp
               const newest = traces[0]
               if (newest?.timestamp) lastTimestamp = newest.timestamp
-
-              const payload = JSON.stringify({ traces })
-              controller.enqueue(encoder.encode(`event: traces\ndata: ${payload}\n\n`))
+              controller.enqueue(encoder.encode(
+                `event: traces\ndata: ${JSON.stringify({ traces })}\n\n`
+              ))
             }
           }
-        } catch {
-          // Gateway unavailable — keep stream open, retry next tick
-        }
+        } catch { /* gateway unavailable */ }
+
+        // ── Block/pending alert feed ────────────────────────────────────────
+        try {
+          const alertUrl = lastEventTimestamp
+            ? `${GATEWAY}/api/v1/check/events?since=${encodeURIComponent(lastEventTimestamp)}`
+            : `${GATEWAY}/api/v1/check/events`
+
+          const res = await fetch(alertUrl, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json()
+            const events: any[] = data.events || []
+            if (events.length > 0) {
+              lastEventTimestamp = events[events.length - 1].timestamp
+              for (const evt of events) {
+                controller.enqueue(encoder.encode(
+                  `event: alert\ndata: ${JSON.stringify(evt)}\n\n`
+                ))
+              }
+            }
+          }
+        } catch { /* gateway unavailable */ }
 
         if (!closed) setTimeout(poll, 2000)
       }
 
-      // Start polling after a short delay
       setTimeout(poll, 500)
     },
     cancel() {

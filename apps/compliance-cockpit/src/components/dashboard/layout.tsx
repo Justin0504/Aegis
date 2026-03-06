@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertTriangle, Settings, FlaskConical,
 } from 'lucide-react'
 import { useTraceStream } from '@/hooks/useTraceStream'
+import { BlockAlertToast } from '@/components/ui/block-alert-toast'
 
 const navigation = [
   { name: 'Overview',    href: '/',            icon: LayoutDashboard },
@@ -31,7 +32,7 @@ const GOLD      = 'hsl(38 20% 42%)'
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { connected, lastUpdate } = useTraceStream()
+  const { connected, lastUpdate, alerts, dismissAlert } = useTraceStream()
 
   return (
     <div className="flex h-screen" style={{ background: MAIN_BG }}>
@@ -122,6 +123,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Block alert toasts — bottom-right */}
+      <BlockAlertToast alerts={alerts} dismissAlert={dismissAlert} />
     </div>
   )
 }

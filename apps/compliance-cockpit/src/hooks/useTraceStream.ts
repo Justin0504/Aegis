@@ -1,21 +1,35 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+
+export interface BlockAlert {
+  id:         string
+  event:      'block' | 'pending'
+  agent_id:   string
+  tool_name:  string
+  category:   string
+  risk_level: string
+  reason?:    string
+  timestamp:  string
+}
 
 export function useTraceStream() {
   const queryClient = useQueryClient()
-  const [connected, setConnected] = useState(false)
+  const [connected,  setConnected]  = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [alerts,     setAlerts]     = useState<BlockAlert[]>([])
   const esRef = useRef<EventSource | null>(null)
+
+  const dismissAlert = useCallback((id: string) => {
+    setAlerts(prev => prev.filter(a => a.id !== id))
+  }, [])
 
   useEffect(() => {
     const es = new EventSource('/api/stream')
     esRef.current = es
 
-    es.addEventListener('connected', () => {
-      setConnected(true)
-    })
+    es.addEventListener('connected', () => setConnected(true))
 
     es.addEventListener('traces', (e) => {
       try {
@@ -25,7 +39,6 @@ export function useTraceStream() {
 
         setLastUpdate(new Date())
 
-        // Merge new traces into all relevant query caches
         queryClient.setQueriesData(
           { queryKey: ['traces'] },
           (old: any) => {
@@ -38,19 +51,24 @@ export function useTraceStream() {
           }
         )
 
-        // Also invalidate activity feed
         queryClient.invalidateQueries({ queryKey: ['agent-activity-real'] })
         queryClient.invalidateQueries({ queryKey: ['stats'] })
         queryClient.invalidateQueries({ queryKey: ['violations'] })
-      } catch {
-        // ignore parse errors
-      }
+      } catch { /* ignore */ }
     })
 
-    es.onerror = () => {
-      setConnected(false)
-      // Browser will auto-reconnect for EventSource
-    }
+    es.addEventListener('alert', (e) => {
+      try {
+        const alert: BlockAlert = JSON.parse(e.data)
+        setAlerts(prev => {
+          // deduplicate by id
+          if (prev.some(a => a.id === alert.id)) return prev
+          return [...prev, alert].slice(-10) // max 10 toasts
+        })
+      } catch { /* ignore */ }
+    })
+
+    es.onerror = () => setConnected(false)
 
     return () => {
       es.close()
@@ -59,5 +77,5 @@ export function useTraceStream() {
     }
   }, [queryClient])
 
-  return { connected, lastUpdate }
+  return { connected, lastUpdate, alerts, dismissAlert }
 }

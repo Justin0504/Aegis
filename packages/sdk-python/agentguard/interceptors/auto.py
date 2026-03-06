@@ -16,6 +16,8 @@ from uuid import uuid4
 if TYPE_CHECKING:
     from ..core.tracer import AgentGuard
 
+from ..notifier import notify_block, notify_pending
+
 
 class AgentGuardBlockedError(RuntimeError):
     """Raised when blocking mode is on and the gateway denies a tool call."""
@@ -64,15 +66,18 @@ class AutoInstrument:
         risk_level = result.get("risk_level", "LOW")
         check_id   = result.get("check_id", "")
         category   = result.get("category", "unknown")
+        reason     = result.get("reason", "Policy violation")
 
         if decision == "block":
+            notify_block(tool_name, risk_level, reason)
             raise AgentGuardBlockedError(
                 tool_name=tool_name,
-                reason=result.get("reason", "Policy violation"),
+                reason=reason,
                 risk_level=risk_level,
                 check_id=check_id,
             )
         if decision == "pending":
+            notify_pending(tool_name, risk_level)
             return check_id, risk_level, category
         return None
 
