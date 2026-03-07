@@ -1,0 +1,12 @@
+[
+  {"id": 1, "name": "Acme Corp", "revenue": 2500000, "industry": "Technology", "employees": 340, "region": "North America"},
+  {"id": 2, "name": "GlobalTech Solutions", "revenue": 1800000, "industry": "SaaS", "employees": 210, "region": "Europe"},
+  {"id": 3, "name": "DataFlow Inc", "revenue": 1450000, "industry": "Analytics", "employees": 125, "region": "North America"},
+  {"id": 4, "name": "CloudNine Systems", "revenue": 1200000, "industry": "Infrastructure", "employees": 180, "region": "Asia Pacific"},
+  {"id": 5, "name": "Nexus AI", "revenue": 980000, "industry": "AI/ML", "employees": 95, "region": "North America"},
+  {"id": 6, "name": "SecureStack", "revenue": 870000, "industry": "Cybersecurity", "employees": 150, "region": "Europe"},
+  {"id": 7, "name": "MedTech Pro", "revenue": 750000, "industry": "Healthcare", "employees": 200, "region": "North America"},
+  {"id": 8, "name": "FinServe Global", "revenue": 2100000, "industry": "Fintech", "employees": 310, "region": "Europe"},
+  {"id": 9, "name": "EduPlatform", "revenue": 420000, "industry": "EdTech", "employees": 65, "region": "Asia Pacific"},
+  {"id": 10, "name": "GreenEnergy AI", "revenue": 650000, "industry": "CleanTech", "employees": 80, "region": "North America"}
+]

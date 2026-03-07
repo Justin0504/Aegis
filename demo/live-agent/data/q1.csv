@@ -1,0 +1,4 @@
+month,revenue,growth_pct,new_customers,churn_rate,avg_deal_size,top_product
+January,850000,12.5,145,2.1,18500,Enterprise Suite
+February,920000,8.2,152,1.8,19200,Enterprise Suite
+March,1050000,14.1,168,1.5,21000,AI Analytics Pro

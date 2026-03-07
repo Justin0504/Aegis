@@ -11,6 +11,10 @@
 
 *Pre-execution blocking · Human-in-the-loop approvals · Cryptographic audit trail · 9 frameworks · Zero code changes*
 
+<br>
+
+<img src="docs/images/dashboard-overview.png" alt="AEGIS Compliance Cockpit" width="720">
+
 </div>
 
 ---
@@ -24,6 +28,29 @@ AI agents are powerful and unpredictable. They can:
 - Execute arbitrary shell commands because the model hallucinated a tool name
 
 Logging what happened is not enough. You need to **stop it before it happens**.
+
+---
+
+## See it in action
+
+<table>
+<tr>
+<td width="50%">
+
+**Live agent demo — AEGIS intercepts every tool call in real time**
+
+<img src="docs/images/readme_demo1.gif" alt="Agent demo — tracing, blocking, approvals" width="100%">
+
+</td>
+<td width="50%">
+
+**Dashboard walkthrough — traces, policies, costs, sessions**
+
+<img src="docs/images/readme_demo2.gif" alt="Dashboard walkthrough" width="100%">
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -113,6 +140,25 @@ agentguard.auto(
 )
 ```
 
+<table>
+<tr>
+<td width="50%">
+
+**SQL injection detected — blocked instantly**
+
+<img src="docs/images/block.png" alt="Blocked SQL injection" width="100%">
+
+</td>
+<td width="50%">
+
+**High-risk action — awaiting human approval**
+
+<img src="docs/images/pending.png" alt="Pending approval" width="100%">
+
+</td>
+</tr>
+</table>
+
 The agent waits. You open the dashboard, see the exact arguments it was about to use, and click **Allow** or **Block**. The agent resumes in under a second.
 
 ```python
@@ -123,6 +169,56 @@ try:
 except AgentGuardBlockedError as e:
     print(f"Blocked: {e.tool_name} — {e.reason} ({e.risk_level})")
 ```
+
+---
+
+## Compliance Cockpit
+
+Real-time visibility and control over every agent action.
+
+<table>
+<tr>
+<td width="50%">
+
+**Forensic trace detail — full tool call inspection**
+
+<img src="docs/images/trace.png" alt="Trace details" width="100%">
+
+</td>
+<td width="50%">
+
+**Policy engine — 5 built-in rules, AI-assisted creation**
+
+<img src="docs/images/policies.png" alt="Policy editor" width="100%">
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Cost tracking — per model, per agent, per session**
+
+<img src="docs/images/cost.png" alt="Cost tracking" width="100%">
+
+</td>
+<td width="50%">
+
+**Session grouping — trace chains across agent runs**
+
+<img src="docs/images/session.png" alt="Sessions" width="100%">
+
+</td>
+</tr>
+</table>
+
+- **Live trace stream** — every tool call as it happens, with risk level and classification
+- **Pending approvals** — one-click allow/block for human-in-the-loop checks
+- **Agent behavior baseline** — 7-day profile per agent: top tools, risk distribution, PII rate
+- **Anomaly detection** — automatic flagging of spikes, error bursts, unusual patterns
+- **PII detection** — automatic redaction of sensitive data in traces
+- **Alert rules** — threshold-based alerts with Slack, PagerDuty, or webhook delivery
+- **Forensic export** — PDF compliance reports and CSV audit bundles
+- **Kill switch** — manual or automatic agent revocation after N violations
 
 ---
 
@@ -273,23 +369,6 @@ agentguard.auto(
     }
 )
 ```
-
----
-
-## Compliance Cockpit
-
-Real-time visibility and control over every agent action:
-
-- **Live trace stream** — every tool call as it happens, with risk level and classification
-- **Pending approvals** — one-click allow/block for human-in-the-loop checks
-- **Agent behavior baseline** — 7-day profile per agent: top tools, risk distribution, PII rate
-- **Anomaly detection** — automatic flagging of spikes, error bursts, unusual patterns
-- **Cost tracking** — token usage and USD cost per agent, per session, per tool
-- **PII detection** — automatic redaction of sensitive data in traces
-- **Alert rules** — threshold-based alerts with Slack, PagerDuty, or webhook delivery
-- **Forensic export** — PDF compliance reports and CSV audit bundles
-- **Policy editor** — create and toggle policies, with AI-assisted generation
-- **Kill switch** — manual or automatic agent revocation after N violations
 
 ---
 

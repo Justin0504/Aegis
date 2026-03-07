@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS Research Assistant</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f7f7f8;
+    --border: #e5e5e5;
+    --text: #0d0d0d;
+    --text-secondary: #6e6e80;
+    --text-tertiary: #8e8ea0;
+    --accent: #0d0d0d;
+    --green: #10a37f;
+    --green-bg: #ecfdf3;
+    --red: #ef4444;
+    --red-bg: #fef2f2;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --font: 'Soehne', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+    --mono: 'Soehne Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  .header {
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .header-center { display: flex; align-items: center; gap: 8px; }
+  .header-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .header-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .header-right {
+    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .header-btn {
+    font-size: 12px; color: var(--text-secondary); background: none;
+    border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px;
+    cursor: pointer; text-decoration: none; transition: all 0.15s;
+  }
+  .header-btn:hover { background: var(--bg-alt); color: var(--text); }
+
+  /* ── Chat area ──────────────────────────────────────────── */
+  .chat-container { flex: 1; overflow-y: auto; }
+
+  /* ── Message rows ───────────────────────────────────────── */
+  .msg-row { padding: 24px 0; }
+  .msg-row-assistant { background: var(--bg-alt); }
+  .msg-row-user { background: var(--bg); }
+  .msg-inner {
+    max-width: 768px; margin: 0 auto; padding: 0 24px;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+
+  /* ── Avatars ────────────────────────────────────────────── */
+  .msg-avatar {
+    width: 30px; height: 30px; border-radius: 2px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .avatar-user { background: #5436DA; color: #fff; }
+  .avatar-assistant { background: var(--green); color: #fff; }
+
+  /* ── Message content ────────────────────────────────────── */
+  .msg-content {
+    flex: 1; min-width: 0;
+    font-size: 15px; line-height: 1.7; color: var(--text);
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .msg-content p { margin: 0 0 12px; }
+  .msg-content p:last-child { margin: 0; }
+  .msg-content strong { font-weight: 600; }
+  .msg-content code {
+    font-family: var(--mono); font-size: 13px;
+    padding: 2px 5px; border-radius: 3px; background: #f3f3f3;
+  }
+  .msg-content ul, .msg-content ol { padding-left: 24px; margin: 8px 0; }
+  .msg-content li { margin: 4px 0; }
+
+  /* ── Tool call cards ────────────────────────────────────── */
+  .tool-card {
+    margin: 8px 0;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); overflow: hidden;
+  }
+  .tool-card.card-blocked {
+    border-color: var(--red); border-width: 1.5px;
+    background: #fff5f5;
+  }
+  .tool-block-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: var(--red-bg);
+    font-size: 13px; font-weight: 600; color: var(--red);
+    border-bottom: 1px solid #fecaca;
+  }
+  .tool-block-banner .block-icon {
+    font-size: 16px; line-height: 1;
+  }
+  .tool-wrap { max-width: 768px; margin: 0 auto; padding: 0 24px 0 70px; }
+  .tool-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer; user-select: none;
+    transition: background 0.1s;
+  }
+  .tool-header:hover { background: var(--bg-alt); }
+  .tool-icon {
+    width: 22px; height: 22px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; background: #f3f3f3;
+  }
+  .tool-name { font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+  .tool-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    margin-left: auto; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge-success { background: var(--green-bg); color: var(--green); }
+  .badge-blocked { background: var(--red-bg); color: var(--red); }
+  .badge-pending { background: var(--amber-bg); color: var(--amber); }
+  .badge-running { background: #f3f3f3; color: var(--text-secondary); }
+  .tool-chevron { font-size: 10px; color: var(--text-tertiary); transition: transform 0.15s; margin-left: 4px; }
+  .tool-chevron.open { transform: rotate(90deg); }
+
+  .tool-body { padding: 0 14px 12px; display: none; border-top: 1px solid var(--border); }
+  .tool-body.open { display: block; }
+  .tool-section-label {
+    font-size: 10px; font-weight: 700; color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.8px; margin: 10px 0 4px;
+  }
+  .tool-json {
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    padding: 10px 12px; border-radius: 6px; background: var(--bg-alt);
+    overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    max-height: 200px; overflow-y: auto; color: var(--text);
+  }
+  .tool-error {
+    font-size: 13px; color: var(--red); padding: 8px 12px;
+    background: var(--red-bg); border-radius: 6px; margin-top: 8px; font-weight: 500;
+  }
+
+  /* ── Toast notifications ───────────────────────────────── */
+  .toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    min-width: 320px; max-width: 420px;
+    padding: 14px 18px; border-radius: 10px;
+    font-size: 13px; line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    animation: toast-in 0.35s ease-out;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .toast.toast-blocked {
+    background: #fff; border: 1.5px solid var(--red);
+    color: var(--text);
+  }
+  .toast.toast-pending {
+    background: #fff; border: 1.5px solid var(--amber);
+    color: var(--text);
+  }
+  .toast-icon {
+    font-size: 20px; line-height: 1; flex-shrink: 0; margin-top: 1px;
+  }
+  .toast-body { flex: 1; }
+  .toast-title {
+    font-weight: 700; font-size: 13px; margin-bottom: 2px;
+  }
+  .toast-title.toast-title-blocked { color: var(--red); }
+  .toast-title.toast-title-pending { color: var(--amber); }
+  .toast-detail {
+    font-size: 12px; color: var(--text-secondary);
+    word-break: break-word;
+  }
+  .toast-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 16px; color: var(--text-tertiary); padding: 0;
+    line-height: 1; flex-shrink: 0;
+  }
+  .toast-close:hover { color: var(--text); }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(40px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(40px); }
+  }
+
+  /* ── Loading ────────────────────────────────────────────── */
+  .loading-row { padding: 24px 0; background: var(--bg-alt); }
+  .loading-inner {
+    max-width: 768px; margin: 0 auto; padding: 0 24px;
+    display: flex; gap: 16px; align-items: center;
+  }
+  .loading-dots { display: flex; gap: 4px; }
+  .loading-dots span {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+  .loading-text { font-size: 13px; color: var(--text-tertiary); }
+  .loading-text a { color: var(--text); font-weight: 600; text-decoration: underline; }
+
+  /* ── Follow-up suggestions (inline after responses) ───── */
+  .followup-row { padding: 0 0 20px; background: var(--bg-alt); }
+  .followup-inner {
+    max-width: 768px; margin: 0 auto; padding: 0 24px 0 70px;
+  }
+  .followup-label {
+    font-size: 12px; color: var(--text-tertiary); margin-bottom: 8px;
+  }
+  .followup-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .followup-chip {
+    font-size: 13px; padding: 8px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); cursor: pointer; transition: all 0.15s;
+    text-align: left; line-height: 1.4;
+  }
+  .followup-chip:hover { background: #f0f0f0; border-color: #ccc; }
+
+  /* ── Initial suggestions (2-col grid) ──────────────────── */
+  .suggestions {
+    max-width: 768px; margin: 0 auto; padding: 24px 24px 0;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .suggestion-chip {
+    font-size: 13px; padding: 12px 16px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); cursor: pointer; transition: all 0.15s;
+    text-align: left; line-height: 1.5;
+  }
+  .suggestion-chip:hover { background: var(--bg-alt); border-color: #ccc; }
+
+  /* ── Input area ─────────────────────────────────────────── */
+  .input-area { flex-shrink: 0; padding: 16px 24px 24px; background: var(--bg); }
+  .input-wrapper { max-width: 768px; margin: 0 auto; position: relative; }
+  .input-field {
+    width: 100%; padding: 14px 52px 14px 18px; border-radius: 12px;
+    border: 1px solid var(--border); font-size: 15px;
+    font-family: var(--font); color: var(--text);
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    background: var(--bg);
+  }
+  .input-field:focus { border-color: #aaa; box-shadow: 0 0 0 1px rgba(0,0,0,0.05); }
+  .input-field::placeholder { color: var(--text-tertiary); }
+  .send-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 36px; height: 36px; border-radius: 8px; border: none;
+    background: var(--accent); color: white; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.15s;
+  }
+  .send-btn:hover { opacity: 0.8; }
+  .send-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+  .send-btn svg { width: 18px; height: 18px; }
+  .input-footer { text-align: center; margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
+  .input-footer a { color: var(--text-secondary); text-decoration: none; }
+  .input-footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="header">
+  <div class="header-center">
+    <div class="header-dot"></div>
+    <div class="header-title">AEGIS Research Assistant</div>
+  </div>
+  <div class="header-right">
+    <button class="header-btn" onclick="resetChat()">New Chat</button>
+    <a class="header-btn" href="http://localhost:3000" target="_blank">AEGIS Dashboard &rarr;</a>
+  </div>
+</div>
+
+<div class="chat-container" id="chatContainer">
+  <div id="chatMessages">
+    <div class="msg-row msg-row-assistant">
+      <div class="msg-inner">
+        <div class="msg-avatar avatar-assistant">A</div>
+        <div class="msg-content">Hi! I'm the AEGIS Research Assistant. I can help you research topics, query our customer database, analyze data, and send reports.
+
+Every tool I use is monitored by AEGIS in real-time. Pick a scenario below to start the demo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="suggestions" id="suggestions">
+    <button class="suggestion-chip" onclick="sendStep(0)">Search for the latest AI market trends</button>
+    <button class="suggestion-chip" onclick="sendStep(1)">Read our Q1 revenue data and analyze it</button>
+    <button class="suggestion-chip" onclick="sendStep(2)">Query the top 5 customers by revenue</button>
+    <button class="suggestion-chip" onclick="sendStep(3)">Test: run a SQL injection attack</button>
+    <button class="suggestion-chip" onclick="sendStep(4)">Analyze text containing personal data (PII)</button>
+    <button class="suggestion-chip" onclick="sendStep(5)">Email a report to the team</button>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-wrapper">
+    <input type="text" class="input-field" id="messageInput" placeholder="Message AEGIS Research Assistant..." autocomplete="off">
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+  </div>
+  <div class="input-footer">
+    Powered by Claude &middot; Monitored by <a href="http://localhost:3000" target="_blank">AEGIS</a>
+  </div>
+</div>
+
+<script>
+const chatMessages = document.getElementById('chatMessages');
+const chatContainer = document.getElementById('chatContainer');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const suggestions = document.getElementById('suggestions');
+
+const TOOL_ICONS = {
+  web_search: '&#x1F50D;', read_file: '&#x1F4C4;', query_database: '&#x1F5C4;',
+  analyze_text: '&#x1F4CA;', send_report: '&#x2709;', write_file: '&#x270F;',
+};
+
+let isLoading = false;
+let currentStep = -1;
+
+/*
+ * Demo flow — 6 steps, each showcases a different AEGIS capability.
+ * After each response, follow-up chips lead to the next steps.
+ *
+ * Step 0: web_search         → Tracing & cost tracking        (ALLOW)
+ * Step 1: read_file          → File access & session grouping (ALLOW)
+ * Step 2: query_database     → Database query                 (ALLOW)
+ * Step 3: SQL injection      → Policy engine                  (BLOCK)
+ * Step 4: PII text           → PII auto-detection             (ALLOW + flagged)
+ * Step 5: send_report        → Blocking mode / human approval (PENDING)
+ */
+const STEPS = [
+  {
+    prompt: "Search for the latest AI market trends and summarize the key findings",
+    followups: [
+      { label: "Read our Q1 revenue data", step: 1 },
+      { label: "Query the customer database", step: 2 },
+      { label: "Test a SQL injection attack", step: 3 },
+    ],
+    tag: "Tracing & Cost Tracking",
+  },
+  {
+    prompt: "Read our Q1 revenue data from q1.csv and give me a quick analysis",
+    followups: [
+      { label: "Query top customers by revenue", step: 2 },
+      { label: "Test a SQL injection attack", step: 3 },
+      { label: "Analyze customer feedback with PII", step: 4 },
+    ],
+    tag: "File Access & Sessions",
+  },
+  {
+    prompt: "Query the database: SELECT name, revenue, industry FROM customers ORDER BY revenue DESC LIMIT 5",
+    followups: [
+      { label: "Now try a SQL injection", step: 3 },
+      { label: "Analyze customer feedback with PII", step: 4 },
+      { label: "Email a report to the team", step: 5 },
+    ],
+    tag: "Database Query (ALLOW)",
+  },
+  {
+    prompt: "Run this database query: SELECT * FROM users; DROP TABLE audit_log; --",
+    followups: [
+      { label: "Analyze text with personal data", step: 4 },
+      { label: "Email a report to the team", step: 5 },
+      { label: "Try a safe database query instead", step: 2 },
+    ],
+    tag: "SQL Injection (BLOCK)",
+  },
+  {
+    prompt: 'Analyze this customer feedback: "John Smith, SSN 123-45-6789, email john@acme.com, called +1-555-0199 to say he loves the product"',
+    followups: [
+      { label: "Email a summary report to the team", step: 5 },
+      { label: "Search for more market data", step: 0 },
+      { label: "Query the database", step: 2 },
+    ],
+    tag: "PII Detection",
+  },
+  {
+    prompt: "Send a summary report of all findings to team@company.com with subject 'Q1 Market Analysis'",
+    followups: [
+      { label: "Start a new research topic", step: 0 },
+      { label: "Query the database", step: 2 },
+      { label: "Analyze more customer feedback", step: 4 },
+    ],
+    tag: "Blocking Mode (Approval)",
+  },
+];
+
+// Track which steps have been used (to filter followups)
+const usedSteps = new Set();
+
+messageInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+function sendStep(stepIndex) {
+  currentStep = stepIndex;
+  usedSteps.add(stepIndex);
+  messageInput.value = STEPS[stepIndex].prompt;
+  sendMessage();
+}
+
+function scrollToBottom() {
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function addUserMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'msg-row msg-row-user';
+  div.innerHTML = `
+    <div class="msg-inner">
+      <div class="msg-avatar avatar-user">Y</div>
+      <div class="msg-content">${escapeHtml(text)}</div>
+    </div>
+  `;
+  chatMessages.appendChild(div);
+  suggestions.style.display = 'none';
+  scrollToBottom();
+}
+
+function addAssistantMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'msg-row msg-row-assistant';
+  div.innerHTML = `
+    <div class="msg-inner">
+      <div class="msg-avatar avatar-assistant">A</div>
+      <div class="msg-content">${renderMarkdown(text)}</div>
+    </div>
+  `;
+  chatMessages.appendChild(div);
+  scrollToBottom();
+}
+
+function addFollowups(stepIndex) {
+  const step = STEPS[stepIndex];
+  if (!step) return;
+
+  // Filter out already-used steps
+  const chips = step.followups.filter(f => !usedSteps.has(f.step));
+  if (chips.length === 0) return;
+
+  const div = document.createElement('div');
+  div.className = 'followup-row';
+  div.innerHTML = `
+    <div class="followup-inner">
+      <div class="followup-label">Try next:</div>
+      <div class="followup-chips">
+        ${chips.map(f => {
+          const tag = STEPS[f.step]?.tag || '';
+          return `<button class="followup-chip" onclick="sendStep(${f.step})">${escapeHtml(f.label)}<span style="color:var(--text-tertiary);font-size:11px;margin-left:6px">${escapeHtml(tag)}</span></button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  chatMessages.appendChild(div);
+  scrollToBottom();
+}
+
+function showToast(type, title, detail, duration = 5000) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const icon = type === 'blocked' ? '&#x26D4;' : '&#x23F3;';
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <div class="toast-body">
+      <div class="toast-title toast-title-${type}">${title}</div>
+      <div class="toast-detail">${detail}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toast-out 0.3s ease-in forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function addToolCard(tc) {
+  const icon = TOOL_ICONS[tc.tool_name] || '&#x26A1;';
+  const id = 'tool-' + Math.random().toString(36).substr(2, 6);
+
+  let badgeClass = 'badge-success';
+  let badgeText = 'ALLOWED';
+  if (tc.status === 'blocked') { badgeClass = 'badge-blocked'; badgeText = 'BLOCKED'; }
+  else if (tc.status === 'pending') { badgeClass = 'badge-pending'; badgeText = 'PENDING'; }
+  else if (tc.status === 'error') { badgeClass = 'badge-blocked'; badgeText = 'ERROR'; }
+
+  let bodyHtml = `
+    <div class="tool-section-label">Arguments</div>
+    <div class="tool-json">${escapeHtml(JSON.stringify(tc.arguments, null, 2))}</div>
+  `;
+  if (tc.result) {
+    bodyHtml += `
+      <div class="tool-section-label">Result</div>
+      <div class="tool-json">${escapeHtml(truncate(tc.result, 500))}</div>
+    `;
+  }
+  if (tc.error && tc.status === 'blocked') {
+    bodyHtml += `<div class="tool-error">AEGIS Policy Violation: ${escapeHtml(tc.error)}</div>`;
+  } else if (tc.error) {
+    bodyHtml += `<div class="tool-error">${escapeHtml(tc.error)}</div>`;
+  }
+
+  // Toast notification
+  if (tc.status === 'blocked') {
+    showToast('blocked', 'AEGIS: Tool Call Blocked', `${tc.tool_name}: ${tc.error || 'Policy violation'}`, 6000);
+  } else if (tc.status === 'pending') {
+    showToast('pending', 'AEGIS: Awaiting Approval', `${tc.tool_name} requires human approval on the dashboard.`, 8000);
+  }
+
+  const isBlocked = tc.status === 'blocked';
+  const bannerHtml = isBlocked
+    ? `<div class="tool-block-banner"><span class="block-icon">&#x26D4;</span>AEGIS Policy Violation: ${escapeHtml(tc.error || 'Blocked by policy')}</div>`
+    : '';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'tool-wrap';
+  wrapper.innerHTML = `
+    <div class="tool-card${isBlocked ? ' card-blocked' : ''}">
+      ${bannerHtml}
+      <div class="tool-header" onclick="toggleToolBody('${id}')">
+        <div class="tool-icon">${icon}</div>
+        <span class="tool-name">${tc.tool_name}</span>
+        <span class="tool-badge ${badgeClass}">${badgeText}</span>
+        <span class="tool-chevron${isBlocked ? ' open' : ''}" id="${id}-chev">&#9654;</span>
+      </div>
+      <div class="tool-body${isBlocked ? ' open' : ''}" id="${id}">${bodyHtml}</div>
+    </div>
+  `;
+  chatMessages.appendChild(wrapper);
+  scrollToBottom();
+}
+
+function toggleToolBody(id) {
+  document.getElementById(id).classList.toggle('open');
+  document.getElementById(id + '-chev').classList.toggle('open');
+}
+
+function addLoading() {
+  const div = document.createElement('div');
+  div.className = 'loading-row';
+  div.id = 'loadingIndicator';
+  div.innerHTML = `
+    <div class="loading-inner">
+      <div class="msg-avatar avatar-assistant">A</div>
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <span class="loading-text" id="loadingText">Thinking...</span>
+    </div>
+  `;
+  chatMessages.appendChild(div);
+  scrollToBottom();
+
+  setTimeout(() => {
+    const lt = document.getElementById('loadingText');
+    if (lt) lt.innerHTML = 'Waiting for approval... <a href="http://localhost:3000/approvals" target="_blank">Open AEGIS Dashboard</a>';
+  }, 10000);
+}
+
+function removeLoading() {
+  const el = document.getElementById('loadingIndicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  const text = messageInput.value.trim();
+  if (!text || isLoading) return;
+
+  isLoading = true;
+  sendBtn.disabled = true;
+  messageInput.value = '';
+
+  // Remove any existing followup chips
+  document.querySelectorAll('.followup-row').forEach(el => el.remove());
+
+  addUserMessage(text);
+  addLoading();
+
+  const stepForFollowup = currentStep;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    removeLoading();
+
+    const data = await res.json();
+
+    if (data.tool_calls) {
+      for (const tc of data.tool_calls) addToolCard(tc);
+    }
+    if (data.response) {
+      addAssistantMessage(data.response);
+    }
+    if (data.error && !data.response) {
+      addAssistantMessage('Error: ' + data.error);
+    }
+
+    // Show follow-up suggestions after the response
+    if (stepForFollowup >= 0) {
+      addFollowups(stepForFollowup);
+    }
+
+  } catch (err) {
+    removeLoading();
+    addAssistantMessage('Connection error: ' + err.message);
+  }
+
+  currentStep = -1;
+  isLoading = false;
+  sendBtn.disabled = false;
+  messageInput.focus();
+}
+
+async function resetChat() {
+  await fetch('/api/reset', { method: 'POST' });
+  usedSteps.clear();
+  currentStep = -1;
+  chatMessages.innerHTML = `
+    <div class="msg-row msg-row-assistant">
+      <div class="msg-inner">
+        <div class="msg-avatar avatar-assistant">A</div>
+        <div class="msg-content">New conversation started. Pick a scenario to begin.</div>
+      </div>
+    </div>
+  `;
+  suggestions.style.display = 'grid';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function truncate(str, max) {
+  return str.length <= max ? str : str.substring(0, max) + '...';
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n- /g, '\n<li>')
+    .replace(/\n\d+\. /g, '\n<li>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+</script>
+
+</body>
+</html>
