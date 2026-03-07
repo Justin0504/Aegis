@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Play, CheckCircle, XCircle, AlertTriangle, Zap, Database, Globe, FileText, Terminal, Mail } from 'lucide-react'
 
 const BORDER = 'hsl(36 12% 88%)'
@@ -44,10 +45,19 @@ interface CheckResult {
 }
 
 export function PlaygroundView() {
+  const searchParams = useSearchParams()
   const [toolName,   setToolName]   = useState('run_query')
   const [argsText,   setArgsText]   = useState('{\n  "sql": "SELECT * FROM users WHERE id = 1"\n}')
   const [agentId,    setAgentId]    = useState('playground-test')
   const [result,     setResult]     = useState<CheckResult | null>(null)
+
+  // Pre-fill from URL params (e.g. from "Test this policy" button)
+  useEffect(() => {
+    const tool = searchParams.get('tool')
+    const args = searchParams.get('args')
+    if (tool) setToolName(tool)
+    if (args) setArgsText(args)
+  }, [searchParams])
   const [loading,    setLoading]    = useState(false)
   const [argsError,  setArgsError]  = useState<string | null>(null)
 

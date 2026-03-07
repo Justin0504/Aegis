@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle, XCircle, Clock, Shield, AlertTriangle } from 'lucide-react'
 
 const BORDER = 'hsl(36 12% 88%)'
@@ -30,6 +30,33 @@ function timeAgo(ts: string) {
   if (diff < 60_000) return `${Math.round(diff / 1000)}s ago`
   if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`
   return `${Math.round(diff / 3_600_000)}h ago`
+}
+
+function LiveTimer({ since }: { since: string }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const diff = Math.max(0, Date.now() - new Date(since).getTime())
+  const secs = Math.floor(diff / 1000) % 60
+  const mins = Math.floor(diff / 60_000) % 60
+  const hrs  = Math.floor(diff / 3_600_000)
+  const label = hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+  const isLong = diff > 5 * 60_000 // > 5 min
+
+  return (
+    <span
+      className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded"
+      style={{
+        background: isLong ? 'hsl(0 12% 95%)' : 'hsl(38 20% 94%)',
+        color: isLong ? 'hsl(0 14% 46%)' : 'hsl(38 20% 42%)',
+      }}
+    >
+      waiting {label}
+    </span>
+  )
 }
 
 export function PendingChecks() {
@@ -138,10 +165,7 @@ export function PendingChecks() {
                 )}
 
                 <div className="flex items-center gap-3 text-[10px]" style={{ color: MUTED }}>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-2.5 w-2.5" />
-                    {timeAgo(check.created_at)}
-                  </span>
+                  <LiveTimer since={check.created_at} />
                   <span>agent: {String(check.agent_id).substring(0, 10)}…</span>
                   <span>id: {check.check_id.substring(0, 8)}…</span>
                 </div>

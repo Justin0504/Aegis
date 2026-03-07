@@ -180,4 +180,4 @@ for agent in AGENTS:
     print(f"  → {sequence} traces sent")
 
 print(f"\n[seed] Done! {total} traces seeded across {len(AGENTS)} agents.")
-print(f"[seed] Open the dashboard: http://localhost:3001")
+print(f"[seed] Open the dashboard: http://localhost:3000")

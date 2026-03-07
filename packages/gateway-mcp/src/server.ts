@@ -98,6 +98,86 @@ async function main() {
   app.use('/api/v1/webhooks',  requireAuth, new WebhookAPI(webhooks).router);
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
 
+  // Seed demo data (auth required)
+  app.post('/api/v1/seed', requireAuth, (req, res) => {
+    try {
+      const { randomUUID } = require('crypto');
+      const agents = ['research-bot-01', 'data-pipeline-x', 'customer-support-ai', 'code-review-agent'];
+      const tools = [
+        { name: 'web_search', cat: 'network', args: (i: number) => ({ query: [`latest AI research papers`, `climate change statistics 2026`, `stock market trends`][i % 3] }) },
+        { name: 'read_file', cat: 'file', args: (i: number) => ({ path: [`/data/reports/q1.csv`, `/home/user/notes.md`, `/var/log/app.log`][i % 3] }) },
+        { name: 'execute_sql', cat: 'database', args: (i: number) => ({ sql: [`SELECT * FROM users WHERE active = 1`, `SELECT COUNT(*) FROM orders`, `SELECT name, email FROM customers LIMIT 10`][i % 3] }) },
+        { name: 'send_request', cat: 'network', args: (i: number) => ({ url: `https://api.example.com/v1/data`, method: 'GET' }) },
+        { name: 'write_file', cat: 'file', args: (i: number) => ({ path: `/tmp/output_${i}.json`, content: '{}' }) },
+      ];
+      const models = ['claude-sonnet-4-20250514', 'gpt-4o', 'claude-haiku-4-5-20251001'];
+      const statuses = ['AUTO_APPROVED', 'AUTO_APPROVED', 'AUTO_APPROVED', 'APPROVED', 'REJECTED', 'PENDING_APPROVAL'];
+      const sessions = [randomUUID(), randomUUID(), randomUUID()];
+      const now = Date.now();
+
+      const insertTrace = db.prepare(`
+        INSERT OR IGNORE INTO traces (
+          trace_id, agent_id, timestamp, sequence_number,
+          input_context, thought_chain, tool_call, observation,
+          integrity_hash, safety_validation, approval_status,
+          environment, version, model, input_tokens, output_tokens, cost_usd,
+          session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const insertViolation = db.prepare(`
+        INSERT INTO violations (agent_id, policy_id, trace_id, violation_type, details)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      let count = 0;
+      const txn = db.transaction(() => {
+        for (let i = 0; i < 80; i++) {
+          const traceId = randomUUID();
+          const agent = agents[i % agents.length];
+          const tool = tools[i % tools.length];
+          const model = models[i % models.length];
+          const session = sessions[i % sessions.length];
+          const ts = new Date(now - (80 - i) * 3 * 60_000).toISOString();
+          const duration = 50 + Math.floor(Math.random() * 500);
+          const inputTokens = 200 + Math.floor(Math.random() * 2000);
+          const outputTokens = 100 + Math.floor(Math.random() * 1000);
+          const cost = (inputTokens * 0.000003 + outputTokens * 0.000015).toFixed(6);
+
+          const isViolation = i % 12 === 0;
+          const status = isViolation ? 'REJECTED' : statuses[i % statuses.length];
+          const validation = isViolation
+            ? { passed: false, risk_level: i % 24 === 0 ? 'CRITICAL' : 'HIGH', policy_name: ['SQL Injection Prevention', 'File Access Control', 'Prompt Injection Detection'][i % 3], violations: ['Potentially dangerous pattern detected'] }
+            : { passed: true, risk_level: 'LOW', policy_name: 'default', violations: [] };
+
+          insertTrace.run(
+            traceId, agent, ts, i,
+            JSON.stringify({ prompt: `Perform ${tool.name} operation` }),
+            JSON.stringify({ raw_tokens: '' }),
+            JSON.stringify({ tool_name: tool.name, function: tool.name, arguments: tool.args(i), timestamp: ts }),
+            JSON.stringify({ raw_output: { success: true, result: `Completed ${tool.name}` }, duration_ms: duration }),
+            randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
+            JSON.stringify(validation), status,
+            'PRODUCTION', '1.0.0', model, inputTokens, outputTokens, parseFloat(cost),
+            session
+          );
+
+          if (isViolation) {
+            insertViolation.run(agent, validation.policy_name, traceId, validation.risk_level, JSON.stringify(validation.violations));
+          }
+          count++;
+        }
+      });
+
+      txn();
+      logger.info({ count }, 'Demo data seeded');
+      res.json({ success: true, traces_created: count });
+    } catch (error: any) {
+      logger.error({ error }, 'Failed to seed demo data');
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Stats endpoint (auth required)
   app.get('/api/v1/stats', requireAuth, (req, res) => {
     try {
@@ -108,8 +188,28 @@ async function main() {
       let violations24h = 0;
       try {
         violations24h = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-1 day')").get() as any).n;
-      } catch {}
-      res.json({ totalTraces, activeAgents, newAgents: activeAgents, pendingApprovals, criticalApprovals: rejectedCount, violations24h, blockedAgents: rejectedCount });
+      } catch (e) { logger.debug({ error: e }, 'violations table not ready'); }
+
+      // Trend calculations: compare last 1h vs previous 1h
+      const tracesLastHour = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE timestamp > datetime('now', '-1 hour')").get() as any).n;
+      const tracesPrevHour = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE timestamp > datetime('now', '-2 hours') AND timestamp <= datetime('now', '-1 hour')").get() as any).n;
+      const tracesTrend = tracesPrevHour > 0 ? Math.round(((tracesLastHour - tracesPrevHour) / tracesPrevHour) * 100) : (tracesLastHour > 0 ? 100 : 0);
+
+      const agentsPrevDay = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE timestamp > datetime('now', '-2 days') AND timestamp <= datetime('now', '-1 day')").get() as any).n;
+      const newAgentsToday = Math.max(0, activeAgents - agentsPrevDay);
+
+      let violationsPrevDay = 0;
+      try {
+        violationsPrevDay = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-2 days') AND created_at <= datetime('now', '-1 day')").get() as any).n;
+      } catch (e) { logger.debug({ error: e }, 'violations table not ready'); }
+      const violationsTrend = violationsPrevDay > 0 ? Math.round(((violations24h - violationsPrevDay) / violationsPrevDay) * 100) : (violations24h > 0 ? 100 : 0);
+
+      res.json({
+        totalTraces, activeAgents, newAgents: newAgentsToday,
+        pendingApprovals, criticalApprovals: rejectedCount,
+        violations24h, blockedAgents: rejectedCount,
+        tracesTrend, violationsTrend,
+      });
     } catch (error) {
       logger.error({ error }, 'Failed to get stats');
       res.status(500).json({ error: 'Internal server error' });

@@ -180,7 +180,8 @@ export class TraceAPI {
             MAX(timestamp) as last_seen_at,
             SUM(cost_usd) as total_cost_usd,
             SUM(input_tokens + output_tokens) as total_tokens,
-            SUM(CASE WHEN json_extract(observation, '$.error') IS NOT NULL THEN 1 ELSE 0 END) as error_count
+            SUM(CASE WHEN json_extract(observation, '$.error') IS NOT NULL THEN 1 ELSE 0 END) as error_count,
+            GROUP_CONCAT(json_extract(tool_call, '$.tool_name'), ',') as tool_names
           FROM traces ${where}
           GROUP BY session_id, agent_id
           ORDER BY last_seen_at DESC

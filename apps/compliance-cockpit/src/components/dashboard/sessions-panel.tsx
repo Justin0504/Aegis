@@ -1,7 +1,28 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Layers, Clock, AlertCircle } from 'lucide-react'
+import { useState } from 'react'
+import { Layers, Clock, AlertCircle, ChevronRight, CheckCircle } from 'lucide-react'
+import { traceSummary } from '@/lib/trace-summary'
+
+const TOOL_VERBS: Record<string, string> = {
+  web_search: 'Search', read_file: 'Read', write_file: 'Write', delete_file: 'Delete',
+  execute_sql: 'Query', run_query: 'Query', send_request: 'Request', run_cmd: 'Shell',
+  process_text: 'Process', send_email: 'Email',
+}
+
+function sessionFlowLabel(toolNames: string | undefined): string {
+  if (!toolNames) return ''
+  const tools = toolNames.split(',').filter(Boolean)
+  const seen = new Set<string>()
+  const steps: string[] = []
+  for (const t of tools) {
+    const verb = TOOL_VERBS[t] || t.replace(/_/g, ' ')
+    if (!seen.has(verb)) { seen.add(verb); steps.push(verb) }
+  }
+  if (steps.length <= 4) return steps.join(' → ')
+  return steps.slice(0, 3).join(' → ') + ` +${steps.length - 3}`
+}
 
 const MUTED  = 'hsl(30 8% 55%)'
 const TEXT   = 'hsl(30 10% 15%)'
@@ -34,7 +55,44 @@ function timeAgo(ts: string) {
   return `${Math.round(diff / 86_400_000)}d ago`
 }
 
+function SessionTraces({ sessionId }: { sessionId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['session-traces', sessionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/gateway/traces?limit=200`)
+      if (!res.ok) return []
+      const d = await res.json()
+      return (d.traces ?? []).filter((t: any) => t.session_id === sessionId)
+    },
+  })
+
+  if (isLoading) return <div className="py-2 text-[11px]" style={{ color: MUTED }}>Loading...</div>
+  const traces: any[] = data ?? []
+  if (traces.length === 0) return <div className="py-2 text-[11px]" style={{ color: MUTED }}>No traces found</div>
+
+  return (
+    <div className="space-y-1 pt-2">
+      {traces.map((t: any, i: number) => {
+        const hasError = !!t.observation?.error
+        return (
+          <div key={t.trace_id} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{ background: 'hsl(36 14% 96%)' }}>
+            <span className="text-[10px] font-mono w-4 text-right flex-shrink-0" style={{ color: MUTED }}>{i + 1}</span>
+            {hasError
+              ? <AlertCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'hsl(0 18% 50%)' }} />
+              : <CheckCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'hsl(150 18% 44%)' }} />
+            }
+            <span className="text-[11px] font-medium truncate" style={{ color: TEXT }}>{traceSummary(t)}</span>
+            <span className="text-[10px] ml-auto flex-shrink-0" style={{ color: MUTED }}>{t.observation?.duration_ms ?? 0}ms</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function SessionsPanel() {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
   const { data, isLoading } = useQuery({
     queryKey: ['sessions'],
     queryFn: async () => {
@@ -88,23 +146,29 @@ export function SessionsPanel() {
         {sessions.map((s: any) => {
           const dur = fmtDuration(s.started_at, s.last_seen_at)
           const hasErrors = s.error_count > 0
+          const isOpen = expanded === s.session_id
           return (
             <div
               key={`${s.session_id}-${s.agent_id}`}
-              style={{ border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '12px 14px', background: '#fff' }}
+              style={{ border: `1px solid ${isOpen ? 'hsl(38 20% 46% / 0.3)' : BORDER}`, borderRadius: '10px', padding: '12px 14px', background: '#fff', cursor: 'pointer', transition: 'border-color 0.15s' }}
+              onClick={() => setExpanded(isOpen ? null : s.session_id)}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <code className="text-xs font-mono truncate" style={{ color: TEXT }}>
-                      {s.session_id}
-                    </code>
+                    <ChevronRight
+                      className="h-3 w-3 flex-shrink-0 transition-transform duration-150"
+                      style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', color: MUTED }}
+                    />
+                    <span className="text-xs font-medium truncate" style={{ color: TEXT }}>
+                      {sessionFlowLabel(s.tool_names) || s.session_id}
+                    </span>
                     {hasErrors && (
                       <AlertCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'hsl(0 0% 55%)' }} />
                     )}
                   </div>
-                  <p className="text-[10px]" style={{ color: MUTED }}>
-                    agent: {String(s.agent_id).substring(0, 12)}…
+                  <p className="text-[10px] ml-5" style={{ color: MUTED }}>
+                    {String(s.agent_id ?? '').substring(0, 12)}… · <code className="font-mono">{(s.session_id ?? '').substring(0, 8)}</code>
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0 space-y-0.5">
@@ -136,6 +200,7 @@ export function SessionsPanel() {
                   </span>
                 )}
               </div>
+              {isOpen && <SessionTraces sessionId={s.session_id} />}
             </div>
           )
         })}

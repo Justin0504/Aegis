@@ -52,3 +52,13 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(36 12% 80%); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(36 12% 70%); }
+
+@keyframes trace-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes trace-glow {
+  0%   { box-shadow: 0 0 0 0 hsl(38 20% 46% / 0.25); }
+  40%  { box-shadow: 0 0 0 4px hsl(38 20% 46% / 0.12); }
+  100% { box-shadow: 0 0 0 0 hsl(38 20% 46% / 0); }
+}

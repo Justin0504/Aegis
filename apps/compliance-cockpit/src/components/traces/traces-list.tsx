@@ -2,8 +2,9 @@
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
+import { traceSummary } from '@/lib/trace-summary'
 import { Search, X, ChevronDown, CheckCircle, AlertCircle, Clock } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 
 const TOOL_OPTIONS = ['all', 'web_search', 'read_file', 'execute_sql', 'send_request', 'other']
 const STATUS_OPTIONS = [
@@ -22,6 +23,22 @@ const TIME_OPTIONS = [
 const BORDER  = 'hsl(36 12% 88%)'
 const MUTED   = 'hsl(30 8% 55%)'
 const TEXT    = 'hsl(30 10% 15%)'
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>
+  const q = query.toLowerCase()
+  const idx = text.toLowerCase().indexOf(q)
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: 'hsl(38 40% 75% / 0.45)', color: 'inherit', borderRadius: 2, padding: '0 1px' }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
 
 function timeWindowMs(value: string): number | null {
   if (value === '5m')  return 5  * 60 * 1000
@@ -43,6 +60,23 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
   const [status,     setStatus]     = useState('all')
   const [timeRange,  setTimeRange]  = useState('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Track new trace IDs for slide-in animation
+  const knownIds = useRef<Set<string>>(new Set())
+  const newIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const incoming = new Set<string>()
+    for (const t of traces) {
+      if (!knownIds.current.has(t.trace_id)) incoming.add(t.trace_id)
+      knownIds.current.add(t.trace_id)
+    }
+    newIds.current = incoming
+    // Clear "new" status after animation
+    if (incoming.size > 0) {
+      const timer = setTimeout(() => { newIds.current = new Set() }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [traces])
 
   const filtered = useMemo(() => {
     const now = Date.now()
@@ -188,10 +222,11 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
         )}
         {filtered.map(trace => {
           const toolName = trace.tool_call?.tool_name || 'unknown'
+          const summary  = traceSummary(trace)
           const hasError = !!trace.observation?.error
           const dur      = trace.observation?.duration_ms
           const isActive = selectedTrace === trace.trace_id
-          const prompt   = String(trace.input_context?.prompt || '').slice(0, 55)
+          const isNew    = newIds.current.has(trace.trace_id)
 
           return (
             <div
@@ -201,14 +236,17 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
               style={{
                 borderColor: isActive ? 'hsl(38 20% 46% / 0.5)' : BORDER,
                 background: isActive ? 'hsl(38 20% 46% / 0.06)' : '#fff',
+                animation: isNew ? 'trace-slide-in 0.4s ease-out, trace-glow 1.2s ease-out' : undefined,
               }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium truncate" style={{ color: TEXT }}>{toolName}</p>
-                  {prompt && (
-                    <p className="text-xs truncate" style={{ color: MUTED }}>{prompt}</p>
-                  )}
+                  <p className="text-sm font-medium truncate" style={{ color: TEXT }}>
+                    <Highlight text={summary} query={search} />
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: MUTED }}>
+                    <Highlight text={toolName} query={search} />
+                  </p>
                   <p className="text-[10px]" style={{ color: 'hsl(30 8% 62%)' }}>
                     <button
                       className="hover:underline"
