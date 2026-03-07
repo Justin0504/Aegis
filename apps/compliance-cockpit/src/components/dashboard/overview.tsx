@@ -11,7 +11,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, X, ArrowRight } from 'lucide-react'
+import { Search, X, ArrowRight, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
 import { RecentTraces } from './recent-traces'
 import { ViolationChart } from './violation-chart'
 import { ApprovalStats } from './approval-stats'
@@ -131,6 +132,35 @@ export function DashboardOverview() {
         </div>
       </div>
 
+      {/* Pending checks alert banner */}
+      {(stats?.pendingChecks ?? 0) > 0 && (
+        <Link
+          href="/approvals"
+          className="flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors"
+          style={{
+            background: 'hsl(38 30% 95%)',
+            borderColor: 'hsl(38 24% 78%)',
+            color: 'hsl(30 14% 25%)',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'hsl(38 30% 92%)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'hsl(38 30% 95%)')}
+        >
+          <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
+            style={{ background: 'hsl(38 28% 88%)' }}>
+            <AlertTriangle className="h-4 w-4" style={{ color: 'hsl(30 30% 38%)' }} />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">
+              {stats.pendingChecks} pending {stats.pendingChecks === 1 ? 'check' : 'checks'} awaiting approval
+            </p>
+            <p className="text-xs" style={{ color: 'hsl(30 10% 45%)' }}>
+              Agent actions are blocked until you approve or reject them
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(30 10% 55%)' }} />
+        </Link>
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -158,15 +188,15 @@ export function DashboardOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Pending Approvals
+              Pending Checks
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.pendingApprovals || 0}
+            <div className="text-2xl font-bold" style={{ color: (stats?.pendingChecks ?? 0) > 0 ? 'hsl(30 30% 38%)' : undefined }}>
+              {stats?.pendingChecks || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.criticalApprovals || 0} critical
+              {stats?.criticalAlerts || 0} high/critical risk
             </p>
           </CardContent>
         </Card>

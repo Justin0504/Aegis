@@ -183,8 +183,23 @@ async function main() {
     try {
       const totalTraces      = (db.prepare('SELECT COUNT(*) as n FROM traces').get() as any).n;
       const activeAgents     = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE timestamp > datetime('now', '-1 day')").get() as any).n;
-      const pendingApprovals = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE approval_status IS NULL").get() as any).n;
       const rejectedCount    = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE approval_status = 'REJECTED'").get() as any).n;
+
+      // Pending checks from blocking mode (real-time human-in-the-loop)
+      let pendingChecks = 0;
+      try {
+        pendingChecks = (db.prepare("SELECT COUNT(*) as n FROM pending_checks WHERE decision = 'pending' AND expires_at > datetime('now')").get() as any).n;
+      } catch (e) { logger.debug({ error: e }, 'pending_checks table not ready'); }
+
+      // Critical = traces with CRITICAL risk level
+      let criticalCount = 0;
+      try {
+        criticalCount = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE json_extract(safety_validation, '$.risk_level') IN ('CRITICAL', 'HIGH')").get() as any).n;
+      } catch (e) { logger.debug({ error: e }, 'critical count query failed'); }
+
+      // Blocked agents = distinct agents that have been rejected
+      const blockedAgents = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE approval_status = 'REJECTED'").get() as any).n;
+
       let violations24h = 0;
       try {
         violations24h = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-1 day')").get() as any).n;
@@ -206,8 +221,8 @@ async function main() {
 
       res.json({
         totalTraces, activeAgents, newAgents: newAgentsToday,
-        pendingApprovals, criticalApprovals: rejectedCount,
-        violations24h, blockedAgents: rejectedCount,
+        pendingChecks, criticalAlerts: criticalCount,
+        violations24h, blockedAgents,
         tracesTrend, violationsTrend,
       });
     } catch (error) {

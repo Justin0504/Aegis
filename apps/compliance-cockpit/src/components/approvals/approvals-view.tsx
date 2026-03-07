@@ -74,35 +74,39 @@ export function ApprovalsView() {
         <p className="text-muted-foreground">Review and approve agent actions</p>
       </div>
 
-      {/* Blocking mode — real-time pending checks */}
-      <div style={{ border: `1px solid hsl(36 12% 88%)`, borderRadius: '12px', padding: '16px 20px', background: '#fff' }}>
+      {/* Blocking mode — real-time pending checks (PRIMARY) */}
+      <div style={{ border: `2px solid hsl(38 24% 78%)`, borderRadius: '12px', padding: '20px 24px', background: 'hsl(38 30% 98%)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-semibold" style={{ color: 'hsl(30 10% 15%)' }}>
-            Real-time Checks
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'hsl(38 28% 50%)', boxShadow: '0 0 0 3px hsl(38 28% 50% / 0.2)' }} />
+          <span className="text-sm font-bold" style={{ color: 'hsl(30 14% 22%)' }}>
+            Awaiting Your Decision
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(0 10% 95%)', color: 'hsl(0 14% 44%)' }}>
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'hsl(38 24% 88%)', color: 'hsl(38 24% 38%)' }}>
             Blocking mode
           </span>
-          <span className="text-xs ml-auto" style={{ color: 'hsl(30 8% 55%)' }}>
-            Auto-refreshes every 3s
+          <span className="text-[11px] ml-auto" style={{ color: 'hsl(30 8% 55%)' }}>
+            Agents are paused until you decide
           </span>
         </div>
         <PendingChecks />
       </div>
 
-      {/* Summary chips */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(36 14% 84%)', background: 'hsl(36 12% 97%)' }}>
-          <Clock className="h-3.5 w-3.5" style={{ color: 'hsl(36 18% 46%)' }} />
-          <span style={{ color: 'hsl(36 18% 38%)' }}><b>{pending.length}</b> pending</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(150 10% 82%)', background: 'hsl(150 10% 97%)' }}>
-          <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(150 18% 40%)' }} />
-          <span style={{ color: 'hsl(150 18% 34%)' }}><b>{approved.length}</b> approved</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(0 10% 85%)', background: 'hsl(0 10% 97%)' }}>
-          <XCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 18% 50%)' }} />
-          <span style={{ color: 'hsl(0 14% 44%)' }}><b>{rejected.length}</b> rejected</span>
+      {/* Trace-level audit log */}
+      <div>
+        <p className="text-sm font-semibold mb-3" style={{ color: TEXT }}>Trace Audit Log</p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(36 14% 84%)', background: 'hsl(36 12% 97%)' }}>
+            <Clock className="h-3.5 w-3.5" style={{ color: 'hsl(36 18% 46%)' }} />
+            <span style={{ color: 'hsl(36 18% 38%)' }}><b>{pending.length}</b> unreviewed</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(150 10% 82%)', background: 'hsl(150 10% 97%)' }}>
+            <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(150 18% 40%)' }} />
+            <span style={{ color: 'hsl(150 18% 34%)' }}><b>{approved.length}</b> approved</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(0 10% 85%)', background: 'hsl(0 10% 97%)' }}>
+            <XCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 18% 50%)' }} />
+            <span style={{ color: 'hsl(0 14% 44%)' }}><b>{rejected.length}</b> rejected</span>
+          </div>
         </div>
       </div>
 
