@@ -13,13 +13,11 @@ const RISK_COLOR: Record<string, { bar: string; bg: string; label: string }> = {
   LOW:      { bar: 'hsl(0 0% 72%)',  bg: 'hsl(0 0% 72% / 0.10)',  label: 'hsl(0 0% 75%)' },
 }
 
-const MOCK_DATA = [
-  { policy: 'SQL Injection',     count: 12, risk: 'HIGH'     },
-  { policy: 'File Access',       count: 23, risk: 'MEDIUM'   },
-  { policy: 'Network Access',    count: 8,  risk: 'MEDIUM'   },
-  { policy: 'Command Injection', count: 5,  risk: 'CRITICAL' },
-  { policy: 'Data Exposure',     count: 15, risk: 'HIGH'     },
-]
+interface ViolationEntry {
+  policy: string
+  count: number
+  risk: string
+}
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -44,21 +42,44 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
-function CustomXAxisTick({ x, y, payload }: any) {
-  const item = MOCK_DATA.find(d => d.policy === payload.value)
-  const c = RISK_COLOR[item?.risk || 'LOW']
-  return (
-    <text x={x} y={y + 12} textAnchor="middle" style={{ fontSize: 11, fill: 'hsl(30 8% 46%)' }}>
-      {payload.value}
-    </text>
-  )
-}
-
 export function ViolationChart() {
-  const { data } = useQuery({
+  const { data } = useQuery<ViolationEntry[]>({
     queryKey: ['violation-stats'],
-    queryFn: async () => MOCK_DATA,
+    queryFn: async () => {
+      const res = await fetch('/api/gateway/traces?limit=500')
+      if (!res.ok) return []
+      const json = await res.json()
+      const traces = json.traces || []
+
+      // Aggregate violations by tool category / risk level
+      const map: Record<string, { count: number; risk: string }> = {}
+      for (const t of traces) {
+        const sv = t.safety_validation
+        if (!sv || sv.passed !== false) continue
+        const key = sv.policy_name || t.tool_call?.tool_name || 'Unknown'
+        const risk = sv.risk_level || 'LOW'
+        if (!map[key]) map[key] = { count: 0, risk }
+        map[key].count++
+        // Keep highest risk level seen
+        const order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+        if (order.indexOf(risk) > order.indexOf(map[key].risk)) map[key].risk = risk
+      }
+
+      return Object.entries(map)
+        .map(([policy, { count, risk }]) => ({ policy, count, risk }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8)
+    },
+    refetchInterval: 15_000,
   })
+
+  if (!data?.length) {
+    return (
+      <div className="flex items-center justify-center h-[280px]" style={{ color: 'hsl(30 8% 55%)' }}>
+        <p className="text-sm">No violations recorded yet</p>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -83,7 +104,7 @@ export function ViolationChart() {
           />
           <XAxis
             dataKey="policy"
-            tick={<CustomXAxisTick />}
+            tick={{ fill: 'hsl(30 8% 46%)', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />

@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import pino from 'pino';
+
+const logger = pino({ name: 'error-middleware' });
 
 export function errorMiddleware(
   err: Error,
@@ -6,7 +9,7 @@ export function errorMiddleware(
   res: Response,
   next: NextFunction
 ) {
-  console.error('Error:', err);
+  logger.error({ err, method: req.method, url: req.url }, 'Unhandled error');
 
   if (res.headersSent) {
     return next(err);

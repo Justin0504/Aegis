@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Native build deps for better-sqlite3
+RUN apk add --no-cache python3 make g++
+
 # Copy workspace files
 COPY package.json package-lock.json* turbo.json ./
 COPY packages/core-schema/package.json ./packages/core-schema/

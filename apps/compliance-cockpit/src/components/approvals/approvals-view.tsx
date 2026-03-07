@@ -223,7 +223,7 @@ export function ApprovalsView() {
                         onClick={() => decide(trace.trace_id, 'APPROVED')}
                         disabled={!!loading}
                         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium transition-colors disabled:opacity-40"
-                        style={{ background: 'hsl(150 18% 40%)', color: '#fff', border: 'none' }}
+                        style={{ background: 'hsl(150 14% 45% / 0.68)', color: '#fff', border: 'none' }}
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
                         {loading === 'approving' ? '…' : 'Approve'}

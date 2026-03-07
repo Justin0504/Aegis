@@ -226,7 +226,7 @@ export function AlertRules() {
           onClick={save}
           className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-md font-medium transition-colors ml-auto"
           style={{
-            background: saved ? 'hsl(150 18% 40%)' : 'hsl(38 20% 46%)',
+            background: saved ? 'hsl(150 14% 45% / 0.68)' : 'hsl(38 18% 50% / 0.65)',
             color: '#fff',
           }}
         >

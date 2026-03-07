@@ -172,7 +172,7 @@ export function PlaygroundView() {
               onClick={runCheck}
               disabled={loading || !toolName}
               className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-opacity disabled:opacity-40"
-              style={{ background: 'hsl(30 10% 20%)', color: '#fff' }}
+              style={{ background: 'hsl(30 10% 25% / 0.72)', color: '#fff' }}
             >
               <Play className="h-4 w-4" />
               {loading ? 'Checking…' : 'Run Check'}

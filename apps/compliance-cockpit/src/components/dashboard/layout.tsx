@@ -124,7 +124,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               {notifPermission === 'denied' ? '🔕 Notifications blocked' : '🔔 Enable notifications'}
             </button>
           )}
-          <p className="text-[11px]" style={{ color: 'hsl(30 8% 60%)' }}>v1.1.8</p>
+          <p className="text-[11px]" style={{ color: 'hsl(30 8% 60%)' }}>v{process.env.APP_VERSION}</p>
         </div>
       </aside>
 

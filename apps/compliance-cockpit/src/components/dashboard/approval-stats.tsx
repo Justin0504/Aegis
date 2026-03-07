@@ -10,13 +10,6 @@ const SEGMENTS = [
   { key: 'Rejected',      color: 'hsl(355 18% 54%)', bg: 'hsl(355 18% 54% / 0.10)' },
 ]
 
-const MOCK = [
-  { name: 'Auto-Approved', value: 456 },
-  { name: 'Approved',      value: 234 },
-  { name: 'Pending',       value: 12  },
-  { name: 'Rejected',      value: 45  },
-]
-
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const { name, value } = payload[0].payload
@@ -35,9 +28,31 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 export function ApprovalStats() {
-  const { data = MOCK } = useQuery({
+  const { data = [] } = useQuery({
     queryKey: ['approval-stats'],
-    queryFn: async () => MOCK,
+    queryFn: async () => {
+      const res = await fetch('/api/gateway/traces?limit=500')
+      if (!res.ok) return []
+      const json = await res.json()
+      const traces = json.traces || []
+
+      let autoApproved = 0, approved = 0, pending = 0, rejected = 0
+      for (const t of traces) {
+        const s = t.approval_status
+        if (s === 'AUTO_APPROVED') autoApproved++
+        else if (s === 'APPROVED') approved++
+        else if (s === 'REJECTED') rejected++
+        else pending++
+      }
+
+      return [
+        { name: 'Auto-Approved', value: autoApproved },
+        { name: 'Approved',      value: approved },
+        { name: 'Pending',       value: pending },
+        { name: 'Rejected',      value: rejected },
+      ]
+    },
+    refetchInterval: 15_000,
   })
 
   const total = data.reduce((s, d) => s + d.value, 0)
@@ -46,6 +61,14 @@ export function ApprovalStats() {
   const rejected     = data.find(d => d.name === 'Rejected')?.value ?? 0
   const pending      = data.find(d => d.name === 'Pending')?.value ?? 0
   const approvalRate = total ? (((autoApproved + approved) / total) * 100).toFixed(1) : '0'
+
+  if (!total) {
+    return (
+      <div className="flex items-center justify-center h-[180px]" style={{ color: 'hsl(30 8% 55%)' }}>
+        <p className="text-sm">No approval data yet</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center gap-8">
@@ -114,12 +137,12 @@ export function ApprovalStats() {
         {/* Footer metrics */}
         <div className="flex items-center gap-4 pt-2" style={{ borderTop: '1px solid hsl(0 0% 14%)' }}>
           <div>
-            <p style={{ color: 'hsl(0 0% 35%)', fontSize: 10, letterSpacing: '0.08em' }}>AVG RESPONSE</p>
-            <p style={{ color: 'hsl(0 0% 75%)', fontSize: 13, fontWeight: 600 }}>2.5 min</p>
+            <p style={{ color: 'hsl(0 0% 35%)', fontSize: 10, letterSpacing: '0.08em' }}>PENDING</p>
+            <p style={{ color: 'hsl(36 28% 50%)', fontSize: 13, fontWeight: 600 }}>{pending}</p>
           </div>
           <div>
-            <p style={{ color: 'hsl(0 0% 35%)', fontSize: 10, letterSpacing: '0.08em' }}>PENDING CRITICAL</p>
-            <p style={{ color: 'hsl(355 18% 50%)', fontSize: 13, fontWeight: 600 }}>3</p>
+            <p style={{ color: 'hsl(0 0% 35%)', fontSize: 10, letterSpacing: '0.08em' }}>REJECTED</p>
+            <p style={{ color: 'hsl(355 18% 50%)', fontSize: 13, fontWeight: 600 }}>{rejected}</p>
           </div>
           <div>
             <p style={{ color: 'hsl(0 0% 35%)', fontSize: 10, letterSpacing: '0.08em' }}>TOTAL</p>

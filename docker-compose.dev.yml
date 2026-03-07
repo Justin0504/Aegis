@@ -1,7 +1,9 @@
 version: '3.8'
 
+# ── Dev overlay: hot-reload for gateway + cockpit ────────────
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
 services:
-  # Development overrides
   gateway:
     build:
       context: .
@@ -10,7 +12,7 @@ services:
       - ./packages/gateway-mcp/src:/app/packages/gateway-mcp/src:ro
       - ./packages/core-schema/src:/app/packages/core-schema/src:ro
     environment:
-      - NODE_ENV=development
+      NODE_ENV: development
     command: ["npm", "run", "dev", "--workspace=@agentguard/gateway-mcp"]
 
   cockpit:
@@ -22,25 +24,5 @@ services:
       - ./apps/compliance-cockpit/public:/app/apps/compliance-cockpit/public:ro
       - ./packages/core-schema/src:/app/packages/core-schema/src:ro
     environment:
-      - NODE_ENV=development
+      NODE_ENV: development
     command: ["npm", "run", "dev", "--workspace=@agentguard/compliance-cockpit"]
-
-  # Development database UI
-  adminer:
-    image: adminer:latest
-    ports:
-      - "8081:8080"
-    environment:
-      - ADMINER_DEFAULT_SERVER=postgres
-    depends_on:
-      - postgres
-
-  # Redis Commander for Redis UI
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    ports:
-      - "8082:8081"
-    depends_on:
-      - redis

@@ -165,7 +165,7 @@ export function SettingsView() {
               <button
                 onClick={saveGatewayUrl}
                 className="px-3 py-2 rounded-md text-sm font-medium"
-                style={{ background: urlSaved ? 'hsl(150 18% 40%)' : 'hsl(38 20% 46%)', color: '#fff' }}
+                style={{ background: urlSaved ? 'hsl(150 14% 45% / 0.68)' : 'hsl(38 18% 50% / 0.65)', color: '#fff' }}
               >
                 {urlSaved ? 'Saved ✓' : 'Save'}
               </button>
@@ -226,7 +226,7 @@ export function SettingsView() {
             </button>
             <button
               onClick={saveApiKey}
-              style={{ padding: '7px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, background: keySaved ? 'hsl(150 18% 40%)' : 'hsl(38 20% 46%)', color: '#fff', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '7px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, background: keySaved ? 'hsl(150 14% 45% / 0.68)' : 'hsl(38 18% 50% / 0.65)', color: '#fff', border: 'none', cursor: 'pointer' }}
             >
               {keySaved ? 'Saved ✓' : 'Save'}
             </button>
@@ -282,7 +282,7 @@ export function SettingsView() {
               </div>
               <button
                 onClick={saveAiConfig}
-                style={{ padding: '7px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, background: aiSaved ? 'hsl(150 18% 40%)' : 'hsl(38 20% 46%)', color: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                style={{ padding: '7px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, background: aiSaved ? 'hsl(150 14% 45% / 0.68)' : 'hsl(38 18% 50% / 0.65)', color: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0 }}
               >
                 {aiSaved ? 'Saved ✓' : 'Save'}
               </button>
@@ -290,7 +290,7 @@ export function SettingsView() {
           </div>
         </div>
         <p className="text-[11px] mt-2" style={{ color: MUTED }}>
-          Once saved, use <strong>✨ Describe</strong> on the Policies page to generate policies from plain English.
+          Once saved, use <strong>Describe</strong> on the Policies page to generate policies from plain English.
         </p>
       </Section>
 

@@ -53,9 +53,24 @@ async function main() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
-  // Health check (public)
+  // CORS — allow cockpit and other frontends
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
+  // Health check (public) — verifies DB connection
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    try {
+      db.prepare('SELECT 1').get();
+      res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'connected' });
+    } catch (err: any) {
+      res.status(503).json({ status: 'unhealthy', timestamp: new Date().toISOString(), db: 'disconnected', error: err.message });
+    }
   });
 
   // Auth bootstrap: return key if no auth header present (first-time setup only)
@@ -110,8 +125,10 @@ async function main() {
   // MCP proxy (for agent tools)
   const wss = new WebSocketServer({ server, path: '/mcp' });
   wss.on('connection', (ws, req) => {
-    logger.info({ ip: req.socket.remoteAddress }, 'MCP client connected');
-    mcpProxy.handleConnection(ws);
+    const url = new URL(req.url || '/', `http://${req.headers.host}`);
+    const agentId = url.searchParams.get('agent_id') || req.headers['x-agent-id'] as string || undefined;
+    logger.info({ ip: req.socket.remoteAddress, agentId }, 'MCP client connected');
+    mcpProxy.handleConnection(ws, agentId);
   });
 
   // AEGIS MCP server (exposes audit data to Claude Desktop)
@@ -137,6 +154,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Failed to start server:', err);
+  logger.error({ err }, 'Failed to start server');
   process.exit(1);
 });

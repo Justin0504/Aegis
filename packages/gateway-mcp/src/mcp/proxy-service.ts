@@ -36,9 +36,12 @@ export class MCPProxyService {
     private logger: Logger
   ) {}
 
-  async handleConnection(ws: WebSocket) {
+  private connectionAgentIds = new Map<string, string>();
+
+  async handleConnection(ws: WebSocket, agentId?: string) {
     const connectionId = uuidv4();
     this.activeConnections.set(connectionId, ws);
+    if (agentId) this.connectionAgentIds.set(connectionId, agentId);
 
     ws.on('message', async (data) => {
       try {
@@ -60,6 +63,7 @@ export class MCPProxyService {
 
     ws.on('close', () => {
       this.activeConnections.delete(connectionId);
+      this.connectionAgentIds.delete(connectionId);
       this.logger.info({ connectionId }, 'MCP client disconnected');
     });
 
@@ -302,8 +306,7 @@ export class MCPProxyService {
   }
 
   private getAgentIdFromConnection(connectionId: string): string {
-    // In production, this would extract from auth token/headers
-    return 'test-agent-001';
+    return this.connectionAgentIds.get(connectionId) || `mcp-${connectionId.substring(0, 8)}`;
   }
 
   private async executeToolCall(toolRequest: ToolCallRequest): Promise<any> {

@@ -162,17 +162,17 @@ export function PoliciesView() {
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-              background: 'hsl(38 60% 50%)', color: '#fff', border: 'none', cursor: 'pointer',
+              background: 'hsl(38 18% 50% / 0.65)', color: '#fff', border: 'none', cursor: 'pointer',
             }}
           >
-            ✨ Describe
+            Describe
           </button>
           <button
             onClick={() => { setCreating(true); setFormError('') }}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-              background: 'hsl(30 10% 15%)', color: '#fff', border: 'none', cursor: 'pointer',
+              background: 'hsl(30 10% 25% / 0.72)', color: '#fff', border: 'none', cursor: 'pointer',
             }}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export function PoliciesView() {
           padding: '20px',
         }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="font-semibold text-sm" style={{ color: TEXT }}>✨ Describe Your Policy</span>
+            <span className="font-semibold text-sm" style={{ color: TEXT }}>Describe Your Policy</span>
             <button onClick={() => { setShowGenerate(false); setGenerateDesc('') }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED }}>
               <X className="h-4 w-4" />
@@ -247,7 +247,7 @@ export function PoliciesView() {
               disabled={generating}
               style={{
                 padding: '7px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
-                background: generating ? 'hsl(38 40% 65%)' : 'hsl(38 60% 50%)',
+                background: generating ? 'hsl(38 16% 60% / 0.5)' : 'hsl(38 18% 50% / 0.65)',
                 color: '#fff', border: 'none', cursor: generating ? 'not-allowed' : 'pointer',
               }}
             >{generating ? 'Generating…' : 'Generate Policy'}</button>
@@ -353,8 +353,8 @@ export function PoliciesView() {
               disabled={saving}
               style={{
                 padding: '7px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
-                background: 'hsl(30 10% 15%)', color: '#fff', border: 'none',
-                cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
+                background: 'hsl(30 10% 25% / 0.72)', color: '#fff', border: 'none',
+                cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1,
               }}
             >{saving ? 'Creating…' : 'Create Policy'}</button>
           </div>

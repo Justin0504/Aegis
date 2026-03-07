@@ -1,46 +1,33 @@
-# Getting Started with AgentGuard
+# Getting Started with AEGIS
 
-## Prerequisites
-
-- Docker and Docker Compose
-- Python 3.10+ (for SDK usage)
-- Node.js 20+ (for local development without Docker)
-
----
-
-## Option 1: Docker (Recommended)
-
-The fastest way to get everything running.
+## Quick Start (Docker)
 
 ```bash
-git clone https://github.com/Justin0504/Aegis.git agentguard
-cd agentguard
-
-cp .env.example .env   # edit values if needed
-
-docker-compose up -d
+git clone https://github.com/Justin0504/Aegis.git && cd Aegis
+./setup.sh
 ```
 
-Services:
-- Dashboard — `http://localhost:3000`
-- API Gateway — `http://localhost:8080`
+That's it. Open:
+- **Dashboard** — http://localhost:3000
+- **Gateway API** — http://localhost:8080
+
+### Stop / restart
+
+```bash
+docker compose down        # stop
+docker compose up -d       # restart
+docker compose logs -f     # view logs
+```
 
 ---
 
-## Option 2: Local Development (hot-reload)
+## Development (hot-reload)
 
 ```bash
-git clone https://github.com/Justin0504/Aegis.git agentguard
-cd agentguard
-
-cp .env.example .env
-
 make dev
 ```
 
-Additional services in dev mode:
-- Database UI (Adminer) — `http://localhost:8081`
-- Redis UI — `http://localhost:8082`
+Source changes in `packages/gateway-mcp/src` and `apps/compliance-cockpit/src` are picked up automatically.
 
 ---
 
@@ -50,42 +37,41 @@ Additional services in dev mode:
 pip install agentguard-aegis
 ```
 
-For local development from source:
+Or from source:
 
 ```bash
 make install-sdk
 ```
 
-### Basic usage
+### Usage
 
 ```python
 from agentguard import AgentGuard, AgentGuardConfig
 
-config = AgentGuardConfig(
+guard = AgentGuard(AgentGuardConfig(
     agent_id="my-agent",
     gateway_url="http://localhost:8080",
-    enable_signing=False  # set True once you have a keypair
-)
-guard = AgentGuard(config)
+))
 
 @guard.trace(tool_name="my_tool")
 def my_tool(query: str):
     return "result"
 ```
 
-### Generating an Ed25519 keypair (optional, for signed traces)
+---
 
-```python
-from agentguard.crypto import generate_and_save_keypair
+## Claude Code Integration
 
-generate_and_save_keypair("./agent.key")
+```bash
+npm install -g agentguard   # if not already installed
+agentguard claude-code setup --gateway http://localhost:8080
 ```
 
-Then set `private_key_path="./agent.key"` and `enable_signing=True` in your config.
+This configures Claude Code to send all tool calls through AEGIS for auditing and policy enforcement.
 
 ---
 
-## Defining Safety Policies
+## Safety Policies
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/policies \
@@ -96,10 +82,7 @@ curl -X POST http://localhost:8080/api/v1/policies \
     "policy_schema": {
       "type": "object",
       "properties": {
-        "action": {
-          "type": "string",
-          "not": { "pattern": "^(delete|remove|drop)" }
-        }
+        "action": { "type": "string", "not": { "pattern": "^(delete|remove|drop)" } }
       }
     },
     "risk_level": "HIGH"
@@ -108,70 +91,13 @@ curl -X POST http://localhost:8080/api/v1/policies \
 
 ---
 
-## Monitoring
-
-Open `http://localhost:3000` and navigate to the Traces tab. Each trace shows:
-
-- Input arguments and output
-- Cryptographic signature status
-- Policy evaluation result
-- Position in the hash chain
-
-The Decision Graph view (ReactFlow) visualises the agent's full reasoning flow. Red nodes indicate policy violations.
-
----
-
-## Violation Handling
-
-1. First violation — request blocked, error returned to agent
-2. After 3 violations within the configured window — API key revoked (kill switch)
-3. Recovery — admin must manually reinstate access from the dashboard
-
----
-
-## Exporting Audit Traces
-
-```bash
-curl http://localhost:8080/api/v1/traces/export \
-  -d '{"agent_id": "my-agent", "start_time": "2024-01-01T00:00:00Z"}'
-```
-
-Verify the hash chain:
-
-```python
-from agentguard_core_schema import validate_trace_chain
-import json
-
-bundle = json.load(open("trace-bundle.json"))
-print("Valid:", validate_trace_chain(bundle["traces"]))
-```
-
----
-
-## Production Deployment
-
-```bash
-./deploy-production.sh
-```
-
-See [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) before going live.
-
----
-
 ## Makefile Reference
 
 | Command | Description |
-|---|---|
-| `make up` | Start all services (production) |
-| `make dev` | Start all services (dev, hot-reload) |
-| `make down` | Stop all services |
+|---------|-------------|
+| `make up` | Start services |
+| `make down` | Stop services |
+| `make dev` | Start with hot-reload |
 | `make logs` | Tail logs |
+| `make clean` | Remove containers and volumes |
 | `make install-sdk` | Install Python SDK locally |
-| `make clean` | Remove all containers and volumes |
-| `make db-backup` | Backup SQLite database |
-
----
-
-## License
-
-[MIT](./LICENSE)

@@ -123,8 +123,9 @@ export class KillSwitchService {
       VALUES (?, ?, 'ACTIVE')
     `);
 
-    // In production, would generate actual key hash
-    stmt.run(agentId, 'dummy_hash');
+    const { createHash, randomBytes } = require('crypto');
+    const keyHash = createHash('sha256').update(randomBytes(32)).digest('hex');
+    stmt.run(agentId, keyHash);
 
     // Clear violation history
     this.violationCounts.delete(agentId);

@@ -15,6 +15,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'AEGIS — AI Agent Intelligence & Security',
   description: 'Real-time monitoring and auditing for AI agents',
+  icons: { icon: '/aegis-logo.png', apple: '/aegis-logo.png' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
