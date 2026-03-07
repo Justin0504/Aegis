@@ -45,13 +45,13 @@
 **A real Claude-powered research assistant, fully integrated with AEGIS.**<br>
 Watch it trace tool calls, block SQL injection, detect PII, and pause for human approval — live.
 
-<video src="https://github.com/Justin0504/Aegis/raw/main/docs/images/readme_demo2.mp4" width="820" autoplay loop muted playsinline></video>
+<img src="docs/images/readme_demo2.gif" alt="Live agent demo" width="820">
 
 <br>
 
 **The Compliance Cockpit: traces, policies, cost tracking, sessions, approvals.**
 
-<video src="https://github.com/Justin0504/Aegis/raw/main/docs/images/readme_demo1.mp4" width="820" autoplay loop muted playsinline></video>
+<img src="docs/images/readme_demo1.gif" alt="Dashboard walkthrough" width="820">
 
 </div>
 
