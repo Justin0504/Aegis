@@ -33,24 +33,23 @@ Logging what happened is not enough. You need to **stop it before it happens**.
 
 ## See it in action
 
-<table>
-<tr>
-<td width="50%">
+<div align="center">
 
-**Live agent demo — AEGIS intercepts every tool call in real time**
+### Live Agent + AEGIS — real-time interception
 
-<img src="docs/images/readme_demo1.gif" alt="Agent demo — tracing, blocking, approvals" width="100%">
+*A Claude-powered research assistant with AEGIS blocking SQL injection, detecting PII, and requiring human approval — all in real time.*
 
-</td>
-<td width="50%">
+<img src="docs/images/readme_demo2.gif" alt="Live agent demo with AEGIS interception" width="820">
 
-**Dashboard walkthrough — traces, policies, costs, sessions**
+<br><br>
 
-<img src="docs/images/readme_demo2.gif" alt="Dashboard walkthrough" width="100%">
+### Compliance Cockpit — full dashboard walkthrough
 
-</td>
-</tr>
-</table>
+*Traces, policies, cost tracking, sessions, approvals — everything you need for agent compliance.*
+
+<img src="docs/images/readme_demo1.gif" alt="Dashboard walkthrough" width="820">
+
+</div>
 
 ---
 
