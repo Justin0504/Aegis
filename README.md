@@ -2,50 +2,54 @@
 
 # AEGIS
 
-**Your AI agent tried to `DROP TABLE users`. AEGIS stopped it.**
+### The firewall for AI agents.
+
+**Every tool call. Intercepted. Classified. Blocked — before it executes.**
+
+<br>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI](https://img.shields.io/pypi/v/agentguard-aegis?label=PyPI&color=blue)](https://pypi.org/project/agentguard-aegis/)
 [![npm](https://img.shields.io/badge/npm-%40justinnn%2Fagentguard-red)](https://www.npmjs.com/package/@justinnn/agentguard)
 [![Docker](https://img.shields.io/badge/ghcr.io-aegis--gateway-0db7ed)](https://github.com/Justin0504/Aegis/pkgs/container/aegis-gateway)
+[![CI](https://github.com/Justin0504/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/Justin0504/Aegis/actions)
 
-*Pre-execution blocking · Human-in-the-loop approvals · Cryptographic audit trail · 9 frameworks · Zero code changes*
+</div>
 
 <br>
 
-<img src="docs/images/dashboard-overview.png" alt="AEGIS Compliance Cockpit" width="720">
+> Your agent just called `DROP TABLE users` because the prompt said "clean up old records."
+>
+> Your agent just exfiltrated 2GB because "the user asked for a report."
+>
+> Your agent just ran `rm -rf /` because the model hallucinated a tool name.
+>
+> **These are not hypotheticals.** Every agent framework lets AI decide which tools to call, with what arguments, at machine speed. There is no human in the loop. There is no undo button.
+>
+> AEGIS is the missing layer: a **pre-execution firewall** that sits between your agent and its tools, classifies every call in real time, enforces policies, blocks violations, and creates a cryptographically signed audit trail — all with **one line of code and zero changes to your agent.**
 
+<br>
+
+<div align="center">
+<img src="docs/images/dashboard-overview.png" alt="AEGIS Compliance Cockpit" width="820">
+<br>
+<sub>The AEGIS Compliance Cockpit — real-time monitoring across all your agents.</sub>
 </div>
 
 ---
 
-## The problem
-
-AI agents are powerful and unpredictable. They can:
-
-- Delete your database because a prompt said "clean up old records"
-- Exfiltrate gigabytes of data because "the user asked for a report"
-- Execute arbitrary shell commands because the model hallucinated a tool name
-
-Logging what happened is not enough. You need to **stop it before it happens**.
-
----
-
-## See it in action
+## Demo
 
 <div align="center">
 
-### Live Agent + AEGIS — real-time interception
+**A real Claude-powered research assistant, fully integrated with AEGIS.**<br>
+Watch it trace tool calls, block SQL injection, detect PII, and pause for human approval — live.
 
-*A Claude-powered research assistant with AEGIS blocking SQL injection, detecting PII, and requiring human approval — all in real time.*
+<img src="docs/images/readme_demo2.gif" alt="Live agent demo" width="820">
 
-<img src="docs/images/readme_demo2.gif" alt="Live agent demo with AEGIS interception" width="820">
+<br>
 
-<br><br>
-
-### Compliance Cockpit — full dashboard walkthrough
-
-*Traces, policies, cost tracking, sessions, approvals — everything you need for agent compliance.*
+**The Compliance Cockpit: traces, policies, cost tracking, sessions, approvals.**
 
 <img src="docs/images/readme_demo1.gif" alt="Dashboard walkthrough" width="820">
 
@@ -53,7 +57,9 @@ Logging what happened is not enough. You need to **stop it before it happens**.
 
 ---
 
-## 30-second setup
+## Quick Start
+
+**3 commands. 30 seconds. Full protection.**
 
 ```bash
 git clone https://github.com/Justin0504/Aegis
@@ -61,10 +67,10 @@ cd Aegis
 docker compose up -d
 ```
 
-| Service | URL |
-|---------|-----|
-| **Compliance Cockpit** | http://localhost:3000 |
-| **Gateway API** | http://localhost:8080 |
+| Service | URL | What it does |
+|---------|-----|--------------|
+| **Compliance Cockpit** | [localhost:3000](http://localhost:3000) | Dashboard — traces, policies, approvals, costs |
+| **Gateway API** | [localhost:8080](http://localhost:8080) | Policy engine — classifies, checks, blocks |
 
 Then add **one line** to your agent:
 
@@ -72,19 +78,38 @@ Then add **one line** to your agent:
 import agentguard
 agentguard.auto("http://localhost:8080", agent_id="my-agent")
 
-# Everything below is unchanged — no decorators, no wrappers
+# Your existing code — completely unchanged
 import anthropic
 client = anthropic.Anthropic()
-response = client.messages.create(model="claude-opus-4-6", tools=[...], messages=[...])
+response = client.messages.create(model="claude-sonnet-4-20250514", tools=[...], messages=[...])
 ```
 
-Or **zero lines** with an env var:
+Or **zero lines** — just set an environment variable:
 
 ```bash
 AGENTGUARD_URL=http://localhost:8080 python your_agent.py
 ```
 
-That's it. Every tool call is now classified, policy-checked, cryptographically signed, and logged — before execution.
+That's it. Every tool call is now classified, policy-checked, and cryptographically signed — **before** execution.
+
+---
+
+## Why AEGIS?
+
+Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happened**. AEGIS **prevents it from happening.**
+
+|  | LangFuse | Helicone | Arize | **AEGIS** |
+|--|----------|----------|-------|-----------|
+| Observability dashboard | ✅ | ✅ | ✅ | ✅ |
+| **Pre-execution blocking** | ❌ | ❌ | ❌ | ✅ |
+| **Human-in-the-loop approvals** | ❌ | ❌ | ❌ | ✅ |
+| **Zero-config tool classification** | ❌ | ❌ | ❌ | ✅ |
+| **Cryptographic audit trail** | ❌ | ❌ | ❌ | ✅ |
+| **Kill switch** | ❌ | ❌ | ❌ | ✅ |
+| **Natural language policy editor** | ❌ | ❌ | ❌ | ✅ |
+| **MCP server for Claude Desktop** | ❌ | ❌ | ❌ | ✅ |
+| **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
+| Self-hostable, MIT-licensed | ✅ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -93,49 +118,51 @@ That's it. Every tool call is now classified, policy-checked, cryptographically 
 ```
   Your agent calls a tool
           │
-          ▼  (SDK intercepts at the LLM response level)
+          ▼  SDK intercepts at the LLM response level
   ┌────────────────────────────────────────────────┐
   │  AEGIS Gateway                                 │
   │                                                │
-  │  ① Classify tool   (SQL? file? network? shell?) │
-  │  ② Match policies  (injection? exfil? traversal?)│
-  │  ③ Decide: allow / block / pending             │
+  │  ① Classify   (SQL? file? network? shell?)     │
+  │  ② Evaluate   (injection? exfil? traversal?)   │
+  │  ③ Decide     allow / block / pending          │
   └──────────┬─────────────────────────────────────┘
              │
-      ┌───────┴──────────────┐
-      │                      │
-   allow                  pending ──► Human reviews in dashboard
-      │                      │               │
-      ▼                      └──── allow ────┘
-  Tool executes                         │
-      │                              block
-      ▼                                 │
-  Signed (Ed25519)                      ▼
-  Hash-chained (SHA-256)      AgentGuardBlockedError
-  Stored in dashboard
+      ┌──────┴──────────────┐
+      │                     │
+   allow                 pending ──► Human reviews in Cockpit
+      │                     │               │
+      ▼                     └──── allow ────┘
+  Tool executes                        │
+      │                             block
+      ▼                                │
+  Ed25519 signed                       ▼
+  SHA-256 hash-chained       AgentGuardBlockedError
+  Stored in Cockpit          (agent gets the reason)
 ```
 
-**The classifier works on any tool name — zero configuration required.**
+**Zero-config classification** — works on any tool name, any argument shape:
 
-| Tool called | Detected as | Why |
-|-------------|-------------|-----|
+| Your tool call | AEGIS detects | How |
+|----------------|---------------|-----|
 | `run_query(sql="SELECT...")` | `database` | SQL keyword in args |
-| `my_tool(path="/etc/passwd")` | `file` | sensitive path |
+| `my_tool(path="/etc/passwd")` | `file` | Sensitive path pattern |
 | `do_thing(url="http://...")` | `network` | URL in args |
-| `helper(cmd="rm -rf /")` | `shell` | command injection signal |
-| `custom_fn(prompt="ignore previous...")` | all | prompt injection |
+| `helper(cmd="rm -rf /")` | `shell` | Command injection signal |
+| `custom_fn(prompt="ignore previous...")` | `prompt-injection` | Known attack pattern |
 
 ---
 
-## Blocking mode
+## Key Features
 
-When your agent attempts a HIGH or CRITICAL risk action, **it pauses**. You decide.
+### Pre-Execution Blocking
+
+AEGIS doesn't just log — it **stops dangerous tool calls before they execute**.
 
 ```python
 agentguard.auto(
     "http://localhost:8080",
-    blocking_mode=True,            # hold dangerous calls for review
-    human_approval_timeout_s=300,  # auto-block after 5 min with no decision
+    blocking_mode=True,             # pause HIGH/CRITICAL calls for human review
+    human_approval_timeout_s=300,   # auto-block after 5 min with no decision
 )
 ```
 
@@ -143,7 +170,7 @@ agentguard.auto(
 <tr>
 <td width="50%">
 
-**SQL injection detected — blocked instantly**
+**SQL injection — blocked instantly**
 
 <img src="docs/images/block.png" alt="Blocked SQL injection" width="100%">
 
@@ -158,7 +185,7 @@ agentguard.auto(
 </tr>
 </table>
 
-The agent waits. You open the dashboard, see the exact arguments it was about to use, and click **Allow** or **Block**. The agent resumes in under a second.
+The agent pauses. You open the Cockpit, inspect the exact arguments, and click **Allow** or **Block**. The agent resumes in under a second.
 
 ```python
 from agentguard import AgentGuardBlockedError
@@ -169,40 +196,50 @@ except AgentGuardBlockedError as e:
     print(f"Blocked: {e.tool_name} — {e.reason} ({e.risk_level})")
 ```
 
----
+### Policy Engine
 
-## Compliance Cockpit
+Five policies ship by default. Create more in plain English — the AI assistant generates the JSON schema for you.
 
-Real-time visibility and control over every agent action.
+| Policy | Risk | What it catches |
+|--------|------|-----------------|
+| SQL Injection Prevention | HIGH | `DROP`, `DELETE`, `TRUNCATE` in database tools |
+| File Access Control | MEDIUM | Path traversal (`../`), `/etc/`, `/root/` |
+| Network Access Control | MEDIUM | HTTP (non-HTTPS) requests |
+| Prompt Injection Detection | CRITICAL | "ignore previous instructions" patterns |
+| Data Exfiltration Prevention | HIGH | Large payloads to external endpoints |
+
+> *"Block all file deletions outside the /tmp directory"* → Describe button → policy created instantly.
+
+### Compliance Cockpit
 
 <table>
 <tr>
 <td width="50%">
 
-**Forensic trace detail — full tool call inspection**
+**Forensic trace detail**
 
 <img src="docs/images/trace.png" alt="Trace details" width="100%">
 
 </td>
 <td width="50%">
 
-**Policy engine — 5 built-in rules, AI-assisted creation**
+**Policy management**
 
-<img src="docs/images/policies.png" alt="Policy editor" width="100%">
+<img src="docs/images/policies.png" alt="Policies" width="100%">
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-**Cost tracking — per model, per agent, per session**
+**Token cost tracking**
 
 <img src="docs/images/cost.png" alt="Cost tracking" width="100%">
 
 </td>
 <td width="50%">
 
-**Session grouping — trace chains across agent runs**
+**Session grouping**
 
 <img src="docs/images/session.png" alt="Sessions" width="100%">
 
@@ -210,42 +247,37 @@ Real-time visibility and control over every agent action.
 </tr>
 </table>
 
-- **Live trace stream** — every tool call as it happens, with risk level and classification
-- **Pending approvals** — one-click allow/block for human-in-the-loop checks
-- **Agent behavior baseline** — 7-day profile per agent: top tools, risk distribution, PII rate
-- **Anomaly detection** — automatic flagging of spikes, error bursts, unusual patterns
-- **PII detection** — automatic redaction of sensitive data in traces
-- **Alert rules** — threshold-based alerts with Slack, PagerDuty, or webhook delivery
-- **Forensic export** — PDF compliance reports and CSV audit bundles
-- **Kill switch** — manual or automatic agent revocation after N violations
+**Everything you need in one dashboard:**
+- **Live Feed** — every tool call as it happens, with risk badges
+- **Approvals** — one-click allow/block for pending checks
+- **Agent Baseline** — 7-day behavioral profile per agent
+- **Anomaly Detection** — automatic flagging of spikes, error bursts, unusual patterns
+- **PII Detection** — auto-redacts SSN, email, phone, credit card, API keys
+- **Cost Tracking** — token usage and USD cost across 40+ models
+- **Alert Rules** — Slack, PagerDuty, or webhook on violations/cost spikes
+- **Forensic Export** — PDF compliance reports and CSV audit bundles
+- **Kill Switch** — auto-revoke agents after N violations
+
+### Cryptographic Audit Trail
+
+Every trace is:
+- **Ed25519 signed** — per-agent keypair, cryptographically verifiable
+- **SHA-256 hash-chained** — each trace commits to the previous, tamper-evident
+- **Immutable** — any modification breaks the chain, detectable by any third party
+
+This isn't just logging. This is **court-admissible evidence** that your AI agents operated within policy.
 
 ---
 
-## Why AEGIS over the alternatives?
+## SDK Support
 
-Every other agent observability tool tells you **what happened**. AEGIS **prevents it**.
+**9 Python frameworks. JavaScript/TypeScript. Go. All auto-patched, zero code changes.**
 
-|  | LangFuse | Helicone | Arize | AEGIS |
-|--|----------|----------|-------|-------|
-| Observability dashboard | ✅ | ✅ | ✅ | ✅ |
-| **Pre-execution blocking** | ❌ | ❌ | ❌ | ✅ |
-| **Human-in-the-loop approvals** | ❌ | ❌ | ❌ | ✅ |
-| **Auto-classifies any tool name** | ❌ | ❌ | ❌ | ✅ |
-| **Ed25519 signed audit trail** | ❌ | ❌ | ❌ | ✅ |
-| **SHA-256 tamper-evident chain** | ❌ | ❌ | ❌ | ✅ |
-| **Kill switch** | ❌ | ❌ | ❌ | ✅ |
-| **Natural language policy editor** | ❌ | ❌ | ❌ | ✅ |
-| **Claude Desktop MCP integration** | ❌ | ❌ | ❌ | ✅ |
-| **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
-| Self-hostable | ✅ | ❌ | ❌ | ✅ |
+<table>
+<tr>
+<td>
 
----
-
-## SDK support — 9 frameworks, zero code changes
-
-```bash
-pip install agentguard-aegis
-```
+**Python** — `pip install agentguard-aegis`
 
 | Framework | Status |
 |-----------|--------|
@@ -259,205 +291,193 @@ pip install agentguard-aegis
 | LlamaIndex | ✅ auto-patched |
 | smolagents | ✅ auto-patched |
 
-**JavaScript / TypeScript:**
+</td>
+<td>
 
-```bash
-npm install @justinnn/agentguard
-```
+**JavaScript / TypeScript** — `npm install @justinnn/agentguard`
 
 ```typescript
 import agentguard from '@justinnn/agentguard'
-agentguard.auto('http://localhost:8080', { agentId: 'my-agent', blockingMode: true })
-// existing Anthropic / OpenAI / LangChain code unchanged
+agentguard.auto('http://localhost:8080', {
+  agentId: 'my-agent',
+  blockingMode: true,
+})
+// Existing code unchanged
 ```
 
-**Go:**
-
-```bash
-go get github.com/Justin0504/Aegis/packages/sdk-go@latest
-```
+**Go** — `go get github.com/Justin0504/Aegis/packages/sdk-go`
 
 ```go
-import agentguard "github.com/Justin0504/Aegis/packages/sdk-go"
-
-guard := agentguard.Auto() // reads AGENTGUARD_URL, AGENTGUARD_AGENT_ID env vars
+guard := agentguard.Auto()
 defer guard.Close()
 
-result, err := guard.Wrap("query_db", args, func() (any, error) {
+result, err := guard.Wrap("query_db", args,
+  func() (any, error) {
     return db.Query("SELECT ...")
-})
-
-var blocked *agentguard.BlockedError
-if errors.As(err, &blocked) {
-    log.Printf("Blocked: %s — %s", blocked.ToolName, blocked.Reason)
-}
+  },
+)
 ```
 
 Zero external dependencies. Standard library only.
 
----
-
-## OpenTelemetry export
-
-Every AEGIS trace can be forwarded as an OTEL span to Datadog, Grafana, Jaeger, or any OTLP-compatible collector:
-
-```bash
-OTEL_ENABLED=true \
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
-OTEL_SERVICE_NAME=aegis-gateway \
-node dist/server.js
-```
-
-Each span is named `tool_call/<tool_name>` and carries these attributes:
-
-| Attribute | Value |
-|-----------|-------|
-| `aegis.agent_id` | agent identifier |
-| `aegis.tool_name` | tool being called |
-| `aegis.risk_level` | LOW / MEDIUM / HIGH / CRITICAL |
-| `aegis.blocked` | true if the call was blocked |
-| `aegis.cost_usd` | estimated LLM cost |
-| `aegis.pii_detected` | 1 if PII was found in arguments |
-
-OTEL errors are silently ignored — they never break your agent's execution path.
+</td>
+</tr>
+</table>
 
 ---
 
-## Policy engine
+## Integrations
 
-Five policies ship by default. **Any** tool gets classified — no configuration needed.
+### Claude Desktop (MCP)
 
-| Policy | Risk | Blocks |
-|--------|------|--------|
-| SQL Injection Prevention | HIGH | `DROP`, `DELETE`, `TRUNCATE` in DB tools |
-| File Access Control | MEDIUM | path traversal, `/etc/`, `/root/` |
-| Network Access Control | MEDIUM | HTTP (non-HTTPS) requests |
-| Prompt Injection Detection | CRITICAL | "ignore previous instructions" patterns |
-| Data Exfiltration Prevention | HIGH | large payloads to external endpoints |
-
-**Write policies in plain English** — the AI assistant converts them automatically:
-
-> *"Block all file deletions outside the /tmp directory"*
-> → Generates JSON schema + risk level + description instantly
-
-Or write them manually via the dashboard or API:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/policies \
-  -H 'Content-Type: application/json' \
-  -H 'x-api-key: YOUR_KEY' \
-  -d '{
-    "id": "no-prod-deletes",
-    "name": "No Production Deletes",
-    "risk_level": "CRITICAL",
-    "policy_schema": {
-      "properties": { "sql": { "not": { "pattern": "DELETE|TRUNCATE" } } }
-    }
-  }'
-```
-
-Map your own tool names to categories:
-
-```python
-agentguard.auto(
-    "http://localhost:8080",
-    tool_categories={
-        "my_query_runner": "database",
-        "send_email":      "communication",
-        "s3_upload":       "network",
-    }
-)
-```
-
----
-
-## Claude Desktop integration (MCP)
-
-AEGIS exposes its audit data as MCP tools. Ask Claude about your agents directly:
+Ask Claude about your agents directly:
 
 ```json
 {
   "mcpServers": {
-    "aegis": {
-      "url": "ws://localhost:8080/mcp-audit"
-    }
+    "aegis": { "url": "ws://localhost:8080/mcp-audit" }
   }
 }
 ```
 
-Available tools: `query_traces`, `list_violations`, `get_agent_stats`, `list_policies`
-
 > *"What did agent X do in the last hour?"* → Claude queries AEGIS and tells you.
 
----
+Available tools: `query_traces`, `list_violations`, `get_agent_stats`, `list_policies`
 
-## Security model
+### OpenTelemetry
 
-```
-Tool call received
-  → Pre-execution check      (block before damage — zero tolerance for CRITICAL)
-  → Tool executes            (if allowed)
-  → Ed25519 signature        (optional, per-agent keypair)
-  → SHA-256 hash chain       (each trace commits to the previous)
-  → Kill switch              (3 violations in 1h → auto-revoke)
-  → Immutable audit log      (cryptographically verifiable by any third party)
+Forward every trace to Datadog, Grafana, Jaeger, or any OTLP-compatible collector:
+
+```bash
+OTEL_ENABLED=true OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 node dist/server.js
 ```
 
-Gateway API is protected by an auto-generated API key — management endpoints require authentication, SDK ingest endpoints remain open so agents work without configuration.
+Each span carries: `aegis.agent_id`, `aegis.risk_level`, `aegis.blocked`, `aegis.cost_usd`, `aegis.pii_detected`
+
+### Alerting
+
+Threshold-based alerts delivered to **Slack**, **PagerDuty**, or custom **webhooks** when violations, cost spikes, or anomalies are detected.
 
 ---
 
-## Precision controls
+## Fine-Tuning
 
-Not everything needs to be blocked. Fine-tune with:
+Not everything needs to be blocked. Precision controls for production:
 
 ```python
 agentguard.auto(
     "http://localhost:8080",
     block_threshold="HIGH",          # only block HIGH and CRITICAL (default)
-    allow_tools=["read_file"],       # always allow these specific tools
-    allow_categories=["network"],    # always allow all network tools
+    allow_tools=["read_file"],       # whitelist specific tools
+    allow_categories=["network"],    # whitelist entire categories
     audit_only=True,                 # log everything, block nothing
+    tool_categories={                # override auto-classification
+        "my_query_runner": "database",
+        "send_email": "communication",
+    },
 )
 ```
 
 ---
 
-## Self-hosting
-
-MIT-licensed. No telemetry. No data leaves your infrastructure.
+## Architecture
 
 ```
 packages/
-  gateway-mcp/          Node.js gateway (Express + SQLite)
-  sdk-python/           pip install agentguard-aegis
-  sdk-js/               npm install @justinnn/agentguard
-  sdk-go/               go get github.com/Justin0504/Aegis/packages/sdk-go
-  core-schema/          shared TypeScript types
+  gateway-mcp/          Express + SQLite gateway (policy engine, classifier, PII, cost, OTEL)
+  sdk-python/           Python SDK — 9 frameworks auto-patched
+  sdk-js/               TypeScript SDK — Anthropic, OpenAI, LangChain, Vercel AI
+  sdk-go/               Go SDK — zero dependencies, stdlib only
+  core-schema/          Shared Zod schemas (trace format, risk levels, approval status)
+  cli/                  CLI tool — agentguard status|traces|costs|policies|kill-switch
 
 apps/
-  compliance-cockpit/   Next.js dashboard
+  compliance-cockpit/   Next.js dashboard (8 tabs, live feed, approvals, forensic export)
+
+demo/
+  live-agent/           Real Claude-powered demo agent with chat UI (FastAPI)
+  showcase_agent.py     Multi-step feature demonstration script
 ```
 
-**Docker Compose (recommended):**
+**Tech Stack**: Node.js 20, Express, SQLite, Next.js 14, React 18, TailwindCSS, Python 3.10+, Go 1.21+
+
+---
+
+## Deployment
+
+### Docker Compose (recommended)
+
 ```bash
-docker compose up -d
+docker compose up -d                              # production
+docker compose -f docker-compose.dev.yml up       # development (hot-reload)
 ```
+
+### Manual
+
+```bash
+# Gateway
+cd packages/gateway-mcp && npm install && npm run build && node dist/server.js
+
+# Cockpit
+cd apps/compliance-cockpit && npm install && npm run build && npm start
+
+# Agent
+pip install agentguard-aegis
+```
+
+### Cloud
+
+Pre-configured for **Render** (`render.yaml`), **Railway** (`railway.json`), and **Kubernetes** (`kubernetes/`).
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GATEWAY_PORT` | `8080` | Gateway listen port |
+| `DB_PATH` | `./agentguard.db` | SQLite database path |
+| `OTEL_ENABLED` | `false` | Enable OpenTelemetry export |
+| `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` | Cockpit → Gateway URL |
+
+---
+
+## Try the Demo Agent
+
+A real Claude-powered research assistant with its own chat UI, fully integrated with AEGIS:
+
+```bash
+# Prerequisites: gateway on :8080, cockpit on :3000
+cd demo/live-agent
+pip install -r requirements.txt
+export ANTHROPIC_API_KEY=sk-ant-...
+python app.py
+```
+
+Open [localhost:8501](http://localhost:8501) and follow the guided prompts:
+
+1. **Search for AI trends** → traces appear in Live Feed, cost tracked
+2. **Read Q1 revenue data** → file access tracing, session grouping
+3. **Query top customers** → safe SQL execution (ALLOW)
+4. **SQL injection attempt** → blocked instantly (BLOCK)
+5. **Analyze text with SSN** → PII auto-detected and flagged
+6. **Send a report** → blocking mode, requires human approval in Cockpit
 
 ---
 
 ## Contributing
 
-Issues and PRs welcome.
+Issues and PRs welcome. Development setup:
 
 ```bash
-git clone https://github.com/Justin0504/Aegis
-cd Aegis
-docker compose -f docker-compose.dev.yml up
+git clone https://github.com/Justin0504/Aegis && cd Aegis
+docker compose -f docker-compose.dev.yml up    # hot-reload enabled
 ```
 
 ---
 
-## License
+<div align="center">
 
-[MIT](LICENSE)
+**MIT Licensed** · No telemetry · No data leaves your infrastructure · Self-hosted
+
+Built by [Justin](https://github.com/Justin0504)
+
+</div>
