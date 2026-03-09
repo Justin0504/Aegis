@@ -95,10 +95,12 @@ export class CheckAPI {
       try {
         const body = CheckRequestSchema.parse(req.body)
 
+        // user_category_overrides from client is ignored for security —
+        // a compromised agent could reclassify dangerous tools to bypass policies.
+        // Category overrides should be configured server-side only.
         const validation = await this.policyEngine.validateToolCall({
           tool: body.tool_name,
           arguments: body.arguments,
-          userCategoryOverrides: body.user_category_overrides as Record<string, ToolCategory> | undefined,
         })
 
         const { classification } = validation
@@ -208,12 +210,12 @@ export class CheckAPI {
           return res.status(400).json({ error: 'Invalid request', details: error.errors })
         }
         this.logger.error({ error }, 'Check endpoint error')
-        // Fail-open: gateway errors should not break agents
+        // Fail-closed: gateway errors block by default for safety
         return res.json({
-          decision:   'allow',
+          decision:   'block',
           check_id:   randomUUID(),
-          risk_level: 'LOW',
-          reason:     'Gateway error — fail-open',
+          risk_level: 'CRITICAL',
+          reason:     'Gateway error — fail-closed',
           latency_ms: Date.now() - start,
         })
       }

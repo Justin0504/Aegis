@@ -188,30 +188,29 @@ describe('prompt injection is blocked', () => {
   })
 })
 
-// ── User category overrides ─────────────────────────────────────────────────
+// ── Client-side overrides removed (security hardening) ──────────────────────
+// Client-side userCategoryOverrides were removed to prevent compromised agents
+// from reclassifying dangerous tools. Overrides are now server-side only.
 
-describe('user category overrides', () => {
-  test('custom tool classified as database via override', async () => {
+describe('classification without client overrides', () => {
+  test('SQL injection detected via content scan regardless of tool name', async () => {
     const engine = makeEngine()
     const result = await engine.validateToolCall({
       tool: 'fancy_data_lookup',
       arguments: { sql: "'; DROP TABLE users; --" },
-      userCategoryOverrides: { fancy_data_lookup: 'database' },
     })
-    // SQL injection in a user-overridden database tool → blocked
     expect(result.passed).toBe(false)
-    expect(result.classification.source).toBe('override')
+    expect(result.classification.source).toBe('content')
   })
 
-  test('communication tool classified correctly via override', async () => {
+  test('communication tool classified by name inference', async () => {
     const engine = makeEngine()
     const result = await engine.validateToolCall({
-      tool: 'my_notifier',
+      tool: 'send_notification',
       arguments: { message: 'Deploy succeeded', channel: '#general' },
-      userCategoryOverrides: { my_notifier: 'communication' },
     })
     expect(result.classification.category).toBe('communication')
-    expect(result.classification.source).toBe('override')
+    expect(result.classification.source).toBe('name')
   })
 })
 

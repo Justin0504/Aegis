@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { Logger } from 'pino';
 import { z } from 'zod';
 import { SafetyValidation, RiskLevel } from '@agentguard/core-schema';
-import Ajv from 'ajv';
+import Ajv, { ValidateFunction } from 'ajv';
 import { classifyToolCall, ClassificationResult, ToolCategory } from '../services/classifier';
 
 interface Policy {
@@ -17,8 +17,6 @@ interface Policy {
 interface ToolCallRequest {
   tool: string;
   arguments: any;
-  /** Optional user-declared overrides: { "my_tool": "database" } */
-  userCategoryOverrides?: Record<string, ToolCategory>;
 }
 
 /** Which categories each built-in policy applies to (replaces hardcoded tool names) */
@@ -33,6 +31,7 @@ const POLICY_CATEGORIES: Record<string, ToolCategory[]> = {
 export class PolicyEngine {
   private ajv: Ajv;
   private policies: Map<string, Policy> = new Map();
+  private compiledSchemas: Map<string, ValidateFunction> = new Map();
 
   constructor(
     private db: Database.Database,
@@ -43,6 +42,7 @@ export class PolicyEngine {
   }
 
   private loadPolicies() {
+    this.compiledSchemas.clear();
     const stmt = this.db.prepare('SELECT * FROM policies WHERE enabled = 1');
     const policies = stmt.all() as any[];
 
@@ -53,6 +53,8 @@ export class PolicyEngine {
           policy_schema: JSON.parse(policy.policy_schema),
         };
         this.policies.set(parsedPolicy.name, parsedPolicy);
+        // Pre-compile schema for performance (avoids recompilation on every request)
+        this.compiledSchemas.set(parsedPolicy.name, this.ajv.compile(parsedPolicy.policy_schema));
         this.logger.info({ policy: parsedPolicy.name }, 'Loaded policy');
       } catch (error) {
         this.logger.error({ error, policy: policy.name }, 'Failed to load policy');
@@ -62,10 +64,11 @@ export class PolicyEngine {
 
   async validateToolCall(request: ToolCallRequest): Promise<SafetyValidation & { classification: ClassificationResult }> {
     // Run classifier first — feeds into policy matching
+    // Category overrides from client are no longer trusted (security hardening).
+    // Server-side overrides can be loaded from gateway_config if needed.
     const classification = classifyToolCall(
       request.tool,
       request.arguments,
-      request.userCategoryOverrides ?? {},
     );
 
     this.logger.debug(
@@ -89,7 +92,7 @@ export class PolicyEngine {
     // Apply all policies that match this tool's category
     for (const [name, policy] of this.policies) {
       if (this.policyApplies(policy, request, classification.category)) {
-        const validate = this.ajv.compile(policy.policy_schema);
+        const validate = this.compiledSchemas.get(name) ?? this.ajv.compile(policy.policy_schema);
         const valid = validate(request.arguments);
 
         if (!valid) {

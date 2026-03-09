@@ -88,6 +88,34 @@ async function main() {
     res.json({ api_key: newKey });
   });
 
+  // ── Rate limiter for /api/v1/check (sliding window, per agent_id) ──────────
+  const rateLimitWindow = new Map<string, number[]>();
+  const RATE_LIMIT_MAX = 100;    // max requests per window
+  const RATE_LIMIT_MS  = 60_000; // 1-minute window
+
+  // Cleanup stale entries every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, timestamps] of rateLimitWindow) {
+      const active = timestamps.filter(t => now - t < RATE_LIMIT_MS);
+      if (active.length === 0) rateLimitWindow.delete(key);
+      else rateLimitWindow.set(key, active);
+    }
+  }, 5 * 60_000);
+
+  app.use('/api/v1/check', (req, res, next) => {
+    if (req.method !== 'POST') return next();
+    const key = req.body?.agent_id || req.ip || 'unknown';
+    const now = Date.now();
+    const timestamps = (rateLimitWindow.get(key) || []).filter(t => now - t < RATE_LIMIT_MS);
+    if (timestamps.length >= RATE_LIMIT_MAX) {
+      return res.status(429).json({ error: 'Rate limit exceeded', retry_after_ms: RATE_LIMIT_MS });
+    }
+    timestamps.push(now);
+    rateLimitWindow.set(key, timestamps);
+    next();
+  });
+
   // SDK ingest routes (public — no auth required)
   app.use('/api/v1/traces', new TraceAPI(db, logger).router);
   app.use('/api/v1/check',  new CheckAPI(db, policyEngine, logger, webhooks).router);

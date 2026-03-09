@@ -29,6 +29,7 @@ export interface ClassificationResult {
 export interface RiskSignal {
   type: 'sql_injection' | 'path_traversal' | 'shell_injection' | 'sensitive_file'
        | 'plaintext_url' | 'pii_in_args' | 'large_payload' | 'prompt_injection'
+       | 'data_exfiltration'
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   detail: string
 }
@@ -73,6 +74,7 @@ const RISK_PATTERNS: Array<{
   severity: RiskSignal['severity']
   test: (values: string[], args: unknown) => string | null
 }> = [
+  // ── SQL Injection ──────────────────────────────────────────────────────────
   {
     type: 'sql_injection',
     severity: 'HIGH',
@@ -84,6 +86,56 @@ const RISK_PATTERNS: Array<{
   },
   {
     type: 'sql_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Blind SQL injection: time-based and benchmark attacks
+      const BLIND_SQL = /\bWAITFOR\s+DELAY\b|\bpg_sleep\s*\(|\bBENCHMARK\s*\(|\bSLEEP\s*\(/i
+      const found = vals.find(v => BLIND_SQL.test(v))
+      return found ? `Blind SQL injection (time-based) in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'sql_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Comment-based bypass: /* */ used to break keywords through WAFs
+      const COMMENT_BYPASS = /\/\*[^*]*\*\/\s*(?:SELECT|UNION|DROP|INSERT|DELETE|UPDATE|EXEC)\b/i
+      const found = vals.find(v => COMMENT_BYPASS.test(v))
+      return found ? `SQL comment bypass in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'sql_injection',
+    severity: 'MEDIUM',
+    test: (vals) => {
+      // String concatenation attacks
+      const CONCAT_ATTACK = /\bCONCAT\s*\(|\bCHR\s*\(|\bCHAR\s*\(/i
+      const found = vals.find(v => CONCAT_ATTACK.test(v))
+      return found ? `SQL string concatenation function in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'sql_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Stacked queries: semicolon followed by SQL keyword
+      const STACKED = /;\s*(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|TRUNCATE)\b/i
+      const found = vals.find(v => STACKED.test(v))
+      return found ? `Stacked SQL query in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'sql_injection',
+    severity: 'MEDIUM',
+    test: (vals) => {
+      // Hex-encoded strings (common in SQL injection payloads)
+      const HEX_PAYLOAD = /0x[0-9a-fA-F]{8,}/
+      const found = vals.find(v => HEX_PAYLOAD.test(v))
+      return found ? `Hex-encoded payload in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'sql_injection',
     severity: 'MEDIUM',
     test: (vals) => {
       const SQL_KEYWORDS = /\b(DROP|TRUNCATE|ALTER|CREATE\s+TABLE|INSERT\s+INTO|DELETE\s+FROM)\b/i
@@ -91,19 +143,58 @@ const RISK_PATTERNS: Array<{
       return found ? `Destructive SQL keyword in: "${found.slice(0, 60)}"` : null
     },
   },
+
+  // ── Path Traversal ─────────────────────────────────────────────────────────
   {
     type: 'path_traversal',
     severity: 'HIGH',
     test: (vals) => {
-      const found = vals.find(v => v.includes('../') || v.includes('..\\') || /^~\//.test(v))
+      const found = vals.find(v =>
+        v.includes('../') || v.includes('..\\') || /^~\//.test(v)
+      )
       return found ? `Path traversal in: "${found.slice(0, 60)}"` : null
     },
   },
   {
+    type: 'path_traversal',
+    severity: 'HIGH',
+    test: (vals) => {
+      // URL-encoded traversal: %2e%2e%2f or %2e%2e%5c
+      const URL_ENCODED = /%2e%2e(%2f|%5c)/i
+      const found = vals.find(v => URL_ENCODED.test(v))
+      return found ? `URL-encoded path traversal in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'path_traversal',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Double-encoded traversal
+      const DOUBLE_ENCODED = /%252e%252e/i
+      const found = vals.find(v => DOUBLE_ENCODED.test(v))
+      return found ? `Double-encoded path traversal in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'path_traversal',
+    severity: 'MEDIUM',
+    test: (vals) => {
+      // Null byte injection (used to truncate file extensions)
+      const found = vals.find(v => v.includes('%00') || v.includes('\x00'))
+      return found ? `Null byte injection in: "${found.slice(0, 60)}"` : null
+    },
+  },
+
+  // ── Sensitive File Access ──────────────────────────────────────────────────
+  {
     type: 'sensitive_file',
     severity: 'CRITICAL',
     test: (vals) => {
-      const SENSITIVE = ['/etc/passwd', '/etc/shadow', '/.ssh/', '/.aws/', '/.env', '/proc/']
+      const SENSITIVE = [
+        '/etc/passwd', '/etc/shadow', '/.ssh/', '/.aws/', '/.env', '/proc/',
+        '/.kube/', '/.terraform/', '/.bashrc', '/.zshrc', '/.profile',
+        '/.gitconfig', '/.npmrc', '/.docker/', '/id_rsa', '/id_ed25519',
+      ]
       for (const s of SENSITIVE) {
         const found = vals.find(v => v.includes(s))
         if (found) return `Access to sensitive path: ${s}`
@@ -111,6 +202,8 @@ const RISK_PATTERNS: Array<{
       return null
     },
   },
+
+  // ── Shell Injection ────────────────────────────────────────────────────────
   {
     type: 'shell_injection',
     severity: 'HIGH',
@@ -121,6 +214,38 @@ const RISK_PATTERNS: Array<{
     },
   },
   {
+    type: 'shell_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Dangerous commands with network targets
+      const DANGEROUS_CMD = /\b(curl|wget|nc|ncat)\b.*\b(https?:\/\/|ftp:\/\/|\/\/)/i
+      const found = vals.find(v => DANGEROUS_CMD.test(v))
+      return found ? `Dangerous command with network target in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'shell_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // ${IFS} word splitting bypass
+      const IFS_BYPASS = /\$\{?IFS\}?/
+      const found = vals.find(v => IFS_BYPASS.test(v))
+      return found ? `Shell IFS bypass in: "${found.slice(0, 60)}"` : null
+    },
+  },
+  {
+    type: 'shell_injection',
+    severity: 'HIGH',
+    test: (vals) => {
+      // Process substitution and redirection to sensitive paths
+      const PROC_SUB = /<\(|>\(|[<>]\s*\/(?:etc|proc|dev|tmp)/
+      const found = vals.find(v => PROC_SUB.test(v))
+      return found ? `Shell process substitution or redirect in: "${found.slice(0, 60)}"` : null
+    },
+  },
+
+  // ── Plaintext URL ──────────────────────────────────────────────────────────
+  {
     type: 'plaintext_url',
     severity: 'LOW',
     test: (vals) => {
@@ -128,6 +253,8 @@ const RISK_PATTERNS: Array<{
       return found ? `Plaintext HTTP URL: "${found.slice(0, 80)}"` : null
     },
   },
+
+  // ── Large Payload ──────────────────────────────────────────────────────────
   {
     type: 'large_payload',
     severity: 'MEDIUM',
@@ -136,11 +263,43 @@ const RISK_PATTERNS: Array<{
       return total > 50_000 ? `Large payload: ${(total / 1024).toFixed(1)}KB` : null
     },
   },
+
+  // ── Data Exfiltration (content-level) ──────────────────────────────────────
+  {
+    type: 'data_exfiltration',
+    severity: 'HIGH',
+    test: (vals) => {
+      const hasUrl = vals.some(v => /^https?:\/\//i.test(v))
+      const hasLargeString = vals.some(v => v.length > 5000)
+      if (hasUrl && hasLargeString) return 'Possible data exfiltration: large payload with external URL'
+      return null
+    },
+  },
+
+  // ── Prompt Injection ───────────────────────────────────────────────────────
   {
     type: 'prompt_injection',
     severity: 'CRITICAL',
     test: (vals) => {
-      const INJECT = /ignore (previous|above|all)|disregard|you are now|act as if|new instructions/i
+      const INJECT = new RegExp([
+        'ignore (previous|above|all|prior|every)',
+        'disregard (all|your|the|previous)',
+        'you are now',
+        'act as if',
+        'new instructions',
+        'forget (your|all|previous|everything)',
+        'override (your|system|all)',
+        'jailbreak',
+        'do anything now',
+        'DAN mode',
+        'developer mode',
+        'bypass (filter|safety|content|restriction)',
+        'pretend (you|to be|that)',
+        'roleplay as',
+        'system prompt',
+        'reveal (your|the|system)',
+        'what (are|is) your (instructions|prompt|system)',
+      ].join('|'), 'i')
       const found = vals.find(v => INJECT.test(v))
       return found ? `Prompt injection attempt: "${found.slice(0, 80)}"` : null
     },
@@ -172,12 +331,16 @@ function categoryFromName(toolName: string): ToolCategory | null {
 
 // ── String value extractor ───────────────────────────────────────────────────
 
-function extractStringValues(obj: unknown, depth = 0): string[] {
-  if (depth > 8) return []
-  if (typeof obj === 'string') return [obj]
-  if (Array.isArray(obj)) return obj.flatMap(v => extractStringValues(v, depth + 1))
+const SCAN_TRUNCATED = '__SCAN_TRUNCATED__'
+const MAX_SCAN_DEPTH = 32
+const MAX_STRING_COUNT = 10_000
+
+function extractStringValues(obj: unknown, depth = 0, ctx = { count: 0 }): string[] {
+  if (depth > MAX_SCAN_DEPTH || ctx.count > MAX_STRING_COUNT) return [SCAN_TRUNCATED]
+  if (typeof obj === 'string') { ctx.count++; return [obj] }
+  if (Array.isArray(obj)) return obj.flatMap(v => extractStringValues(v, depth + 1, ctx))
   if (obj && typeof obj === 'object') {
-    return Object.values(obj as Record<string, unknown>).flatMap(v => extractStringValues(v, depth + 1))
+    return Object.values(obj as Record<string, unknown>).flatMap(v => extractStringValues(v, depth + 1, ctx))
   }
   return []
 }
@@ -200,6 +363,12 @@ export function classifyToolCall(
   // Layer 1: scan argument content
   const stringValues = extractStringValues(args)
   const risks: RiskSignal[] = []
+
+  // Flag if scan was truncated (deep nesting or too many values — suspicious)
+  if (stringValues.includes(SCAN_TRUNCATED)) {
+    risks.push({ type: 'large_payload', severity: 'MEDIUM', detail: 'Argument nesting exceeded scan depth — partial scan (possible evasion attempt)' })
+    signals.push('scan_truncated')
+  }
 
   for (const pattern of RISK_PATTERNS) {
     const detail = pattern.test(stringValues, args)

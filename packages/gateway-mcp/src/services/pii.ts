@@ -13,14 +13,24 @@ const PATTERNS: PiiPattern[] = [
   { type: 'EMAIL',       regex: /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g },
   // Phone numbers (US/intl)
   { type: 'PHONE',       regex: /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g },
-  // SSN (US)
-  { type: 'SSN',         regex: /\b\d{3}-\d{2}-\d{4}\b/g },
+  // SSN (US) — reject invalid ranges: area 000/9xx, group 00, serial 0000
+  { type: 'SSN',         regex: /\b(?!000|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b/g },
   // Credit card numbers (13-16 digits, optionally space/dash separated)
   { type: 'CREDIT_CARD', regex: /\b(?:\d[ -]?){13,16}\b/g },
   // API keys / secrets (common patterns: sk-, pk-, bearer tokens, hex 32+)
   { type: 'API_KEY',     regex: /\b(sk-[A-Za-z0-9]{20,}|pk-[A-Za-z0-9]{20,}|[A-Za-z0-9]{32,}(?=["'\s]|$))/g },
-  // IPv4 addresses (private ranges often signal internal data)
+  // IPv4 addresses
   { type: 'IP_ADDRESS',  regex: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
+  // IPv6 addresses
+  { type: 'IP_ADDRESS',  regex: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b/g },
+  // JWT tokens (header.payload.signature)
+  { type: 'JWT',         regex: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
+  // Database connection strings
+  { type: 'DB_CONNECTION', regex: /(?:postgres|mysql|mongodb|redis|mssql):\/\/[^\s"']+/gi },
+  // AWS ARNs
+  { type: 'AWS_ARN',     regex: /arn:aws:[a-z0-9-]+:[a-z0-9-]*:\d{12}:[^\s"']+/g },
+  // Private keys (PEM format markers)
+  { type: 'PRIVATE_KEY', regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g },
 ];
 
 export interface RedactionResult {
