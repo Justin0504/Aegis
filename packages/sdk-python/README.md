@@ -1,133 +1,128 @@
 # AgentGuard Python SDK
 
-High-integrity auditing SDK for AI agents with automatic tracing, cryptographic signing, and safety validation.
+Python SDK for AEGIS tracing, pre-execution checks, and auto-instrumentation.
 
 ## Installation
 
 ```bash
-pip install agentguard
+pip install agentguard-aegis
 ```
 
 ## Quick Start
 
+### Decorator-based tracing
+
 ```python
-from agentguard import agent_guard
+import agentguard
 
-# Simple usage with decorator
-@agent_guard.trace()
+
+@agentguard.trace(tool_name="process_user_request")
 def process_user_request(prompt: str):
-    # Your agent logic here
-    response = llm.complete(prompt)
-    return response
+    return {"ok": True, "prompt": prompt}
+```
 
-# With custom configuration
+### Configured guard instance
+
+```python
 from agentguard import AgentGuard, AgentGuardConfig
 
-config = AgentGuardConfig(
+guard = AgentGuard(AgentGuardConfig(
     agent_id="my-agent-001",
-    gateway_url="https://agentguard.mycompany.com",
+    gateway_url="http://localhost:8080",
     enable_signing=True,
     private_key_path="/path/to/private.key",
-)
+))
 
-guard = AgentGuard(config)
 
 @guard.trace(tool_name="data_processor")
 def process_data(data):
-    # Processing logic
-    return processed_data
+    return {"processed": True, "items": len(data)}
+```
+
+### Auto-instrument supported SDKs
+
+```python
+import agentguard
+
+agentguard.auto(
+    "http://localhost:8080",
+    agent_id="my-agent",
+    blocking_mode=True,
+)
+
+# Existing Anthropic / OpenAI / supported SDK usage can remain unchanged
 ```
 
 ## Features
 
-### Automatic Tracing
-- Captures function inputs, outputs, and execution time
-- Records stdout/stderr output
-- Intercepts LLM API calls (OpenAI, Anthropic)
+### Tracing
+- Decorator-based tracing for Python functions and tools
+- Trace transport to the AEGIS gateway
+- Hash-chained audit records
+- Optional Ed25519 signing when configured
 
-### Cryptographic Security
-- Ed25519 signing of all traces
-- SHA-256 hash chain for integrity
-- Secure key storage with password protection
+### Auto-instrumentation
+- Anthropic
+- OpenAI
+- LangGraph
+- CrewAI
+- Gemini
+- Bedrock
+- Mistral
+- LlamaIndex
+- smolagents
 
-### Performance
-- Asynchronous trace delivery
-- Batching for efficiency
-- Local fallback storage
-- OpenTelemetry integration
-
-### Safety Features
-- Integration with MCP Gateway for policy validation
-- Support for high-risk operation approval workflows
-- Automatic kill-switch on repeated violations
+### Safety Controls
+- Pre-execution policy checks via `/api/v1/check`
+- Blocking mode with human approval polling
+- Allow-lists, thresholds, and audit-only mode
 
 ## Configuration
 
 ```python
-config = AgentGuardConfig(
-    # Core settings
-    agent_id="unique-agent-id",
-    environment="production",  # development, staging, production
-    gateway_url="http://localhost:8080",
+from agentguard import AgentGuardConfig
 
-    # Security
+config = AgentGuardConfig(
+    agent_id="unique-agent-id",
+    gateway_url="http://localhost:8080",
+    environment="PRODUCTION",
     enable_signing=True,
     private_key_path="/secure/path/private.key",
-    private_key_password="optional-password",
-
-    # Performance
-    batch_size=100,
-    flush_interval_seconds=5.0,
-    enable_async=True,
-
-    # Capture settings
-    capture_stdout=True,
-    capture_stderr=True,
-    capture_llm_calls=True,
-    capture_exceptions=True,
-
-    # Telemetry
+    blocking_mode=True,
+    block_threshold="HIGH",
+    human_approval_timeout_s=300,
+    fail_open=True,
     enable_telemetry=True,
-    otel_endpoint="http://localhost:4317",
 )
 ```
 
 ## Generating Keys
 
 ```python
-from agentguard.crypto import generate_and_save_keypair
+from pathlib import Path
+from agentguard.crypto import generate_keypair, save_private_key
 
-# Generate new Ed25519 keypair
-private_key, public_key_path = generate_and_save_keypair(
-    path="/secure/location/agent.key",
-    password="strong-password"  # Optional
+private_key = generate_keypair()
+public_key_path = save_private_key(
+    private_key,
+    Path("/secure/location/agent.key"),
+    password="strong-password",
 )
 ```
 
-## Advanced Usage
-
-### Context Management
+## Useful Entry Points
 
 ```python
-# Manually manage trace context
-with guard._create_trace_context() as ctx:
-    # Your code here
-    pass
-```
+import agentguard
 
-### Custom Interceptors
-
-```python
-# Add custom LLM provider
-class CustomLLMInterceptor:
-    def patch_custom_llm(self):
-        # Your patching logic
-        pass
-
-# Register with AgentGuard
-guard._llm_interceptor = CustomLLMInterceptor()
+agentguard.trace(...)
+agentguard.auto(...)
+agentguard.patch(...)
+agentguard.dev(...)
+agentguard.watch(locals())
+agentguard.wrap_tools({"search": search_tool})
 ```
 
 ## License
 
-See LICENSE file in the root directory.
+See the root `LICENSE` file.

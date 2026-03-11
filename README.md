@@ -26,7 +26,7 @@
 >
 > **These are not hypotheticals.** Every agent framework lets AI decide which tools to call, with what arguments, at machine speed. There is no human in the loop. There is no undo button.
 >
-> AEGIS is the missing layer: a **pre-execution firewall** that sits between your agent and its tools, classifies every call in real time, enforces policies, blocks violations, and creates a cryptographically signed audit trail — all with **one line of code and zero changes to your agent.**
+> AEGIS is the missing layer: a **pre-execution firewall** that sits between your agent and its tools, classifies every call in real time, enforces policies, blocks violations, and creates a tamper-evident audit trail with hash chaining and optional signing support — all with **one line of code and zero changes to your agent.**
 
 <br>
 
@@ -84,13 +84,13 @@ client = anthropic.Anthropic()
 response = client.messages.create(model="claude-sonnet-4-20250514", tools=[...], messages=[...])
 ```
 
-Or **zero lines** — just set an environment variable:
+For supported Python integrations, importing `agentguard` once is enough to enable auto-instrumentation:
 
 ```bash
-AGENTGUARD_URL=http://localhost:8080 python your_agent.py
+python -c "import agentguard; agentguard.auto('http://localhost:8080', agent_id='my-agent')"
 ```
 
-That's it. Every tool call is now classified, policy-checked, and cryptographically signed — **before** execution.
+That's it. Every tool call is now classified, policy-checked, and recorded in a tamper-evident audit trail **before** execution.
 
 ---
 
@@ -135,7 +135,7 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
   Tool executes                        │
       │                             block
       ▼                                │
-  Ed25519 signed                       ▼
+  Optional signing                    ▼
   SHA-256 hash-chained       AgentGuardBlockedError
   Stored in Cockpit          (agent gets the reason)
 ```
@@ -261,11 +261,11 @@ Five policies ship by default. Create more in plain English — the AI assistant
 ### Cryptographic Audit Trail
 
 Every trace is:
-- **Ed25519 signed** — per-agent keypair, cryptographically verifiable
+- **Optional Ed25519 signing** — available in the Python SDK for cryptographically verifiable traces
 - **SHA-256 hash-chained** — each trace commits to the previous, tamper-evident
 - **Immutable** — any modification breaks the chain, detectable by any third party
 
-This isn't just logging. This is **court-admissible evidence** that your AI agents operated within policy.
+This isn't just logging. It is a **tamper-evident audit record** for reviewing how your AI agents operated within policy.
 
 ---
 
@@ -476,7 +476,7 @@ docker compose -f docker-compose.dev.yml up    # hot-reload enabled
 
 <div align="center">
 
-**MIT Licensed** · No telemetry · No data leaves your infrastructure · Self-hosted
+**MIT Licensed** · Self-hostable · Infrastructure-first · Designed to keep sensitive agent workflows under your control
 
 Built by [Justin](https://github.com/Justin0504)
 

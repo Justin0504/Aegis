@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "pretest": "npm --workspace @agentguard/core-schema run build",
     "test": "jest",
     "lint": "eslint src/**/*.ts"
   },
