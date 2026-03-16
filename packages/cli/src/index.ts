@@ -568,6 +568,31 @@ program
     });
   });
 
+// ── http-proxy ───────────────────────────────────────────────────────────────
+program
+  .command('http-proxy')
+  .description('Start AEGIS HTTP forward proxy — intercepts LLM API calls (Anthropic/OpenAI)')
+  .option('-p, --port <port>',      'Proxy listen port', '8081')
+  .option('--gateway <url>',        'AEGIS gateway URL', '')
+  .option('--agent-id <id>',        'Agent ID', 'http-proxy')
+  .option('--upstream <provider>',   'Upstream provider: anthropic | openai | auto', 'auto')
+  .option('--upstream-url <url>',    'Override upstream base URL')
+  .option('--blocking',             'Enable blocking mode')
+  .option('-v, --verbose',          'Verbose logging')
+  .action(async (opts) => {
+    const { startHttpProxy } = require('./http-proxy');
+    const gw = opts.gateway || loadConfig().gateway_url;
+    await startHttpProxy({
+      listenPort: parseInt(opts.port, 10),
+      gatewayUrl: gw,
+      agentId: opts.agentId,
+      blocking: opts.blocking ?? false,
+      upstream: opts.upstream,
+      upstreamUrl: opts.upstreamUrl,
+      verbose: opts.verbose ?? false,
+    });
+  });
+
 // ── openclaw ──────────────────────────────────────────────────────────────────
 const oc = program.command('openclaw').description('OpenClaw integration');
 
@@ -650,9 +675,10 @@ oc
     console.log(`\nHow it works:`);
     console.log(`  OpenClaw → agentguard mcp-proxy → Policy Check → Upstream MCP Server`);
     console.log(`  Every tool call is policy-checked, anomaly-scored, and logged.`);
-    console.log(`\nFor full Python SDK coverage, also set:`);
-    console.log(`  export AGENTGUARD_URL=${gw}`);
-    console.log(`  export AGENTGUARD_AGENT_ID=${agentId}`);
+    console.log(`\nFor full LLM API interception (HTTP proxy), also run:`);
+    console.log(`  agentguard http-proxy --gateway ${gw} --agent-id ${agentId}`);
+    console.log(`  export ANTHROPIC_BASE_URL=http://localhost:8081`);
+    console.log(`  export OPENAI_BASE_URL=http://localhost:8081/v1`);
   });
 
 oc
