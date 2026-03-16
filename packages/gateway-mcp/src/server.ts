@@ -15,6 +15,7 @@ import { PolicyEngine } from './policies/policy-engine';
 import { KillSwitchService } from './services/kill-switch';
 import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
+import { ProxyRegistryAPI } from './api/proxy-registry';
 import { SlidingWindowStats } from './services/sliding-window';
 import { AnomalyDetector } from './services/anomaly-detector';
 import { ProfileManager } from './services/profile-manager';
@@ -152,6 +153,7 @@ async function main() {
   app.use('/api/v1/approvals', requireAuth, new ApprovalAPI(db, logger).router);
   app.use('/api/v1/webhooks',  requireAuth, new WebhookAPI(webhooks).router);
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
+  app.use('/api/v1/proxy',     requireAuth, new ProxyRegistryAPI(db, logger).router);
 
   // Anomaly events endpoint (auth required)
   app.get('/api/v1/anomalies', requireAuth, (req, res) => {

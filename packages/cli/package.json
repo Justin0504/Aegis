@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "CLI for AgentGuard / AEGIS gateway",
   "bin": {
-    "agentguard": "./dist/index.js"
+    "agentguard": "./dist/index.js",
+    "aegis-mcp-proxy": "./dist/mcp-proxy.js"
   },
   "main": "./dist/index.js",
   "scripts": {

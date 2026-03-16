@@ -548,70 +548,167 @@ anomalies
     console.log('');
   });
 
+// ── mcp-proxy ─────────────────────────────────────────────────────────────────
+program
+  .command('mcp-proxy')
+  .description('Start AEGIS MCP stdio proxy — wraps any MCP server with policy enforcement')
+  .requiredOption('--server <cmd...>', 'Upstream MCP server command (e.g. npx -y @modelcontextprotocol/server-filesystem /)')
+  .option('--gateway <url>',  'AEGIS gateway URL', '')
+  .option('--agent-id <id>',  'Agent ID', 'mcp-proxy')
+  .option('--blocking',       'Enable blocking mode (HIGH/CRITICAL requires human approval)')
+  .action(async (opts) => {
+    const { startProxy } = require('./mcp-proxy');
+    const gw = opts.gateway || loadConfig().gateway_url;
+    await startProxy({
+      serverCmd: opts.server,
+      gatewayUrl: gw,
+      agentId: opts.agentId,
+      blocking: opts.blocking ?? false,
+      failOpen: true,
+    });
+  });
+
 // ── openclaw ──────────────────────────────────────────────────────────────────
 const oc = program.command('openclaw').description('OpenClaw integration');
 
 oc
-  .command('mcp-config')
-  .description('Generate AEGIS-proxied MCP server config for OpenClaw skills')
+  .command('setup')
+  .description('Auto-configure OpenClaw to use AEGIS-proxied MCP servers')
   .option('--gateway <url>',    'AEGIS gateway URL', '')
-  .option('--agent-id <id>',    'Agent ID to tag traces with', 'openclaw')
-  .option('--servers <list>',   'Comma-separated MCP servers to proxy (e.g. filesystem,github,postgres)')
+  .option('--agent-id <id>',    'Agent ID', 'openclaw')
+  .option('--servers <list>',   'Comma-separated MCP servers (default: filesystem)', 'filesystem')
+  .option('--blocking',         'Block HIGH/CRITICAL risk tools (requires human approval)')
+  .option('--config-path <p>',  'OpenClaw config file path', '')
+  .option('--dry-run',          'Print config without writing to disk')
   .action((opts) => {
     const gw      = opts.gateway || loadConfig().gateway_url;
     const agentId = opts.agentId;
-    const servers = (opts.servers ?? 'filesystem').split(',').map((s: string) => s.trim());
+    const servers = opts.servers.split(',').map((s: string) => s.trim());
+    const blockingFlag = opts.blocking ? ' --blocking' : '';
 
-    // Known MCP servers with their launch commands
     const knownServers: Record<string, { cmd: string; args: string[] }> = {
       filesystem: { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/'] },
       github:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
       postgres:   { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] },
       memory:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] },
       brave:      { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-brave-search'] },
+      fetch:      { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-fetch'] },
+      puppeteer:  { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] },
     };
 
     const mcpServers: Record<string, any> = {};
+
+    // Add AEGIS audit server (direct, no proxy needed)
+    const wsUrl = gw.replace(/^http/, 'ws');
+    mcpServers['aegis-audit'] = { url: `${wsUrl}/mcp-audit` };
+
+    // Add proxied upstream servers
     for (const name of servers) {
       const known = knownServers[name];
-      if (known) {
+      const serverArgs = known
+        ? [known.cmd, ...known.args]
+        : [`npx`, `-y`, `@modelcontextprotocol/server-${name}`];
+
+      mcpServers[`aegis-${name}`] = {
+        command: 'agentguard',
+        args: [
+          'mcp-proxy',
+          '--server', ...serverArgs,
+          '--gateway', gw,
+          '--agent-id', agentId,
+          ...(opts.blocking ? ['--blocking'] : []),
+        ],
+      };
+    }
+
+    const configObj = { mcpServers };
+
+    // Determine config file path
+    const configPath = opts.configPath || path.join(os.homedir(), '.openclaw', 'config.json');
+
+    if (opts.dryRun) {
+      console.log('Would write to:', configPath);
+      console.log(JSON.stringify(configObj, null, 2));
+      return;
+    }
+
+    // Read existing config and merge
+    let existing: any = {};
+    try { existing = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch {}
+    existing.mcpServers = { ...(existing.mcpServers ?? {}), ...mcpServers };
+
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(existing, null, 2));
+
+    console.log(`✓ OpenClaw configured with AEGIS proxy`);
+    console.log(`  Config: ${configPath}`);
+    console.log(`  Gateway: ${gw}`);
+    console.log(`  Agent ID: ${agentId}`);
+    console.log(`  Servers: ${servers.join(', ')}`);
+    console.log(`  Blocking: ${opts.blocking ? 'enabled' : 'disabled'}`);
+    console.log(`  Audit tools: aegis-audit (query_traces, list_violations, query_anomalies)`);
+    console.log(`\nHow it works:`);
+    console.log(`  OpenClaw → agentguard mcp-proxy → Policy Check → Upstream MCP Server`);
+    console.log(`  Every tool call is policy-checked, anomaly-scored, and logged.`);
+    console.log(`\nFor full Python SDK coverage, also set:`);
+    console.log(`  export AGENTGUARD_URL=${gw}`);
+    console.log(`  export AGENTGUARD_AGENT_ID=${agentId}`);
+  });
+
+oc
+  .command('mcp-config')
+  .description('Print AEGIS-proxied MCP server config snippet (use `setup` to auto-write)')
+  .option('--gateway <url>',    'AEGIS gateway URL', '')
+  .option('--agent-id <id>',    'Agent ID', 'openclaw')
+  .option('--servers <list>',   'Comma-separated MCP servers to proxy', 'filesystem')
+  .option('--python',           'Use Python proxy instead of TypeScript (requires pip install mcp)')
+  .action((opts) => {
+    const gw      = opts.gateway || loadConfig().gateway_url;
+    const agentId = opts.agentId;
+    const servers = opts.servers.split(',').map((s: string) => s.trim());
+    const usePython = opts.python ?? false;
+
+    const knownServers: Record<string, { cmd: string; args: string[] }> = {
+      filesystem: { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/'] },
+      github:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+      postgres:   { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-postgres'] },
+      memory:     { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] },
+      brave:      { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-brave-search'] },
+      fetch:      { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-fetch'] },
+      puppeteer:  { cmd: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] },
+    };
+
+    const mcpServers: Record<string, any> = {};
+    const wsUrl = gw.replace(/^http/, 'ws');
+    mcpServers['aegis-audit'] = { url: `${wsUrl}/mcp-audit` };
+
+    for (const name of servers) {
+      const known = knownServers[name];
+      const serverArgs = known
+        ? [known.cmd, ...known.args]
+        : ['npx', '-y', `@modelcontextprotocol/server-${name}`];
+
+      if (usePython) {
         mcpServers[`aegis-${name}`] = {
           command: 'python',
-          args: [
-            '-m', 'agentguard.mcp_proxy',
-            '--server', known.cmd, ...known.args,
-            '--gateway', gw,
-            '--agent-id', agentId,
-          ],
+          args: ['-m', 'agentguard.mcp_proxy', '--server', ...serverArgs, '--gateway', gw, '--agent-id', agentId],
         };
       } else {
         mcpServers[`aegis-${name}`] = {
-          command: 'python',
-          args: [
-            '-m', 'agentguard.mcp_proxy',
-            '--server', `npx -y @modelcontextprotocol/server-${name}`,
-            '--gateway', gw,
-            '--agent-id', agentId,
-          ],
-          _note: `Replace --server value with the actual command for ${name}`,
+          command: 'agentguard',
+          args: ['mcp-proxy', '--server', ...serverArgs, '--gateway', gw, '--agent-id', agentId],
         };
       }
     }
 
-    console.log('\nAdd to your OpenClaw config (openclaw config set mcp.servers ...)');
-    console.log('or merge into ~/.openclaw/config.json:\n');
+    console.log('\nMerge into your OpenClaw/Claude Desktop config:\n');
     console.log(JSON.stringify({ mcpServers }, null, 2));
-    console.log('\nHow it works:');
-    console.log('  OpenClaw → AEGIS MCP Proxy → Real MCP Server');
-    console.log('  Every tool call is policy-checked and logged before execution.\n');
-    console.log('Prerequisites:');
-    console.log('  pip install agentguard-aegis');
+    console.log('\nFlow: Client → agentguard mcp-proxy → Policy + Anomaly Check → Upstream MCP Server');
+    console.log(`\nPrerequisites:`);
+    console.log(`  npm link @agentguard/cli   (or: npx agentguard)`);
+    if (usePython) console.log('  pip install agentguard-aegis mcp');
     console.log(`  AEGIS gateway running at ${gw}\n`);
-    console.log('Coverage:');
-    console.log('  MCP skills:           intercepted (policy check + audit trail)');
-    console.log('  OpenClaw built-ins:   NOT intercepted (use SDK patching below)\n');
-    console.log('For full coverage, also add to your OpenClaw startup environment:');
-    console.log(`  AGENTGUARD_URL=${gw} AGENTGUARD_AGENT_ID=${agentId} openclaw start\n`);
+    console.log('Tip: use `agentguard openclaw setup` to auto-write config.\n');
   });
 
 oc
