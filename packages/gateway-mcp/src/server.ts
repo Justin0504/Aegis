@@ -15,6 +15,9 @@ import { PolicyEngine } from './policies/policy-engine';
 import { KillSwitchService } from './services/kill-switch';
 import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
+import { SlidingWindowStats } from './services/sliding-window';
+import { AnomalyDetector } from './services/anomaly-detector';
+import { ProfileManager } from './services/profile-manager';
 import { errorMiddleware } from './middleware/error';
 import { createAuthMiddleware } from './middleware/auth';
 import { initOtel, shutdownOtel } from './services/otel';
@@ -48,6 +51,25 @@ async function main() {
   const mcpProxy      = new MCPProxyService(db, policyEngine, killSwitch, logger);
   const aegisMcp      = new AegisMcpServer(db, logger);
   const requireAuth   = createAuthMiddleware(db);
+
+  // Anomaly detection engine
+  const slidingWindow   = new SlidingWindowStats(
+    config.anomaly.slidingWindow.maxAgents,
+    config.anomaly.slidingWindow.bufferSize,
+  );
+  const anomalyDetector = new AnomalyDetector(
+    slidingWindow,
+    undefined, // default weights
+    config.anomaly.thresholds,
+  );
+  const profileManager  = new ProfileManager(db, logger, {
+    minTraces: config.anomaly.minTraces,
+    graduationTraces: config.anomaly.graduationTraces,
+    windowDays: config.anomaly.profileWindowDays,
+    rebuildIntervalMs: config.anomaly.profileRebuildIntervalHours * 3600 * 1000,
+  });
+  await profileManager.initialize();
+  logger.info({ profiles: profileManager.size, enabled: config.anomaly.enabled }, 'Anomaly detection engine ready');
 
   // Create Express app
   const app = express();
@@ -118,13 +140,55 @@ async function main() {
 
   // SDK ingest routes (public — no auth required)
   app.use('/api/v1/traces', new TraceAPI(db, logger).router);
-  app.use('/api/v1/check',  new CheckAPI(db, policyEngine, logger, webhooks).router);
+  app.use('/api/v1/check',  new CheckAPI(
+    db, policyEngine, logger, webhooks, undefined,
+    config.anomaly.enabled ? anomalyDetector : undefined,
+    config.anomaly.enabled ? profileManager : undefined,
+    config.anomaly.enabled ? slidingWindow : undefined,
+  ).router);
 
   // Management routes (auth required)
   app.use('/api/v1/policies',  requireAuth, new PolicyAPI(db, policyEngine, logger).router);
   app.use('/api/v1/approvals', requireAuth, new ApprovalAPI(db, logger).router);
   app.use('/api/v1/webhooks',  requireAuth, new WebhookAPI(webhooks).router);
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
+
+  // Anomaly events endpoint (auth required)
+  app.get('/api/v1/anomalies', requireAuth, (req, res) => {
+    try {
+      const { agent_id, min_score, decision } = req.query as Record<string, string>;
+      const limit = Math.min(Number(req.query.limit ?? 50), 200);
+      const offset = Number(req.query.offset ?? 0);
+
+      let sql = 'SELECT * FROM anomaly_events WHERE 1=1';
+      const params: any[] = [];
+
+      if (agent_id) { sql += ' AND agent_id = ?'; params.push(agent_id); }
+      if (min_score) { sql += ' AND composite_score >= ?'; params.push(parseFloat(min_score)); }
+      if (decision) { sql += ' AND decision = ?'; params.push(decision); }
+
+      sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+      params.push(limit, offset);
+
+      const rows = db.prepare(sql).all(...params) as any[];
+      const total = (db.prepare(
+        sql.replace(/SELECT \*/, 'SELECT COUNT(*) as n').replace(/ORDER BY.*$/, '')
+      ).get(...params.slice(0, -2)) as any).n;
+
+      res.json({
+        events: rows.map(r => ({
+          ...r,
+          signals: JSON.parse(r.signals),
+        })),
+        total,
+        limit,
+        offset,
+      });
+    } catch (err) {
+      logger.error({ err }, 'Failed to query anomaly events');
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 
   // Seed demo data (auth required)
   app.post('/api/v1/seed', requireAuth, (req, res) => {
@@ -174,8 +238,10 @@ async function main() {
 
           const isViolation = i % 12 === 0;
           const status = isViolation ? 'REJECTED' : statuses[i % statuses.length];
+          const policyIds   = ['sql-injection', 'file-access', 'prompt-injection'];
+          const policyNames = ['SQL Injection Prevention', 'File Access Control', 'Prompt Injection Detection'];
           const validation = isViolation
-            ? { passed: false, risk_level: i % 24 === 0 ? 'CRITICAL' : 'HIGH', policy_name: ['SQL Injection Prevention', 'File Access Control', 'Prompt Injection Detection'][i % 3], violations: ['Potentially dangerous pattern detected'] }
+            ? { passed: false, risk_level: i % 24 === 0 ? 'CRITICAL' : 'HIGH', policy_name: policyNames[i % 3], violations: ['Potentially dangerous pattern detected'] }
             : { passed: true, risk_level: 'LOW', policy_name: 'default', violations: [] };
 
           insertTrace.run(
@@ -191,7 +257,7 @@ async function main() {
           );
 
           if (isViolation) {
-            insertViolation.run(agent, validation.policy_name, traceId, validation.risk_level, JSON.stringify(validation.violations));
+            insertViolation.run(agent, policyIds[i % 3], traceId, validation.risk_level, JSON.stringify(validation.violations));
           }
           count++;
         }

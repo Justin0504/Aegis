@@ -18,6 +18,22 @@ export const config = {
     maxViolations: parseInt(process.env.KILL_SWITCH_MAX_VIOLATIONS || '3', 10),
     violationWindow: parseInt(process.env.KILL_SWITCH_WINDOW || '3600', 10), // seconds
   },
+  anomaly: {
+    enabled: process.env.ANOMALY_ENABLED !== 'false', // on by default
+    minTraces: parseInt(process.env.ANOMALY_MIN_TRACES || '50', 10),
+    graduationTraces: parseInt(process.env.ANOMALY_GRADUATION_TRACES || '200', 10),
+    profileRebuildIntervalHours: parseInt(process.env.ANOMALY_REBUILD_HOURS || '6', 10),
+    profileWindowDays: parseInt(process.env.ANOMALY_WINDOW_DAYS || '14', 10),
+    thresholds: {
+      flag: parseFloat(process.env.ANOMALY_THRESHOLD_FLAG || '0.3'),
+      escalate: parseFloat(process.env.ANOMALY_THRESHOLD_ESCALATE || '0.6'),
+      block: parseFloat(process.env.ANOMALY_THRESHOLD_BLOCK || '0.85'),
+    },
+    slidingWindow: {
+      maxAgents: parseInt(process.env.ANOMALY_MAX_AGENTS || '10000', 10),
+      bufferSize: parseInt(process.env.ANOMALY_BUFFER_SIZE || '300', 10),
+    },
+  },
   redis: {
     enabled: process.env.REDIS_ENABLED === 'true',
     url: process.env.REDIS_URL || 'redis://localhost:6379',

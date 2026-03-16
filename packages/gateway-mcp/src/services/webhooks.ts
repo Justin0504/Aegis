@@ -24,17 +24,20 @@ import Database from 'better-sqlite3'
 import { Logger } from 'pino'
 import * as crypto from 'crypto'
 
-export type WebhookEvent = 'block' | 'pending' | 'approved' | 'rejected'
+export type WebhookEvent = 'block' | 'pending' | 'approved' | 'rejected' | 'anomaly.escalate' | 'anomaly.block'
 
 export interface WebhookPayload {
-  event:      WebhookEvent
-  check_id:   string
-  agent_id:   string
-  tool_name:  string
-  category:   string
-  risk_level: string
-  reason?:    string
-  timestamp:  string
+  event:          WebhookEvent
+  check_id:       string
+  agent_id:       string
+  tool_name:      string
+  category:       string
+  risk_level:     string
+  reason?:        string
+  timestamp:      string
+  anomaly_score?: number
+  top_signal?:    string
+  [key: string]:  unknown
 }
 
 interface WebhookRow {

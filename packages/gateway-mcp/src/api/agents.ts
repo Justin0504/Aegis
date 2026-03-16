@@ -11,6 +11,63 @@ export class AgentsAPI {
   }
 
   private registerRoutes() {
+    // GET /api/v1/agents/:agentId/anomaly-summary
+    this.router.get('/:agentId/anomaly-summary', (req, res) => {
+      try {
+        const { agentId } = req.params;
+
+        const total = (this.db.prepare(
+          `SELECT COUNT(*) as n FROM anomaly_events WHERE agent_id = ?`
+        ).get(agentId) as any).n;
+
+        const byDecision = this.db.prepare(`
+          SELECT decision, COUNT(*) as count FROM anomaly_events
+          WHERE agent_id = ? GROUP BY decision
+        `).all(agentId) as { decision: string; count: number }[];
+
+        // Top triggered signal types
+        const recentEvents = this.db.prepare(`
+          SELECT signals FROM anomaly_events
+          WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100
+        `).all(agentId) as { signals: string }[];
+
+        const signalCounts: Record<string, { count: number; totalScore: number }> = {};
+        for (const row of recentEvents) {
+          try {
+            const signals = JSON.parse(row.signals) as { type: string; score: number }[];
+            for (const s of signals) {
+              if (!signalCounts[s.type]) signalCounts[s.type] = { count: 0, totalScore: 0 };
+              signalCounts[s.type].count++;
+              signalCounts[s.type].totalScore += s.score;
+            }
+          } catch {}
+        }
+        const topSignals = Object.entries(signalCounts)
+          .map(([type, { count, totalScore }]) => ({ type, count, avg_score: Math.round((totalScore / count) * 100) / 100 }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+
+        // 7-day trend (events per day)
+        const trend7d = this.db.prepare(`
+          SELECT date(created_at) as day, COUNT(*) as count
+          FROM anomaly_events
+          WHERE agent_id = ? AND created_at > datetime('now', '-7 days')
+          GROUP BY day ORDER BY day ASC
+        `).all(agentId) as { day: string; count: number }[];
+
+        res.json({
+          agent_id: agentId,
+          total_events: total,
+          by_decision: Object.fromEntries(byDecision.map(r => [r.decision, r.count])),
+          top_signals: topSignals,
+          trend_7d: trend7d,
+        });
+      } catch (err) {
+        this.logger.error({ err }, 'Failed to get anomaly summary');
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     // GET /api/v1/agents/:agentId/baseline
     this.router.get('/:agentId/baseline', (req, res) => {
       try {

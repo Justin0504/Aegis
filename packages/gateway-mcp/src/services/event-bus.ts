@@ -4,14 +4,16 @@
  */
 
 export interface BlockEvent {
-  id:         string
-  event:      'block' | 'pending'
-  agent_id:   string
-  tool_name:  string
-  category:   string
-  risk_level: string
-  reason?:    string
-  timestamp:  string  // ISO
+  id:              string
+  event:           'block' | 'pending' | 'anomaly.escalate' | 'anomaly.block'
+  agent_id:        string
+  tool_name:       string
+  category:        string
+  risk_level:      string
+  reason?:         string
+  anomaly_score?:  number
+  timestamp:       string  // ISO
+  [key: string]:   unknown
 }
 
 const MAX_EVENTS = 200

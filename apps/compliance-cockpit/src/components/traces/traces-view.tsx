@@ -35,10 +35,11 @@ export function TracesView() {
         tool?.name ?? '', safe?.risk_level ?? '', safe?.passed ? 'pass' : 'fail',
         t.blocked ? 'blocked' : '', t.session_id ?? '', t.model ?? '',
         t.cost_usd ?? 0, t.pii_detected ? 'yes' : 'no',
+        t.anomaly_score ?? 0,
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     })
     const csv = [
-      'trace_id,agent_id,timestamp,environment,tool_name,risk_level,result,blocked,session_id,model,cost_usd,pii',
+      'trace_id,agent_id,timestamp,environment,tool_name,risk_level,result,blocked,session_id,model,cost_usd,pii,anomaly_score',
       ...rows,
     ].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })

@@ -27,6 +27,9 @@ import { PolicyEngine } from '../policies/policy-engine';
 import { ToolCategory } from '../services/classifier';
 import { WebhookService } from '../services/webhooks';
 import { EventBus } from '../services/event-bus';
+import { AnomalyDetector, AnomalyResult } from '../services/anomaly-detector';
+import { ProfileManager } from '../services/profile-manager';
+import { SlidingWindowStats } from '../services/sliding-window';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +62,9 @@ export class CheckAPI {
     private logger: Logger,
     private webhooks?: WebhookService,
     public readonly eventBus: EventBus = new EventBus(),
+    private anomalyDetector?: AnomalyDetector,
+    private profileManager?: ProfileManager,
+    private slidingWindow?: SlidingWindowStats,
   ) {
     this.router = Router()
     this.initTable()
@@ -105,10 +111,113 @@ export class CheckAPI {
 
         const { classification } = validation
         const checkId = randomUUID()
-        const isRisky = BLOCKING_RISK_LEVELS.has(validation.risk_level) && !validation.passed
+
+        // ── Layer 2: Behavioral anomaly detection ──────────────────────────
+        let anomalyResult: AnomalyResult | null = null
+        if (this.anomalyDetector && this.profileManager && this.slidingWindow) {
+          const profile = this.profileManager.getProfile(body.agent_id)
+          const phase = this.profileManager.getPhase(body.agent_id)
+
+          // Trigger async profile rebuild if stale
+          if (this.profileManager.shouldRebuild(body.agent_id)) {
+            this.profileManager.rebuildOne(body.agent_id).catch(err =>
+              this.logger.warn({ err, agent_id: body.agent_id }, 'Async profile rebuild failed')
+            )
+          }
+
+          if (profile && phase !== 'learning') {
+            anomalyResult = this.anomalyDetector.evaluate(
+              body.agent_id,
+              body.tool_name,
+              body.arguments as Record<string, unknown>,
+              profile,
+              validation.risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+            )
+
+            // Record in sliding window for future evaluations
+            this.slidingWindow.record(body.agent_id, {
+              timestamp: Date.now(),
+              tool_name: body.tool_name,
+              risk_level: validation.risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+              cost_usd: 0,
+              arg_length: JSON.stringify(body.arguments).length,
+            })
+
+            // Persist anomaly events above flag threshold (async, non-blocking)
+            if (anomalyResult.composite_score > 0.3) {
+              this.db.prepare(`
+                INSERT INTO anomaly_events (agent_id, check_id, composite_score, decision, signals)
+                VALUES (?, ?, ?, ?, ?)
+              `).run(
+                body.agent_id, checkId, anomalyResult.composite_score,
+                anomalyResult.decision, JSON.stringify(anomalyResult.signals),
+              )
+            }
+
+            // In graduated phase, cap anomaly decision at 'flag' (no blocking)
+            if (phase === 'graduated' && anomalyResult.decision !== 'pass') {
+              anomalyResult = { ...anomalyResult, decision: 'flag' }
+            }
+
+            this.logger.debug({
+              agent_id: body.agent_id,
+              anomaly_score: anomalyResult.composite_score,
+              anomaly_decision: anomalyResult.decision,
+              phase,
+              signals: anomalyResult.signals.length,
+            }, 'Anomaly evaluation')
+
+            // Fire webhook/event for anomaly escalate/block
+            if (anomalyResult.decision === 'escalate' || anomalyResult.decision === 'block') {
+              const anomalyTs = new Date().toISOString()
+              this.webhooks?.fire({
+                event: `anomaly.${anomalyResult.decision}`,
+                check_id: checkId,
+                agent_id: body.agent_id,
+                tool_name: body.tool_name,
+                category: classification.category,
+                risk_level: validation.risk_level,
+                anomaly_score: anomalyResult.composite_score,
+                top_signal: anomalyResult.signals[0]?.type,
+                reason: `Behavioral anomaly: ${anomalyResult.signals[0]?.detail ?? 'deviation detected'}`,
+                timestamp: anomalyTs,
+              })
+              this.eventBus.push({
+                id: checkId,
+                event: `anomaly.${anomalyResult.decision}`,
+                agent_id: body.agent_id,
+                tool_name: body.tool_name,
+                category: classification.category,
+                risk_level: validation.risk_level,
+                anomaly_score: anomalyResult.composite_score,
+                reason: `Behavioral anomaly: ${anomalyResult.signals[0]?.detail ?? 'deviation detected'}`,
+                timestamp: anomalyTs,
+              })
+            }
+          }
+        }
+
+        // ── Merge policy + anomaly decisions ───────────────────────────────
+        // Policy block always wins (hard security boundary).
+        // Anomaly can escalate an otherwise-allowed call.
+        let isRisky = BLOCKING_RISK_LEVELS.has(validation.risk_level) && !validation.passed
+
+        // Anomaly-driven escalation
+        if (anomalyResult) {
+          if (anomalyResult.decision === 'block' && validation.passed) {
+            // Anomaly alone blocks — override the policy pass
+            isRisky = true
+          }
+          if (anomalyResult.decision === 'escalate') {
+            isRisky = true
+          }
+        }
+
+        // Communication tools (email, messaging) always require human review in blocking mode
+        const requiresHumanReview = classification.category === 'communication'
 
         // ── BLOCKING MODE: hold for human review ─────────────────────────────
-        if (body.blocking && isRisky) {
+        if (body.blocking && (isRisky || requiresHumanReview)) {
           const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min
 
           this.db.prepare(`
@@ -121,9 +230,9 @@ export class CheckAPI {
             body.tool_name,
             JSON.stringify(body.arguments),
             classification.category,
-            validation.risk_level,
+            requiresHumanReview ? 'HIGH' : validation.risk_level,
             JSON.stringify(classification.signals),
-            JSON.stringify(validation.violations ?? []),
+            JSON.stringify(requiresHumanReview ? ['Requires human approval'] : (validation.violations ?? [])),
             expiresAt,
           )
 
@@ -156,13 +265,24 @@ export class CheckAPI {
             check_id:   checkId,
             risk_level: validation.risk_level,
             category:   classification.category,
-            reason:     validation.violations?.[0] ?? 'Requires human review',
+            reason:     anomalyResult?.decision === 'escalate'
+              ? `Behavioral anomaly detected (score=${anomalyResult.composite_score})`
+              : (validation.violations?.[0] ?? 'Requires human review'),
+            anomaly: anomalyResult ? {
+              score: anomalyResult.composite_score,
+              decision: anomalyResult.decision,
+              signals: anomalyResult.signals.length,
+            } : undefined,
             latency_ms: Date.now() - start,
           })
         }
 
         // ── FAST-PATH: auto decision ──────────────────────────────────────────
-        const decision = validation.passed ? 'allow' : 'block'
+        // Anomaly can override policy pass to block
+        let decision: 'allow' | 'block' = validation.passed ? 'allow' : 'block'
+        if (decision === 'allow' && anomalyResult?.decision === 'block') {
+          decision = 'block'
+        }
 
         if (decision === 'block') {
           const blockTs = new Date().toISOString()
@@ -200,8 +320,15 @@ export class CheckAPI {
           category:   classification.category,
           signals:    classification.signals,
           reason:     decision === 'block'
-            ? (validation.violations?.[0] ?? 'Policy violation')
+            ? (anomalyResult?.decision === 'block'
+              ? `Behavioral anomaly (score=${anomalyResult.composite_score})`
+              : (validation.violations?.[0] ?? 'Policy violation'))
             : undefined,
+          anomaly: anomalyResult ? {
+            score: anomalyResult.composite_score,
+            decision: anomalyResult.decision,
+            signals: anomalyResult.signals.length,
+          } : undefined,
           latency_ms: Date.now() - start,
         })
 

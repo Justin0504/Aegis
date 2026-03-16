@@ -203,6 +203,9 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // Blocking mode (Step 3 — pending check)
     `ALTER TABLE traces ADD COLUMN blocked INTEGER DEFAULT 0`,
     `ALTER TABLE traces ADD COLUMN block_reason TEXT`,
+    // Anomaly detection
+    `ALTER TABLE traces ADD COLUMN anomaly_score REAL DEFAULT 0`,
+    `ALTER TABLE traces ADD COLUMN anomaly_signals TEXT`,
   ];
 
   for (const sql of migrations) {
@@ -211,6 +214,23 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
 
   // Ensure gateway_config table exists (for dashboard API key)
   db.exec(`CREATE TABLE IF NOT EXISTS gateway_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+
+  // Anomaly events table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS anomaly_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id TEXT NOT NULL,
+      trace_id TEXT,
+      check_id TEXT,
+      composite_score REAL NOT NULL,
+      decision TEXT NOT NULL,
+      signals TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_anomaly_agent ON anomaly_events(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_anomaly_score ON anomaly_events(composite_score);
+    CREATE INDEX IF NOT EXISTS idx_anomaly_decision ON anomaly_events(decision);
+  `);
 
   return db;
 }

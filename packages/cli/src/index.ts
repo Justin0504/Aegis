@@ -476,6 +476,78 @@ cc
     console.log('  query_traces, list_violations, get_agent_stats, list_policies\n');
   });
 
+// ── anomalies ─────────────────────────────────────────────────────────────────
+const anomalies = program.command('anomalies').description('View behavioral anomaly events');
+
+anomalies
+  .command('list')
+  .description('List recent anomaly events')
+  .option('-a, --agent <id>',    'Filter by agent ID')
+  .option('-l, --limit <n>',     'Number of events', '20')
+  .option('-d, --decision <d>',  'Filter by decision (flag|escalate|block)')
+  .option('-s, --min-score <n>', 'Minimum anomaly score', '0.3')
+  .action(async (opts) => {
+    const params = new URLSearchParams({ limit: opts.limit, min_score: opts.minScore });
+    if (opts.agent)    params.set('agent_id', opts.agent);
+    if (opts.decision) params.set('decision', opts.decision);
+
+    const data = await request('GET', `${gatewayUrl()}/api/v1/anomalies?${params}`);
+    const events: any[] = data.events ?? [];
+    if (!events.length) { console.log('No anomaly events found.'); return; }
+
+    printTable(
+      ['AGENT', 'SCORE', 'DECISION', 'TOP SIGNAL', 'TIMESTAMP'],
+      [14, 8, 10, 32, 20],
+      events.map((e: any) => {
+        const signals = typeof e.signals === 'string' ? JSON.parse(e.signals) : e.signals;
+        const top = signals?.[0];
+        return [
+          String(e.agent_id).substring(0, 14),
+          e.composite_score.toFixed(2),
+          e.decision,
+          top ? `${top.type} (${top.score.toFixed(2)})` : '-',
+          e.created_at ? fmtDate(e.created_at) : '-',
+        ];
+      })
+    );
+    console.log(`\n${events.length} of ${data.total ?? events.length} events`);
+  });
+
+anomalies
+  .command('summary <agentId>')
+  .description('Show anomaly summary for a specific agent')
+  .action(async (agentId) => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/agents/${agentId}/anomaly-summary`);
+    console.log(`\nAnomaly Summary for ${agentId}`);
+    console.log(`Total events: ${data.total_events ?? 0}`);
+
+    const dec = data.by_decision ?? {};
+    console.log(`\nBy decision:`);
+    for (const [d, count] of Object.entries(dec)) {
+      console.log(`  ${col(d, 10)} ${count}`);
+    }
+
+    const topSig: any[] = data.top_signals ?? [];
+    if (topSig.length) {
+      console.log('\nTop signals:');
+      printTable(
+        ['SIGNAL TYPE', 'COUNT', 'AVG SCORE'],
+        [24, 8, 10],
+        topSig.map(s => [s.type, String(s.count), s.avg_score.toFixed(2)])
+      );
+    }
+
+    const trend: any[] = data.trend_7d ?? [];
+    if (trend.length) {
+      console.log('\n7-day trend:');
+      for (const t of trend) {
+        const bar = '#'.repeat(Math.min(t.count, 50));
+        console.log(`  ${t.day}  ${bar} ${t.count}`);
+      }
+    }
+    console.log('');
+  });
+
 // ── openclaw ──────────────────────────────────────────────────────────────────
 const oc = program.command('openclaw').description('OpenClaw integration');
 

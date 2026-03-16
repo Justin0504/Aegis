@@ -49,6 +49,19 @@ export class AegisMcpServer {
       description: 'List all configured security policies',
       inputSchema: { type: 'object', properties: {} },
     },
+    {
+      name: 'query_anomalies',
+      description: 'Query behavioral anomaly events detected by the learning-based engine',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          agent_id:  { type: 'string', description: 'Filter by agent ID (optional)' },
+          min_score: { type: 'number', description: 'Minimum anomaly score 0-1 (default 0.3)' },
+          decision:  { type: 'string', description: 'Filter by decision: flag, escalate, block (optional)' },
+          limit:     { type: 'number', description: 'Max results (default 20, max 100)' },
+        },
+      },
+    },
   ];
 
   constructor(private db: Database.Database, private logger: Logger) {}
@@ -149,12 +162,34 @@ export class AegisMcpServer {
         try { violations = (this.db.prepare(`SELECT COUNT(*) as n FROM violations WHERE agent_id = ?`).get(agent_id) as any).n; } catch {}
         let blocked = 0;
         try { blocked = (this.db.prepare(`SELECT COUNT(*) as n FROM traces WHERE agent_id = ? AND blocked = 1`).get(agent_id) as any).n; } catch {}
-        return { agent_id, total_traces: total, traces_last_7d: recent, violations, blocked };
+        let anomaly_events = 0;
+        let anomaly_blocks = 0;
+        try {
+          anomaly_events = (this.db.prepare(`SELECT COUNT(*) as n FROM anomaly_events WHERE agent_id = ?`).get(agent_id) as any).n;
+          anomaly_blocks = (this.db.prepare(`SELECT COUNT(*) as n FROM anomaly_events WHERE agent_id = ? AND decision = 'block'`).get(agent_id) as any).n;
+        } catch {}
+        return { agent_id, total_traces: total, traces_last_7d: recent, violations, blocked, anomaly_events, anomaly_blocks };
       }
 
       case 'list_policies': {
         const rows = this.db.prepare(`SELECT id, name, description, risk_level, enabled FROM policies`).all() as any[];
         return rows.map(r => ({ ...r, enabled: r.enabled === 1 }));
+      }
+
+      case 'query_anomalies': {
+        const limit = Math.min(args.limit ?? 20, 100);
+        const minScore = args.min_score ?? 0.3;
+        let sql = 'SELECT * FROM anomaly_events WHERE composite_score >= ?';
+        const params: any[] = [minScore];
+        if (args.agent_id) { sql += ' AND agent_id = ?'; params.push(args.agent_id); }
+        if (args.decision) { sql += ' AND decision = ?'; params.push(args.decision); }
+        sql += ' ORDER BY created_at DESC LIMIT ?';
+        params.push(limit);
+        const rows = this.db.prepare(sql).all(...params) as any[];
+        return rows.map(r => ({
+          ...r,
+          signals: safeJson(r.signals) ?? [],
+        }));
       }
 
       default:

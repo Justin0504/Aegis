@@ -302,6 +302,8 @@ export class TraceAPI {
     observation:       this.safeJsonParse(t.observation, {}),
     safety_validation: this.safeJsonParse(t.safety_validation, null),
     tags:              this.safeJsonParse(t.tags, null),
+    anomaly_score:     t.anomaly_score ?? 0,
+    anomaly_signals:   this.safeJsonParse(t.anomaly_signals, null),
   });
 
   private extractTokenUsage(raw: any): { model: string | null; inputTokens: number; outputTokens: number } {

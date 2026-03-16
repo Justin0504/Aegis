@@ -271,7 +271,7 @@ export function DashboardOverview() {
             <CardHeader>
               <CardTitle>Anomaly Detection</CardTitle>
               <CardDescription>
-                Statistical anomalies: frequency spikes, latency outliers, failure streaks
+                Behavioral anomalies (baseline deviation) and real-time statistical outliers
               </CardDescription>
             </CardHeader>
             <CardContent>

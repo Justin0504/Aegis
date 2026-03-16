@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download, Shield, AlertCircle, ThumbsUp, ThumbsDown, EyeOff, ChevronRight, Code2, Eye } from 'lucide-react'
+import { Download, Shield, AlertCircle, ThumbsUp, ThumbsDown, EyeOff, ChevronRight, Code2, Eye, Brain } from 'lucide-react'
 import { formatDate, getStatusColor, getRiskLevelColor } from '@/lib/utils'
 import { useState, ReactNode } from 'react'
 
@@ -241,6 +241,21 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
                 {trace.pii_detected} PII redacted
               </span>
             )}
+            {trace.anomaly_score > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{
+                  background: trace.anomaly_score >= 0.85
+                    ? 'hsl(0 14% 52% / 0.12)' : trace.anomaly_score >= 0.6
+                    ? 'hsl(36 18% 50% / 0.12)' : trace.anomaly_score >= 0.3
+                    ? 'hsl(210 14% 50% / 0.12)' : 'transparent',
+                  color: trace.anomaly_score >= 0.85
+                    ? 'hsl(0 14% 44%)' : trace.anomaly_score >= 0.6
+                    ? 'hsl(36 18% 40%)' : 'hsl(210 14% 42%)',
+                }}>
+                <Brain className="h-2.5 w-2.5" />
+                Anomaly {trace.anomaly_score.toFixed(2)}
+              </span>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4 mr-2" />
@@ -320,6 +335,49 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
               )}
             </div>
           </div>
+        )}
+
+        {/* Anomaly Detection */}
+        {trace.anomaly_score > 0 && trace.anomaly_signals && (
+          <CollapsibleSection
+            title="Behavioral Anomaly"
+            icon={<Brain className="h-3.5 w-3.5" style={{ color: trace.anomaly_score >= 0.6 ? 'hsl(36 18% 40%)' : 'hsl(210 14% 42%)' }} />}
+            summary={`score ${trace.anomaly_score.toFixed(2)} — ${(Array.isArray(trace.anomaly_signals) ? trace.anomaly_signals : JSON.parse(trace.anomaly_signals || '[]')).length} signal(s)`}
+            defaultOpen={trace.anomaly_score >= 0.6}
+          >
+            <div className="pt-3 space-y-2">
+              <div className="flex items-center gap-3 text-xs mb-3">
+                <span style={{ color: MUTED }}>Composite Score</span>
+                <span className="font-mono font-medium" style={{
+                  color: trace.anomaly_score >= 0.85 ? 'hsl(0 14% 44%)' : trace.anomaly_score >= 0.6 ? 'hsl(36 18% 40%)' : NUM_COLOR
+                }}>
+                  {trace.anomaly_score.toFixed(3)}
+                </span>
+              </div>
+              {(Array.isArray(trace.anomaly_signals) ? trace.anomaly_signals : JSON.parse(trace.anomaly_signals || '[]')).map((signal: any, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-2 text-xs rounded-md p-2"
+                  style={{ background: 'hsl(36 14% 94%)' }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{
+                    background: signal.score >= 0.7 ? 'hsl(0 14% 52%)' : signal.score >= 0.4 ? 'hsl(36 18% 50%)' : 'hsl(210 14% 50%)',
+                  }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium" style={{ color: KEY_COLOR }}>
+                        {signal.type?.replace(/_/g, ' ')}
+                      </span>
+                      <span className="font-mono" style={{ color: NUM_COLOR }}>
+                        {signal.score?.toFixed(2)}
+                      </span>
+                    </div>
+                    <p style={{ color: MUTED }}>{signal.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
         )}
 
         {/* Observation */}
