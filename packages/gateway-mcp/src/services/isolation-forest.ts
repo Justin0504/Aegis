@@ -50,6 +50,8 @@ export interface IsolationForestSerialized {
   reservoir: number[][];
   trees: INode[];
   n: number;
+  /** Feature dimensionality (for compatibility checks) */
+  dims?: number;
 }
 
 const DEFAULT_CONFIG: IsolationForestConfig = {
@@ -141,6 +143,7 @@ export class IsolationForest {
       reservoir: this.reservoir,
       trees: this.trees,
       n: this.n,
+      dims: this.dims,
     };
   }
 
@@ -150,8 +153,21 @@ export class IsolationForest {
     forest.reservoir = data.reservoir;
     forest.trees = data.trees;
     forest.n = data.n;
-    forest.dims = data.reservoir.length > 0 ? data.reservoir[0].length : 0;
+    forest.dims = data.dims ?? (data.reservoir.length > 0 ? data.reservoir[0].length : 0);
     return forest;
+  }
+
+  /** Get current feature dimensionality */
+  get featureDims(): number {
+    return this.dims;
+  }
+
+  /** Reset forest (e.g. when feature dimensions change) */
+  reset(): void {
+    this.trees = [];
+    this.reservoir = [];
+    this.n = 0;
+    this.dims = 0;
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────

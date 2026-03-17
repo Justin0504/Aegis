@@ -152,6 +152,19 @@ export class CheckAPI {
                 body.agent_id, checkId, anomalyResult.composite_score,
                 anomalyResult.decision, JSON.stringify(anomalyResult.signals),
               )
+
+              // Store feature vector for feedback loop
+              if (anomalyResult.feature_vector) {
+                try {
+                  this.db.prepare(`
+                    INSERT INTO anomaly_feedback (check_id, agent_id, composite_score, feature_vector, model_decision)
+                    VALUES (?, ?, ?, ?, ?)
+                  `).run(
+                    checkId, body.agent_id, anomalyResult.composite_score,
+                    JSON.stringify(anomalyResult.feature_vector), anomalyResult.decision,
+                  )
+                } catch { /* best-effort, table may not exist on old DBs */ }
+              }
             }
 
             // In graduated phase, cap anomaly decision at 'flag' (no blocking)
@@ -427,6 +440,11 @@ export class CheckAPI {
           return res.status(400).json({ error: 'decision must be "allow" or "block"' })
         }
 
+        // Fetch the check to get agent_id for feedback loop
+        const check = this.db.prepare(
+          'SELECT agent_id, tool_name, arguments FROM pending_checks WHERE check_id = ?'
+        ).get(req.params.checkId) as { agent_id: string; tool_name: string; arguments: string } | undefined
+
         const result = this.db.prepare(`
           UPDATE pending_checks
           SET decision = ?, decided_by = ?, decided_at = datetime('now')
@@ -435,6 +453,29 @@ export class CheckAPI {
 
         if (result.changes === 0) {
           return res.status(404).json({ error: 'Check not found or already decided' })
+        }
+
+        // ── Feedback loop: flow human decision back to anomaly model ──────
+        if (check && this.anomalyDetector && this.profileManager) {
+          const profile = this.profileManager.getProfile(check.agent_id)
+          if (profile) {
+            // Look up the stored feature vector from anomaly_feedback
+            const feedbackRow = this.db.prepare(
+              'SELECT feature_vector FROM anomaly_feedback WHERE check_id = ?'
+            ).get(req.params.checkId) as { feature_vector: string } | undefined
+
+            if (feedbackRow) {
+              try {
+                const featureVector = JSON.parse(feedbackRow.feature_vector) as number[]
+                this.anomalyDetector.ingestFeedback(
+                  check.agent_id, profile, featureVector, decision === 'allow',
+                )
+                this.db.prepare(
+                  'UPDATE anomaly_feedback SET human_decision = ?, decided_at = datetime(\'now\') WHERE check_id = ?'
+                ).run(decision, req.params.checkId)
+              } catch { /* best-effort feedback */ }
+            }
+          }
         }
 
         this.logger.info({

@@ -16,6 +16,7 @@ import Database from 'better-sqlite3';
 import { Logger } from 'pino';
 import { PPMModel, PPMSerialized } from './ppm';
 import { IsolationForestSerialized } from './isolation-forest';
+import { FeatureStats } from './feature-encoder';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,20 @@ export interface AgentProfile {
   forestState?: IsolationForestSerialized;
   /** PPM sequence model state */
   ppmState?: PPMSerialized;
+  /** Per-feature normalization stats (EWMA mean/variance per dimension) */
+  featureStats?: FeatureStats;
+  /** Online anomaly score distribution tracker for adaptive thresholds */
+  scoreTracker?: ScoreTracker;
+}
+
+/** Tracks running score distribution for adaptive thresholds */
+export interface ScoreTracker {
+  /** EWMA of anomaly scores */
+  mean: number;
+  /** EWMA of score variance */
+  variance: number;
+  /** Total observations */
+  n: number;
 }
 
 // ── Profile Builder ─────────────────────────────────────────────────────────

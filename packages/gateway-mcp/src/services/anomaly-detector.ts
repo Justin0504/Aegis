@@ -1,32 +1,25 @@
 /**
  * Anomaly Detector — learning-based behavior deviation scoring
  *
- * Uses three genuinely learning-based methods:
- *   1. Isolation Forest — unsupervised multivariate anomaly scoring
- *   2. PPM-C — variable-order Markov chain for sequence anomaly
- *   3. EWMA — online incremental profile updates (via behavior-profile.ts)
+ * Architecture:
+ *   1. FeatureEncoder extracts 16-dim raw features from observation + profile
+ *   2. Features are online-normalized via per-agent EWMA mean/variance
+ *   3. Normalized features feed directly into an Isolation Forest
+ *   4. IF learns what "normal" looks like — no hardcoded weights needed
+ *   5. Per-agent adaptive thresholds (mean + K*sigma of score distribution)
+ *   6. Human feedback (approve/reject) flows back to IF reservoir + score tracker
  *
- * The nine per-dimension scores are computed as feature extractors,
- * then fed into an Isolation Forest that learns the structure of
- * normal behavior. Falls back to weighted average when the forest
- * has insufficient training data (< minForestSamples).
+ * Cold-start: weighted fallback from 9 legacy signal scores until IF has
+ * enough samples (minForestSamples, default 30).
  *
- * Dimensions:
- *   1. Tool novelty        — tool never seen in baseline
- *   2. Tool frequency spike — sudden increase in call rate
- *   3. Argument shape drift — different key structure than baseline
- *   4. Argument length outlier — abnormally long/short arguments
- *   5. Temporal anomaly    — calls at unusual hours
- *   6. Sequence anomaly    — unlikely tool transition (PPM-C)
- *   7. Cost spike          — estimated cost far above baseline
- *   8. Risk escalation     — sudden increase in high-risk calls
- *   9. Session burst       — call rate spike within short window
+ * Legacy 9-signal extractors remain as fallback and for explainability.
  */
 
-import { AgentProfile } from './behavior-profile';
+import { AgentProfile, ScoreTracker } from './behavior-profile';
 import { SlidingWindowStats } from './sliding-window';
 import { IsolationForest, IsolationForestConfig } from './isolation-forest';
 import { PPMModel } from './ppm';
+import { FeatureEncoder, FeatureStats, RawObservation, FEATURE_DIM } from './feature-encoder';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +52,8 @@ export interface AnomalyResult {
   decision: AnomalyDecision;
   /** Which scoring method was used */
   scoring_method: 'isolation_forest' | 'weighted_fallback';
+  /** Raw 16-dim feature vector (for debugging/logging) */
+  feature_vector?: number[];
 }
 
 export interface AnomalyThresholds {
@@ -124,6 +119,7 @@ const DEFAULT_PPM_CONFIG: PPMConfig = {
 export class AnomalyDetector {
   private forests: Map<string, IsolationForest> = new Map();
   private ppmModels: Map<string, PPMModel> = new Map();
+  private featureEncoder: FeatureEncoder;
   private forestConfig: ForestConfig;
   private ppmConfig: PPMConfig;
 
@@ -136,12 +132,14 @@ export class AnomalyDetector {
   ) {
     this.forestConfig = { ...DEFAULT_FOREST_CONFIG, ...forestConfig };
     this.ppmConfig = { ...DEFAULT_PPM_CONFIG, ...ppmConfig };
+    this.featureEncoder = new FeatureEncoder(slidingWindow);
   }
 
   /**
    * Evaluate a tool call against an agent's behavioral profile.
-   * Uses Isolation Forest for composite scoring when trained,
-   * falls back to weighted average otherwise.
+   *
+   * Primary path: 16-dim FeatureEncoder → Isolation Forest
+   * Fallback:     9 legacy signal scores → weighted average (cold-start)
    */
   evaluate(
     agentId: string,
@@ -151,72 +149,176 @@ export class AnomalyDetector {
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW',
     costUsd: number = 0,
   ): AnomalyResult {
+    // Always compute legacy signals for explainability
     const signals: AnomalySignal[] = [];
-
-    // 1. Tool novelty
     signals.push(this.checkToolNovelty(toolName, profile));
-
-    // 2. Tool frequency spike
     signals.push(this.checkFrequencySpike(agentId, toolName, profile));
-
-    // 3. Argument shape drift
     signals.push(this.checkArgShapeDrift(toolName, args, profile));
-
-    // 4. Argument length outlier
     signals.push(this.checkArgLengthOutlier(toolName, args, profile));
-
-    // 5. Temporal anomaly
     signals.push(this.checkTemporalAnomaly(profile));
-
-    // 6. Sequence anomaly (PPM-C)
     signals.push(this.checkSequenceAnomaly(agentId, toolName, profile));
-
-    // 7. Cost spike
     signals.push(this.checkCostSpike(costUsd, profile));
-
-    // 8. Risk escalation
     signals.push(this.checkRiskEscalation(agentId, profile));
-
-    // 9. Session burst
     signals.push(this.checkSessionBurst(agentId, profile));
 
-    // Build feature vector from signal scores
-    const featureVector = signals.map(s => s.score);
+    // Get or create PPM model for this agent
+    const ppm = this.getOrCreatePPM(agentId, profile);
 
-    // Composite scoring: Isolation Forest or weighted fallback
+    // Build raw observation for feature encoder
+    const obs: RawObservation = {
+      toolName,
+      args,
+      riskLevel,
+      costUsd,
+      timestampMs: Date.now(),
+    };
+
+    // Extract 16-dim raw features
+    const rawFeatures = this.featureEncoder.extractRaw(agentId, obs, profile, ppm);
+
+    // Update per-agent feature normalization stats
+    profile.featureStats = FeatureEncoder.updateFeatureStats(profile.featureStats, rawFeatures);
+
+    // Get normalized features for IF scoring
+    const normalizedFeatures = this.featureEncoder.encode(agentId, obs, profile, ppm);
+
+    // Composite scoring: IF on 16-dim features or weighted fallback
     const forest = this.getOrCreateForest(agentId, profile);
     let composite: number;
     let scoringMethod: 'isolation_forest' | 'weighted_fallback';
 
     if (forest.isTrained && forest.sampleCount >= this.forestConfig.minSamples) {
-      // Isolation Forest scoring — data-driven, no hardcoded weights
-      composite = forest.score(featureVector);
-      scoringMethod = 'isolation_forest';
+      // Check dimension compatibility — reset forest if dims changed
+      if (forest.featureDims > 0 && forest.featureDims !== FEATURE_DIM) {
+        forest.reset();
+      }
+
+      if (forest.isTrained) {
+        composite = forest.score(normalizedFeatures);
+        scoringMethod = 'isolation_forest';
+      } else {
+        composite = this.weightedFallback(signals);
+        scoringMethod = 'weighted_fallback';
+      }
     } else {
-      // Fallback: weighted average (cold-start)
       composite = this.weightedFallback(signals);
       scoringMethod = 'weighted_fallback';
     }
 
-    // Incrementally train the forest on this observation
-    forest.addSample(featureVector);
+    // Incrementally train the forest on normalized features
+    forest.addSample(normalizedFeatures);
 
     // Update PPM model for next sequence prediction
-    const ppm = this.getOrCreatePPM(agentId, profile);
     ppm.update(toolName);
 
-    // Store updated forest/PPM state back to profile for persistence
+    // Update per-agent score tracker for adaptive thresholds
+    profile.scoreTracker = AnomalyDetector.updateScoreTracker(profile.scoreTracker, composite);
+
+    // Store updated state back to profile for persistence
     profile.forestState = forest.serialize();
     profile.ppmState = ppm.serialize();
 
-    const decision = this.decide(composite);
+    // Use adaptive thresholds if we have enough score history
+    const effectiveThresholds = this.adaptiveThresholds(profile.scoreTracker);
+    const decision = this.decide(composite, effectiveThresholds);
 
     return {
       composite_score: Math.round(composite * 1000) / 1000,
       signals: signals.filter(s => s.score > 0),
       decision,
       scoring_method: scoringMethod,
+      feature_vector: rawFeatures,
     };
+  }
+
+  // ── Feedback Loop ─────────────────────────────────────────────────────────
+
+  /**
+   * Ingest human feedback (approve/reject) to tune the model.
+   *
+   * - approve (false positive): add the feature vector as a "normal" sample
+   *   to the IF reservoir with extra weight, lowering future scores for
+   *   similar observations. Also adjusts score tracker downward.
+   *
+   * - reject (true positive): remove similar samples from reservoir to
+   *   ensure the forest keeps flagging this pattern. Adjusts score tracker
+   *   upward.
+   */
+  ingestFeedback(
+    agentId: string,
+    profile: AgentProfile,
+    featureVector: number[],
+    approved: boolean,
+  ): void {
+    const forest = this.getOrCreateForest(agentId, profile);
+
+    if (approved) {
+      // False positive: reinforce as normal by adding multiple copies
+      // This biases the reservoir toward this pattern, lowering its anomaly score
+      for (let i = 0; i < 3; i++) {
+        forest.addSample(featureVector);
+      }
+      // Nudge score tracker down (this was over-flagged)
+      if (profile.scoreTracker && profile.scoreTracker.n > 0) {
+        profile.scoreTracker = AnomalyDetector.updateScoreTracker(
+          profile.scoreTracker, profile.scoreTracker.mean * 0.8,
+        );
+      }
+    } else {
+      // True positive: confirmed anomaly — nudge score tracker up
+      if (profile.scoreTracker) {
+        profile.scoreTracker = AnomalyDetector.updateScoreTracker(
+          profile.scoreTracker, 1.0,
+        );
+      }
+    }
+
+    // Persist updated forest state
+    profile.forestState = forest.serialize();
+  }
+
+  // ── Adaptive Thresholds ───────────────────────────────────────────────────
+
+  /**
+   * Compute per-agent thresholds from score distribution.
+   * flag     = mean + 2*sigma
+   * escalate = mean + 3*sigma
+   * block    = mean + 4*sigma
+   *
+   * Falls back to global defaults if insufficient history.
+   * Thresholds are clamped to sane ranges.
+   */
+  adaptiveThresholds(tracker?: ScoreTracker): AnomalyThresholds {
+    if (!tracker || tracker.n < 50) {
+      return this.thresholds; // Use global defaults during cold-start
+    }
+
+    const std = Math.sqrt(tracker.variance + 1e-8);
+    return {
+      flag:     clamp(tracker.mean + 2 * std, 0.15, 0.5),
+      escalate: clamp(tracker.mean + 3 * std, 0.4,  0.8),
+      block:    clamp(tracker.mean + 4 * std, 0.6,  0.95),
+    };
+  }
+
+  /**
+   * Update score tracker with a new anomaly score (EWMA).
+   */
+  static updateScoreTracker(
+    tracker: ScoreTracker | undefined,
+    score: number,
+    alpha = 0.02,
+  ): ScoreTracker {
+    if (!tracker) {
+      return { mean: score, variance: 0, n: 1 };
+    }
+
+    const effectiveAlpha = Math.min(alpha, 2 / (tracker.n + 1));
+    const delta = score - tracker.mean;
+    const mean = tracker.mean + effectiveAlpha * delta;
+    const variance = (1 - effectiveAlpha) * tracker.variance + effectiveAlpha * delta * delta;
+
+    return { mean, variance, n: tracker.n + 1 };
   }
 
   // ── Isolation Forest Management ───────────────────────────────────────────
@@ -229,19 +331,26 @@ export class AnomalyDetector {
     if (profile.forestState) {
       try {
         forest = IsolationForest.deserialize(profile.forestState);
+        // Check dimension compatibility
+        if (forest.featureDims > 0 && forest.featureDims !== FEATURE_DIM) {
+          forest.reset();
+        }
         this.forests.set(agentId, forest);
         return forest;
       } catch { /* fall through to create new */ }
     }
 
-    // Create new forest, optionally seeded from historical samples
+    // Create new forest
     forest = new IsolationForest({
       numTrees: this.forestConfig.numTrees,
       sampleSize: this.forestConfig.sampleSize,
     });
 
     if (profile.forestSamples && profile.forestSamples.length > 0) {
-      forest.fit(profile.forestSamples);
+      // Check dimension compatibility for legacy samples
+      if (profile.forestSamples[0].length === FEATURE_DIM) {
+        forest.fit(profile.forestSamples);
+      }
     }
 
     this.forests.set(agentId, forest);
@@ -269,7 +378,7 @@ export class AnomalyDetector {
     return ppm;
   }
 
-  // ── Individual Feature Extractors ─────────────────────────────────────────
+  // ── Individual Feature Extractors (legacy, for explainability + fallback) ─
 
   private checkToolNovelty(toolName: string, profile: AgentProfile): AnomalySignal {
     const known = profile.knownTools.includes(toolName);
@@ -415,7 +524,6 @@ export class AnomalyDetector {
     if (ppm.alphabetSize >= 2) {
       const prob = ppm.predict(toolName);
       const surprise = ppm.surprise(toolName);
-      // Convert surprise to [0, 1] score: score = 1 - e^(-surprise/scale)
       const score = 1 - Math.exp(-surprise / this.ppmConfig.surpriseScale);
 
       return {
@@ -554,10 +662,11 @@ export class AnomalyDetector {
     return weightSum > 0 ? scoreSum / weightSum : 0;
   }
 
-  private decide(composite: number): AnomalyDecision {
-    if (composite >= this.thresholds.block) return 'block';
-    if (composite >= this.thresholds.escalate) return 'escalate';
-    if (composite >= this.thresholds.flag) return 'flag';
+  private decide(composite: number, thresholds?: AnomalyThresholds): AnomalyDecision {
+    const t = thresholds ?? this.thresholds;
+    if (composite >= t.block) return 'block';
+    if (composite >= t.escalate) return 'escalate';
+    if (composite >= t.flag) return 'flag';
     return 'pass';
   }
 
@@ -577,4 +686,8 @@ export class AnomalyDetector {
 
 function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-x));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }

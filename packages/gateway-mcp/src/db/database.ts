@@ -232,5 +232,22 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     CREATE INDEX IF NOT EXISTS idx_anomaly_decision ON anomaly_events(decision);
   `);
 
+  // Anomaly feedback table — stores feature vectors for human feedback loop
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS anomaly_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      check_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      composite_score REAL NOT NULL,
+      feature_vector TEXT NOT NULL,
+      model_decision TEXT NOT NULL,
+      human_decision TEXT,
+      decided_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_feedback_check ON anomaly_feedback(check_id);
+    CREATE INDEX IF NOT EXISTS idx_feedback_agent ON anomaly_feedback(agent_id);
+  `);
+
   return db;
 }
