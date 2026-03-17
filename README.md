@@ -13,6 +13,7 @@
 [![npm](https://img.shields.io/badge/npm-%40justinnn%2Fagentguard-red)](https://www.npmjs.com/package/@justinnn/agentguard)
 [![Docker](https://img.shields.io/badge/ghcr.io-aegis--gateway-0db7ed)](https://github.com/Justin0504/Aegis/pkgs/container/aegis-gateway)
 [![CI](https://github.com/Justin0504/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/Justin0504/Aegis/actions)
+[![arXiv](https://img.shields.io/badge/arXiv-2603.12621-b31b1b.svg)](https://arxiv.org/abs/2603.12621)
 
 </div>
 
@@ -539,6 +540,26 @@ Open [localhost:8501](http://localhost:8501) and follow the guided prompts:
 4. **SQL injection attempt** → blocked instantly (BLOCK)
 5. **Analyze text with SSN** → PII auto-detected and flagged
 6. **Send a report** → blocking mode, requires human approval in Cockpit
+
+---
+
+## Paper
+
+If you use AEGIS in your research, please cite our paper:
+
+> **AEGIS: No Tool Call Left Unchecked -- A Pre-Execution Firewall and Audit Layer for AI Agents**
+> Aojie Yuan, Zhiyuan Su, Yue Zhao
+> *arXiv:2603.12621*, 2026
+> [[PDF]](https://arxiv.org/abs/2603.12621)
+
+```bibtex
+@article{yuan2026aegis,
+  title={AEGIS: No Tool Call Left Unchecked -- A Pre-Execution Firewall and Audit Layer for AI Agents},
+  author={Yuan, Aojie and Su, Zhiyuan and Zhao, Yue},
+  journal={arXiv preprint arXiv:2603.12621},
+  year={2026}
+}
+```
 
 ---
 
