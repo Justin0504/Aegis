@@ -1,9 +1,15 @@
 /**
  * Anomaly Detector — learning-based behavior deviation scoring
  *
- * Nine-dimensional detector that scores how much a tool call deviates
- * from the agent's historical baseline profile. Pure statistical methods,
- * no external ML dependencies, runs in-process with < 5ms latency.
+ * Uses three genuinely learning-based methods:
+ *   1. Isolation Forest — unsupervised multivariate anomaly scoring
+ *   2. PPM-C — variable-order Markov chain for sequence anomaly
+ *   3. EWMA — online incremental profile updates (via behavior-profile.ts)
+ *
+ * The nine per-dimension scores are computed as feature extractors,
+ * then fed into an Isolation Forest that learns the structure of
+ * normal behavior. Falls back to weighted average when the forest
+ * has insufficient training data (< minForestSamples).
  *
  * Dimensions:
  *   1. Tool novelty        — tool never seen in baseline
@@ -11,7 +17,7 @@
  *   3. Argument shape drift — different key structure than baseline
  *   4. Argument length outlier — abnormally long/short arguments
  *   5. Temporal anomaly    — calls at unusual hours
- *   6. Sequence anomaly    — unlikely tool transition (bigram)
+ *   6. Sequence anomaly    — unlikely tool transition (PPM-C)
  *   7. Cost spike          — estimated cost far above baseline
  *   8. Risk escalation     — sudden increase in high-risk calls
  *   9. Session burst       — call rate spike within short window
@@ -19,6 +25,8 @@
 
 import { AgentProfile } from './behavior-profile';
 import { SlidingWindowStats } from './sliding-window';
+import { IsolationForest, IsolationForestConfig } from './isolation-forest';
+import { PPMModel } from './ppm';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,9 +54,11 @@ export interface AnomalySignal {
 export type AnomalyDecision = 'pass' | 'flag' | 'escalate' | 'block';
 
 export interface AnomalyResult {
-  composite_score: number;   // 0-1, weighted aggregate
+  composite_score: number;   // 0-1, Isolation Forest or weighted fallback
   signals: AnomalySignal[];
   decision: AnomalyDecision;
+  /** Which scoring method was used */
+  scoring_method: 'isolation_forest' | 'weighted_fallback';
 }
 
 export interface AnomalyThresholds {
@@ -87,18 +97,51 @@ export const DEFAULT_THRESHOLDS: AnomalyThresholds = {
   block: 0.85,
 };
 
+export interface ForestConfig {
+  numTrees: number;
+  sampleSize: number;
+  minSamples: number;
+}
+
+export interface PPMConfig {
+  maxOrder: number;
+  surpriseScale: number;
+}
+
+const DEFAULT_FOREST_CONFIG: ForestConfig = {
+  numTrees: 100,
+  sampleSize: 256,
+  minSamples: 30,
+};
+
+const DEFAULT_PPM_CONFIG: PPMConfig = {
+  maxOrder: 4,
+  surpriseScale: 3.0,
+};
+
 // ── Detector ────────────────────────────────────────────────────────────────
 
 export class AnomalyDetector {
+  private forests: Map<string, IsolationForest> = new Map();
+  private ppmModels: Map<string, PPMModel> = new Map();
+  private forestConfig: ForestConfig;
+  private ppmConfig: PPMConfig;
+
   constructor(
     private slidingWindow: SlidingWindowStats,
     private weights: AnomalyWeights = DEFAULT_WEIGHTS,
     private thresholds: AnomalyThresholds = DEFAULT_THRESHOLDS,
-  ) {}
+    forestConfig?: Partial<ForestConfig>,
+    ppmConfig?: Partial<PPMConfig>,
+  ) {
+    this.forestConfig = { ...DEFAULT_FOREST_CONFIG, ...forestConfig };
+    this.ppmConfig = { ...DEFAULT_PPM_CONFIG, ...ppmConfig };
+  }
 
   /**
    * Evaluate a tool call against an agent's behavioral profile.
-   * Returns composite anomaly score and per-dimension signals.
+   * Uses Isolation Forest for composite scoring when trained,
+   * falls back to weighted average otherwise.
    */
   evaluate(
     agentId: string,
@@ -125,7 +168,7 @@ export class AnomalyDetector {
     // 5. Temporal anomaly
     signals.push(this.checkTemporalAnomaly(profile));
 
-    // 6. Sequence anomaly
+    // 6. Sequence anomaly (PPM-C)
     signals.push(this.checkSequenceAnomaly(agentId, toolName, profile));
 
     // 7. Cost spike
@@ -137,36 +180,96 @@ export class AnomalyDetector {
     // 9. Session burst
     signals.push(this.checkSessionBurst(agentId, profile));
 
-    // Weighted aggregation — only count dimensions with data
-    let weightSum = 0;
-    let scoreSum = 0;
-    for (const signal of signals) {
-      const w = this.weights[signal.type];
-      // Skip dimensions that returned score 0 with zscore 0
-      // (no data available for this dimension)
-      if (signal.score > 0 || signal.zscore !== 0) {
-        scoreSum += signal.score * w;
-        weightSum += w;
-      } else {
-        // Still include weight if dimension had data but scored 0
-        // (meaning it was normal). Only skip if truly no data.
-        if (signal.detail !== 'insufficient_data') {
-          weightSum += w;
-        }
-      }
+    // Build feature vector from signal scores
+    const featureVector = signals.map(s => s.score);
+
+    // Composite scoring: Isolation Forest or weighted fallback
+    const forest = this.getOrCreateForest(agentId, profile);
+    let composite: number;
+    let scoringMethod: 'isolation_forest' | 'weighted_fallback';
+
+    if (forest.isTrained && forest.sampleCount >= this.forestConfig.minSamples) {
+      // Isolation Forest scoring — data-driven, no hardcoded weights
+      composite = forest.score(featureVector);
+      scoringMethod = 'isolation_forest';
+    } else {
+      // Fallback: weighted average (cold-start)
+      composite = this.weightedFallback(signals);
+      scoringMethod = 'weighted_fallback';
     }
 
-    const composite = weightSum > 0 ? scoreSum / weightSum : 0;
+    // Incrementally train the forest on this observation
+    forest.addSample(featureVector);
+
+    // Update PPM model for next sequence prediction
+    const ppm = this.getOrCreatePPM(agentId, profile);
+    ppm.update(toolName);
+
+    // Store updated forest/PPM state back to profile for persistence
+    profile.forestState = forest.serialize();
+    profile.ppmState = ppm.serialize();
+
     const decision = this.decide(composite);
 
     return {
       composite_score: Math.round(composite * 1000) / 1000,
       signals: signals.filter(s => s.score > 0),
       decision,
+      scoring_method: scoringMethod,
     };
   }
 
-  // ── Individual Detectors ──────────────────────────────────────────────────
+  // ── Isolation Forest Management ───────────────────────────────────────────
+
+  private getOrCreateForest(agentId: string, profile: AgentProfile): IsolationForest {
+    let forest = this.forests.get(agentId);
+    if (forest) return forest;
+
+    // Try to restore from profile
+    if (profile.forestState) {
+      try {
+        forest = IsolationForest.deserialize(profile.forestState);
+        this.forests.set(agentId, forest);
+        return forest;
+      } catch { /* fall through to create new */ }
+    }
+
+    // Create new forest, optionally seeded from historical samples
+    forest = new IsolationForest({
+      numTrees: this.forestConfig.numTrees,
+      sampleSize: this.forestConfig.sampleSize,
+    });
+
+    if (profile.forestSamples && profile.forestSamples.length > 0) {
+      forest.fit(profile.forestSamples);
+    }
+
+    this.forests.set(agentId, forest);
+    return forest;
+  }
+
+  // ── PPM Model Management ─────────────────────────────────────────────────
+
+  private getOrCreatePPM(agentId: string, profile: AgentProfile): PPMModel {
+    let ppm = this.ppmModels.get(agentId);
+    if (ppm) return ppm;
+
+    // Try to restore from profile
+    if (profile.ppmState) {
+      try {
+        ppm = PPMModel.deserialize(profile.ppmState);
+        this.ppmModels.set(agentId, ppm);
+        return ppm;
+      } catch { /* fall through */ }
+    }
+
+    // Create new PPM model
+    ppm = new PPMModel(this.ppmConfig.maxOrder);
+    this.ppmModels.set(agentId, ppm);
+    return ppm;
+  }
+
+  // ── Individual Feature Extractors ─────────────────────────────────────────
 
   private checkToolNovelty(toolName: string, profile: AgentProfile): AnomalySignal {
     const known = profile.knownTools.includes(toolName);
@@ -188,9 +291,7 @@ export class AnomalyDetector {
       return this.noDataSignal(AnomalyType.TOOL_FREQUENCY_SPIKE);
     }
 
-    // Baseline: calls per minute over profile window
     const baselinePerMin = dist.count / (profile.windowDays * 24 * 60);
-    // Current: calls per minute in last 5 minutes
     const currentPerMin = this.slidingWindow.getToolFrequency(agentId, toolName, 300);
 
     if (baselinePerMin === 0) {
@@ -198,8 +299,8 @@ export class AnomalyDetector {
     }
 
     const ratio = currentPerMin / baselinePerMin;
-    const zscore = Math.max(0, ratio - 1); // how many "baseline rates" above normal
-    const score = sigmoid(zscore - 2); // starts scoring at 2x baseline
+    const zscore = Math.max(0, ratio - 1);
+    const score = sigmoid(zscore - 2);
 
     return {
       type: AnomalyType.TOOL_FREQUENCY_SPIKE,
@@ -220,7 +321,6 @@ export class AnomalyDetector {
     }
 
     const currentKeys = Object.keys(args).sort().join(',');
-    // Check exact match first (fast path)
     if (fp.knownKeySets.includes(currentKeys)) {
       return {
         type: AnomalyType.ARG_SHAPE_DRIFT,
@@ -232,7 +332,6 @@ export class AnomalyDetector {
       };
     }
 
-    // Jaccard similarity against best match
     const currentKeySet = new Set(Object.keys(args));
     let bestJaccard = 0;
     for (const ksStr of fp.knownKeySets) {
@@ -264,7 +363,7 @@ export class AnomalyDetector {
 
     const observed = JSON.stringify(args).length;
     const zscore = Math.abs(observed - fp.avgArgLength) / Math.max(fp.stdArgLength, 1);
-    const score = sigmoid(zscore - 3); // starts scoring at 3 std devs
+    const score = sigmoid(zscore - 3);
 
     return {
       type: AnomalyType.ARG_LENGTH_OUTLIER,
@@ -284,13 +383,10 @@ export class AnomalyDetector {
     }
 
     const density = profile.temporalPattern.hourDistribution[hour] / totalCalls;
-
-    // If this hour had < 1% of total traffic, it's unusual
     let score = 0;
-    if (density < 0.005) score = 0.9;      // < 0.5% — very unusual
-    else if (density < 0.01) score = 0.7;   // < 1%
-    else if (density < 0.02) score = 0.3;   // < 2%
-    else score = 0;
+    if (density < 0.005) score = 0.9;
+    else if (density < 0.01) score = 0.7;
+    else if (density < 0.02) score = 0.3;
 
     return {
       type: AnomalyType.TEMPORAL_ANOMALY,
@@ -302,6 +398,10 @@ export class AnomalyDetector {
     };
   }
 
+  /**
+   * Sequence anomaly — uses PPM-C variable-order Markov chain
+   * instead of simple bigram transition matrix.
+   */
   private checkSequenceAnomaly(
     agentId: string, toolName: string, profile: AgentProfile,
   ): AnomalySignal {
@@ -310,9 +410,27 @@ export class AnomalyDetector {
       return this.noDataSignal(AnomalyType.SEQUENCE_ANOMALY);
     }
 
+    // Try PPM model first
+    const ppm = this.getOrCreatePPM(agentId, profile);
+    if (ppm.alphabetSize >= 2) {
+      const prob = ppm.predict(toolName);
+      const surprise = ppm.surprise(toolName);
+      // Convert surprise to [0, 1] score: score = 1 - e^(-surprise/scale)
+      const score = 1 - Math.exp(-surprise / this.ppmConfig.surpriseScale);
+
+      return {
+        type: AnomalyType.SEQUENCE_ANOMALY,
+        score: Math.min(score, 1.0),
+        zscore: surprise,
+        detail: `PPM surprise=${surprise.toFixed(2)} prob=${(prob * 100).toFixed(1)}% context=[${ppm.getContext().slice(-3).join(',')}]→${toolName}`,
+        baseline_value: prob,
+        observed_value: surprise,
+      };
+    }
+
+    // Fallback to bigram if PPM has no data yet
     const transitions = profile.transitionMatrix[prevTool];
     if (!transitions) {
-      // Previous tool never seen in baseline transitions
       return {
         type: AnomalyType.SEQUENCE_ANOMALY,
         score: 0.8,
@@ -324,13 +442,13 @@ export class AnomalyDetector {
     }
 
     const prob = transitions[toolName] ?? 0;
-    const score = prob === 0 ? 1.0 : Math.max(0, 1 - prob * 3); // scale: prob=0.33 → score≈0
+    const score = prob === 0 ? 1.0 : Math.max(0, 1 - prob * 3);
 
     return {
       type: AnomalyType.SEQUENCE_ANOMALY,
       score,
       zscore: prob > 0 ? (1 - prob) / Math.max(prob, 0.01) : 10,
-      detail: `transition ${prevTool} → ${toolName}: baseline probability ${(prob * 100).toFixed(1)}%`,
+      detail: `bigram ${prevTool} → ${toolName}: baseline probability ${(prob * 100).toFixed(1)}%`,
       baseline_value: prob,
       observed_value: prob === 0 ? 0 : 1,
     };
@@ -357,7 +475,7 @@ export class AnomalyDetector {
 
   private checkRiskEscalation(agentId: string, profile: AgentProfile): AnomalySignal {
     const baselineHighRate = profile.riskDistribution.HIGH + profile.riskDistribution.CRITICAL;
-    const recentHighRate = this.slidingWindow.getHighRiskRate(agentId, 600); // 10 min
+    const recentHighRate = this.slidingWindow.getHighRiskRate(agentId, 600);
 
     if (baselineHighRate === 0 && recentHighRate === 0) {
       return {
@@ -370,7 +488,6 @@ export class AnomalyDetector {
       };
     }
 
-    // If baseline has no high-risk but we see some now
     if (baselineHighRate < 0.01 && recentHighRate > 0) {
       return {
         type: AnomalyType.RISK_ESCALATION,
@@ -396,7 +513,7 @@ export class AnomalyDetector {
   }
 
   private checkSessionBurst(agentId: string, profile: AgentProfile): AnomalySignal {
-    const recentCount = this.slidingWindow.getCallCount(agentId, 60); // last 1 min
+    const recentCount = this.slidingWindow.getCallCount(agentId, 60);
     const baselinePerMin = profile.traceCount / (profile.windowDays * 24 * 60);
 
     if (baselinePerMin === 0) {
@@ -417,7 +534,25 @@ export class AnomalyDetector {
     };
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Scoring ─────────────────────────────────────────────────────────────
+
+  /** Weighted average fallback for cold-start (< minSamples in forest) */
+  private weightedFallback(signals: AnomalySignal[]): number {
+    let weightSum = 0;
+    let scoreSum = 0;
+    for (const signal of signals) {
+      const w = this.weights[signal.type];
+      if (signal.score > 0 || signal.zscore !== 0) {
+        scoreSum += signal.score * w;
+        weightSum += w;
+      } else {
+        if (signal.detail !== 'insufficient_data') {
+          weightSum += w;
+        }
+      }
+    }
+    return weightSum > 0 ? scoreSum / weightSum : 0;
+  }
 
   private decide(composite: number): AnomalyDecision {
     if (composite >= this.thresholds.block) return 'block';
@@ -440,7 +575,6 @@ export class AnomalyDetector {
 
 // ── Math ────────────────────────────────────────────────────────────────────
 
-/** Sigmoid function mapped to [0, 1], centered at x=0 */
 function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-x));
 }

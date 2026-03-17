@@ -60,8 +60,10 @@ async function main() {
   );
   const anomalyDetector = new AnomalyDetector(
     slidingWindow,
-    undefined, // default weights
+    undefined, // default weights (used as fallback)
     config.anomaly.thresholds,
+    config.anomaly.isolationForest,
+    config.anomaly.ppm,
   );
   const profileManager  = new ProfileManager(db, logger, {
     minTraces: config.anomaly.minTraces,

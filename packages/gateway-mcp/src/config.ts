@@ -22,7 +22,7 @@ export const config = {
     enabled: process.env.ANOMALY_ENABLED !== 'false', // on by default
     minTraces: parseInt(process.env.ANOMALY_MIN_TRACES || '50', 10),
     graduationTraces: parseInt(process.env.ANOMALY_GRADUATION_TRACES || '200', 10),
-    profileRebuildIntervalHours: parseInt(process.env.ANOMALY_REBUILD_HOURS || '6', 10),
+    profileRebuildIntervalHours: parseInt(process.env.ANOMALY_REBUILD_HOURS || '24', 10),
     profileWindowDays: parseInt(process.env.ANOMALY_WINDOW_DAYS || '14', 10),
     thresholds: {
       flag: parseFloat(process.env.ANOMALY_THRESHOLD_FLAG || '0.3'),
@@ -32,6 +32,20 @@ export const config = {
     slidingWindow: {
       maxAgents: parseInt(process.env.ANOMALY_MAX_AGENTS || '10000', 10),
       bufferSize: parseInt(process.env.ANOMALY_BUFFER_SIZE || '300', 10),
+    },
+    isolationForest: {
+      numTrees: parseInt(process.env.ANOMALY_IF_TREES || '100', 10),
+      sampleSize: parseInt(process.env.ANOMALY_IF_SAMPLE_SIZE || '256', 10),
+      minSamples: parseInt(process.env.ANOMALY_IF_MIN_SAMPLES || '30', 10),
+    },
+    ewma: {
+      alpha: parseFloat(process.env.ANOMALY_EWMA_ALPHA || '0.05'),
+      persistEveryN: parseInt(process.env.ANOMALY_EWMA_PERSIST_N || '10', 10),
+      persistIntervalMs: parseInt(process.env.ANOMALY_EWMA_PERSIST_MS || '60000', 10),
+    },
+    ppm: {
+      maxOrder: parseInt(process.env.ANOMALY_PPM_ORDER || '4', 10),
+      surpriseScale: parseFloat(process.env.ANOMALY_PPM_SURPRISE_SCALE || '3.0'),
     },
   },
   redis: {

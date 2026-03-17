@@ -167,6 +167,16 @@ export class CheckAPI {
               signals: anomalyResult.signals.length,
             }, 'Anomaly evaluation')
 
+            // Incremental EWMA profile update (online learning)
+            this.profileManager!.onTrace(body.agent_id, {
+              toolName: body.tool_name,
+              args: body.arguments as Record<string, unknown>,
+              riskLevel: validation.risk_level,
+              costUsd: 0,
+              tokens: 0,
+              timestampMs: Date.now(),
+            })
+
             // Fire webhook/event for anomaly escalate/block
             if (anomalyResult.decision === 'escalate' || anomalyResult.decision === 'block') {
               const anomalyTs = new Date().toISOString()

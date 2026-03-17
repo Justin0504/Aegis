@@ -1,4 +1,4 @@
-import { AnomalyDetector, AnomalyType, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS } from '../services/anomaly-detector';
+import { AnomalyDetector, AnomalyType, DEFAULT_WEIGHTS, DEFAULT_THRESHOLDS, AnomalyResult } from '../services/anomaly-detector';
 import { SlidingWindowStats } from '../services/sliding-window';
 import { AgentProfile } from '../services/behavior-profile';
 

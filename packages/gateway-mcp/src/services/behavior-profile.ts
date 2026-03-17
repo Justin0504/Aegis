@@ -14,6 +14,8 @@
 
 import Database from 'better-sqlite3';
 import { Logger } from 'pino';
+import { PPMModel, PPMSerialized } from './ppm';
+import { IsolationForestSerialized } from './isolation-forest';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +64,34 @@ export interface TransitionMatrix {
   [fromTool: string]: { [toTool: string]: number };
 }
 
+/** EWMA state for online incremental profile updates */
+export interface EWMAState {
+  /** Smoothing factor (default 0.05 ≈ 20-sample half-life) */
+  alpha: number;
+  /** EWMA of cost */
+  costEwma: number;
+  costEwmaVar: number;
+  /** EWMA of tokens */
+  tokensEwma: number;
+  tokensEwmaVar: number;
+  /** EWMA of arg length per tool */
+  argLengthEwma: Record<string, number>;
+  argLengthEwmaVar: Record<string, number>;
+  /** EWMA of inter-call interval */
+  intervalEwma: number;
+  intervalEwmaVar: number;
+  /** EWMA hourly density (24-element array) */
+  hourDensity: number[];
+  /** EWMA of risk fractions */
+  riskEwma: RiskDistribution;
+  /** EWMA of tool frequency */
+  toolFreqEwma: Record<string, number>;
+  /** Total observations processed */
+  n: number;
+  /** Timestamp of last update (ms) */
+  lastUpdateMs: number;
+}
+
 export interface AgentProfile {
   agentId: string;
   traceCount: number;
@@ -75,6 +105,14 @@ export interface AgentProfile {
   /** Known tool set (for novelty detection) */
   knownTools: string[];
   updatedAt: string;
+  /** EWMA online learning state */
+  ewma?: EWMAState;
+  /** Isolation Forest training samples */
+  forestSamples?: number[][];
+  /** Serialized Isolation Forest */
+  forestState?: IsolationForestSerialized;
+  /** PPM sequence model state */
+  ppmState?: PPMSerialized;
 }
 
 // ── Profile Builder ─────────────────────────────────────────────────────────
@@ -216,6 +254,11 @@ export class BehaviorProfileService {
       }
     }
 
+    // 7. PPM sequence model (variable-order Markov chain)
+    const toolSequence = parsed.map(p => p.toolName);
+    const ppmModel = new PPMModel(4);
+    ppmModel.train(toolSequence);
+
     const profile: AgentProfile = {
       agentId,
       traceCount: parsed.length,
@@ -228,11 +271,178 @@ export class BehaviorProfileService {
       transitionMatrix,
       knownTools: Object.keys(toolDistribution),
       updatedAt: new Date().toISOString(),
+      ppmState: ppmModel.serialize(),
     };
 
     // Persist to DB
     this.saveProfile(profile);
     return profile;
+  }
+
+  /**
+   * Incrementally update a profile with a single new observation.
+   * Uses EWMA to blend new data without full SQL rebuild.
+   */
+  updateIncremental(
+    profile: AgentProfile,
+    obs: {
+      toolName: string;
+      args: Record<string, unknown>;
+      riskLevel: string;
+      costUsd: number;
+      tokens: number;
+      timestampMs: number;
+    },
+  ): AgentProfile {
+    // Initialize EWMA state from batch-computed values if missing
+    if (!profile.ewma) {
+      profile.ewma = this.initEwma(profile);
+    }
+
+    const ewma = profile.ewma;
+    ewma.n++;
+
+    // Adaptive alpha: larger learning rate early, converges to configured alpha
+    const alpha = Math.min(ewma.alpha, 2 / (ewma.n + 1));
+
+    // Cost EWMA
+    const costDelta = obs.costUsd - ewma.costEwma;
+    ewma.costEwma += alpha * costDelta;
+    ewma.costEwmaVar = (1 - alpha) * ewma.costEwmaVar + alpha * costDelta * costDelta;
+
+    // Tokens EWMA
+    const tokenDelta = obs.tokens - ewma.tokensEwma;
+    ewma.tokensEwma += alpha * tokenDelta;
+    ewma.tokensEwmaVar = (1 - alpha) * ewma.tokensEwmaVar + alpha * tokenDelta * tokenDelta;
+
+    // Arg length EWMA per tool
+    const argLen = JSON.stringify(obs.args).length;
+    const prevArgLen = ewma.argLengthEwma[obs.toolName] ?? argLen;
+    const argDelta = argLen - prevArgLen;
+    ewma.argLengthEwma[obs.toolName] = prevArgLen + alpha * argDelta;
+    ewma.argLengthEwmaVar[obs.toolName] = (1 - alpha) * (ewma.argLengthEwmaVar[obs.toolName] ?? 0) + alpha * argDelta * argDelta;
+
+    // Inter-call interval
+    if (ewma.lastUpdateMs > 0) {
+      const interval = (obs.timestampMs - ewma.lastUpdateMs) / 1000;
+      if (interval > 0 && interval < 86400) {
+        const intDelta = interval - ewma.intervalEwma;
+        ewma.intervalEwma += alpha * intDelta;
+        ewma.intervalEwmaVar = (1 - alpha) * ewma.intervalEwmaVar + alpha * intDelta * intDelta;
+      }
+    }
+
+    // Hour density: boost current hour, decay all
+    const hour = new Date(obs.timestampMs).getUTCHours();
+    for (let h = 0; h < 24; h++) {
+      ewma.hourDensity[h] *= (1 - alpha);
+    }
+    ewma.hourDensity[hour] += alpha;
+
+    // Tool frequency: boost current tool, decay all
+    for (const t of Object.keys(ewma.toolFreqEwma)) {
+      ewma.toolFreqEwma[t] *= (1 - alpha);
+    }
+    ewma.toolFreqEwma[obs.toolName] = (ewma.toolFreqEwma[obs.toolName] ?? 0) + alpha;
+
+    // Risk distribution
+    const riskKeys: (keyof RiskDistribution)[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+    for (const k of riskKeys) {
+      ewma.riskEwma[k] *= (1 - alpha);
+    }
+    if (obs.riskLevel in ewma.riskEwma) {
+      ewma.riskEwma[obs.riskLevel as keyof RiskDistribution] += alpha;
+    }
+
+    ewma.lastUpdateMs = obs.timestampMs;
+
+    // Sync EWMA back to profile fields
+    profile.costBaseline.meanCostUsd = ewma.costEwma;
+    profile.costBaseline.stdCostUsd = Math.sqrt(ewma.costEwmaVar);
+    profile.costBaseline.meanTokensPerCall = ewma.tokensEwma;
+    profile.costBaseline.stdTokensPerCall = Math.sqrt(ewma.tokensEwmaVar);
+    profile.temporalPattern.meanIntervalSec = ewma.intervalEwma;
+    profile.temporalPattern.stdIntervalSec = Math.sqrt(ewma.intervalEwmaVar);
+
+    // Normalize hour density to counts for compatibility
+    const totalDensity = ewma.hourDensity.reduce((s, d) => s + d, 0) || 1;
+    profile.temporalPattern.hourDistribution = ewma.hourDensity.map(d => Math.round(d / totalDensity * ewma.n));
+
+    // Sync risk distribution
+    const totalRisk = riskKeys.reduce((s, k) => s + ewma.riskEwma[k], 0) || 1;
+    for (const k of riskKeys) {
+      profile.riskDistribution[k] = ewma.riskEwma[k] / totalRisk;
+    }
+
+    // Update tool distribution
+    if (!profile.toolDistribution[obs.toolName]) {
+      profile.toolDistribution[obs.toolName] = { count: 0, frequency: 0, lastSeen: '' };
+    }
+    profile.toolDistribution[obs.toolName].count++;
+    profile.toolDistribution[obs.toolName].lastSeen = new Date(obs.timestampMs).toISOString();
+
+    // Sync arg fingerprint
+    if (!profile.argumentFingerprints[obs.toolName]) {
+      profile.argumentFingerprints[obs.toolName] = {
+        avgKeyCount: 0, knownKeySets: [], avgArgLength: 0, stdArgLength: 0,
+      };
+    }
+    const fp = profile.argumentFingerprints[obs.toolName];
+    fp.avgArgLength = ewma.argLengthEwma[obs.toolName];
+    fp.stdArgLength = Math.sqrt(ewma.argLengthEwmaVar[obs.toolName] ?? 0);
+    const keySet = typeof obs.args === 'object' && obs.args ? Object.keys(obs.args).sort().join(',') : '';
+    if (keySet && !fp.knownKeySets.includes(keySet)) {
+      fp.knownKeySets.push(keySet);
+      if (fp.knownKeySets.length > 50) fp.knownKeySets.shift();
+    }
+
+    // Add tool to knownTools
+    if (!profile.knownTools.includes(obs.toolName)) {
+      profile.knownTools.push(obs.toolName);
+    }
+
+    profile.traceCount = ewma.n;
+    profile.updatedAt = new Date().toISOString();
+
+    return profile;
+  }
+
+  /** Initialize EWMA state from existing batch-computed profile */
+  private initEwma(profile: AgentProfile): EWMAState {
+    const hourDensity = new Array(24).fill(0);
+    const totalHours = profile.temporalPattern.hourDistribution.reduce((s, h) => s + h, 0) || 1;
+    for (let h = 0; h < 24; h++) {
+      hourDensity[h] = profile.temporalPattern.hourDistribution[h] / totalHours;
+    }
+
+    const toolFreqEwma: Record<string, number> = {};
+    for (const [tool, dist] of Object.entries(profile.toolDistribution)) {
+      toolFreqEwma[tool] = dist.frequency;
+    }
+
+    const argLengthEwma: Record<string, number> = {};
+    const argLengthEwmaVar: Record<string, number> = {};
+    for (const [tool, fp] of Object.entries(profile.argumentFingerprints)) {
+      argLengthEwma[tool] = fp.avgArgLength;
+      argLengthEwmaVar[tool] = fp.stdArgLength * fp.stdArgLength;
+    }
+
+    return {
+      alpha: 0.05,
+      costEwma: profile.costBaseline.meanCostUsd,
+      costEwmaVar: profile.costBaseline.stdCostUsd * profile.costBaseline.stdCostUsd,
+      tokensEwma: profile.costBaseline.meanTokensPerCall,
+      tokensEwmaVar: profile.costBaseline.stdTokensPerCall * profile.costBaseline.stdTokensPerCall,
+      argLengthEwma,
+      argLengthEwmaVar,
+      intervalEwma: profile.temporalPattern.meanIntervalSec,
+      intervalEwmaVar: profile.temporalPattern.stdIntervalSec * profile.temporalPattern.stdIntervalSec,
+      hourDensity,
+      riskEwma: { ...profile.riskDistribution },
+      toolFreqEwma,
+      n: profile.traceCount,
+      lastUpdateMs: Date.now(),
+    };
   }
 
   /** Rebuild profiles for all agents with recent activity */
