@@ -107,6 +107,8 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 | **Cryptographic audit trail** | ❌ | ❌ | ❌ | ✅ |
 | **Kill switch** | ❌ | ❌ | ❌ | ✅ |
 | **Natural language policy editor** | ❌ | ❌ | ❌ | ✅ |
+| **Behavioral anomaly detection** | ❌ | ❌ | ❌ | ✅ |
+| **HTTP proxy for closed-source agents** | ❌ | ❌ | ❌ | ✅ |
 | **MCP server for Claude Desktop** | ❌ | ❌ | ❌ | ✅ |
 | **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable, MIT-licensed | ✅ | ❌ | ❌ | ✅ |
@@ -118,13 +120,14 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 ```
   Your agent calls a tool
           │
-          ▼  SDK intercepts at the LLM response level
+          ▼  SDK / HTTP Proxy / MCP Proxy intercepts
   ┌────────────────────────────────────────────────┐
   │  AEGIS Gateway                                 │
   │                                                │
   │  ① Classify   (SQL? file? network? shell?)     │
-  │  ② Evaluate   (injection? exfil? traversal?)   │
-  │  ③ Decide     allow / block / pending          │
+  │  ② Anomaly    (baseline deviation? spike?)     │
+  │  ③ Evaluate   (injection? exfil? traversal?)   │
+  │  ④ Decide     allow / block / pending          │
   └──────────┬─────────────────────────────────────┘
              │
       ┌──────┴──────────────┐
@@ -209,6 +212,59 @@ Five policies ship by default. Create more in plain English — the AI assistant
 | Data Exfiltration Prevention | HIGH | Large payloads to external endpoints |
 
 > *"Block all file deletions outside the /tmp directory"* → Describe button → policy created instantly.
+
+### Behavioral Anomaly Detection
+
+AEGIS builds a behavioral profile for each agent and flags deviations in real time — no manual rules required.
+
+**Nine-dimensional analysis:**
+
+| Dimension | What it catches |
+|-----------|-----------------|
+| Tool novelty | Agent uses a tool it has never called before |
+| Frequency spike | Sudden burst of calls (3x above normal rate) |
+| Argument shape drift | Parameters don't match historical patterns |
+| Argument length outlier | Unusually large payloads (data exfiltration signal) |
+| Temporal anomaly | Calls at unusual hours |
+| Sequence anomaly | Unexpected tool ordering (e.g. `delete` without prior `read`) |
+| Cost spike | Single call costs 5x the agent's average |
+| Risk escalation | Jump from LOW-risk to HIGH-risk tools |
+| Session burst | Too many calls in one session |
+
+**Cold-start safe** — AEGIS learns for the first 200 traces before blocking, so new agents are never false-positived.
+
+### Proxy Interception (for closed-source agents)
+
+For agents you can't modify (compiled binaries, third-party tools), AEGIS provides two proxy modes:
+
+**HTTP Forward Proxy** — intercepts LLM API calls (Anthropic / OpenAI):
+
+```bash
+# Start the proxy
+agentguard http-proxy --port 8081 --agent-id my-agent
+
+# Point any agent at it — zero code changes
+export ANTHROPIC_BASE_URL=http://localhost:8081
+export OPENAI_BASE_URL=http://localhost:8081/v1
+```
+
+Captures: full prompt/response, tool_use calls, token usage, cost. Supports SSE streaming.
+
+**MCP Stdio Proxy** — wraps any MCP server with policy enforcement:
+
+```bash
+agentguard mcp-proxy \
+  --server npx -y @modelcontextprotocol/server-filesystem / \
+  --agent-id my-agent --blocking
+```
+
+Every MCP `tools/call` is policy-checked and anomaly-scored before reaching the upstream server.
+
+| Proxy | Intercepts | Use case |
+|-------|-----------|----------|
+| HTTP Proxy | LLM API calls (Anthropic/OpenAI) | Closed-source agents, binary tools |
+| MCP Proxy | MCP tool calls (stdio JSON-RPC) | Claude Desktop, any MCP client |
+| SDK | LLM SDK calls (monkey-patch) | Your own Python/JS/Go code |
 
 ### Compliance Cockpit
 
@@ -344,6 +400,29 @@ Ask Claude about your agents directly:
 
 Available tools: `query_traces`, `list_violations`, `get_agent_stats`, `list_policies`
 
+### Claude Code
+
+One command to audit every tool call in Claude Code:
+
+```bash
+agentguard claude-code setup --blocking
+# Restart Claude Code — done.
+```
+
+Every `Read`, `Write`, `Bash`, `Edit` call is now policy-checked and traced. HIGH/CRITICAL calls require human approval in the Cockpit.
+
+### CLI
+
+```bash
+agentguard status                    # gateway health
+agentguard traces list --agent X     # query traces
+agentguard costs                     # token/cost summary
+agentguard anomalies list            # behavioral anomaly events
+agentguard http-proxy                # start HTTP forward proxy
+agentguard mcp-proxy --server ...    # start MCP stdio proxy
+agentguard kill-switch revoke <id>   # emergency agent shutdown
+```
+
 ### OpenTelemetry
 
 Forward every trace to Datadog, Grafana, Jaeger, or any OTLP-compatible collector:
@@ -384,12 +463,12 @@ agentguard.auto(
 
 ```
 packages/
-  gateway-mcp/          Express + SQLite gateway (policy engine, classifier, PII, cost, OTEL)
+  gateway-mcp/          Express + SQLite gateway (policy engine, anomaly detector, classifier, PII, cost, OTEL)
   sdk-python/           Python SDK — 9 frameworks auto-patched
   sdk-js/               TypeScript SDK — Anthropic, OpenAI, LangChain, Vercel AI
   sdk-go/               Go SDK — zero dependencies, stdlib only
   core-schema/          Shared Zod schemas (trace format, risk levels, approval status)
-  cli/                  CLI tool — agentguard status|traces|costs|policies|kill-switch
+  cli/                  CLI tool + HTTP/MCP proxies for closed-source agent interception
 
 apps/
   compliance-cockpit/   Next.js dashboard (8 tabs, live feed, approvals, forensic export)
