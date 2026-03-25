@@ -157,6 +157,30 @@ async function main() {
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
   app.use('/api/v1/proxy',     requireAuth, new ProxyRegistryAPI(db, logger).router);
 
+  // Kill-switch endpoints (auth required)
+  app.post('/api/v1/kill-switch/revoke', requireAuth, async (req, res) => {
+    try {
+      const { agent_id, reason } = req.body;
+      if (!agent_id) return res.status(400).json({ error: 'agent_id required' });
+      await killSwitch.revokeAgentAccess(agent_id, reason ?? 'Manual revocation');
+      res.json({ success: true, agent_id, status: 'REVOKED' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/v1/kill-switch', requireAuth, (req, res) => {
+    try {
+      const agents = db.prepare(`
+        SELECT agent_id, status, revoked_at, revocation_reason, created_at
+        FROM api_keys ORDER BY created_at DESC
+      `).all();
+      res.json({ agents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Anomaly events endpoint (auth required)
   app.get('/api/v1/anomalies', requireAuth, (req, res) => {
     try {

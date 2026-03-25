@@ -215,6 +215,16 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
   // Ensure gateway_config table exists (for dashboard API key)
   db.exec(`CREATE TABLE IF NOT EXISTS gateway_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
 
+  // Agent profiles table (used by ProfileManager and BehaviorProfile)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_profiles (
+      agent_id TEXT PRIMARY KEY,
+      profile_json TEXT NOT NULL,
+      trace_count INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   // Anomaly events table
   db.exec(`
     CREATE TABLE IF NOT EXISTS anomaly_events (

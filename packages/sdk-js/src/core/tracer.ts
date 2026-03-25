@@ -135,12 +135,12 @@ export class AgentGuard {
       }
       return; // fail-open: allow
     }
-    if (!check.allowed) {
+    if (check.decision !== 'allow') {
       throw new AgentGuardBlockedError(
         toolName,
         check.reason ?? 'Policy violation',
-        check.risk_level,
-        check.check_id
+        (check.risk_level ?? 'MEDIUM') as import('./types').RiskLevel,
+        check.check_id ?? ''
       );
     }
   }

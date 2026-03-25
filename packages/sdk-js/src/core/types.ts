@@ -47,10 +47,12 @@ export interface CheckRequest {
 }
 
 export interface CheckResponse {
-  allowed: boolean;
+  decision: 'allow' | 'block' | 'pending';
   reason?: string;
-  check_id: string;
-  risk_level: RiskLevel;
+  check_id?: string;
+  risk_level?: string;
+  category?: string;
+  latency_ms?: number;
 }
 
 export interface GatewayTrace {

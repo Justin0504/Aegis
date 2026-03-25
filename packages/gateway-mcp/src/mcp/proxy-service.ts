@@ -253,8 +253,8 @@ export class MCPProxyService {
     `);
 
     // Calculate integrity hash
-    const { calculate_trace_hash } = require('@agentguard/core-schema');
-    const integrityHash = calculate_trace_hash(trace);
+    const { calculateTraceHash } = require('@agentguard/core-schema');
+    const integrityHash = calculateTraceHash(trace);
 
     stmt.run(
       trace.trace_id,
