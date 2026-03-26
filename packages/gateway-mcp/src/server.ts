@@ -204,12 +204,12 @@ async function main() {
   // Batch-judge unscored traces
   app.post('/api/v1/judge/batch', requireAuth, async (req, res) => {
     try {
-      const { provider, apiKey, model, dimensions, batchSize } = req.body;
+      const { provider, apiKey, model, dimensions, batchSize, concurrency, agentId, forceRejudge } = req.body;
       if (!provider || !apiKey) {
         return res.status(400).json({ error: 'provider and apiKey are required' });
       }
       const verdicts = await llmJudge.judgeBatch({
-        provider, apiKey, model, dimensions, batchSize,
+        provider, apiKey, model, dimensions, batchSize, concurrency, agentId, forceRejudge,
       });
       res.json({
         judged: verdicts.length,
@@ -223,10 +223,15 @@ async function main() {
     }
   });
 
-  // Judge statistics
+  // Judge statistics (global or per-agent)
   app.get('/api/v1/judge/stats', requireAuth, (req, res) => {
     try {
-      res.json(llmJudge.getStats());
+      const agentId = req.query.agent_id as string | undefined;
+      if (agentId) {
+        res.json(llmJudge.getAgentStats(agentId));
+      } else {
+        res.json(llmJudge.getStats());
+      }
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

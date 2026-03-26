@@ -253,21 +253,26 @@ const judge = program.command('judge').description('LLM-as-a-Judge evaluation');
 judge
   .command('trace <traceId>')
   .description('Evaluate a single trace with LLM judge')
-  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic)')
+  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic|gemini)')
   .requiredOption('-k, --api-key <key>', 'LLM API key')
   .option('-m, --model <model>', 'Override default model')
+  .option('--rejudge', 'Re-evaluate even if already judged')
+  .option('-d, --dimensions <dims>', 'Comma-separated dimensions to evaluate')
   .action(async (traceId, opts) => {
     const data = await request('POST', `${gatewayUrl()}/api/v1/judge/trace/${traceId}`, {
       provider: opts.provider,
       apiKey: opts.apiKey,
       model: opts.model,
+      forceRejudge: opts.rejudge ?? false,
+      dimensions: opts.dimensions ? opts.dimensions.split(',') : undefined,
     });
     console.log(`\nVerdict for ${traceId}:`);
     console.log(`  Score: ${data.overall_score}/5 (${data.overall_label})`);
     console.log(`  Model: ${data.model_used} (${data.latency_ms}ms)`);
     if (data.dimensions?.length) {
       for (const d of data.dimensions) {
-        console.log(`  ${d.name}: ${d.score}/5 — ${d.reasoning}`);
+        const bar = '█'.repeat(d.score) + '░'.repeat(5 - d.score);
+        console.log(`  ${d.name.padEnd(14)} ${bar} ${d.score}/5 — ${d.reasoning}`);
       }
     }
     console.log(`  Summary: ${data.summary}\n`);
@@ -276,17 +281,26 @@ judge
 judge
   .command('batch')
   .description('Batch-evaluate unscored traces')
-  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic)')
+  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic|gemini)')
   .requiredOption('-k, --api-key <key>', 'LLM API key')
   .option('-n, --batch-size <n>', 'Number of traces to judge', '10')
   .option('-m, --model <model>', 'Override default model')
+  .option('-c, --concurrency <n>', 'Parallel LLM calls', '3')
+  .option('-a, --agent <id>', 'Filter to specific agent')
+  .option('--rejudge', 'Re-evaluate already scored traces')
+  .option('-d, --dimensions <dims>', 'Comma-separated dimensions to evaluate')
   .action(async (opts) => {
-    console.log(`Judging up to ${opts.batchSize} unscored traces...`);
+    const agent = opts.agent ? ` for agent ${opts.agent}` : '';
+    console.log(`Judging up to ${opts.batchSize} traces${agent} (concurrency: ${opts.concurrency})...`);
     const data = await request('POST', `${gatewayUrl()}/api/v1/judge/batch`, {
       provider: opts.provider,
       apiKey: opts.apiKey,
       batchSize: parseInt(opts.batchSize, 10),
       model: opts.model,
+      concurrency: parseInt(opts.concurrency, 10),
+      agentId: opts.agent,
+      forceRejudge: opts.rejudge ?? false,
+      dimensions: opts.dimensions ? opts.dimensions.split(',') : undefined,
     });
     console.log(`\nJudged: ${data.judged} traces`);
     if (data.avg_score != null) console.log(`Average score: ${data.avg_score}/5`);
@@ -307,19 +321,49 @@ judge
 judge
   .command('stats')
   .description('Show LLM judge statistics')
-  .action(async () => {
-    const data = await request('GET', `${gatewayUrl()}/api/v1/judge/stats`);
+  .option('-a, --agent <id>', 'Show stats for specific agent')
+  .action(async (opts) => {
+    const url = opts.agent
+      ? `${gatewayUrl()}/api/v1/judge/stats?agent_id=${encodeURIComponent(opts.agent)}`
+      : `${gatewayUrl()}/api/v1/judge/stats`;
+    const data = await request('GET', url);
     const o = data.overall;
-    console.log(`\nLLM Judge Statistics:`);
+    const header = opts.agent ? `LLM Judge Statistics (${opts.agent}):` : 'LLM Judge Statistics:';
+    console.log(`\n${header}`);
     console.log(`  Total judged: ${o?.total_judged ?? 0}`);
     console.log(`  Avg score:    ${o?.avg_score ? Number(o.avg_score).toFixed(2) : 'N/A'}/5`);
     console.log(`  Good (4-5):   ${o?.good_count ?? 0}`);
     console.log(`  Bad (1-2):    ${o?.bad_count ?? 0}`);
     console.log(`  Avg latency:  ${o?.avg_latency_ms ? Math.round(o.avg_latency_ms) : 'N/A'}ms`);
+    if (data.score_trend != null) {
+      const sign = data.score_trend > 0 ? '+' : '';
+      console.log(`  24h trend:    ${sign}${data.score_trend} pts`);
+    }
+    if (data.distribution?.length) {
+      console.log(`\n  Score distribution:`);
+      const total = data.distribution.reduce((s: number, d: any) => s + d.count, 0);
+      for (const d of data.distribution) {
+        const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+        const bar = '█'.repeat(Math.round(pct / 3)) || '░';
+        console.log(`    ${d.score}/5: ${bar} ${d.count} (${pct}%)`);
+      }
+    }
     if (data.by_dimension?.length) {
       console.log(`\n  Per-dimension averages:`);
       for (const d of data.by_dimension) {
-        console.log(`    ${d.dimension}: ${Number(d.avg_score).toFixed(2)}/5 (${d.count} evals)`);
+        console.log(`    ${(d.dimension || '').padEnd(14)} ${Number(d.avg_score).toFixed(2)}/5 (${d.count} evals)`);
+      }
+    }
+    if (data.by_model?.length) {
+      console.log(`\n  Per-model breakdown:`);
+      for (const m of data.by_model) {
+        console.log(`    ${m.model_used}: ${m.count} evals, avg ${Number(m.avg_score).toFixed(2)}/5, ${Math.round(m.avg_latency_ms)}ms`);
+      }
+    }
+    if (data.by_agent?.length) {
+      console.log(`\n  Per-agent breakdown:`);
+      for (const a of data.by_agent) {
+        console.log(`    ${a.agent_id}: ${a.count} evals, avg ${Number(a.avg_score).toFixed(2)}/5${a.bad_count > 0 ? `, ${a.bad_count} bad` : ''}`);
       }
     }
     if (data.recent_bad?.length) {
