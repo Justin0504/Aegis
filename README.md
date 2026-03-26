@@ -111,6 +111,7 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 | **Behavioral anomaly detection** | ❌ | ❌ | ❌ | ✅ |
 | **HTTP proxy for closed-source agents** | ❌ | ❌ | ❌ | ✅ |
 | **MCP server for Claude Desktop** | ❌ | ❌ | ❌ | ✅ |
+| **LLM-as-a-Judge evaluation** | ❌ | ❌ | ❌ | ✅ |
 | **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable, MIT-licensed | ✅ | ❌ | ❌ | ✅ |
 
@@ -312,6 +313,7 @@ Every MCP `tools/call` is policy-checked and anomaly-scored before reaching the 
 - **PII Detection** — auto-redacts SSN, email, phone, credit card, API keys
 - **Cost Tracking** — token usage and USD cost across 40+ models
 - **Alert Rules** — Slack, PagerDuty, or webhook on violations/cost spikes
+- **LLM-as-a-Judge** — automated trace evaluation (safety, helpfulness, correctness, compliance) via OpenAI/Anthropic
 - **Forensic Export** — PDF compliance reports and CSV audit bundles
 - **Kill Switch** — auto-revoke agents after N violations
 
@@ -421,6 +423,8 @@ agentguard costs                     # token/cost summary
 agentguard anomalies list            # behavioral anomaly events
 agentguard http-proxy                # start HTTP forward proxy
 agentguard mcp-proxy --server ...    # start MCP stdio proxy
+agentguard judge batch               # auto-evaluate unscored traces via LLM
+agentguard judge stats               # judge score statistics & trends
 agentguard kill-switch revoke <id>   # emergency agent shutdown
 ```
 

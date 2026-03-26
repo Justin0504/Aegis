@@ -22,6 +22,9 @@ export interface JudgeConfig {
   model?: string;           // override default model
   dimensions?: string[];    // subset of dimensions to evaluate
   batchSize?: number;       // traces per batch (default 10)
+  concurrency?: number;     // parallel LLM calls (default 3)
+  maxRetries?: number;      // retry on transient failures (default 2)
+  agentId?: string;         // filter batch to specific agent
 }
 
 export interface JudgeDimension {
@@ -197,6 +200,55 @@ function parseVerdict(raw: string, traceId: string, model: string, latency: numb
   };
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Run promises with bounded concurrency. */
+async function pMap<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  concurrency: number,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let idx = 0;
+
+  async function worker() {
+    while (idx < items.length) {
+      const i = idx++;
+      try {
+        results[i] = { status: 'fulfilled', value: await fn(items[i]) };
+      } catch (reason: any) {
+        results[i] = { status: 'rejected', reason };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+/** Retry with exponential backoff on transient errors (rate limits, 5xx). */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number,
+  logger: Logger,
+): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const msg: string = err.message ?? '';
+      const isRetryable = /429|500|502|503|504|rate.limit/i.test(msg);
+      if (!isRetryable || attempt === maxRetries) throw err;
+      const delay = Math.min(1000 * 2 ** attempt, 8000);
+      logger.warn({ attempt: attempt + 1, delay, error: msg }, 'LLM judge retrying');
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 // ── Service class ────────────────────────────────────────────────────────────
 
 export class LLMJudgeService {
@@ -206,7 +258,7 @@ export class LLMJudgeService {
   ) {}
 
   /**
-   * Evaluate a single trace.
+   * Evaluate a single trace (with retry).
    */
   async judgeTrace(traceId: string, cfg: JudgeConfig): Promise<JudgeVerdict> {
     const trace = this.db.prepare('SELECT * FROM traces WHERE trace_id = ?').get(traceId) as any;
@@ -220,7 +272,13 @@ export class LLMJudgeService {
       (cfg.provider === 'openai' ? 'gpt-4o-mini' : 'claude-haiku-4-5-20251001');
 
     const callLLM = cfg.provider === 'openai' ? callOpenAI : callAnthropic;
-    const { content, latency_ms } = await callLLM(cfg.apiKey, model, systemPrompt, userPrompt);
+    const maxRetries = cfg.maxRetries ?? 2;
+
+    const { content, latency_ms } = await withRetry(
+      () => callLLM(cfg.apiKey, model, systemPrompt, userPrompt),
+      maxRetries,
+      this.logger,
+    );
 
     const verdict = parseVerdict(content, traceId, model, latency_ms);
 
@@ -258,31 +316,55 @@ export class LLMJudgeService {
   }
 
   /**
-   * Batch-evaluate unscored traces.
+   * Batch-evaluate unscored traces with concurrent LLM calls.
+   * Supports agent filtering via cfg.agentId.
    */
   async judgeBatch(cfg: JudgeConfig): Promise<JudgeVerdict[]> {
     const limit = cfg.batchSize ?? 10;
-    const traces = this.db.prepare(`
-      SELECT trace_id FROM traces
-      WHERE score IS NULL
-      ORDER BY created_at DESC
-      LIMIT ?
-    `).all(limit) as { trace_id: string }[];
+    const concurrency = cfg.concurrency ?? 3;
+
+    const query = cfg.agentId
+      ? `SELECT trace_id FROM traces WHERE score IS NULL AND agent_id = ? ORDER BY created_at DESC LIMIT ?`
+      : `SELECT trace_id FROM traces WHERE score IS NULL ORDER BY created_at DESC LIMIT ?`;
+    const params = cfg.agentId ? [cfg.agentId, limit] : [limit];
+    const traces = this.db.prepare(query).all(...params) as { trace_id: string }[];
+
+    if (traces.length === 0) return [];
+
+    this.logger.info(
+      { count: traces.length, concurrency, agent: cfg.agentId ?? 'all' },
+      'LLM judge batch starting',
+    );
+
+    const results = await pMap(
+      traces,
+      t => this.judgeTrace(t.trace_id, cfg),
+      concurrency,
+    );
 
     const verdicts: JudgeVerdict[] = [];
-    for (const t of traces) {
-      try {
-        const v = await this.judgeTrace(t.trace_id, cfg);
-        verdicts.push(v);
-      } catch (err: any) {
-        this.logger.error({ trace_id: t.trace_id, error: err.message }, 'LLM judge failed for trace');
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'fulfilled') {
+        verdicts.push(r.value);
+      } else {
+        this.logger.error(
+          { trace_id: traces[i].trace_id, error: r.reason?.message },
+          'LLM judge failed for trace',
+        );
       }
     }
+
+    this.logger.info(
+      { judged: verdicts.length, failed: traces.length - verdicts.length },
+      'LLM judge batch complete',
+    );
+
     return verdicts;
   }
 
   /**
-   * Get judge statistics.
+   * Get judge statistics (with score trend for last 24h vs previous 24h).
    */
   getStats(): any {
     const overall = this.db.prepare(`
@@ -314,6 +396,25 @@ export class LLMJudgeService {
       LIMIT 10
     `).all();
 
-    return { overall, by_dimension: byDimension, recent_bad: recentBad };
+    // Score trend: avg of last 24h vs previous 24h
+    const trend = this.db.prepare(`
+      SELECT
+        AVG(CASE WHEN judged_at >= datetime('now', '-1 day') THEN overall_score END) as last_24h,
+        AVG(CASE WHEN judged_at >= datetime('now', '-2 day') AND judged_at < datetime('now', '-1 day') THEN overall_score END) as prev_24h
+      FROM judge_verdicts
+    `).get() as any;
+
+    const scoreTrend = (trend?.last_24h != null && trend?.prev_24h != null)
+      ? Math.round((trend.last_24h - trend.prev_24h) * 100) / 100
+      : null;
+
+    // Per-model breakdown
+    const byModel = this.db.prepare(`
+      SELECT model_used, COUNT(*) as count, AVG(overall_score) as avg_score, AVG(latency_ms) as avg_latency_ms
+      FROM judge_verdicts
+      GROUP BY model_used
+    `).all();
+
+    return { overall, by_dimension: byDimension, recent_bad: recentBad, score_trend: scoreTrend, by_model: byModel };
   }
 }
