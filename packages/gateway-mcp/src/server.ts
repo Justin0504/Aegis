@@ -22,6 +22,7 @@ import { ProfileManager } from './services/profile-manager';
 import { errorMiddleware } from './middleware/error';
 import { createAuthMiddleware } from './middleware/auth';
 import { initOtel, shutdownOtel } from './services/otel';
+import { LLMJudgeService } from './services/llm-judge';
 
 const logger = pino({
   transport: {
@@ -176,6 +177,69 @@ async function main() {
         FROM api_keys ORDER BY created_at DESC
       `).all();
       res.json({ agents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── LLM-as-a-Judge endpoints ──────────────────────────────────────────────
+  const llmJudge = new LLMJudgeService(db, logger);
+
+  // Judge a single trace
+  app.post('/api/v1/judge/trace/:traceId', requireAuth, async (req, res) => {
+    try {
+      const { provider, apiKey, model, dimensions } = req.body;
+      if (!provider || !apiKey) {
+        return res.status(400).json({ error: 'provider and apiKey are required' });
+      }
+      const verdict = await llmJudge.judgeTrace(req.params.traceId, {
+        provider, apiKey, model, dimensions,
+      });
+      res.json(verdict);
+    } catch (e: any) {
+      res.status(e.message?.includes('not found') ? 404 : 500).json({ error: e.message });
+    }
+  });
+
+  // Batch-judge unscored traces
+  app.post('/api/v1/judge/batch', requireAuth, async (req, res) => {
+    try {
+      const { provider, apiKey, model, dimensions, batchSize } = req.body;
+      if (!provider || !apiKey) {
+        return res.status(400).json({ error: 'provider and apiKey are required' });
+      }
+      const verdicts = await llmJudge.judgeBatch({
+        provider, apiKey, model, dimensions, batchSize,
+      });
+      res.json({
+        judged: verdicts.length,
+        avg_score: verdicts.length
+          ? +(verdicts.reduce((s, v) => s + v.overall_score, 0) / verdicts.length).toFixed(2)
+          : null,
+        verdicts,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Judge statistics
+  app.get('/api/v1/judge/stats', requireAuth, (req, res) => {
+    try {
+      res.json(llmJudge.getStats());
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Get verdict for a specific trace
+  app.get('/api/v1/judge/verdict/:traceId', requireAuth, (req, res) => {
+    try {
+      const verdict = db.prepare(
+        'SELECT * FROM judge_verdicts WHERE trace_id = ?'
+      ).get(req.params.traceId);
+      if (!verdict) return res.status(404).json({ error: 'No verdict found' });
+      res.json(verdict);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

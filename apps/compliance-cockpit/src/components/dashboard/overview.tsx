@@ -20,6 +20,7 @@ import { AgentActivity } from './agent-activity'
 import { AnomalyPanel } from './anomaly-panel'
 import { CostPanel } from './cost-panel'
 import { EvalPanel } from './eval-panel'
+import { JudgePanel } from './judge-panel'
 import { SessionsPanel } from './sessions-panel'
 import { LiveFeed } from './live-feed'
 
@@ -225,6 +226,7 @@ export function DashboardOverview() {
           <TabsTrigger value="approvals">Approval Stats</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
           <TabsTrigger value="eval">Eval</TabsTrigger>
+          <TabsTrigger value="judge">LLM Judge</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
         </TabsList>
         <TabsContent value="activity" className="space-y-4">
@@ -329,6 +331,19 @@ export function DashboardOverview() {
             </CardHeader>
             <CardContent>
               <EvalPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="judge" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>LLM-as-a-Judge</CardTitle>
+              <CardDescription>
+                Automated trace evaluation using LLM providers (safety, helpfulness, correctness, compliance)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <JudgePanel />
             </CardContent>
           </Card>
         </TabsContent>

@@ -259,5 +259,21 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     CREATE INDEX IF NOT EXISTS idx_feedback_agent ON anomaly_feedback(agent_id);
   `);
 
+  // LLM-as-a-Judge verdicts table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS judge_verdicts (
+      trace_id TEXT PRIMARY KEY,
+      overall_score INTEGER NOT NULL,
+      overall_label TEXT NOT NULL,
+      dimensions TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      model_used TEXT NOT NULL,
+      latency_ms REAL,
+      judged_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_judge_score ON judge_verdicts(overall_score);
+    CREATE INDEX IF NOT EXISTS idx_judge_model ON judge_verdicts(model_used);
+  `);
+
   return db;
 }

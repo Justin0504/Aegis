@@ -247,6 +247,90 @@ program
     }
   });
 
+// ── judge (LLM-as-a-Judge) ────────────────────────────────────────────────────
+const judge = program.command('judge').description('LLM-as-a-Judge evaluation');
+
+judge
+  .command('trace <traceId>')
+  .description('Evaluate a single trace with LLM judge')
+  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic)')
+  .requiredOption('-k, --api-key <key>', 'LLM API key')
+  .option('-m, --model <model>', 'Override default model')
+  .action(async (traceId, opts) => {
+    const data = await request('POST', `${gatewayUrl()}/api/v1/judge/trace/${traceId}`, {
+      provider: opts.provider,
+      apiKey: opts.apiKey,
+      model: opts.model,
+    });
+    console.log(`\nVerdict for ${traceId}:`);
+    console.log(`  Score: ${data.overall_score}/5 (${data.overall_label})`);
+    console.log(`  Model: ${data.model_used} (${data.latency_ms}ms)`);
+    if (data.dimensions?.length) {
+      for (const d of data.dimensions) {
+        console.log(`  ${d.name}: ${d.score}/5 — ${d.reasoning}`);
+      }
+    }
+    console.log(`  Summary: ${data.summary}\n`);
+  });
+
+judge
+  .command('batch')
+  .description('Batch-evaluate unscored traces')
+  .requiredOption('-p, --provider <provider>', 'LLM provider (openai|anthropic)')
+  .requiredOption('-k, --api-key <key>', 'LLM API key')
+  .option('-n, --batch-size <n>', 'Number of traces to judge', '10')
+  .option('-m, --model <model>', 'Override default model')
+  .action(async (opts) => {
+    console.log(`Judging up to ${opts.batchSize} unscored traces...`);
+    const data = await request('POST', `${gatewayUrl()}/api/v1/judge/batch`, {
+      provider: opts.provider,
+      apiKey: opts.apiKey,
+      batchSize: parseInt(opts.batchSize, 10),
+      model: opts.model,
+    });
+    console.log(`\nJudged: ${data.judged} traces`);
+    if (data.avg_score != null) console.log(`Average score: ${data.avg_score}/5`);
+    if (data.verdicts?.length) {
+      printTable(
+        ['TRACE ID', 'SCORE', 'LABEL', 'SUMMARY'],
+        [36, 6, 12, 40],
+        data.verdicts.map((v: any) => [
+          v.trace_id,
+          `${v.overall_score}/5`,
+          v.overall_label,
+          (v.summary || '').substring(0, 40),
+        ])
+      );
+    }
+  });
+
+judge
+  .command('stats')
+  .description('Show LLM judge statistics')
+  .action(async () => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/judge/stats`);
+    const o = data.overall;
+    console.log(`\nLLM Judge Statistics:`);
+    console.log(`  Total judged: ${o?.total_judged ?? 0}`);
+    console.log(`  Avg score:    ${o?.avg_score ? Number(o.avg_score).toFixed(2) : 'N/A'}/5`);
+    console.log(`  Good (4-5):   ${o?.good_count ?? 0}`);
+    console.log(`  Bad (1-2):    ${o?.bad_count ?? 0}`);
+    console.log(`  Avg latency:  ${o?.avg_latency_ms ? Math.round(o.avg_latency_ms) : 'N/A'}ms`);
+    if (data.by_dimension?.length) {
+      console.log(`\n  Per-dimension averages:`);
+      for (const d of data.by_dimension) {
+        console.log(`    ${d.dimension}: ${Number(d.avg_score).toFixed(2)}/5 (${d.count} evals)`);
+      }
+    }
+    if (data.recent_bad?.length) {
+      console.log(`\n  Recent low-scoring traces:`);
+      for (const t of data.recent_bad) {
+        console.log(`    ${t.trace_id} — ${t.overall_score}/5 (${t.overall_label}) — ${t.summary}`);
+      }
+    }
+    console.log();
+  });
+
 // ── policies ─────────────────────────────────────────────────────────────────
 program
   .command('policies')
