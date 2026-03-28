@@ -23,6 +23,13 @@ import { errorMiddleware } from './middleware/error';
 import { createAuthMiddleware } from './middleware/auth';
 import { initOtel, shutdownOtel } from './services/otel';
 import { LLMJudgeService } from './services/llm-judge';
+import { initializeEnterpriseSchema } from './db/enterprise-schema';
+import { AuditLogService } from './services/audit-log';
+import { RBACService } from './services/rbac';
+import { RetentionService } from './services/retention';
+import { UsageMeteringService } from './services/usage-metering';
+import { SLAMetricsService } from './services/sla-metrics';
+import { AdminAPI } from './api/admin';
 
 const logger = pino({
   transport: {
@@ -41,6 +48,10 @@ async function main() {
   // Initialize database
   logger.info('Initializing database...');
   const db = await initializeDatabase(config.database.path);
+
+  // Enterprise schema (multi-tenancy, RBAC, audit log, retention, usage, SLA)
+  initializeEnterpriseSchema(db);
+  logger.info('Enterprise schema initialized');
 
   // Dashboard API key (auto-generated on first start)
   const dashboardKey = getOrCreateDashboardKey(db);
@@ -74,6 +85,18 @@ async function main() {
   });
   await profileManager.initialize();
   logger.info({ profiles: profileManager.size, enabled: config.anomaly.enabled }, 'Anomaly detection engine ready');
+
+  // Enterprise services
+  const auditLog     = new AuditLogService(db, logger);
+  const rbac         = new RBACService(db, logger);
+  const retention    = new RetentionService(db, logger);
+  const usageMetering = new UsageMeteringService(db, logger);
+  const slaMetrics   = new SLAMetricsService(db, logger);
+
+  // Start background schedulers
+  retention.start(3600_000); // hourly retention purge
+  slaMetrics.start(60_000);  // 60s SLA flush interval
+  logger.info('Enterprise services ready (audit log, RBAC, retention, usage metering, SLA metrics)');
 
   // Create Express app
   const app = express();
@@ -142,6 +165,32 @@ async function main() {
     next();
   });
 
+  // SLA latency tracking middleware (all /api routes)
+  app.use('/api', (req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const latency = Date.now() - start;
+      const endpoint = req.route?.path ?? req.path.replace(/\/[a-f0-9-]{20,}/, '/:id');
+      slaMetrics.record(endpoint, latency, res.statusCode < 500, req.orgId ?? 'default');
+    });
+    next();
+  });
+
+  // Usage metering middleware (track API calls per org)
+  app.use('/api', (req, res, next) => {
+    res.on('finish', () => {
+      const orgId = req.orgId ?? 'default';
+      usageMetering.increment(orgId, 'api_calls', 1);
+      if (req.path.includes('/traces') && req.method === 'POST') {
+        usageMetering.increment(orgId, 'traces_per_month', 1);
+      }
+      if (req.path.includes('/judge') && req.method === 'POST') {
+        usageMetering.increment(orgId, 'judge_evals_per_month', 1);
+      }
+    });
+    next();
+  });
+
   // SDK ingest routes (public — no auth required)
   app.use('/api/v1/traces', new TraceAPI(db, logger).router);
   app.use('/api/v1/check',  new CheckAPI(
@@ -158,12 +207,19 @@ async function main() {
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
   app.use('/api/v1/proxy',     requireAuth, new ProxyRegistryAPI(db, logger).router);
 
+  // Enterprise admin routes (auth required)
+  app.use('/api/v1/admin', requireAuth, new AdminAPI(db, logger, rbac, auditLog, retention, usageMetering, slaMetrics).router);
+
   // Kill-switch endpoints (auth required)
   app.post('/api/v1/kill-switch/revoke', requireAuth, async (req, res) => {
     try {
       const { agent_id, reason } = req.body;
       if (!agent_id) return res.status(400).json({ error: 'agent_id required' });
       await killSwitch.revokeAgentAccess(agent_id, reason ?? 'Manual revocation');
+      auditLog.log({
+        org_id: req.orgId, action: 'killswitch.revoke', resource_type: 'agent',
+        resource_id: agent_id, details: { reason }, ip_address: req.ip,
+      });
       res.json({ success: true, agent_id, status: 'REVOKED' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -210,6 +266,11 @@ async function main() {
       }
       const verdicts = await llmJudge.judgeBatch({
         provider, apiKey, model, dimensions, batchSize, concurrency, agentId, forceRejudge,
+      });
+      auditLog.log({
+        org_id: req.orgId, action: 'judge.batch', resource_type: 'judge',
+        details: { provider, judged: verdicts.length, batchSize, agentId },
+        ip_address: req.ip,
       });
       res.json({
         judged: verdicts.length,
@@ -453,6 +514,8 @@ async function main() {
   process.on('SIGTERM', () => {
     logger.info('Received SIGTERM, shutting down gracefully...');
     server.close(() => {
+      retention.stop();
+      slaMetrics.stop();
       db.close();
       shutdownOtel().finally(() => process.exit(0));
     });

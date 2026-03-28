@@ -112,6 +112,11 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 | **HTTP proxy for closed-source agents** | ❌ | ❌ | ❌ | ✅ |
 | **MCP server for Claude Desktop** | ❌ | ❌ | ❌ | ✅ |
 | **LLM-as-a-Judge evaluation** | ❌ | ❌ | ❌ | ✅ |
+| **Multi-tenancy & RBAC** | ❌ | ❌ | ❌ | ✅ |
+| **Admin audit log (SOC 2)** | ❌ | ❌ | ❌ | ✅ |
+| **Usage metering & quotas** | ❌ | ❌ | ❌ | ✅ |
+| **SLA metrics (P50/P95/P99)** | ❌ | ❌ | ❌ | ✅ |
+| **Data retention policies (GDPR)** | ❌ | ❌ | ❌ | ✅ |
 | **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable, MIT-licensed | ✅ | ❌ | ❌ | ✅ |
 
@@ -316,6 +321,43 @@ Every MCP `tools/call` is policy-checked and anomaly-scored before reaching the 
 - **LLM-as-a-Judge** — automated trace evaluation (safety, helpfulness, correctness, compliance) via OpenAI/Anthropic
 - **Forensic Export** — PDF compliance reports and CSV audit bundles
 - **Kill Switch** — auto-revoke agents after N violations
+- **Enterprise Admin** — multi-tenancy, RBAC, usage quotas, SLA metrics, data retention
+
+### Enterprise (B2B)
+
+AEGIS is built for enterprise deployment from day one.
+
+**Multi-Tenancy & RBAC** — isolate data per organization, assign roles (owner / admin / auditor / viewer), issue scoped API keys with rate limits and expiry:
+
+```bash
+agentguard admin create-org --name "Acme Corp" --slug acme --plan enterprise
+agentguard admin create-user <org-id> -e admin@acme.com -r admin
+agentguard admin create-key <org-id> --name "Production" --rate-limit 5000
+```
+
+**Admin Audit Log** — every policy change, approval decision, key rotation, and kill-switch action is recorded in an immutable audit trail. Required for SOC 2, ISO 27001, HIPAA, and FedRAMP:
+
+```bash
+agentguard admin audit-log --action policy.create --limit 50
+```
+
+**Usage Metering & Quotas** — track API calls, traces, judge evaluations per org. Plan-based limits (free / pro / enterprise) with automatic enforcement:
+
+```bash
+agentguard admin usage <org-id>
+```
+
+**SLA Metrics** — real-time P50/P95/P99 latency tracking, uptime percentage, error rates:
+
+```bash
+agentguard admin sla --hours 24
+```
+
+**Data Retention** — configurable auto-purge per resource type (traces, violations, audit log). GDPR / CCPA compliant:
+
+```bash
+agentguard admin retention
+```
 
 ### Cryptographic Audit Trail
 
@@ -426,6 +468,13 @@ agentguard mcp-proxy --server ...    # start MCP stdio proxy
 agentguard judge batch               # auto-evaluate unscored traces via LLM
 agentguard judge stats               # judge score statistics & trends
 agentguard kill-switch revoke <id>   # emergency agent shutdown
+agentguard admin orgs                # list organizations (multi-tenant)
+agentguard admin create-org          # create a new tenant organization
+agentguard admin users <org>         # list users and roles
+agentguard admin audit-log           # view admin audit trail (SOC 2)
+agentguard admin usage <org>         # usage metering & quota dashboard
+agentguard admin sla                 # SLA metrics (P50/P95/P99 latency)
+agentguard admin retention           # data retention policies (GDPR)
 ```
 
 ### OpenTelemetry
@@ -476,7 +525,7 @@ packages/
   cli/                  CLI tool + HTTP/MCP proxies for closed-source agent interception
 
 apps/
-  compliance-cockpit/   Next.js dashboard (8 tabs, live feed, approvals, forensic export)
+  compliance-cockpit/   Next.js dashboard (10 tabs, live feed, approvals, admin panel, forensic export)
 
 demo/
   live-agent/           Real Claude-powered demo agent with chat UI (FastAPI)

@@ -375,6 +375,182 @@ judge
     console.log();
   });
 
+// ── admin (enterprise management) ────────────────────────────────────────────
+const admin = program.command('admin').description('Enterprise administration');
+
+// Organizations
+admin
+  .command('orgs')
+  .description('List organizations')
+  .action(async () => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/orgs`);
+    const orgs = data.organizations ?? [];
+    if (!orgs.length) { console.log('No organizations found.'); return; }
+    printTable(
+      ['ID', 'NAME', 'SLUG', 'PLAN', 'CREATED'],
+      [12, 24, 16, 12, 20],
+      orgs.map((o: any) => [o.id.substring(0, 12), o.name, o.slug, o.plan, o.created_at?.substring(0, 19)])
+    );
+  });
+
+admin
+  .command('create-org')
+  .description('Create a new organization')
+  .requiredOption('-n, --name <name>', 'Organization name')
+  .requiredOption('-s, --slug <slug>', 'URL-safe slug')
+  .option('--plan <plan>', 'Plan (free|pro|enterprise)', 'free')
+  .action(async (opts) => {
+    const data = await request('POST', `${gatewayUrl()}/api/v1/admin/orgs`, {
+      name: opts.name, slug: opts.slug, plan: opts.plan,
+    });
+    console.log(`\nOrganization created: ${data.org_id}`);
+    console.log(`API Key: ${data.api_key}`);
+    console.log(`Prefix:  ${data.key_prefix}`);
+    console.log('\nSave this API key — it will not be shown again.\n');
+  });
+
+// Users
+admin
+  .command('users <orgId>')
+  .description('List users in an organization')
+  .action(async (orgId) => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/orgs/${orgId}/users`);
+    const users = data.users ?? [];
+    if (!users.length) { console.log('No users found.'); return; }
+    printTable(
+      ['ID', 'EMAIL', 'NAME', 'ROLE', 'STATUS'],
+      [12, 30, 20, 10, 10],
+      users.map((u: any) => [u.id.substring(0, 12), u.email, u.name || '-', u.role, u.status])
+    );
+  });
+
+admin
+  .command('create-user <orgId>')
+  .description('Create a user in an organization')
+  .requiredOption('-e, --email <email>', 'User email')
+  .requiredOption('-r, --role <role>', 'Role (owner|admin|auditor|viewer)')
+  .option('-n, --name <name>', 'User name')
+  .action(async (orgId, opts) => {
+    const data = await request('POST', `${gatewayUrl()}/api/v1/admin/orgs/${orgId}/users`, {
+      email: opts.email, role: opts.role, name: opts.name,
+    });
+    console.log(`User created: ${data.id} (${data.email}, ${data.role})`);
+  });
+
+// API Keys
+admin
+  .command('keys <orgId>')
+  .description('List API keys for an organization')
+  .action(async (orgId) => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/orgs/${orgId}/keys`);
+    const keys = data.keys ?? [];
+    if (!keys.length) { console.log('No API keys found.'); return; }
+    printTable(
+      ['ID', 'PREFIX', 'NAME', 'RATE LIMIT', 'LAST USED', 'EXPIRES'],
+      [12, 14, 16, 10, 20, 20],
+      keys.map((k: any) => [
+        k.id.substring(0, 12), k.key_prefix, k.name,
+        `${k.rate_limit}/min`,
+        k.last_used_at?.substring(0, 19) ?? 'never',
+        k.expires_at?.substring(0, 19) ?? 'never',
+      ])
+    );
+  });
+
+admin
+  .command('create-key <orgId>')
+  .description('Create a new API key')
+  .option('-n, --name <name>', 'Key name', 'CLI Key')
+  .option('--rate-limit <n>', 'Requests per minute', '1000')
+  .option('--expires-in <days>', 'Expiry in days')
+  .action(async (orgId, opts) => {
+    const data = await request('POST', `${gatewayUrl()}/api/v1/admin/orgs/${orgId}/keys`, {
+      name: opts.name,
+      rate_limit: parseInt(opts.rateLimit, 10),
+      expires_in_days: opts.expiresIn ? parseInt(opts.expiresIn, 10) : undefined,
+    });
+    console.log(`\nAPI Key created: ${data.key}`);
+    console.log(`Key ID:  ${data.key_id}`);
+    console.log(`Prefix:  ${data.prefix}`);
+    console.log('\nSave this API key — it will not be shown again.\n');
+  });
+
+// Audit log
+admin
+  .command('audit-log')
+  .description('View admin audit log')
+  .option('--action <action>', 'Filter by action')
+  .option('--resource <type>', 'Filter by resource type')
+  .option('-n, --limit <n>', 'Max entries', '20')
+  .action(async (opts) => {
+    const params = new URLSearchParams();
+    if (opts.action) params.set('action', opts.action);
+    if (opts.resource) params.set('resource_type', opts.resource);
+    params.set('limit', opts.limit);
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/audit-log?${params}`);
+    const entries = data.entries ?? [];
+    if (!entries.length) { console.log('No audit entries found.'); return; }
+    console.log(`\nAudit Log (${data.total} total):\n`);
+    for (const e of entries) {
+      const details = e.details ? ` — ${JSON.stringify(e.details)}` : '';
+      console.log(`  [${e.created_at}] ${e.action} ${e.resource_type}${e.resource_id ? ':' + e.resource_id.substring(0, 12) : ''}${details}`);
+    }
+    console.log();
+  });
+
+// Usage & quotas
+admin
+  .command('usage <orgId>')
+  .description('View usage and quota dashboard')
+  .action(async (orgId) => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/usage/${orgId}`);
+    console.log(`\nUsage Dashboard (${data.plan} plan, period: ${data.period}):\n`);
+    for (const [metric, info] of Object.entries(data.quotas || {})) {
+      const q = info as any;
+      const limit = q.limit === -1 ? 'unlimited' : q.limit;
+      const bar = q.pct > 0 ? '█'.repeat(Math.min(20, Math.round(q.pct / 5))) : '░';
+      const warn = q.pct >= 80 ? ' ⚠' : '';
+      console.log(`  ${metric.padEnd(24)} ${bar} ${q.current}/${limit} (${q.pct}%)${warn}`);
+    }
+    console.log();
+  });
+
+// SLA metrics
+admin
+  .command('sla')
+  .description('View SLA metrics summary')
+  .option('--hours <n>', 'Lookback period in hours', '24')
+  .action(async (opts) => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/sla?hours=${opts.hours}`);
+    console.log(`\nSLA Summary (last ${data.period_hours}h):\n`);
+    console.log(`  Uptime:       ${data.uptime_pct}%`);
+    console.log(`  Requests:     ${data.total_requests}`);
+    console.log(`  Errors:       ${data.total_errors}`);
+    console.log(`  Latency P50:  ${data.latency.p50}ms`);
+    console.log(`  Latency P95:  ${data.latency.p95}ms`);
+    console.log(`  Latency P99:  ${data.latency.p99}ms`);
+    console.log(`  Avg latency:  ${data.latency.avg}ms`);
+    console.log();
+  });
+
+// Retention
+admin
+  .command('retention')
+  .description('View data retention policies')
+  .action(async () => {
+    const data = await request('GET', `${gatewayUrl()}/api/v1/admin/retention`);
+    const policies = data.policies ?? [];
+    if (!policies.length) { console.log('No retention policies found.'); return; }
+    printTable(
+      ['ID', 'RESOURCE', 'DAYS', 'ENABLED', 'LAST PURGE'],
+      [20, 18, 6, 8, 20],
+      policies.map((p: any) => [
+        p.id.substring(0, 20), p.resource_type, p.retention_days,
+        p.enabled ? 'yes' : 'no', p.last_purge_at?.substring(0, 19) ?? 'never',
+      ])
+    );
+  });
+
 // ── policies ─────────────────────────────────────────────────────────────────
 program
   .command('policies')

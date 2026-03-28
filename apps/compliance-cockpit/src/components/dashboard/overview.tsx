@@ -23,6 +23,7 @@ import { EvalPanel } from './eval-panel'
 import { JudgePanel } from './judge-panel'
 import { SessionsPanel } from './sessions-panel'
 import { LiveFeed } from './live-feed'
+import { AdminPanel } from './admin-panel'
 
 const BORDER = 'hsl(36 12% 88%)'
 const MUTED  = 'hsl(30 8% 55%)'
@@ -228,6 +229,7 @@ export function DashboardOverview() {
           <TabsTrigger value="eval">Eval</TabsTrigger>
           <TabsTrigger value="judge">LLM Judge</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="admin">Admin</TabsTrigger>
         </TabsList>
         <TabsContent value="activity" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -357,6 +359,19 @@ export function DashboardOverview() {
             </CardHeader>
             <CardContent>
               <SessionsPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="admin" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Enterprise Administration</CardTitle>
+              <CardDescription>
+                Multi-tenancy, RBAC, audit log, usage quotas, SLA metrics, data retention
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AdminPanel />
             </CardContent>
           </Card>
         </TabsContent>
