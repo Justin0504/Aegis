@@ -375,6 +375,163 @@ judge
     console.log();
   });
 
+// ── scan (supply chain security) ─────────────────────────────────────────────
+program
+  .command('scan [dir]')
+  .description('Scan directory for supply chain security issues (source maps, secrets, unsafe configs)')
+  .option('--fix', 'Auto-fix: add *.map to .npmignore')
+  .action(async (dir, opts) => {
+    const targetDir = path.resolve(dir || '.');
+    console.log(`\nScanning ${targetDir} for supply chain security issues...\n`);
+
+    // Dynamic import from gateway service (shared logic)
+    // For CLI, we re-implement lightweight scanning inline
+    const issues: Array<{ severity: string; file: string; detail: string }> = [];
+    let filesScanned = 0;
+    const mapFiles: string[] = [];
+
+    function walk(d: string, depth: number) {
+      if (depth > 8) return;
+      let entries: string[];
+      try { entries = fs.readdirSync(d); } catch { return; }
+      for (const entry of entries) {
+        if (['node_modules', '.git', '.next', '__pycache__', 'venv'].includes(entry)) continue;
+        const full = path.join(d, entry);
+        let stat: fs.Stats;
+        try { stat = fs.statSync(full); } catch { continue; }
+        if (stat.isDirectory()) { walk(full, depth + 1); continue; }
+        if (stat.size > 10 * 1024 * 1024) continue;
+        filesScanned++;
+        const rel = path.relative(targetDir, full);
+
+        // Source map files
+        if (/\.(js|ts|jsx|tsx|css|mjs|cjs)\.map$/i.test(entry)) {
+          mapFiles.push(rel);
+          issues.push({ severity: 'HIGH', file: rel, detail: `Source map — contains full original source code (${(stat.size / 1024).toFixed(1)}KB)` });
+          try {
+            const content = fs.readFileSync(full, 'utf8');
+            if (content.includes('"sourcesContent"')) {
+              issues.push({ severity: 'CRITICAL', file: rel, detail: 'sourcesContent embedded — ENTIRE source code will be published' });
+            }
+          } catch {}
+          continue;
+        }
+
+        // Dangerous files
+        const DANGEROUS = ['.env', '.env.local', '.env.production', '.npmrc', '.pypirc', 'id_rsa', 'id_ed25519'];
+        if (DANGEROUS.includes(entry)) {
+          issues.push({ severity: 'CRITICAL', file: rel, detail: `Sensitive file — should not be published` });
+          // Check .npmrc for tokens
+          if (entry === '.npmrc') {
+            try {
+              const c = fs.readFileSync(full, 'utf8');
+              if (c.includes('_authToken') || c.includes('_auth=')) {
+                issues.push({ severity: 'CRITICAL', file: rel, detail: '.npmrc contains auth token' });
+              }
+            } catch {}
+          }
+        }
+
+        // Scan JS/TS for secrets and sourceMappingURL
+        const ext = path.extname(entry).toLowerCase();
+        if (['.js', '.mjs', '.cjs', '.ts', '.jsx', '.tsx', '.json'].includes(ext) && stat.size < 2 * 1024 * 1024) {
+          try {
+            const content = fs.readFileSync(full, 'utf8');
+            if (/\/\/[#@]\s*sourceMappingURL\s*=/.test(content)) {
+              issues.push({ severity: 'MEDIUM', file: rel, detail: 'Contains sourceMappingURL — may expose source map location' });
+            }
+            const SECRET_PATTERNS = [
+              { name: 'AWS Key',       re: /AKIA[0-9A-Z]{16}/ },
+              { name: 'GitHub Token',  re: /gh[ps]_[A-Za-z0-9_]{36,}/ },
+              { name: 'npm Token',     re: /npm_[A-Za-z0-9]{36,}/ },
+              { name: 'Private Key',   re: /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/ },
+              { name: 'Anthropic Key', re: /sk-ant-[A-Za-z0-9_-]{40,}/ },
+              { name: 'OpenAI Key',    re: /sk-[A-Za-z0-9]{48,}/ },
+              { name: 'Slack Webhook', re: /hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+/ },
+              { name: 'Database URL',  re: /(?:postgres|mysql|mongodb|redis):\/\/[^\s"']+/i },
+            ];
+            for (const { name, re } of SECRET_PATTERNS) {
+              if (re.test(content)) {
+                issues.push({ severity: 'CRITICAL', file: rel, detail: `${name} found in build artifact` });
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    walk(targetDir, 0);
+
+    // Check .npmignore / package.json
+    const npmignorePath = path.join(targetDir, '.npmignore');
+    const hasNpmignore = fs.existsSync(npmignorePath);
+    let excludesMaps = false;
+    if (hasNpmignore) {
+      try {
+        const c = fs.readFileSync(npmignorePath, 'utf8');
+        excludesMaps = /\*\.map\b/.test(c);
+      } catch {}
+    }
+
+    // Report
+    const sevOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+    issues.sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
+
+    if (issues.length === 0) {
+      console.log(`  SAFE — ${filesScanned} files scanned, no issues found.\n`);
+    } else {
+      const critical = issues.filter(i => i.severity === 'CRITICAL').length;
+      const high = issues.filter(i => i.severity === 'HIGH').length;
+      console.log(`  ${issues.length} issues found (${critical} critical, ${high} high) in ${filesScanned} files:\n`);
+      for (const issue of issues) {
+        const badge = issue.severity === 'CRITICAL' ? '\x1b[31mCRITICAL\x1b[0m'
+                    : issue.severity === 'HIGH'     ? '\x1b[33mHIGH\x1b[0m'
+                    : issue.severity === 'MEDIUM'   ? '\x1b[36mMEDIUM\x1b[0m'
+                    : 'LOW';
+        console.log(`  [${badge}] ${issue.file}`);
+        console.log(`          ${issue.detail}`);
+      }
+    }
+
+    if (mapFiles.length > 0) {
+      console.log(`\n  Source maps found: ${mapFiles.length}`);
+      if (!excludesMaps) {
+        console.log(`  WARNING: .npmignore does not exclude *.map files`);
+      }
+    }
+
+    // Publish config check
+    console.log(`\n  Publish config:`);
+    console.log(`    .npmignore:     ${hasNpmignore ? (excludesMaps ? 'OK (excludes *.map)' : 'EXISTS but missing *.map') : 'MISSING'}`);
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'));
+      if (pkg.files) {
+        console.log(`    package.json:   "files" field present: ${JSON.stringify(pkg.files)}`);
+      } else {
+        console.log(`    package.json:   no "files" field (all files will be published)`);
+      }
+    } catch {
+      console.log(`    package.json:   not found`);
+    }
+
+    // Auto-fix
+    if (opts.fix && mapFiles.length > 0 && !excludesMaps) {
+      const line = '*.map\n';
+      if (hasNpmignore) {
+        fs.appendFileSync(npmignorePath, '\n# Exclude source maps (added by agentguard scan --fix)\n' + line);
+      } else {
+        fs.writeFileSync(npmignorePath, '# Generated by agentguard scan --fix\n*.map\n.env*\n.npmrc\n');
+      }
+      console.log(`\n  FIXED: Added *.map to .npmignore`);
+    } else if (mapFiles.length > 0 && !excludesMaps) {
+      console.log(`\n  Run \x1b[1magentguard scan --fix\x1b[0m to auto-add *.map to .npmignore`);
+    }
+
+    console.log();
+    process.exit(issues.some(i => i.severity === 'CRITICAL') ? 1 : 0);
+  });
+
 // ── admin (enterprise management) ────────────────────────────────────────────
 const admin = program.command('admin').description('Enterprise administration');
 

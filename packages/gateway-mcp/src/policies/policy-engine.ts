@@ -26,6 +26,8 @@ const POLICY_CATEGORIES: Record<string, ToolCategory[]> = {
   'network-access':   ['network'],
   'prompt-injection': [],         // empty = applies to all
   'data-exfiltration':['network', 'communication'],
+  'source-map-leak':  ['supply-chain', 'shell'],
+  'supply-chain':     ['supply-chain', 'shell'],
 }
 
 export class PolicyEngine {

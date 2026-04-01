@@ -176,6 +176,12 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
      'CRITICAL'),
     ('data-exfiltration', 'Data Exfiltration Prevention', 'Blocks tool calls that attempt to send large volumes of data to external endpoints.',
      '{"type":"object","properties":{"body":{"type":"string","maxLength":10000},"data":{"type":"string","maxLength":10000},"content":{"type":"string","maxLength":10000}},"additionalProperties":true}',
+     'HIGH'),
+    ('source-map-leak', 'Source Map Leak Prevention', 'Blocks publishing operations when source map files (.map) may be included. Source maps contain raw source code, internal constants, system prompts, and secrets.',
+     '{"type":"object","properties":{"cmd":{"type":"string","not":{"pattern":"npm publish|yarn publish|pnpm publish"}},"command":{"type":"string","not":{"pattern":"npm publish|yarn publish|pnpm publish"}}},"additionalProperties":true}',
+     'HIGH'),
+    ('supply-chain', 'Supply Chain Security', 'Requires human approval for all package publish, container push, and deployment operations to prevent accidental leaks of secrets, source maps, or internal code.',
+     '{"type":"object","properties":{"command":{"type":"string","not":{"pattern":"npm publish|docker push|twine upload|cargo publish|helm install|kubectl apply|terraform apply"}}},"additionalProperties":true}',
      'HIGH');
   `);
 

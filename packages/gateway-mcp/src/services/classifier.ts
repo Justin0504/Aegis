@@ -13,6 +13,7 @@ export type ToolCategory =
   | 'network'
   | 'shell'
   | 'communication'
+  | 'supply-chain'
   | 'data'
   | 'unknown'
 
@@ -29,7 +30,7 @@ export interface ClassificationResult {
 export interface RiskSignal {
   type: 'sql_injection' | 'path_traversal' | 'shell_injection' | 'sensitive_file'
        | 'plaintext_url' | 'pii_in_args' | 'large_payload' | 'prompt_injection'
-       | 'data_exfiltration'
+       | 'data_exfiltration' | 'source_map_leak' | 'unsafe_publish' | 'secret_in_build'
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   detail: string
 }
@@ -64,6 +65,11 @@ const NAME_KEYWORDS: Array<{ keywords: string[]; category: ToolCategory }> = [
     keywords: ['email', 'send_', 'mail', 'slack', 'notify', 'message', 'sms',
                'telegram', 'discord', 'push_notification', 'alert_'],
     category: 'communication',
+  },
+  {
+    keywords: ['publish', 'deploy', 'release', 'push_package', 'upload_artifact',
+               'npm_publish', 'docker_push', 'registry', 'promote', 'rollout'],
+    category: 'supply-chain',
   },
 ]
 
@@ -304,6 +310,91 @@ const RISK_PATTERNS: Array<{
       return found ? `Prompt injection attempt: "${found.slice(0, 80)}"` : null
     },
   },
+  // ── Supply Chain: Source Map Leak ──────────────────────────────────────────
+  {
+    type: 'source_map_leak' as any,
+    severity: 'HIGH',
+    test: (vals) => {
+      // Detect publishing commands when .map files may be present
+      const PUBLISH_CMD = /\b(npm\s+publish|npx\s+publish|yarn\s+publish|pnpm\s+publish)\b/i
+      const found = vals.find(v => PUBLISH_CMD.test(v))
+      return found ? `Package publish detected — verify .map files are excluded: "${found.slice(0, 80)}"` : null
+    },
+  },
+  {
+    type: 'source_map_leak' as any,
+    severity: 'HIGH',
+    test: (vals) => {
+      // Detect reading/writing .map files (source maps contain full source code)
+      const MAP_FILE = /\.(js|ts|jsx|tsx|css|mjs|cjs)\.map\b/i
+      const found = vals.find(v => MAP_FILE.test(v))
+      return found ? `Source map file access — may contain full source code: "${found.slice(0, 80)}"` : null
+    },
+  },
+  {
+    type: 'source_map_leak' as any,
+    severity: 'CRITICAL',
+    test: (vals) => {
+      // Detect sourcesContent or sourceMap references in content (leaked source code)
+      const SOURCE_CONTENT = /["']?sourcesContent["']?\s*:\s*\[|\/\/[#@]\s*sourceMappingURL\s*=/i
+      const found = vals.find(v => SOURCE_CONTENT.test(v))
+      return found ? `Source map content detected — raw source code exposure risk: "${found.slice(0, 80)}"` : null
+    },
+  },
+
+  // ── Supply Chain: Unsafe Publish/Deploy ──────────────────────────────────
+  {
+    type: 'unsafe_publish' as any,
+    severity: 'HIGH',
+    test: (vals) => {
+      // Detect deployment/publish commands that push artifacts externally
+      const DEPLOY_CMD = /\b(docker\s+push|helm\s+install|kubectl\s+apply|terraform\s+apply|pulumi\s+up|gcloud\s+deploy|aws\s+(s3\s+cp|ecr\s+push|deploy))\b/i
+      const found = vals.find(v => DEPLOY_CMD.test(v))
+      return found ? `Deployment command detected — requires approval: "${found.slice(0, 80)}"` : null
+    },
+  },
+  {
+    type: 'unsafe_publish' as any,
+    severity: 'HIGH',
+    test: (vals) => {
+      // Detect registry publish (npm, PyPI, Docker Hub, etc.)
+      const REGISTRY_PUSH = /\b(twine\s+upload|gem\s+push|cargo\s+publish|nuget\s+push|pip.*upload|setuptools.*upload)\b/i
+      const found = vals.find(v => REGISTRY_PUSH.test(v))
+      return found ? `Package registry publish detected — verify no secrets/source maps: "${found.slice(0, 80)}"` : null
+    },
+  },
+  {
+    type: 'unsafe_publish' as any,
+    severity: 'MEDIUM',
+    test: (vals) => {
+      // Detect git push to public registries (could leak secrets)
+      const GIT_PUSH = /\bgit\s+push\b.*\b(--force|origin\s+main|origin\s+master)\b/i
+      const found = vals.find(v => GIT_PUSH.test(v))
+      return found ? `Git push detected — verify no secrets in committed files: "${found.slice(0, 80)}"` : null
+    },
+  },
+
+  // ── Supply Chain: Secrets in Build Artifacts ─────────────────────────────
+  {
+    type: 'secret_in_build' as any,
+    severity: 'CRITICAL',
+    test: (vals) => {
+      // Detect common secret patterns in build/publish context
+      const SECRET_PATTERN = /\b(PRIVATE.KEY|SECRET_KEY|API_KEY|ACCESS_TOKEN|AUTH_TOKEN|PASSWORD)\s*[=:]\s*['"][^'"]{8,}/i
+      const found = vals.find(v => SECRET_PATTERN.test(v))
+      return found ? `Secret/credential in build artifact: "${found.slice(0, 60)}..."` : null
+    },
+  },
+  {
+    type: 'secret_in_build' as any,
+    severity: 'HIGH',
+    test: (vals) => {
+      // .npmrc with auth token, .pypirc with password
+      const BUILD_CONFIG_SECRET = /\b(_authToken|\/\/registry\.npmjs\.org\/:_authToken|password\s*=\s*\S+)/i
+      const found = vals.find(v => BUILD_CONFIG_SECRET.test(v))
+      return found ? `Build config contains auth credentials: "${found.slice(0, 60)}"` : null
+    },
+  },
 ]
 
 // ── Content → category inference ────────────────────────────────────────────
@@ -313,6 +404,7 @@ function categoryFromContent(args: unknown): ToolCategory | null {
   const joined = vals.join('\n').toLowerCase()
 
   if (/\b(select|insert|update|delete|drop|create table|alter table)\b/.test(joined)) return 'database'
+  if (/\b(npm\s+publish|yarn\s+publish|pnpm\s+publish|docker\s+push|twine\s+upload|cargo\s+publish|terraform\s+apply|kubectl\s+apply)\b/.test(joined)) return 'supply-chain'
   if (/^(https?|ftp):\/\//.test(joined) || vals.some(v => /^https?:\/\//.test(v))) return 'network'
   if (vals.some(v => /^\/[a-z]|^[a-z]:\\/i.test(v) || v.includes('./'))) return 'file'
   if (/[;&|`]|\$\(/.test(joined)) return 'shell'
@@ -397,13 +489,14 @@ export function classifyToolCall(
 /** Map category to a default risk level (used when no policy explicitly matches) */
 export function defaultRiskForCategory(category: ToolCategory): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
   const map: Record<ToolCategory, 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'> = {
-    database:      'HIGH',
-    file:          'MEDIUM',
-    network:       'MEDIUM',
-    shell:         'CRITICAL',
-    communication: 'MEDIUM',
-    data:          'LOW',
-    unknown:       'LOW',
+    database:       'HIGH',
+    file:           'MEDIUM',
+    network:        'MEDIUM',
+    shell:          'CRITICAL',
+    'supply-chain': 'HIGH',
+    communication:  'MEDIUM',
+    data:           'LOW',
+    unknown:        'LOW',
   }
   return map[category]
 }

@@ -117,6 +117,7 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 | **Usage metering & quotas** | ❌ | ❌ | ❌ | ✅ |
 | **SLA metrics (P50/P95/P99)** | ❌ | ❌ | ❌ | ✅ |
 | **Data retention policies (GDPR)** | ❌ | ❌ | ❌ | ✅ |
+| **Supply chain security** | ❌ | ❌ | ❌ | ✅ |
 | **Slack / PagerDuty alerts** | ❌ | ❌ | ❌ | ✅ |
 | Self-hostable, MIT-licensed | ✅ | ❌ | ❌ | ✅ |
 
@@ -159,6 +160,7 @@ Every agent observability tool (LangFuse, Helicone, Arize) tells you **what happ
 | `do_thing(url="http://...")` | `network` | URL in args |
 | `helper(cmd="rm -rf /")` | `shell` | Command injection signal |
 | `custom_fn(prompt="ignore previous...")` | `prompt-injection` | Known attack pattern |
+| `exec(cmd="npm publish")` | `supply-chain` | Publish/deploy command |
 
 ---
 
@@ -208,7 +210,7 @@ except AgentGuardBlockedError as e:
 
 ### Policy Engine
 
-Five policies ship by default. Create more in plain English — the AI assistant generates the JSON schema for you.
+Seven policies ship by default. Create more in plain English — the AI assistant generates the JSON schema for you.
 
 | Policy | Risk | What it catches |
 |--------|------|-----------------|
@@ -217,6 +219,8 @@ Five policies ship by default. Create more in plain English — the AI assistant
 | Network Access Control | MEDIUM | HTTP (non-HTTPS) requests |
 | Prompt Injection Detection | CRITICAL | "ignore previous instructions" patterns |
 | Data Exfiltration Prevention | HIGH | Large payloads to external endpoints |
+| Source Map Leak Prevention | HIGH | `npm publish` when `.map` files present |
+| Supply Chain Security | HIGH | Package publish, container push, deployment ops |
 
 > *"Block all file deletions outside the /tmp directory"* → Describe button → policy created instantly.
 
@@ -318,7 +322,8 @@ Every MCP `tools/call` is policy-checked and anomaly-scored before reaching the 
 - **PII Detection** — auto-redacts SSN, email, phone, credit card, API keys
 - **Cost Tracking** — token usage and USD cost across 40+ models
 - **Alert Rules** — Slack, PagerDuty, or webhook on violations/cost spikes
-- **LLM-as-a-Judge** — automated trace evaluation (safety, helpfulness, correctness, compliance) via OpenAI/Anthropic
+- **Supply Chain Security** — pre-publish scanning for source maps, secrets, and dangerous files
+- **LLM-as-a-Judge** — automated trace evaluation (safety, helpfulness, correctness, compliance) via OpenAI/Anthropic/Gemini
 - **Forensic Export** — PDF compliance reports and CSV audit bundles
 - **Kill Switch** — auto-revoke agents after N violations
 - **Enterprise Admin** — multi-tenancy, RBAC, usage quotas, SLA metrics, data retention
@@ -358,6 +363,29 @@ agentguard admin sla --hours 24
 ```bash
 agentguard admin retention
 ```
+
+### Supply Chain Security
+
+AI agents can `npm publish`, `docker push`, or `kubectl apply` — publishing source maps, secrets, and internal code without human review. AEGIS intercepts these operations before they execute.
+
+**What AEGIS catches:**
+
+| Threat | Detection | Action |
+|--------|-----------|--------|
+| Source map leak (`.map` files with full source) | Pre-publish scan, classifier pattern | Block + require approval |
+| Secrets in build artifacts (AWS keys, API tokens) | 11 regex patterns across build output | Block immediately |
+| Dangerous files (`.env`, `.npmrc`, private keys) | File name + content scanning | Block immediately |
+| Unsafe publish commands (`npm publish`, `docker push`) | Tool classifier + policy engine | Require human approval |
+| `sourceMappingURL` references in production JS | Content scan | Flag as MEDIUM risk |
+
+**CLI pre-publish scanner:**
+
+```bash
+agentguard scan ./my-package              # scan before publish
+agentguard scan ./my-package --fix        # auto-add *.map to .npmignore
+```
+
+Scans for `.map` files, embedded `sourcesContent`, secrets (AWS/GitHub/npm/OpenAI/Anthropic keys, JWTs, database URLs), dangerous config files, and validates `.npmignore` / `package.json` files field.
 
 ### Cryptographic Audit Trail
 
@@ -467,6 +495,7 @@ agentguard http-proxy                # start HTTP forward proxy
 agentguard mcp-proxy --server ...    # start MCP stdio proxy
 agentguard judge batch               # auto-evaluate unscored traces via LLM
 agentguard judge stats               # judge score statistics & trends
+agentguard scan [dir] [--fix]         # pre-publish supply chain scan
 agentguard kill-switch revoke <id>   # emergency agent shutdown
 agentguard admin orgs                # list organizations (multi-tenant)
 agentguard admin create-org          # create a new tenant organization
