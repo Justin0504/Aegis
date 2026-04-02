@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import Database from 'better-sqlite3';
 import { createHash } from 'crypto';
+import pino from 'pino';
+
+const logger = pino({ name: 'auth' });
 
 // Routes that do NOT require authentication (SDK ingest + polling)
 const OPEN_ROUTES: Array<{ method: string; pattern: RegExp }> = [
@@ -41,7 +44,8 @@ export function createAuthMiddleware(db: Database.Database) {
 
     const apiKey = req.headers['x-api-key'] as string | undefined;
     if (!apiKey) {
-      return res.status(401).json({ error: 'Missing X-API-Key header' });
+      logger.warn({ path: req.path, ip: req.ip, req_id: req.requestId }, 'Missing API key');
+      return res.status(401).json({ error: { code: 'AUTH_MISSING', message: 'Missing X-API-Key header' } });
     }
 
     // ── Try org-scoped API key first ──────────────────────────────────────
@@ -64,7 +68,8 @@ export function createAuthMiddleware(db: Database.Database) {
           return next();
         }
       }
-      return res.status(401).json({ error: 'Invalid or expired API key' });
+      logger.warn({ path: req.path, ip: req.ip, req_id: req.requestId }, 'Invalid or expired org API key');
+      return res.status(401).json({ error: { code: 'AUTH_INVALID', message: 'Invalid or expired API key' } });
     }
 
     // ── Fall back to legacy dashboard key (backward compatible) ──────────
@@ -75,6 +80,7 @@ export function createAuthMiddleware(db: Database.Database) {
       return next();
     }
 
-    return res.status(401).json({ error: 'Invalid API key' });
+    logger.warn({ path: req.path, ip: req.ip, req_id: req.requestId }, 'Invalid API key');
+    return res.status(401).json({ error: { code: 'AUTH_INVALID', message: 'Invalid API key' } });
   };
 }

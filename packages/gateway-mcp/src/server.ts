@@ -2,7 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import pino from 'pino';
-import { config } from './config';
+import { config, isFeatureEnabled } from './config';
 import { initializeDatabase, getOrCreateDashboardKey } from './db/database';
 import { MCPProxyService } from './mcp/proxy-service';
 import { AegisMcpServer } from './mcp/aegis-mcp-server';
@@ -19,8 +19,9 @@ import { ProxyRegistryAPI } from './api/proxy-registry';
 import { SlidingWindowStats } from './services/sliding-window';
 import { AnomalyDetector } from './services/anomaly-detector';
 import { ProfileManager } from './services/profile-manager';
-import { errorMiddleware } from './middleware/error';
+import { createErrorMiddleware, HttpError } from './middleware/error';
 import { createAuthMiddleware } from './middleware/auth';
+import { requestContextMiddleware } from './middleware/request-context';
 import { initOtel, shutdownOtel } from './services/otel';
 import { LLMJudgeService } from './services/llm-judge';
 import { initializeEnterpriseSchema } from './db/enterprise-schema';
@@ -31,17 +32,21 @@ import { UsageMeteringService } from './services/usage-metering';
 import { SLAMetricsService } from './services/sla-metrics';
 import { AdminAPI } from './api/admin';
 
-const logger = pino({
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      translateTime: 'HH:MM:ss Z',
-      ignore: 'pid,hostname',
-    },
-  },
-});
+const VERSION = '2.0.0';
+
+// ── Logger ─────────────────────────────────────────────────────────────────
+const logger = config.server.isProduction
+  ? pino({ level: process.env.LOG_LEVEL || 'info' })
+  : pino({
+      transport: {
+        target: 'pino-pretty',
+        options: { translateTime: 'HH:MM:ss Z', ignore: 'pid,hostname' },
+      },
+    });
 
 async function main() {
+  const startTime = Date.now();
+
   // Initialize OpenTelemetry (before anything else)
   initOtel();
 
@@ -51,11 +56,12 @@ async function main() {
 
   // Enterprise schema (multi-tenancy, RBAC, audit log, retention, usage, SLA)
   initializeEnterpriseSchema(db);
-  logger.info('Enterprise schema initialized');
 
   // Dashboard API key (auto-generated on first start)
   const dashboardKey = getOrCreateDashboardKey(db);
-  logger.info({ key: dashboardKey }, '🔑 Dashboard API key (add to Settings → Gateway API Key)');
+  if (!config.server.isProduction) {
+    logger.info({ key: dashboardKey }, 'Dashboard API key (add to Settings)');
+  }
 
   // Initialize services
   const policyEngine  = new PolicyEngine(db, logger);
@@ -72,7 +78,7 @@ async function main() {
   );
   const anomalyDetector = new AnomalyDetector(
     slidingWindow,
-    undefined, // default weights (used as fallback)
+    undefined,
     config.anomaly.thresholds,
     config.anomaly.isolationForest,
     config.anomaly.ppm,
@@ -84,46 +90,103 @@ async function main() {
     rebuildIntervalMs: config.anomaly.profileRebuildIntervalHours * 3600 * 1000,
   });
   await profileManager.initialize();
-  logger.info({ profiles: profileManager.size, enabled: config.anomaly.enabled }, 'Anomaly detection engine ready');
 
   // Enterprise services
-  const auditLog     = new AuditLogService(db, logger);
-  const rbac         = new RBACService(db, logger);
-  const retention    = new RetentionService(db, logger);
+  const auditLog      = new AuditLogService(db, logger);
+  const rbac          = new RBACService(db, logger);
+  const retention     = new RetentionService(db, logger);
   const usageMetering = new UsageMeteringService(db, logger);
-  const slaMetrics   = new SLAMetricsService(db, logger);
+  const slaMetrics    = new SLAMetricsService(db, logger);
 
   // Start background schedulers
-  retention.start(3600_000); // hourly retention purge
-  slaMetrics.start(60_000);  // 60s SLA flush interval
-  logger.info('Enterprise services ready (audit log, RBAC, retention, usage metering, SLA metrics)');
+  if (isFeatureEnabled('data-retention')) {
+    retention.start(3600_000);
+  }
+  if (isFeatureEnabled('sla-metrics')) {
+    slaMetrics.start(60_000);
+  }
 
-  // Create Express app
+  // ── Express app ──────────────────────────────────────────────────────────
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
-  // CORS — allow cockpit and other frontends
+  // Request ID + access logging (before everything else)
+  app.use(requestContextMiddleware(logger));
+
+  // CORS — production-safe origin handling
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    const allowed = config.cors.allowedOrigins;
+
+    if (allowed && allowed.length > 0) {
+      // Strict: only allow configured origins
+      if (origin && allowed.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+      }
+    } else if (!config.server.isProduction) {
+      // Dev mode: reflect origin for convenience
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    } else {
+      // Production without config: no wildcard, require ALLOWED_ORIGINS
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+      }
+    }
+
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key, X-Request-ID');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID, X-RateLimit-Remaining, X-RateLimit-Reset');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
 
-  // Health check (public) — verifies DB connection
+  // Security headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '0');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+  });
+
+  // ── Health / readiness probes ────────────────────────────────────────────
   app.get('/health', (req, res) => {
     try {
       db.prepare('SELECT 1').get();
-      res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'connected' });
+      res.json({
+        status: 'ok',
+        version: VERSION,
+        uptime_s: Math.floor(process.uptime()),
+        timestamp: new Date().toISOString(),
+      });
     } catch (err: any) {
-      res.status(503).json({ status: 'unhealthy', timestamp: new Date().toISOString(), db: 'disconnected', error: err.message });
+      res.status(503).json({
+        status: 'unhealthy',
+        version: VERSION,
+        timestamp: new Date().toISOString(),
+        error: 'database_unavailable',
+      });
     }
   });
 
-  // Auth bootstrap: return key if no auth header present (first-time setup only)
+  app.get('/ready', (req, res) => {
+    try {
+      db.prepare('SELECT 1').get();
+      // Check that critical tables exist
+      db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='traces'").get();
+      res.json({ ready: true });
+    } catch {
+      res.status(503).json({ ready: false });
+    }
+  });
+
+  // Auth bootstrap: return key (no auth required — should be network-restricted in prod)
   app.get('/api/v1/auth/key', (req, res) => {
+    if (config.server.isProduction) {
+      logger.warn({ ip: req.ip, req_id: req.requestId }, 'Auth bootstrap endpoint accessed in production');
+    }
     const row = db.prepare('SELECT value FROM gateway_config WHERE key = ?').get('dashboard_api_key') as { value: string } | undefined;
     res.json({ api_key: row?.value ?? null });
   });
@@ -133,17 +196,21 @@ async function main() {
     const { randomUUID } = require('crypto');
     const newKey = randomUUID();
     db.prepare('INSERT OR REPLACE INTO gateway_config (key, value) VALUES (?, ?)').run('dashboard_api_key', newKey);
-    logger.info({ key: newKey }, '🔑 Dashboard API key regenerated');
+    auditLog.log({
+      org_id: req.orgId, action: 'apikey.regenerate', resource_type: 'apikey',
+      details: { regenerated: true }, ip_address: req.ip,
+    });
+    logger.info('Dashboard API key regenerated');
     res.json({ api_key: newKey });
   });
 
-  // ── Rate limiter for /api/v1/check (sliding window, per agent_id) ──────────
+  // ── Rate limiter (sliding window, per agent_id) ──────────────────────────
   const rateLimitWindow = new Map<string, number[]>();
-  const RATE_LIMIT_MAX = 100;    // max requests per window
-  const RATE_LIMIT_MS  = 60_000; // 1-minute window
+  const RATE_LIMIT_MAX = config.rateLimit.max;
+  const RATE_LIMIT_MS  = config.rateLimit.windowMs;
 
   // Cleanup stale entries every 5 minutes
-  setInterval(() => {
+  const rateLimitCleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, timestamps] of rateLimitWindow) {
       const active = timestamps.filter(t => now - t < RATE_LIMIT_MS);
@@ -157,8 +224,17 @@ async function main() {
     const key = req.body?.agent_id || req.ip || 'unknown';
     const now = Date.now();
     const timestamps = (rateLimitWindow.get(key) || []).filter(t => now - t < RATE_LIMIT_MS);
-    if (timestamps.length >= RATE_LIMIT_MAX) {
-      return res.status(429).json({ error: 'Rate limit exceeded', retry_after_ms: RATE_LIMIT_MS });
+    const remaining = RATE_LIMIT_MAX - timestamps.length;
+
+    // Rate limit headers
+    res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, remaining - 1));
+    res.setHeader('X-RateLimit-Reset', new Date(now + RATE_LIMIT_MS).toISOString());
+
+    if (remaining <= 0) {
+      return res.status(429).json({
+        error: { code: 'RATE_LIMITED', message: 'Rate limit exceeded', retry_after_ms: RATE_LIMIT_MS },
+      });
     }
     timestamps.push(now);
     rateLimitWindow.set(key, timestamps);
@@ -166,32 +242,64 @@ async function main() {
   });
 
   // SLA latency tracking middleware (all /api routes)
-  app.use('/api', (req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const latency = Date.now() - start;
-      const endpoint = req.route?.path ?? req.path.replace(/\/[a-f0-9-]{20,}/, '/:id');
-      slaMetrics.record(endpoint, latency, res.statusCode < 500, req.orgId ?? 'default');
+  if (isFeatureEnabled('sla-metrics')) {
+    app.use('/api', (req, res, next) => {
+      const start = Date.now();
+      res.on('finish', () => {
+        const latency = Date.now() - start;
+        const endpoint = req.route?.path ?? req.path.replace(/\/[a-f0-9-]{20,}/, '/:id');
+        slaMetrics.record(endpoint, latency, res.statusCode < 500, req.orgId ?? 'default');
+      });
+      next();
     });
-    next();
-  });
+  }
 
   // Usage metering middleware (track API calls per org)
-  app.use('/api', (req, res, next) => {
-    res.on('finish', () => {
-      const orgId = req.orgId ?? 'default';
-      usageMetering.increment(orgId, 'api_calls', 1);
-      if (req.path.includes('/traces') && req.method === 'POST') {
-        usageMetering.increment(orgId, 'traces_per_month', 1);
-      }
-      if (req.path.includes('/judge') && req.method === 'POST') {
-        usageMetering.increment(orgId, 'judge_evals_per_month', 1);
-      }
+  if (isFeatureEnabled('usage-metering')) {
+    app.use('/api', (req, res, next) => {
+      res.on('finish', () => {
+        const orgId = req.orgId ?? 'default';
+        usageMetering.increment(orgId, 'api_calls', 1);
+        if (req.path.includes('/traces') && req.method === 'POST') {
+          usageMetering.increment(orgId, 'traces_per_month', 1);
+        }
+        if (req.path.includes('/judge') && req.method === 'POST') {
+          usageMetering.increment(orgId, 'judge_evals_per_month', 1);
+        }
+      });
+      next();
     });
-    next();
-  });
+  }
 
-  // SDK ingest routes (public — no auth required)
+  // ── Feature gate middleware ────────────────────────────────────────────────
+  function requireFeature(feature: string) {
+    return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (!isFeatureEnabled(feature)) {
+        return res.status(403).json({
+          error: {
+            code: 'FEATURE_UNAVAILABLE',
+            message: `Feature '${feature}' requires ${FEATURE_GATES_MSG[feature] || 'a higher'} license tier`,
+            current_tier: config.license.tier,
+          },
+        });
+      }
+      next();
+    };
+  }
+
+  const FEATURE_GATES_MSG: Record<string, string> = {
+    'anomaly': 'Pro or Enterprise',
+    'judge': 'Pro or Enterprise',
+    'multi-tenancy': 'Enterprise',
+    'rbac': 'Enterprise',
+    'audit-log': 'Enterprise',
+    'sla-metrics': 'Enterprise',
+    'data-retention': 'Enterprise',
+    'usage-metering': 'Enterprise',
+    'supply-chain': 'Pro or Enterprise',
+  };
+
+  // ── SDK ingest routes (public — no auth required) ────────────────────────
   app.use('/api/v1/traces', new TraceAPI(db, logger).router);
   app.use('/api/v1/check',  new CheckAPI(
     db, policyEngine, logger, webhooks, undefined,
@@ -200,21 +308,22 @@ async function main() {
     config.anomaly.enabled ? slidingWindow : undefined,
   ).router);
 
-  // Management routes (auth required)
+  // ── Management routes (auth required) ────────────────────────────────────
   app.use('/api/v1/policies',  requireAuth, new PolicyAPI(db, policyEngine, logger).router);
   app.use('/api/v1/approvals', requireAuth, new ApprovalAPI(db, logger).router);
   app.use('/api/v1/webhooks',  requireAuth, new WebhookAPI(webhooks).router);
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger).router);
   app.use('/api/v1/proxy',     requireAuth, new ProxyRegistryAPI(db, logger).router);
 
-  // Enterprise admin routes (auth required)
-  app.use('/api/v1/admin', requireAuth, new AdminAPI(db, logger, rbac, auditLog, retention, usageMetering, slaMetrics).router);
+  // Enterprise admin routes (auth + feature gate)
+  app.use('/api/v1/admin', requireAuth, requireFeature('multi-tenancy'),
+    new AdminAPI(db, logger, rbac, auditLog, retention, usageMetering, slaMetrics).router);
 
   // Kill-switch endpoints (auth required)
   app.post('/api/v1/kill-switch/revoke', requireAuth, async (req, res) => {
     try {
       const { agent_id, reason } = req.body;
-      if (!agent_id) return res.status(400).json({ error: 'agent_id required' });
+      if (!agent_id) return res.status(400).json({ error: { code: 'MISSING_FIELD', message: 'agent_id required' } });
       await killSwitch.revokeAgentAccess(agent_id, reason ?? 'Manual revocation');
       auditLog.log({
         org_id: req.orgId, action: 'killswitch.revoke', resource_type: 'agent',
@@ -222,7 +331,7 @@ async function main() {
       });
       res.json({ success: true, agent_id, status: 'REVOKED' });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: e.message } });
     }
   });
 
@@ -234,35 +343,33 @@ async function main() {
       `).all();
       res.json({ agents });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: e.message } });
     }
   });
 
   // ── LLM-as-a-Judge endpoints ──────────────────────────────────────────────
   const llmJudge = new LLMJudgeService(db, logger);
 
-  // Judge a single trace
-  app.post('/api/v1/judge/trace/:traceId', requireAuth, async (req, res) => {
+  app.post('/api/v1/judge/trace/:traceId', requireAuth, requireFeature('judge'), async (req, res) => {
     try {
       const { provider, apiKey, model, dimensions } = req.body;
       if (!provider || !apiKey) {
-        return res.status(400).json({ error: 'provider and apiKey are required' });
+        return res.status(400).json({ error: { code: 'MISSING_FIELD', message: 'provider and apiKey are required' } });
       }
       const verdict = await llmJudge.judgeTrace(req.params.traceId, {
         provider, apiKey, model, dimensions,
       });
       res.json(verdict);
     } catch (e: any) {
-      res.status(e.message?.includes('not found') ? 404 : 500).json({ error: e.message });
+      res.status(e.message?.includes('not found') ? 404 : 500).json({ error: { code: 'JUDGE_ERROR', message: e.message } });
     }
   });
 
-  // Batch-judge unscored traces
-  app.post('/api/v1/judge/batch', requireAuth, async (req, res) => {
+  app.post('/api/v1/judge/batch', requireAuth, requireFeature('judge'), async (req, res) => {
     try {
       const { provider, apiKey, model, dimensions, batchSize, concurrency, agentId, forceRejudge } = req.body;
       if (!provider || !apiKey) {
-        return res.status(400).json({ error: 'provider and apiKey are required' });
+        return res.status(400).json({ error: { code: 'MISSING_FIELD', message: 'provider and apiKey are required' } });
       }
       const verdicts = await llmJudge.judgeBatch({
         provider, apiKey, model, dimensions, batchSize, concurrency, agentId, forceRejudge,
@@ -280,12 +387,11 @@ async function main() {
         verdicts,
       });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: { code: 'JUDGE_ERROR', message: e.message } });
     }
   });
 
-  // Judge statistics (global or per-agent)
-  app.get('/api/v1/judge/stats', requireAuth, (req, res) => {
+  app.get('/api/v1/judge/stats', requireAuth, requireFeature('judge'), (req, res) => {
     try {
       const agentId = req.query.agent_id as string | undefined;
       if (agentId) {
@@ -294,25 +400,24 @@ async function main() {
         res.json(llmJudge.getStats());
       }
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: e.message } });
     }
   });
 
-  // Get verdict for a specific trace
   app.get('/api/v1/judge/verdict/:traceId', requireAuth, (req, res) => {
     try {
       const verdict = db.prepare(
         'SELECT * FROM judge_verdicts WHERE trace_id = ?'
       ).get(req.params.traceId);
-      if (!verdict) return res.status(404).json({ error: 'No verdict found' });
+      if (!verdict) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No verdict found' } });
       res.json(verdict);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: e.message } });
     }
   });
 
   // Anomaly events endpoint (auth required)
-  app.get('/api/v1/anomalies', requireAuth, (req, res) => {
+  app.get('/api/v1/anomalies', requireAuth, requireFeature('anomaly'), (req, res) => {
     try {
       const { agent_id, min_score, decision } = req.query as Record<string, string>;
       const limit = Math.min(Number(req.query.limit ?? 50), 200);
@@ -344,11 +449,11 @@ async function main() {
       });
     } catch (err) {
       logger.error({ err }, 'Failed to query anomaly events');
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
     }
   });
 
-  // Seed demo data (auth required)
+  // Seed demo data (auth required, dev only)
   app.post('/api/v1/seed', requireAuth, (req, res) => {
     try {
       const { randomUUID } = require('crypto');
@@ -426,7 +531,7 @@ async function main() {
       res.json({ success: true, traces_created: count });
     } catch (error: any) {
       logger.error({ error }, 'Failed to seed demo data');
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: { code: 'SEED_ERROR', message: error.message } });
     }
   });
 
@@ -437,19 +542,16 @@ async function main() {
       const activeAgents     = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE timestamp > datetime('now', '-1 day')").get() as any).n;
       const rejectedCount    = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE approval_status = 'REJECTED'").get() as any).n;
 
-      // Pending checks from blocking mode (real-time human-in-the-loop)
       let pendingChecks = 0;
       try {
         pendingChecks = (db.prepare("SELECT COUNT(*) as n FROM pending_checks WHERE decision = 'pending' AND expires_at > datetime('now')").get() as any).n;
       } catch (e) { logger.debug({ error: e }, 'pending_checks table not ready'); }
 
-      // Critical = traces with CRITICAL risk level
       let criticalCount = 0;
       try {
         criticalCount = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE json_extract(safety_validation, '$.risk_level') IN ('CRITICAL', 'HIGH')").get() as any).n;
       } catch (e) { logger.debug({ error: e }, 'critical count query failed'); }
 
-      // Blocked agents = distinct agents that have been rejected
       const blockedAgents = (db.prepare("SELECT COUNT(DISTINCT agent_id) as n FROM traces WHERE approval_status = 'REJECTED'").get() as any).n;
 
       let violations24h = 0;
@@ -457,7 +559,6 @@ async function main() {
         violations24h = (db.prepare("SELECT COUNT(*) as n FROM violations WHERE created_at > datetime('now', '-1 day')").get() as any).n;
       } catch (e) { logger.debug({ error: e }, 'violations table not ready'); }
 
-      // Trend calculations: compare last 1h vs previous 1h
       const tracesLastHour = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE timestamp > datetime('now', '-1 hour')").get() as any).n;
       const tracesPrevHour = (db.prepare("SELECT COUNT(*) as n FROM traces WHERE timestamp > datetime('now', '-2 hours') AND timestamp <= datetime('now', '-1 hour')").get() as any).n;
       const tracesTrend = tracesPrevHour > 0 ? Math.round(((tracesLastHour - tracesPrevHour) / tracesPrevHour) * 100) : (tracesLastHour > 0 ? 100 : 0);
@@ -479,14 +580,14 @@ async function main() {
       });
     } catch (error) {
       logger.error({ error }, 'Failed to get stats');
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
     }
   });
 
-  // Error middleware
-  app.use(errorMiddleware);
+  // ── Error middleware (must be last) ──────────────────────────────────────
+  app.use(createErrorMiddleware(logger));
 
-  // Create HTTP server
+  // ── HTTP server ──────────────────────────────────────────────────────────
   const server = createServer(app);
 
   // MCP proxy (for agent tools)
@@ -505,22 +606,66 @@ async function main() {
   });
 
   // Start server
-  const port = config.server.port || 8080;
+  const port = config.server.port;
   server.listen(port, () => {
-    logger.info({ port }, 'AgentGuard Gateway started');
+    const bootMs = Date.now() - startTime;
+    logger.info({
+      port,
+      version: VERSION,
+      tier: config.license.tier,
+      node_env: config.server.nodeEnv,
+      anomaly: config.anomaly.enabled,
+      otel: config.otel.enabled,
+      boot_ms: bootMs,
+    }, `AEGIS Gateway v${VERSION} ready (${bootMs}ms)`);
   });
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM, shutting down gracefully...');
+  // ── Graceful shutdown ────────────────────────────────────────────────────
+  let shuttingDown = false;
+
+  function shutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    logger.info({ signal }, 'Shutting down gracefully...');
+
+    // Stop accepting new connections
     server.close(() => {
-      retention.stop();
-      slaMetrics.stop();
-      db.close();
-      shutdownOtel().finally(() => process.exit(0));
+      logger.info('HTTP server closed');
     });
-  });
+
+    // Force exit after timeout
+    const forceExit = setTimeout(() => {
+      logger.error('Forced shutdown — timeout exceeded');
+      process.exit(1);
+    }, config.server.shutdownTimeoutMs);
+    forceExit.unref();
+
+    // Cleanup services
+    clearInterval(rateLimitCleanup);
+    retention.stop();
+    slaMetrics.stop();
+
+    // Close WebSocket connections
+    wss.clients.forEach(ws => ws.close(1001, 'Server shutting down'));
+    wssAudit.clients.forEach(ws => ws.close(1001, 'Server shutting down'));
+
+    // Close DB and OTel
+    setTimeout(() => {
+      db.close();
+      shutdownOtel().finally(() => {
+        logger.info('Shutdown complete');
+        process.exit(0);
+      });
+    }, 1000); // Give in-flight requests 1s to drain
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
+
+// Import FEATURE_GATES for gate messages
+import { FEATURE_GATES } from './config';
 
 main().catch((err) => {
   logger.error({ err }, 'Failed to start server');

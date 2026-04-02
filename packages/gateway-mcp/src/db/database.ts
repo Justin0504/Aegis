@@ -72,8 +72,13 @@ export interface ApprovalRecord {
 export async function initializeDatabase(dbPath: string): Promise<Database.Database> {
   const db = new Database(dbPath);
 
-  // Enable foreign keys
+  // ── Production SQLite pragmas ──────────────────────────────────────────────
+  db.pragma('journal_mode = WAL');        // Write-Ahead Logging: concurrent reads + writes
+  db.pragma('busy_timeout = 5000');       // Wait up to 5s on lock instead of failing
+  db.pragma('synchronous = NORMAL');      // Safe with WAL, 2x faster than FULL
+  db.pragma('cache_size = -64000');       // 64MB page cache (negative = KB)
   db.pragma('foreign_keys = ON');
+  db.pragma('temp_store = MEMORY');       // Keep temp tables in RAM
 
   // Create tables
   db.exec(`
