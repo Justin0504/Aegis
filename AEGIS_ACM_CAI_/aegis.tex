@@ -301,6 +301,10 @@ AEGIS-rules (L1) & 77.4 & 0.0 & 0 & +77.4 \\
 \vspace{-0.1in}
 \end{table}
 
+\subsection{Cross-Source Generalization}
+
+To test for same-source bias in the supervised L2, we evaluate XGBoost in cross-source settings: training on InjecAgent alone and testing on ToolEmu+OWASP+Self yields 27.2\% block rate; training on ToolEmu+OWASP+Self and testing on InjecAgent yields 89.4\%. This confirms that L2 learns source-specific patterns and motivates the cascade: L2 resolves in-distribution calls at $<$3\,ms, while L3 catches OOD attacks that L2 cannot.
+
 \subsection{Production Cost Analysis}
 
 In production settings, $\ge$99\% of tool calls are benign. Under this assumption, L1 rules resolve the vast majority of benign traffic at $<$1\,ms and zero LLM cost. Table~\ref{tab:production} shows the effective per-call cost and latency when 99\% of calls are benign and handled entirely by L1+L2.

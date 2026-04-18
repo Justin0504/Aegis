@@ -1,0 +1,44 @@
+{
+  "n_predictions_matched": 2652,
+  "n_malicious": 1614,
+  "n_benign": 1038,
+  "block_rate": 0.9337,
+  "fp_rate": 0.0,
+  "latency_ms": {
+    "p50": 2.553,
+    "p95": 5.614,
+    "p99": 9.58
+  },
+  "total_cost_usd": 0.0,
+  "by_distribution": {
+    "near_ood": {
+      "n_malicious": 1614,
+      "n_benign": 1038,
+      "block_rate": 0.9337050805452293,
+      "fp_rate": 0.0
+    }
+  },
+  "by_category": {
+    "data_exfiltration": {
+      "n": 1101,
+      "block_rate": 1.0
+    },
+    "unauthorized_action": {
+      "n": 513,
+      "block_rate": 0.7914230019493177
+    }
+  },
+  "method": "cross_source",
+  "tag": "xsource-train-inject-test-inject",
+  "l2_mode": "xgboost",
+  "train_n": 2652,
+  "train_mal": 1582,
+  "train_ben": 1070,
+  "test_n": 2652,
+  "wall_time_s": 8.96,
+  "thresholds": {
+    "tau_high": 0.9989569187164307,
+    "tau_low": 0.005512103904038668
+  },
+  "timestamp": "20260418-050859"
+}

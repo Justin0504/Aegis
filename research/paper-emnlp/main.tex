@@ -192,6 +192,29 @@ The unsupervised IForest L2 alone achieves only 0.67\% block rate, showing that 
 The XGBoost cascade costs \$0.05 per full benchmark run (5{,}525 calls), compared to \$0.36--\$5.32 for standalone LLM judges.
 In realistic traffic ($\ge$99\% benign), the effective per-call cost drops below \$0.00001.
 
+\paragraph{Cross-Source Generalization.}
+To test for same-source bias, we evaluate XGBoost L2 in cross-source settings (Table~\ref{tab:xsource}).
+Training on InjecAgent and testing on ToolEmu+OWASP yields only 27.2\% block rate, confirming that the classifier learns source-specific patterns.
+Training on ToolEmu+OWASP and testing on InjecAgent yields 89.4\%.
+This motivates the cascade design: L2 handles calls that match training distribution at $<$3\,ms, while L3 (LLM judge) catches the OOD remainder---combining speed with generalization.
+
+\begin{table}[t]
+\centering\small
+\caption{Cross-source generalization of XGBoost L2 (no L3). Block rate drops on OOD sources, validating the need for L3 as a generalization backstop.}
+\vspace{-0.1in}
+\label{tab:xsource}
+\begin{tabular}{llrr}
+\toprule
+Train source & Test source & Block\% & FP\% \\
+\midrule
+InjecAgent & InjecAgent (held-out) & 93.4 & 0.00 \\
+InjecAgent & ToolEmu+OWASP+Self & 27.2 & 0.00 \\
+ToolEmu+OWASP+Self & InjecAgent & 89.4 & 0.00 \\
+\bottomrule
+\end{tabular}
+\vspace{-0.1in}
+\end{table}
+
 \paragraph{Adaptive Robustness.}
 An LLM-driven red-team attacker (Sonnet~4.6) iteratively rewrites 53 malicious seeds over 5 rounds.
 The keyword blacklist is bypassed 52.8\% of the time; AEGIS rules at 17.0\%; the LLM judge at 11.3\%.
