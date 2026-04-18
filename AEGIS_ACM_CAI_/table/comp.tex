@@ -1,0 +1,49 @@
+% %%% --- Comparison table (two-column, colored) --- %%%
+% \begin{table*}[!ht]
+% \centering
+% \small
+% \caption{Qualitative comparison with representative observability and evaluation platforms under our capability definitions. \cmark~=~supported, \xmark~=~not supported.}
+% \vspace{-0.1in}
+% \label{tab:comparison}
+% \setlength{\tabcolsep}{6pt}
+% \begin{tabular}{l c c c c c c c}
+% \toprule
+% \textbf{System} & \textbf{Pre-execution} & \textbf{Attack} & \textbf{Policy} & \textbf{Human-in-} & \textbf{Tamper-Evident} & \textbf{Multi-Framework} & \textbf{Open} \\
+%  & \textbf{Blocking} & \textbf{Detection} & \textbf{Engine} & \textbf{the-Loop} & \textbf{Audit Trail} & \textbf{SDK} & \textbf{Source} \\
+% \midrule
+% Langfuse~\cite{langfuse2024}      & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark \\
+% Helicone~\cite{helicone2024}      & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark \\
+% Arize~\cite{arize2024}            & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark \\
+% ToolEmu~\cite{ruan2024toolemu}    & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+% AgentDojo~\cite{debenedetti2024agentsec} & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+% \rowcolor{green!6}
+% \textbf{\system (ours)} & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+% \bottomrule
+% \end{tabular}
+% \end{table*}
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Capability comparison with representative observability and
+agent-evaluation platforms. Pre-exec = pre-execution blocking;
+Human Rev. = human-in-the-loop approval. \cmark~=~supported,
+\xmark~=~not supported.}
+\vspace{-0.1in}
+\label{tab:comparison}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l c c c c c c c}
+\toprule
+System & Pre-exec & Attack & Policy & Human Rev. & Audit & SDK & Open \\
+\midrule
+Langfuse   & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark \\
+Helicone   & \xmark & \xmark & \xmark & \xmark & \cmark & \xmark & \cmark \\
+Arize      & \xmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark \\
+ToolEmu    & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+AgentDojo  & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
+\rowcolor{green!6}
+\textbf{\system} & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
+\bottomrule
+\end{tabular}
+\vspace{-0.15in}
+\end{table}

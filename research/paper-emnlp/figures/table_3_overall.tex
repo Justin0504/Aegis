@@ -1,0 +1,24 @@
+% Auto-generated — updated with XGBoost cascade results
+\begin{table}[t]
+\centering\small
+\caption{Headline results on \bench. Block rate is recall on malicious tool calls; FP rate is on benign. Latency is end-to-end per call; cost is total over the full benchmark.}
+\label{tab:overall}
+\begin{tabular}{lrrrrr}
+\toprule
+Defender & Block & FP & P50\,ms & P95\,ms & \$/run \\
+\midrule
+\rowcolor{green!8}
+\textbf{AEGIS (XGB+Haiku)} & \textbf{99.9} & \textbf{0.09} & \textbf{1.06} & \textbf{2.99} & \textbf{0.050} \\
+\rowcolor{green!8}
+\textbf{AEGIS (XGB+GPT-4o)} & \textbf{99.9} & \textbf{0.09} & \textbf{1.13} & \textbf{3.52} & \textbf{0.071} \\
+LLM-judge gpt-4o-mini & 98.8 & 11.88 & 1203.82 & 1802.60 & 0.360 \\
+LLM-judge claude-haiku-4-5 & 96.6 & 0.00 & 2211.20 & 3058.50 & 5.316 \\
+LLM-judge gpt-4o & 95.7 & 0.00 & 1384.91 & 2031.40 & 0.626 \\
+AEGIS (IForest+Haiku) & 94.1 & 0.00 & 2145.97 & 2911.47 & 4.181 \\
+Llama-Guard-3 & 67.1 & 0.05 & 73.23 & 105.74 & 0.000 \\
+Keyword blacklist & 2.5 & 0.00 & 0.00 & 0.01 & 0.000 \\
+AEGIS-rules (L1) & 1.2 & 0.00 & 0.69 & 1.69 & 0.000 \\
+No defense & 0.0 & 0.00 & 0.00 & 0.00 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
