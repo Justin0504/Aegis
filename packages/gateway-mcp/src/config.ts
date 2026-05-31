@@ -52,6 +52,12 @@ const envSchema = z.object({
   ANOMALY_PPM_ORDER:           z.coerce.number().int().min(1).default(4),
   ANOMALY_PPM_SURPRISE_SCALE:  z.coerce.number().min(0).default(3.0),
 
+  // Attack pattern
+  ATTACK_PATTERN_ENABLED:         z.string().default('true'),
+  ATTACK_PATTERN_BLOCK_THRESHOLD: z.coerce.number().int().min(0).max(100).default(70),
+  ATTACK_PATTERN_FLAG_THRESHOLD:  z.coerce.number().int().min(0).max(100).default(40),
+  ATTACK_PATTERN_WINDOW_MS:       z.coerce.number().int().min(1000).default(300000),
+
   // Redis
   REDIS_ENABLED: z.string().default('false'),
   REDIS_URL:     z.string().default('redis://localhost:6379'),
@@ -152,6 +158,12 @@ export const config = {
       maxOrder: env.ANOMALY_PPM_ORDER,
       surpriseScale: env.ANOMALY_PPM_SURPRISE_SCALE,
     },
+  },
+  attackPattern: {
+    enabled: env.ATTACK_PATTERN_ENABLED !== 'false',
+    blockThreshold: env.ATTACK_PATTERN_BLOCK_THRESHOLD,
+    flagThreshold: env.ATTACK_PATTERN_FLAG_THRESHOLD,
+    windowMs: env.ATTACK_PATTERN_WINDOW_MS,
   },
   redis: {
     enabled: env.REDIS_ENABLED === 'true',

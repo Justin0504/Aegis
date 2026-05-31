@@ -22,3 +22,5 @@ export { ExfilDetector } from './built-in/exfil-detector';
 export { LateralMovementDetector } from './built-in/lateral-movement-detector';
 export { CrossAgentDetector } from './built-in/cross-agent-detector';
 export { MemoryPoisonDetector } from './built-in/memory-poison-detector';
+export { AttackPatternDetector } from './built-in/attack-pattern-detector';
+export type { PatternRule, HistoryEntry, AttackPatternDetectorOptions } from './built-in/attack-pattern-detector';
