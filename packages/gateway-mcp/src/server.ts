@@ -55,6 +55,7 @@ import {
   LateralMovementDetector,
   CrossAgentDetector,
   MemoryPoisonDetector,
+  AttackPatternDetector,
 } from './detectors';
 import { CrossAgentCorrelatorService } from './services/cross-agent-correlator';
 import { BudgetGuardService } from './services/budget-guard';
@@ -179,6 +180,14 @@ async function main() {
   detectors.register(new ExfilDetector());
   detectors.register(new LateralMovementDetector());
   detectors.register(new MemoryPoisonDetector());
+  if (config.attackPattern.enabled) {
+    detectors.register(new AttackPatternDetector({
+      blockThreshold: config.attackPattern.blockThreshold,
+      flagThreshold: config.attackPattern.flagThreshold,
+      windowMs: config.attackPattern.windowMs,
+      slidingWindow,
+    }));
+  }
   const crossAgent = new CrossAgentCorrelatorService({ logger });
   detectors.register(new CrossAgentDetector(crossAgent));
   const coverageMap = new CoverageMapService(detectors);
@@ -453,6 +462,7 @@ async function main() {
     config.anomaly.enabled ? slidingWindow : undefined,
     dslPolicy,
     tenantConfig,
+    detectors,
   ).router);
 
   // ── Management routes (auth required) ────────────────────────────────────

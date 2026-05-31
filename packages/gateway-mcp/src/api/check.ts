@@ -33,6 +33,8 @@ import { SlidingWindowStats } from '../services/sliding-window';
 import { DslPolicyService } from '../services/policy-dsl';
 import { TenantConfigService } from '../services/tenant-config';
 import { MatchResult } from '../policies/dsl/evaluator';
+import { DetectorRegistry } from '../detectors/registry';
+import { Signal } from '@agentguard/core-schema';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +96,7 @@ export class CheckAPI {
     private slidingWindow?: SlidingWindowStats,
     private dslPolicy?: DslPolicyService,
     private tenantConfig?: TenantConfigService,
+    private detectorRegistry?: DetectorRegistry,
   ) {
     this.router = Router()
     this.initTable()
@@ -249,9 +252,34 @@ export class CheckAPI {
           }
         }
 
-        // ── Merge policy + anomaly decisions ───────────────────────────────
+        // ── Layer 4: Detector registry (attack-pattern, exfil, discovery…) ──
+        let detectorSignals: Signal[] = []
+        let detectorBlocks = false
+        if (this.detectorRegistry) {
+          try {
+            detectorSignals = await this.detectorRegistry.evaluateAll({
+              tool: { name: body.tool_name, args: body.arguments as Record<string, unknown> },
+              agent: { id: body.agent_id },
+              tenant: { id: (req as any).orgId ?? 'default' },
+            })
+            // Critical signals from any detector → block
+            detectorBlocks = detectorSignals.some(s => s.severity === 'critical')
+            if (detectorSignals.length > 0) {
+              this.logger.debug({
+                agent_id: body.agent_id,
+                detector_signals: detectorSignals.length,
+                critical: detectorBlocks,
+              }, 'Detector registry evaluation')
+            }
+          } catch (err) {
+            this.logger.warn({ err }, 'Detector registry evaluation failed — skipped')
+          }
+        }
+
+        // ── Merge policy + anomaly + detector decisions ───────────────────
         // Policy block always wins (hard security boundary).
         // Anomaly can escalate an otherwise-allowed call.
+        // Detector critical signals can block an otherwise-allowed call.
         let isRisky = BLOCKING_RISK_LEVELS.has(validation.risk_level) && !validation.passed
 
         // Anomaly-driven escalation
@@ -263,6 +291,11 @@ export class CheckAPI {
           if (anomalyResult.decision === 'escalate') {
             isRisky = true
           }
+        }
+
+        // Detector-driven block (attack-pattern, exfil, etc.)
+        if (detectorBlocks && validation.passed) {
+          isRisky = true
         }
 
         // ── Per-tenant DSL evaluation (fail-safe: only tightens) ────────────
@@ -386,6 +419,9 @@ export class CheckAPI {
         if (decision === 'allow' && (dslBlocks || dslPending)) {
           decision = 'block'
         }
+        if (decision === 'allow' && detectorBlocks) {
+          decision = 'block'
+        }
 
         if (decision === 'block') {
           const blockTs = new Date().toISOString()
@@ -423,11 +459,13 @@ export class CheckAPI {
           category:   classification.category,
           signals:    classification.signals,
           reason:     decision === 'block'
-            ? (dslBlocks
-              ? (dslMatch?.reason ?? `DSL rule ${dslMatch?.ruleName} blocked`)
-              : anomalyResult?.decision === 'block'
-                ? `Behavioral anomaly (score=${anomalyResult.composite_score})`
-                : (validation.violations?.[0] ?? 'Policy violation'))
+            ? (detectorBlocks
+              ? detectorSignals.find(s => s.severity === 'critical')?.message ?? 'Attack pattern detected'
+              : dslBlocks
+                ? (dslMatch?.reason ?? `DSL rule ${dslMatch?.ruleName} blocked`)
+                : anomalyResult?.decision === 'block'
+                  ? `Behavioral anomaly (score=${anomalyResult.composite_score})`
+                  : (validation.violations?.[0] ?? 'Policy violation'))
             : undefined,
           anomaly: anomalyResult ? {
             score: anomalyResult.composite_score,
@@ -438,6 +476,16 @@ export class CheckAPI {
             decision: dslMatch.decision,
             rule: dslMatch.ruleName,
             reason: dslMatch.reason,
+          } : undefined,
+          detectors: detectorSignals.length > 0 ? {
+            signals: detectorSignals.length,
+            critical: detectorSignals.filter(s => s.severity === 'critical').length,
+            details: detectorSignals.map(s => ({
+              detector: s.detector,
+              severity: s.severity,
+              category: s.category,
+              message: s.message,
+            })),
           } : undefined,
           latency_ms: Date.now() - start,
         })
