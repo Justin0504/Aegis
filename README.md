@@ -315,31 +315,56 @@ gateway, cascade, DSL, dashboard, audit trail, approvals — in one repo.
 
 ## How it works
 
-```
-  Your agent calls a tool
-          │
-          ▼  SDK / HTTP Proxy / MCP Proxy intercepts
-  ┌────────────────────────────────────────────────┐
-  │  AEGIS Gateway                                 │
-  │                                                │
-  │  ① Classify   (SQL? file? network? shell?)     │
-  │  ② Anomaly    (baseline deviation? spike?)     │
-  │  ③ Evaluate   AJV policies (injection? exfil?) │
-  │  ④ Match DSL  per-tenant rules (fail-safe)     │
-  │  ⑤ Decide     strictest(allow / pending / block)│
-  └──────────┬─────────────────────────────────────┘
-             │
-      ┌──────┴──────────────┐
-      │                     │
-   allow                 pending ──► Human reviews in Cockpit
-      │                     │               │
-      ▼                     └──── allow ────┘
-  Tool executes                        │
-      │                             block
-      ▼                                │
-  Optional signing                    ▼
-  SHA-256 hash-chained       AgentGuardBlockedError
-  Stored in Cockpit          (agent gets the reason)
+```mermaid
+%%{ init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor":        "#f2edd8",
+    "primaryTextColor":    "#0a0a0a",
+    "primaryBorderColor":  "#0a0a0a",
+    "lineColor":           "#5c5a50",
+    "secondaryColor":      "#ece6cf",
+    "tertiaryColor":       "#eae3d2",
+    "fontFamily":          "ui-sans-serif, -apple-system, Inter, sans-serif"
+  }
+}}%%
+flowchart LR
+    A(["Agent calls a tool"]) --> B["SDK · HTTP proxy · MCP proxy<br/><sub>zero-config interception</sub>"]
+
+    subgraph GW["<b>AEGIS Gateway</b>&nbsp;·&nbsp;5-stage pipeline"]
+        direction TB
+        P1["<b>1. Classify</b><br/><sub>SQL · file · network · shell</sub>"]
+        P2["<b>2. Anomaly</b><br/><sub>baseline deviation · spike</sub>"]
+        P3["<b>3. Evaluate</b><br/><sub>AJV policies · injection · exfil</sub>"]
+        P4["<b>4. Match DSL</b><br/><sub>per-tenant rules · fail-safe</sub>"]
+        P5["<b>5. Decide</b><br/><sub>strictest wins</sub>"]
+        P1 --> P2 --> P3 --> P4 --> P5
+    end
+
+    B --> GW
+    P5 --> D{"decision"}
+
+    D -->|allow| EXE["Tool executes"]
+    D -->|pending| REVIEW["Human review<br/>in Cockpit"]
+    D -->|block| ERR["AgentGuardBlockedError<br/><sub>agent gets the reason</sub>"]
+
+    REVIEW -->|approve| EXE
+    REVIEW -->|reject| ERR
+
+    EXE --> RECEIPT["Signed &amp; hash-chained trace<br/><sub>Ed25519 · SHA-256 · RFC 6962 Merkle log</sub>"]
+
+    classDef stage    fill:#f2edd8,stroke:#0a0a0a,stroke-width:1px,color:#0a0a0a;
+    classDef gate     fill:#ece6cf,stroke:#0a0a0a,stroke-width:1.5px,color:#0a0a0a;
+    classDef success  fill:#d6e2d2,stroke:#4a6b4f,stroke-width:1px,color:#0a0a0a;
+    classDef warn     fill:#f5e1c8,stroke:#a06e2a,stroke-width:1px,color:#0a0a0a;
+    classDef block    fill:#e7c8c4,stroke:#8b3a2f,stroke-width:1px,color:#0a0a0a;
+    classDef receipt  fill:#dfe4e6,stroke:#4b6a72,stroke-width:1px,color:#0a0a0a;
+
+    class P1,P2,P3,P4,P5 stage;
+    class D              gate;
+    class EXE,RECEIPT    success;
+    class REVIEW         warn;
+    class ERR            block;
 ```
 
 **Zero-config classification** — works on any tool name, any argument shape:
