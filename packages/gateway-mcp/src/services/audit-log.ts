@@ -22,7 +22,7 @@ export type AuditAction =
   | 'tenant.config.update' | 'tenant.config.replace' | 'tenant.config.apply-template'
   | 'proxy.llm_call'
   | 'admin.bulk_register'
-  | 'rollback.compensate' | 'rollback.chain'
+  | 'rollback.compensate' | 'rollback.chain' | 'rollback.delegation'
   | 'outbox.enqueue' | 'outbox.cancel' | 'outbox.fire'
   | 'predeploy.scan'
   | 'policy.pack_install';
@@ -30,7 +30,8 @@ export type AuditAction =
 export type ResourceType =
   | 'policy' | 'approval' | 'apikey' | 'agent'
   | 'user' | 'organization' | 'retention'
-  | 'judge' | 'webhook' | 'trace' | 'system';
+  | 'judge' | 'webhook' | 'trace' | 'system'
+  | 'delegation';
 
 export interface AuditEntry {
   org_id?: string;

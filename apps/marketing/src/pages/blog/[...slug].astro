@@ -16,19 +16,56 @@ export async function getStaticPaths() {
 
 interface Props { post: CollectionEntry<'blog'>; }
 const { post } = Astro.props;
-const { Content } = await post.render();
+const { Content, headings } = await post.render();
+
+// Table of contents — derived from the article's H2s. Astro's
+// markdown pipeline auto-generates ids on headings, so anchor links
+// work without extra rehype plugins. LLM crawlers use ToC nav to
+// segment articles for citation.
+const toc = headings.filter(h => h.depth === 2);
 
 // ── Author info ─────────────────────────────────────────────────────
+// Enriched Person schema per schema.org/Person guidance for GEO:
+//   - `sameAs` fans out to social + academic profiles so LLM knowledge
+//     graphs can dedupe the entity.
+//   - `jobTitle` + `worksFor` establish institutional context.
+//   - `knowsAbout` gives crawlers topical anchors for citation.
 const AUTHORS = {
   justin: {
-    name: 'Justin Yuan',
-    title: 'Open-source maintainer, AEGIS · USC',
+    name:  'Justin Yuan',
+    title: 'Open-source maintainer, AEGIS · USC Viterbi',
     url:   'https://github.com/Justin0504',
+    jobTitle:   'Graduate researcher',
+    worksFor:   'University of Southern California',
+    worksForUrl: 'https://viterbischool.usc.edu/',
+    knowsAbout: [
+      'AI agent runtime safety',
+      'LLM judge calibration',
+      'Prompt injection defense',
+      'Cryptographic audit logs',
+      'Merkle transparency logs',
+    ],
+    sameAs: [
+      'https://github.com/Justin0504',
+      'https://github.com/Justin0504/Aegis',
+      'https://arxiv.org/a/yuan_a_1',
+    ],
   },
   team: {
-    name: 'AEGIS team',
+    name:  'AEGIS team',
     title: 'Engineering team',
     url:   'https://aegistraces.com',
+    jobTitle:   'Engineering',
+    worksFor:   'AEGIS',
+    worksForUrl: 'https://aegistraces.com',
+    knowsAbout: [
+      'AI agent runtime safety',
+      'Agent firewall',
+      'Cryptographic audit',
+    ],
+    sameAs: [
+      'https://github.com/Justin0504/Aegis',
+    ],
   },
 } as const;
 const author = AUTHORS[post.data.author];
@@ -42,6 +79,11 @@ const datePub  = post.data.publishedAt.toISOString();
 const dateMod  = (post.data.updatedAt ?? post.data.publishedAt).toISOString();
 const wordCount = post.body.split(/\s+/).filter(Boolean).length;
 
+// OG image — Unsplash hero (when set) or fall back to site default.
+const ogImage = post.data.coverImage
+  ? `https://images.unsplash.com/photo-${post.data.coverImage}?w=1200&h=630&q=80&fit=crop&auto=format`
+  : 'https://aegistraces.com/aegis-og.png';
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type':    'TechArticle',
@@ -50,14 +92,23 @@ const jsonLd = {
   mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   headline:    post.data.title,
   description: post.data.description,
+  image:       ogImage,
   wordCount,
   datePublished: datePub,
   dateModified:  dateMod,
   inLanguage: 'en-US',
   author: {
-    '@type': 'Person',
-    name:    author.name,
-    url:     author.url,
+    '@type':   'Person',
+    name:      author.name,
+    url:       author.url,
+    jobTitle:  author.jobTitle,
+    knowsAbout: author.knowsAbout,
+    sameAs:    author.sameAs,
+    worksFor: {
+      '@type': 'Organization',
+      name:    author.worksFor,
+      url:     author.worksForUrl,
+    },
   },
   publisher: {
     '@type': 'Organization',
@@ -77,12 +128,112 @@ const jsonLd = {
     name:    post.data.answersQuery,
   },
   keywords: post.data.tags.join(', '),
+  // SpeakableSpecification — voice-assistant + AI Overview extraction.
+  // Points at the CSS selector wrapping the oneSentenceAnswer block so
+  // Google Gemini / Alexa Skills / etc. know exactly what to read out.
+  speakable: {
+    '@type': 'SpeakableSpecification',
+    cssSelector: ['.speakable', '.takeaways'],
+  },
 };
+
+// Separate FAQPage block — Google + Perplexity + ChatGPT all extract
+// FAQPage independently of Article. Each key takeaway becomes a Q/A
+// pair. The primary question is `answersQuery`; the primary answer is
+// the article's description. Additional Q/A pairs are synthesised
+// from `keyTakeaways` when present.
+const faqJsonLd = post.data.keyTakeaways && post.data.keyTakeaways.length > 0 ? {
+  '@context': 'https://schema.org',
+  '@type':    'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name:    post.data.answersQuery,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    post.data.description,
+      },
+    },
+    ...post.data.keyTakeaways.map((t, i) => ({
+      '@type': 'Question',
+      name:    `Key takeaway ${i + 1}`,
+      acceptedAnswer: { '@type': 'Answer', text: t },
+    })),
+  ],
+} : null;
+
+const wasUpdated = !!post.data.updatedAt &&
+  post.data.updatedAt.getTime() > post.data.publishedAt.getTime();
+
+// BreadcrumbList — every crawler uses this to place the article in
+// the site's hierarchy. Google's rich-result eligibility depends on it.
+const CLUSTER_LABEL: Record<string, string> = {
+  'agent-safety':  'Agent safety',
+  'verticals':     'Verticals',
+  'comparison':    'Comparison',
+  'deep-dive':     'Deep dive',
+};
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type':    'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home',
+      item: 'https://aegistraces.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Blog',
+      item: 'https://aegistraces.com/blog' },
+    { '@type': 'ListItem', position: 3,
+      name: CLUSTER_LABEL[post.data.cluster] ?? post.data.cluster,
+      item: `https://aegistraces.com/blog#${post.data.cluster}` },
+    { '@type': 'ListItem', position: 4, name: post.data.title, item: url },
+  ],
+};
+
+// HowTo — only emitted when the article's frontmatter carries
+// howToSteps. Google's How-To rich result + LLM step-extraction.
+const howToLd = post.data.howToSteps && post.data.howToSteps.length > 0 ? {
+  '@context': 'https://schema.org',
+  '@type':    'HowTo',
+  name:       post.data.title,
+  description: post.data.description,
+  totalTime:  post.data.howToDuration ?? undefined,
+  step: post.data.howToSteps.map((s, i) => ({
+    '@type': 'HowToStep',
+    position: i + 1,
+    name:    s,
+    text:    s,
+  })),
+} : null;
 
 // ── Related posts (same cluster, excl. current) ─────────────────────
 const related = (await getCollection('blog'))
   .filter(p => !p.data.draft && p.data.cluster === post.data.cluster && p.slug !== post.slug)
   .slice(0, 3);
+
+// ── Citation formats ────────────────────────────────────────────────
+// Auto-generated BibTeX + APA so anyone citing the article in a paper
+// or blog post doesn't have to hand-write the fields. GEO bonus: LLMs
+// scrape citation blocks and use them as ground truth for the article's
+// canonical metadata.
+const pubYear    = post.data.publishedAt.getFullYear();
+const pubMonthDay = post.data.publishedAt.toLocaleDateString('en-US', {
+  month: 'long', day: 'numeric',
+});
+const authorLastFirst = post.data.author === 'justin'
+  ? 'Yuan, J.'
+  : 'AEGIS Team';
+const authorBib = post.data.author === 'justin'
+  ? 'Yuan, Justin'
+  : 'AEGIS Team';
+const bibtexKey = `aegis-${post.slug}`;
+const bibtex = `@misc{${bibtexKey},
+  author    = {${authorBib}},
+  title     = {${post.data.title.replace(/[{}]/g, '')}},
+  year      = {${pubYear}},
+  publisher = {AEGIS},
+  url       = {${url}},
+  note      = {${wasUpdated ? 'Updated ' + dateMod.slice(0, 10) : 'Published ' + datePub.slice(0, 10)}}
+}`;
+const apa = `${authorLastFirst} (${pubYear}, ${pubMonthDay}). ${post.data.title}. AEGIS. ${url}`;
 ---
 
 <Layout title={`${post.data.title} — AEGIS`} description={post.data.description}>
@@ -91,6 +242,13 @@ const related = (await getCollection('blog'))
   {/* JSON-LD must be inline in <head>; Astro lets us put it anywhere
       and it ends up in the rendered HTML. Crawlers parse this. */}
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)}></script>
+  {faqJsonLd && (
+    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)}></script>
+  )}
+  {howToLd && (
+    <script type="application/ld+json" set:html={JSON.stringify(howToLd)}></script>
+  )}
 
   <main class="post">
     <article class="container container-narrow">
@@ -108,6 +266,19 @@ const related = (await getCollection('blog'))
               year: 'numeric', month: 'short', day: 'numeric',
             })}
           </time>
+          {wasUpdated && (
+            <>
+              <span class="meta-sep">·</span>
+              <span class="meta-updated">
+                Updated{' '}
+                <time datetime={dateMod}>
+                  {post.data.updatedAt!.toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                  })}
+                </time>
+              </span>
+            </>
+          )}
           <span class="meta-sep">·</span>
           <span class="meta-words">{Math.round(wordCount / 200)} min read</span>
         </div>
@@ -115,12 +286,51 @@ const related = (await getCollection('blog'))
         {post.data.headlineStat && (
           <p class="headline-stat">{post.data.headlineStat}</p>
         )}
+
+        {/* One-sentence declarative answer — Perplexity / AI Overview
+            / Gemini extract this verbatim. `.speakable` selector also
+            hooks the SpeakableSpecification in JSON-LD. */}
+        {post.data.oneSentenceAnswer && (
+          <p class="speakable" itemprop="abstract">{post.data.oneSentenceAnswer}</p>
+        )}
       </header>
 
-      {/* Hero cover image — same SVG component as the blog index card */}
+      {/* Hero cover image — Unsplash photo when set, deterministic
+          SVG fallback otherwise */}
       <div class="post-cover">
-        <BlogCover cluster={post.data.cluster} seed={post.slug} size="hero" />
+        <BlogCover
+          cluster={post.data.cluster}
+          seed={post.slug}
+          size="hero"
+          coverImage={post.data.coverImage}
+          alt={post.data.title}
+        />
       </div>
+
+      {/* Key takeaways — GEO-canonical TL;DR. LLM crawlers extract
+          this block when summarising the article. */}
+      {post.data.keyTakeaways && post.data.keyTakeaways.length > 0 && (
+        <aside class="takeaways" aria-label="Key takeaways">
+          <p class="takeaways-label">Key takeaways</p>
+          <ul>
+            {post.data.keyTakeaways.map(t => <li>{t}</li>)}
+          </ul>
+        </aside>
+      )}
+
+      {/* Table of contents — auto-generated from H2s. Rendered as
+          a nav so screen readers announce it correctly + LLM crawlers
+          use it to build the section index. */}
+      {toc.length > 2 && (
+        <nav class="toc" aria-label="In this article">
+          <p class="toc-label">In this article</p>
+          <ol>
+            {toc.map(h => (
+              <li><a href={`#${h.slug}`}>{h.text}</a></li>
+            ))}
+          </ol>
+        </nav>
+      )}
 
       {/* The markdown content */}
       <div class="content">
@@ -150,6 +360,26 @@ const related = (await getCollection('blog'))
             </ul>
           </section>
         )}
+
+        {/* Citation-copy: BibTeX + APA. LLM crawlers scrape these for
+            canonical metadata; humans copy them into papers. */}
+        <section class="cite">
+          <h2>Cite this article</h2>
+          <div class="cite-tabs">
+            <details open>
+              <summary>APA</summary>
+              <pre class="cite-block"><code>{apa}</code></pre>
+            </details>
+            <details>
+              <summary>BibTeX</summary>
+              <pre class="cite-block"><code>{bibtex}</code></pre>
+            </details>
+          </div>
+          <p class="cite-hint">
+            See also the <a href="/blog/glossary">Glossary</a> for canonical
+            definitions of every term used above.
+          </p>
+        </section>
       </footer>
     </article>
   </main>
@@ -200,8 +430,106 @@ const related = (await getCollection('blog'))
       line-height: 1.5;
     }
 
+    /* Speakable one-sentence answer — target for AI Overview /
+       Perplexity / voice-assistant extraction. */
+    .speakable {
+      margin-top: 1.6rem;
+      font-family: var(--font-serif);
+      font-size: 1.28rem;
+      line-height: 1.45;
+      color: var(--text);
+      letter-spacing: -0.005em;
+      max-width: 62ch;
+    }
+    .meta-updated {
+      color: var(--text);
+      font-weight: 500;
+    }
+
     .post-cover {
       margin: 2.5rem 0 1rem;
+    }
+
+    .takeaways {
+      margin: 1.5rem 0 0;
+      padding: 1.3rem 1.6rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      max-width: 72ch;
+    }
+    .takeaways-label {
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 0 0 0.7rem;
+    }
+    .takeaways ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .takeaways li {
+      position: relative;
+      padding: 0.32rem 0 0.32rem 1.3rem;
+      font-size: 0.98rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    .takeaways li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.85rem;
+      width: 0.6rem;
+      height: 0.6rem;
+      background: var(--text);
+      border-radius: 2px;
+      opacity: 0.6;
+    }
+
+    /* Table of contents */
+    .toc {
+      margin: 1.2rem 0 0;
+      padding: 1rem 1.4rem 1rem 1.3rem;
+      background: var(--surface-2);
+      border-left: 3px solid var(--hairline);
+      border-radius: 0 8px 8px 0;
+      max-width: 72ch;
+    }
+    .toc-label {
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+    }
+    .toc ol {
+      margin: 0;
+      padding-left: 1.4rem;
+      counter-reset: item;
+    }
+    .toc li {
+      font-size: 0.94rem;
+      line-height: 1.55;
+      margin: 0.25rem 0;
+      color: var(--text);
+    }
+    .toc a {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 3px;
+    }
+    .toc a:hover { text-decoration-color: var(--accent, #6b7e7f); }
+
+    /* Ensure heading anchors have scroll offset for sticky header. */
+    :global(h2[id]),
+    :global(h3[id]) {
+      scroll-margin-top: 5rem;
     }
 
     /* ── The actual prose styles ────────────────────────── */
@@ -300,6 +628,32 @@ const related = (await getCollection('blog'))
     }
     .content :global(a:hover) { text-decoration-color: var(--accent); }
 
+    /* Auto-annotation styles (rehype-annotate plugin) */
+    .content :global(.fact) {
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      color: var(--text);
+      background: linear-gradient(180deg, transparent 60%, rgba(212, 181, 168, 0.35) 60%);
+      padding: 0 0.15rem;
+      border-radius: 2px;
+    }
+    .content :global(abbr[title]) {
+      text-decoration: underline dotted var(--muted);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+      cursor: help;
+    }
+    .content :global(a.dfn) {
+      color: var(--text);
+      text-decoration: underline dashed var(--muted);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .content :global(a.dfn:hover) {
+      text-decoration-style: solid;
+      text-decoration-color: var(--accent, #6b7e7f);
+    }
+
     /* ── Footer ─────────────────────────────────────────── */
     .post-foot {
       border-top: 1px solid var(--hairline);
@@ -333,6 +687,74 @@ const related = (await getCollection('blog'))
       font-size: 0.88rem;
       margin-top: 0.25rem;
       line-height: 1.5;
+    }
+
+    /* Citation block */
+    .cite {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--hairline);
+    }
+    .cite h2 {
+      font-family: var(--font-serif);
+      font-size: 1.3rem;
+      margin: 0 0 1rem;
+      letter-spacing: -0.005em;
+    }
+    .cite-tabs details {
+      margin-bottom: 0.6rem;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0;
+    }
+    .cite-tabs summary {
+      cursor: pointer;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text);
+      user-select: none;
+      list-style: none;
+    }
+    .cite-tabs summary::-webkit-details-marker { display: none; }
+    .cite-tabs summary::before {
+      content: '▸';
+      display: inline-block;
+      margin-right: 0.4rem;
+      transition: transform 0.15s ease;
+      color: var(--muted);
+    }
+    .cite-tabs details[open] summary::before { transform: rotate(90deg); }
+
+    .cite-block {
+      margin: 0;
+      padding: 0.9rem 1.1rem;
+      background: #1a1816;
+      color: #d8d3c0;
+      border-radius: 0 0 8px 8px;
+      overflow-x: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .cite-block code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+    .cite-hint {
+      margin-top: 1rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .cite-hint a {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 3px;
     }
   </style>
 </Layout>

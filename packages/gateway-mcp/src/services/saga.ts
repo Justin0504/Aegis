@@ -5,16 +5,22 @@
  * Without it operators can't answer "what's in flight right now?"
  * "where did the last chain stop?" "is anything stuck?"
  *
- * State machine (Garcia-Molina 1987, adapted for agent rollback):
+ * State machine (Garcia-Molina 1987 + human-in-the-loop extension for
+ * agent rollback):
  *
  *   STARTED → EXECUTING → COMPENSATING → { COMPLETED | ABORTED | FAILED }
- *                                            ↑
- *   Transition rules:                        |
- *     STARTED       → EXECUTING                 (open the saga; first step starts)
- *     EXECUTING     → COMPENSATING               (one of the steps failed)
- *     EXECUTING     → COMPLETED                  (all steps succeeded; saga done)
- *     COMPENSATING  → ABORTED                    (compensation finished; saga rolled back cleanly)
- *     COMPENSATING  → FAILED                     (compensation itself failed somewhere)
+ *                ↓ ↑
+ *      PAUSED_FOR_APPROVAL
+ *
+ *   Transition rules:
+ *     STARTED             → EXECUTING              (open the saga; first step starts)
+ *     EXECUTING           → COMPENSATING           (one of the steps failed)
+ *     EXECUTING           → COMPLETED              (all steps succeeded; saga done)
+ *     EXECUTING           → PAUSED_FOR_APPROVAL    (compensator needs human OK; e.g. high-value refund)
+ *     PAUSED_FOR_APPROVAL → EXECUTING              (operator approved; resume)
+ *     PAUSED_FOR_APPROVAL → ABORTED                (operator rejected; saga rolled back cleanly)
+ *     COMPENSATING        → ABORTED                (compensation finished; saga rolled back cleanly)
+ *     COMPENSATING        → FAILED                 (compensation itself failed somewhere)
  *
  * Invariants enforced by transition():
  *   - Cannot go backward.
@@ -37,6 +43,7 @@ import { randomUUID } from 'crypto';
 export type SagaState =
   | 'STARTED'
   | 'EXECUTING'
+  | 'PAUSED_FOR_APPROVAL'
   | 'COMPENSATING'
   | 'COMPLETED'
   | 'ABORTED'
@@ -60,6 +67,21 @@ export interface Saga {
   step_count: number;
   /** Operator-supplied reason carried through every audit row. */
   reason: string | null;
+  /** When state = 'PAUSED_FOR_APPROVAL', why the pause was requested.
+   *  Rendered in the cockpit approval queue. */
+  pause_reason: string | null;
+  /** When state = 'PAUSED_FOR_APPROVAL', the ISO timestamp of the
+   *  pause. Used to age-out stale approvals. */
+  paused_at: string | null;
+  /** Three-Ring origin tag per Toledo et al. arXiv:2606.07119:
+   *   2 = Ring-2 deterministic strategies-based agent flow (auto-safe
+   *       to compensate — the paper's "traceable, permission-enforced,
+   *       recoverable" class).
+   *   3 = Ring-3 LLM decision (non-deterministic, deviations propagate;
+   *       auto-paused for human approval regardless of cost_estimate).
+   *   null = unknown / legacy.
+   *  The RollbackService reads this at pause-decision time. */
+  origin_ring: number | null;
 }
 
 export interface SagaStep {
@@ -72,15 +94,27 @@ export interface SagaStep {
   duration_ms: number;
   error: string | null;
   recorded_at: string;
+  /**
+   * Comma-separated `trace_id`s this step depends on — i.e. trace_ids
+   * whose compensation must complete BEFORE this step's compensation
+   * runs. Used by `topologicalTraceOrder()` to schedule chain
+   * rollbacks in causal order rather than naive reverse-time
+   * (SagaGuard 2026 / Uber M3 pattern).
+   *
+   * When empty / null, falls back to reverse-chronological order
+   * within the saga — preserves existing behaviour for old sagas.
+   */
+  depends_on: string | null;
 }
 
 const VALID_TRANSITIONS: Record<SagaState, SagaState[]> = {
-  STARTED:      ['EXECUTING'],
-  EXECUTING:    ['COMPENSATING', 'COMPLETED'],
-  COMPENSATING: ['ABORTED', 'FAILED'],
-  COMPLETED:    [],
-  ABORTED:      [],
-  FAILED:       [],
+  STARTED:              ['EXECUTING'],
+  EXECUTING:            ['COMPENSATING', 'COMPLETED', 'PAUSED_FOR_APPROVAL'],
+  PAUSED_FOR_APPROVAL:  ['EXECUTING', 'ABORTED'],
+  COMPENSATING:         ['ABORTED', 'FAILED'],
+  COMPLETED:            [],
+  ABORTED:              [],
+  FAILED:               [],
 };
 
 export class SagaService {
@@ -100,7 +134,10 @@ export class SagaService {
         started_at    TEXT NOT NULL DEFAULT (datetime('now')),
         completed_at  TEXT,
         step_count    INTEGER NOT NULL DEFAULT 0,
-        reason        TEXT
+        reason        TEXT,
+        pause_reason  TEXT,
+        paused_at     TEXT,
+        origin_ring   INTEGER
       );
       CREATE INDEX IF NOT EXISTS idx_saga_org_state ON saga(org_id, state);
       CREATE INDEX IF NOT EXISTS idx_saga_agent     ON saga(agent_id, started_at DESC);
@@ -114,30 +151,55 @@ export class SagaService {
         compensator_kind TEXT NOT NULL,
         duration_ms     INTEGER NOT NULL,
         error           TEXT,
-        recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+        recorded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+        depends_on      TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_saga_step_saga ON saga_step(saga_id, step_idx);
     `);
+
+    // Best-effort forward migration for HITL + Three-Ring + causal-DAG
+    // columns; safe on reruns because ALTER errors on duplicate
+    // columns are swallowed.
+    for (const ddl of [
+      `ALTER TABLE saga ADD COLUMN pause_reason TEXT`,
+      `ALTER TABLE saga ADD COLUMN paused_at    TEXT`,
+      `ALTER TABLE saga ADD COLUMN origin_ring  INTEGER`,
+      `ALTER TABLE saga_step ADD COLUMN depends_on TEXT`,
+    ]) {
+      try { this.db.exec(ddl); }
+      catch (e: any) {
+        if (!/duplicate column/i.test(e?.message ?? '')) {
+          this.logger.warn({ err: e?.message, ddl }, 'saga ddl skipped');
+        }
+      }
+    }
   }
 
   /** Open a new saga. Returns the id; the caller passes it to
-   *  appendStep() + transition() as work progresses. */
+   *  appendStep() + transition() as work progresses.
+   *
+   *  origin_ring encodes the Three-Ring taxonomy (Toledo et al.
+   *  arXiv:2606.07119): 2 = deterministic strategies-based flow,
+   *  3 = LLM-originated decision. Ring-3 sagas auto-pause for human
+   *  approval in RollbackService regardless of cost_estimate. */
   open(opts: {
     orgId: string;
     kind: SagaKind;
     agent_id?: string | null;
     root_trace_id?: string | null;
     reason?: string | null;
+    origin_ring?: 2 | 3 | null;
   }): string {
     const id = randomUUID();
     this.db.prepare(
-      `INSERT INTO saga (id, org_id, kind, state, agent_id, root_trace_id, reason)
-       VALUES (?, ?, ?, 'STARTED', ?, ?, ?)`,
+      `INSERT INTO saga (id, org_id, kind, state, agent_id, root_trace_id, reason, origin_ring)
+       VALUES (?, ?, ?, 'STARTED', ?, ?, ?, ?)`,
     ).run(
       id, opts.orgId, opts.kind,
       opts.agent_id ?? null,
       opts.root_trace_id ?? null,
       opts.reason ?? null,
+      opts.origin_ring ?? null,
     );
     return id;
   }
@@ -160,12 +222,75 @@ export class SagaService {
       this.db.prepare(
         `UPDATE saga SET state = ?, completed_at = datetime('now') WHERE id = ?`,
       ).run(opts.to, opts.sagaId);
+    } else if (opts.to === 'EXECUTING' && row.state === 'PAUSED_FOR_APPROVAL') {
+      // Resume from pause — clear the paused_at/pause_reason so the
+      // cockpit approval queue drops this row.
+      this.db.prepare(
+        `UPDATE saga SET state = ?, pause_reason = NULL, paused_at = NULL WHERE id = ?`,
+      ).run(opts.to, opts.sagaId);
     } else {
       this.db.prepare(`UPDATE saga SET state = ? WHERE id = ?`).run(opts.to, opts.sagaId);
     }
   }
 
-  /** Append a step to the saga. Returns the new step id. */
+  /** Pause a saga pending human approval. Records the reason so the
+   *  cockpit approval queue can show *why* this rollback stopped. */
+  pauseForApproval(opts: { sagaId: string; orgId: string; reason: string }): void {
+    const row = this.db.prepare(
+      `SELECT state FROM saga WHERE id = ? AND org_id = ?`,
+    ).get(opts.sagaId, opts.orgId) as { state: SagaState } | undefined;
+    if (!row) throw new Error(`saga ${opts.sagaId} not found`);
+    if (!VALID_TRANSITIONS[row.state].includes('PAUSED_FOR_APPROVAL')) {
+      throw new Error(`cannot pause saga in state ${row.state}`);
+    }
+    this.db.prepare(
+      `UPDATE saga SET state = 'PAUSED_FOR_APPROVAL',
+                       pause_reason = ?,
+                       paused_at    = datetime('now')
+       WHERE id = ?`,
+    ).run(opts.reason, opts.sagaId);
+  }
+
+  /** Approve a paused saga — moves it back to EXECUTING and clears the
+   *  pause bookkeeping. Actor recorded as a saga_step so the audit
+   *  answers "who approved". */
+  approvePaused(opts: {
+    sagaId: string; orgId: string;
+    approver: string;
+  }): void {
+    this.transition({ sagaId: opts.sagaId, orgId: opts.orgId, to: 'EXECUTING' });
+    this.appendStep({
+      sagaId: opts.sagaId,
+      trace_id: 'approval',
+      outcome: 'no_op',
+      compensator_kind: `approval:${opts.approver}`,
+      duration_ms: 0,
+    });
+  }
+
+  /** Reject a paused saga — moves it to ABORTED and records the actor. */
+  rejectPaused(opts: {
+    sagaId: string; orgId: string;
+    approver: string;
+    reason?: string;
+  }): void {
+    // Same allowed transition path: PAUSED_FOR_APPROVAL → ABORTED
+    this.transition({ sagaId: opts.sagaId, orgId: opts.orgId, to: 'ABORTED' });
+    this.appendStep({
+      sagaId: opts.sagaId,
+      trace_id: 'rejection',
+      outcome: 'skipped',
+      compensator_kind: `rejection:${opts.approver}`,
+      duration_ms: 0,
+      error: opts.reason ?? null,
+    });
+  }
+
+  /** Append a step to the saga. Returns the new step id.
+   *
+   *  `depends_on` is an optional array of trace_ids this step depends
+   *  on — used by causal-DAG rollback planning. When absent, the
+   *  chain falls back to reverse-chronological order. */
   appendStep(opts: {
     sagaId: string;
     trace_id: string;
@@ -173,18 +298,24 @@ export class SagaService {
     compensator_kind: string;
     duration_ms: number;
     error?: string | null;
+    depends_on?: string[] | null;
   }): number {
     const sequence = this.db.prepare(
       `SELECT step_count FROM saga WHERE id = ?`,
     ).get(opts.sagaId) as { step_count: number } | undefined;
     const nextIdx = (sequence?.step_count ?? 0) + 1;
 
+    const dependsOnSerialised = opts.depends_on && opts.depends_on.length > 0
+      ? opts.depends_on.join(',')
+      : null;
+
     const r = this.db.prepare(
-      `INSERT INTO saga_step (saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO saga_step (saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, depends_on)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       opts.sagaId, nextIdx, opts.trace_id, opts.outcome,
       opts.compensator_kind, opts.duration_ms, opts.error ?? null,
+      dependsOnSerialised,
     );
 
     this.db.prepare(
@@ -196,7 +327,7 @@ export class SagaService {
   /** Fetch the saga record. */
   get(opts: { sagaId: string; orgId: string }): Saga | null {
     const row = this.db.prepare(
-      `SELECT id, org_id, kind, state, agent_id, root_trace_id, started_at, completed_at, step_count, reason
+      `SELECT id, org_id, kind, state, agent_id, root_trace_id, started_at, completed_at, step_count, reason, pause_reason, paused_at, origin_ring
          FROM saga WHERE id = ? AND org_id = ?`,
     ).get(opts.sagaId, opts.orgId) as any;
     return row ?? null;
@@ -207,7 +338,7 @@ export class SagaService {
     // Scope check: only return steps if the saga itself is in the org
     if (!this.get(opts)) return [];
     return this.db.prepare(
-      `SELECT id, saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, recorded_at
+      `SELECT id, saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, recorded_at, depends_on
          FROM saga_step WHERE saga_id = ? ORDER BY step_idx ASC`,
     ).all(opts.sagaId) as SagaStep[];
   }
@@ -232,7 +363,7 @@ export class SagaService {
     }
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
     return this.db.prepare(
-      `SELECT id, org_id, kind, state, agent_id, root_trace_id, started_at, completed_at, step_count, reason
+      `SELECT id, org_id, kind, state, agent_id, root_trace_id, started_at, completed_at, step_count, reason, pause_reason, paused_at, origin_ring
          FROM saga
         WHERE ${filters.join(' AND ')}
         ORDER BY started_at DESC

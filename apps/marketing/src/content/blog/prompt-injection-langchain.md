@@ -12,6 +12,21 @@ tags:
   - tool-calling
 answersQuery: "How do I prevent prompt injection attacks in my LangChain or LangGraph agents?"
 headlineStat: "Tool-call gateway defense reduces LangChain agent attack success rate from ~12% (prompt-only mitigations) to <1% (gateway + parameter taint)."
+oneSentenceAnswer: "The proven 2026 defense is a three-layer stack — input classifier at the prompt boundary, parameter-level taint propagation at the tool-call boundary, and deterministic policy at the action boundary — which drops LangChain attack success rate from about 12% under prompt-only mitigations to under 1%."
+coverImage: "1555066931-4365d14bab8c"
+keyTakeaways:
+  - "Tool-call gateway defense reduces LangChain agent attack success rate from ~12% to <1%."
+  - "Prompt-side mitigations (system prompts, delimiters) reduce ASR by maybe 30% — not a real defense."
+  - "Parameter-level taint propagation across LangGraph nodes blocks indirect injection that classifiers miss."
+  - "Bind sensitive tools (payment, email, file-write) to trusted-source-only taint at the gateway, not the prompt."
+  - "Audit every tool decision in tamper-evident storage so post-incident analysis is possible at all."
+howToDuration: "PT1H"
+howToSteps:
+  - "Add an input classifier at the prompt boundary to catch direct injection attempts before the LLM sees them."
+  - "Instrument LangGraph nodes with parameter-level taint labels so every tool argument carries its provenance."
+  - "Deploy a tool-call gateway in front of every LangChain tool binding; refuse untrusted taint on sensitive sinks."
+  - "Write policy rules for the payment, email, and file-write sinks that only accept trusted-source-only arguments."
+  - "Route every tool decision to a tamper-evident audit log so incident response has a full timeline."
 ---
 
 **Short answer**: LangChain and LangGraph agents are vulnerable to prompt injection in three distinct places — the user input, the retrieved context, and the tool outputs — and any defense focused on only one will miss the others. The proven defense stack in 2026 is (1) input classifier at the prompt boundary, (2) parameter-level taint propagation at the tool-call boundary, and (3) deterministic policy at the action boundary. This article walks through each layer with LangChain code.
@@ -178,7 +193,7 @@ MCP (Model Context Protocol) has become the dominant tool-spec format in 2026. A
 
 Both surface up as "tool output text in the agent's context." The defense is the same — tag tool outputs with `source: 'previous-tool'`, propagate the taint, and gate downstream sinks on it. AEGIS's MCP adapter does this automatically; if you build your own LangChain tool that wraps an MCP server, you need to apply the same `Tainted` wrapper to the response.
 
-## The most common implementation mistakes
+## What are the most common LangChain injection-defense mistakes?
 
 Five patterns we've seen fail in customer reviews:
 
@@ -190,7 +205,7 @@ Five patterns we've seen fail in customer reviews:
 
 The architectural answer: deterministic gateway + parameter taint. Everything else is defense-in-depth around that core.
 
-## Empirical results
+## What are the empirical results on real LangChain benchmarks?
 
 Internal benchmark on a corpus of 500 LangChain agents (mixed customer support / coding / data pipeline scenarios):
 

@@ -1,0 +1,357 @@
+---
+/**
+ * /blog/glossary — canonical definitions for every load-bearing term
+ * used across the AEGIS blog.
+ *
+ * Why this page exists (GEO-first design):
+ *  1. LLMs (Perplexity, ChatGPT, Gemini) preferentially cite pages
+ *     with `<dl>` markup + heading-anchored definitions.
+ *  2. Every article can link into an anchor here instead of
+ *     re-defining terms inline (`[ECE](/blog/glossary#ece)`).
+ *  3. The DefinedTerm + DefinedTermSet JSON-LD schema is a Google
+ *     rich-result surface that most competitors don't ship.
+ *
+ * Editorial rule: the definition is a SINGLE sentence, no longer than
+ * ~40 words. Everything else goes on the linked article.
+ */
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+interface Term {
+  slug: string;
+  term: string;
+  alt?: string[];               // alternative names / acronyms
+  definition: string;
+  seeAlso?: string;             // slug of related term
+  learnMore?: { title: string; href: string };
+}
+
+const groups: { name: string; anchor: string; terms: Term[] }[] = [
+  {
+    name: 'Agent safety',
+    anchor: 'agent-safety',
+    terms: [
+      { slug: 'agent-runtime-safety',   term: 'Agent runtime safety',
+        definition: 'The discipline of intercepting an AI agent\'s tool calls before they execute so a policy + anomaly + judge stack can decide allow, block, or escalate.',
+        learnMore: { title: 'What is AI agent runtime safety?', href: '/blog/what-is-ai-agent-runtime-safety' } },
+      { slug: 'prompt-injection',       term: 'Prompt injection',
+        definition: 'An attacker\'s malicious instruction placed directly in the user turn or system prompt that hijacks the model\'s subsequent tool calls.',
+        seeAlso: 'indirect-prompt-injection' },
+      { slug: 'indirect-prompt-injection', term: 'Indirect prompt injection', alt: ['IPI'],
+        definition: 'An attack that hides instructions inside content the agent later reads — a web page, email, retrieved document — so the payload runs when the agent processes tool output.',
+        learnMore: { title: 'Indirect prompt injection: 5 examples', href: '/blog/indirect-prompt-injection-examples' } },
+      { slug: 'taint-propagation',      term: 'Parameter-level taint propagation',
+        definition: 'Labelling every tool-call argument with its provenance and refusing sensitive sinks (payment, email, file-write) when any argument is untrusted; drops IPI ASR from 4.43% to 0.69% (IPIGuard).',
+        seeAlso: 'indirect-prompt-injection' },
+      { slug: 'tool-call',              term: 'Tool call',
+        definition: 'A structured request from the LLM to invoke a named external function — the atomic unit that runtime safety filters.' },
+      { slug: 'tool-call-gateway',      term: 'Tool-call gateway', alt: ['Agent firewall'],
+        definition: 'A policy-enforcement device between the agent (untrusted zone) and its tools (trusted zone) that applies rules, anomaly detection, and judge checks per call.' },
+      { slug: 'guard-model',            term: 'Guard model', alt: ['LLM judge'],
+        definition: 'An LLM asked to score whether a tool call is safe, returning a decision plus confidence; typically deployed as the last layer of a cascade.',
+        learnMore: { title: 'LLM judge calibration', href: '/blog/llm-judge-calibration' } },
+      { slug: 'behavioural-anomaly',    term: 'Behavioural anomaly detection',
+        definition: 'A per-agent statistical baseline that scores each tool call by distance from that agent\'s learned normal behaviour, catching drift the rules and judge both miss.' },
+      { slug: 'policy-dsl',             term: 'Policy DSL',
+        definition: 'A grammar-constrained rule language for allow / block / escalate decisions — deterministic, fast, and reviewable, unlike an LLM judge.' },
+      { slug: 'kill-switch',            term: 'Kill switch',
+        definition: 'A single operator control that revokes all of a compromised agent\'s access with immediate effect and an audited receipt.' },
+    ],
+  },
+  {
+    name: 'Calibration & measurement',
+    anchor: 'calibration',
+    terms: [
+      { slug: 'ece',                    term: 'Expected Calibration Error', alt: ['ECE'],
+        definition: 'The average gap between a model\'s stated confidence and its actual accuracy in each confidence bin; Guo et al. 2017 estimator, 10 bins is standard.',
+        learnMore: { title: 'LLM judge calibration', href: '/blog/llm-judge-calibration' } },
+      { slug: 'temperature-scaling',    term: 'Temperature scaling',
+        definition: 'A one-parameter post-hoc calibrator that divides pre-sigmoid logits by a learned scalar T, correcting systematic over/underconfidence without changing accuracy.' },
+      { slug: 'brier-score',            term: 'Brier score',
+        definition: 'Mean squared error between predicted probability and 0/1 outcome; a single scalar that captures both calibration and accuracy.' },
+      { slug: 'reliability-diagram',    term: 'Reliability diagram',
+        definition: 'A binned plot of predicted-vs-actual confidence, used to visualise where a model is over- or under-confident.' },
+      { slug: 'attack-success-rate',    term: 'Attack success rate', alt: ['ASR'],
+        definition: 'The fraction of attempted attacks that reach a sensitive sink in a benchmark; the primary quality metric for prompt-injection defences.' },
+    ],
+  },
+  {
+    name: 'Cryptographic audit',
+    anchor: 'cryptographic-audit',
+    terms: [
+      { slug: 'merkle-tree',            term: 'Merkle tree',
+        definition: 'A binary hash tree whose root commits to every leaf; changing any leaf changes the root, so append-only append gets you tamper-evidence with O(log n) proofs.' },
+      { slug: 'transparency-log',       term: 'Transparency log', alt: ['RFC 6962'],
+        definition: 'An append-only Merkle tree whose signed root is published so third parties can catch retroactive edits — the same standard browsers use for SSL certificate transparency.',
+        learnMore: { title: 'Cryptographic audit logs', href: '/blog/cryptographic-audit-logs-merkle-sigstore' } },
+      { slug: 'witness-cosignature',    term: 'Witness cosignature',
+        definition: 'Multiple independent signers cosign the same log root so the operator can\'t silently rewind the log; Sigstore pattern.',
+        seeAlso: 'transparency-log' },
+      { slug: 'inclusion-proof',        term: 'Inclusion proof',
+        definition: 'A short Merkle-path receipt proving a specific leaf is committed by a given root, verifiable offline in O(log n).' },
+      { slug: 'consistency-proof',      term: 'Consistency proof',
+        definition: 'A Merkle-path receipt proving one tree root is a valid append-only extension of another; detects any retroactive edit between the two.' },
+    ],
+  },
+  {
+    name: 'Compliance frameworks',
+    anchor: 'compliance',
+    terms: [
+      { slug: 'pci-dss',                term: 'PCI-DSS', alt: ['PCI-DSS v4.0'],
+        definition: 'Payment Card Industry Data Security Standard; Req 10 (tamper-evident logging) and Req 8 (per-agent access control) directly govern AI agents that touch cardholder data.',
+        learnMore: { title: 'Fintech AI agent compliance', href: '/blog/ai-agent-safety-fintech-pci-dss' } },
+      { slug: 'hipaa',                  term: 'HIPAA', alt: ['PHI', 'BAA'],
+        definition: 'US Health Insurance Portability and Accountability Act; Security Rule §164.312 has 5 implementation specs (2 required, 3 addressable) that all apply to agents automating PHI access.',
+        learnMore: { title: 'HIPAA-compliant AI agents', href: '/blog/hipaa-compliant-ai-agents' } },
+      { slug: 'soc2',                   term: 'SOC 2',
+        definition: 'AICPA Trust Services Criteria for security, availability, and confidentiality; CC6.1 / CC7.2 / CC8.1 cover most of a fintech AI agent security review.' },
+      { slug: 'fatf-travel-rule',       term: 'FATF Travel Rule', alt: ['Recommendation 16'],
+        definition: 'Financial Action Task Force rule requiring originator + beneficiary information on every VASP-to-VASP crypto transfer over $1,000.',
+        learnMore: { title: 'Stablecoin agent security', href: '/blog/stablecoin-agent-security-travel-rule' } },
+      { slug: 'eu-ai-act-14',           term: 'EU AI Act Article 14',
+        definition: 'Human-oversight and transparency requirements for high-risk AI systems; a counterfactual explainer plus tamper-evident audit log satisfies the decision-explainability clause.' },
+    ],
+  },
+  {
+    name: 'Rollback & delegated observability',
+    anchor: 'rollback',
+    terms: [
+      { slug: 'saga',                   term: 'Saga',
+        definition: 'A long-running transaction that either fully completes or triggers compensating actions to undo prior steps; Garcia-Molina 1987, applied here to multi-step agent rollback.' },
+      { slug: 'compensating-action',    term: 'Compensating action',
+        definition: 'The registered inverse of a tool call — a refund for a payment, a delete for a create — that a rollback service fires to undo an effect.' },
+      { slug: 'delegation-observability', term: 'Delegation-scoped observability',
+        definition: 'Binding a delegation_id at trace-ingest time so forensic queries ("what happened under delegation X") don\'t fall back on heuristic time-window correlation; Toledo et al. arXiv:2606.09692.' },
+      { slug: 'three-ring',             term: 'Three-Ring Architecture',
+        definition: 'A governance stack in which Ring 1 is production, Ring 2 is a deterministic strategies-based control plane, and Ring 3 is the non-deterministic LLM layer; Toledo et al. arXiv:2606.07119.' },
+      { slug: 'dlq',                    term: 'Dead-letter queue', alt: ['DLQ'],
+        definition: 'A holding queue for compensations that failed after all retries so an operator can review, retry, or dismiss instead of losing the failure into a log.' },
+    ],
+  },
+  {
+    name: 'Attack techniques',
+    anchor: 'attacks',
+    terms: [
+      { slug: 'jailbreak',              term: 'Jailbreak',
+        definition: 'An input crafted to bypass a model\'s safety training and elicit a policy-violating response; typically evaluated as an adversarial-robustness metric.' },
+      { slug: 'data-exfiltration',      term: 'Data exfiltration',
+        definition: 'Movement of sensitive data (PII, secrets, PHI) out of a trusted zone via an authorised tool call; runtime safety catches this at the sink.' },
+      { slug: 'obfuscation',            term: 'Payload obfuscation',
+        definition: 'Encoding a malicious payload (base64, hex, unicode homoglyphs) so token-level classifiers miss it while the model still decodes it downstream.' },
+    ],
+  },
+];
+
+// Flat list for DefinedTermSet JSON-LD
+const allTerms = groups.flatMap(g => g.terms);
+
+const url = 'https://aegistraces.com/blog/glossary';
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type':    'DefinedTermSet',
+  '@id':      url,
+  url,
+  name: 'AEGIS Glossary — AI agent runtime safety',
+  description: 'Canonical, single-sentence definitions for every load-bearing term used across the AEGIS blog: agent safety, calibration, cryptographic audit, compliance, rollback, and attack techniques.',
+  hasDefinedTerm: allTerms.map(t => ({
+    '@type': 'DefinedTerm',
+    '@id':   `${url}#${t.slug}`,
+    url:     `${url}#${t.slug}`,
+    name:    t.term,
+    alternateName: t.alt,
+    description:   t.definition,
+    inDefinedTermSet: url,
+  })),
+};
+
+const breadcrumbLd = {
+  '@context': 'https://schema.org',
+  '@type':    'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home',     item: 'https://aegistraces.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Blog',     item: 'https://aegistraces.com/blog' },
+    { '@type': 'ListItem', position: 3, name: 'Glossary', item: url },
+  ],
+};
+---
+
+<Layout
+  title="AI Agent Safety Glossary — AEGIS"
+  description="Canonical definitions for every term used across the AEGIS blog: ECE, taint propagation, Merkle transparency logs, saga rollback, FATF Travel Rule, and more."
+>
+  <Header current="blog" />
+
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)}></script>
+
+  <main class="glossary">
+    <section class="head">
+      <div class="container container-narrow">
+        <p class="eyebrow"><a href="/blog">Blog</a> · Glossary</p>
+        <h1>Glossary.</h1>
+        <p class="lede">
+          Single-sentence definitions for every load-bearing term used
+          across the AEGIS blog. Deep-linkable — every entry has a
+          stable anchor other pages can point at.
+        </p>
+
+        <nav class="jump" aria-label="Section jump">
+          {groups.map(g => (
+            <a href={`#${g.anchor}`}>{g.name}</a>
+          ))}
+        </nav>
+      </div>
+    </section>
+
+    <section class="body">
+      <div class="container container-narrow">
+        {groups.map(g => (
+          <section class="group">
+            <h2 id={g.anchor}>{g.name}</h2>
+            <dl>
+              {g.terms.map(t => (
+                <div class="term" id={t.slug}>
+                  <dt>
+                    <span class="dt-name">{t.term}</span>
+                    {t.alt && t.alt.length > 0 && (
+                      <span class="dt-alt">
+                        · also: {t.alt.join(', ')}
+                      </span>
+                    )}
+                  </dt>
+                  <dd>
+                    <p>{t.definition}</p>
+                    {(t.learnMore || t.seeAlso) && (
+                      <p class="dd-meta">
+                        {t.learnMore && (
+                          <a href={t.learnMore.href}>Read more → {t.learnMore.title}</a>
+                        )}
+                        {t.seeAlso && (
+                          <a href={`#${t.seeAlso}`}>See also ↑</a>
+                        )}
+                      </p>
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+
+        <p class="citation-note">
+          Missing a term? Email
+          <a href="mailto:aojieyuan04@gmail.com">aojieyuan04@gmail.com</a>
+          with the phrase you\'d like defined and the article you saw it in.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+
+  <style>
+    .head { padding: 5rem 0 1rem; }
+    .eyebrow {
+      font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-weight: 500; margin: 0 0 0.5rem;
+    }
+    .eyebrow a { color: var(--text); text-decoration: none; }
+    .eyebrow a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .head h1 {
+      font-family: var(--font-serif);
+      font-size: 2.6rem;
+      letter-spacing: -0.02em;
+      margin: 0 0 1rem;
+    }
+    .lede {
+      max-width: 62ch; color: var(--muted); font-size: 1.06rem;
+      margin: 0.8rem 0 1.4rem;
+    }
+    .jump {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .jump a {
+      font-size: 0.82rem;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--hairline);
+      text-decoration: none;
+    }
+    .jump a:hover { background: var(--surface); border-color: var(--text); }
+
+    .body { padding: 2rem 0 6rem; }
+    .group { margin: 2.4rem 0; }
+    .group h2 {
+      font-family: var(--font-serif);
+      font-size: 1.6rem;
+      letter-spacing: -0.01em;
+      margin: 0 0 1rem;
+      scroll-margin-top: 5rem;
+    }
+
+    dl { margin: 0; }
+    .term {
+      padding: 1rem 0 1.1rem;
+      border-top: 1px solid var(--hairline);
+      scroll-margin-top: 5rem;
+    }
+    .term:last-child { border-bottom: 1px solid var(--hairline); }
+    dt {
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.005em;
+    }
+    .dt-name { font-family: inherit; }
+    .dt-alt {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 400;
+      margin-left: 0.4rem;
+      font-family: ui-monospace, monospace;
+    }
+    dd {
+      margin: 0;
+      color: var(--text);
+    }
+    dd p {
+      margin: 0 0 0.4rem;
+      font-size: 0.98rem;
+      line-height: 1.6;
+      max-width: 72ch;
+    }
+    .dd-meta {
+      margin-top: 0.35rem;
+      font-size: 0.86rem;
+    }
+    .dd-meta a {
+      color: var(--muted);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 3px;
+      margin-right: 1.2rem;
+    }
+    .dd-meta a:hover {
+      color: var(--text);
+      text-decoration-color: var(--accent, #6b7e7f);
+    }
+
+    .citation-note {
+      margin-top: 3rem;
+      padding: 1rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+    .citation-note a { color: var(--text); }
+  </style>
+</Layout>

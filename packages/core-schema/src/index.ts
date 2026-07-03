@@ -61,10 +61,20 @@ export const SafetyValidationSchema = z.object({
   risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
 });
 
+/**
+ * Delegation identifiers are opaque strings bound by the SDK's
+ * delegation scope stack (Toledo et al. arXiv:2606.09692). Kept as
+ * plain strings — not UUIDs — because operators want to use
+ * meaningful ids like "user-request-42" or "ticket:INC-98123".
+ */
+const DelegationIdSchema = z.string().min(1).max(128).regex(/^[A-Za-z0-9._:\-]+$/);
+
 // Main trace schema
 export const AgentActionTraceSchema = z.object({
   trace_id: TraceIdSchema,
   parent_trace_id: TraceIdSchema.nullable().optional(),
+  delegation_id: DelegationIdSchema.nullable().optional(),
+  parent_delegation_id: DelegationIdSchema.nullable().optional(),
   agent_id: AgentIdSchema,
   timestamp: TimestampSchema,
   sequence_number: z.number().int().nonnegative(),

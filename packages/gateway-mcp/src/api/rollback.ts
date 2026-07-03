@@ -24,6 +24,8 @@ const RollbackBodySchema = z.object({
   reason: z.string().max(500).optional(),
   force_correction: z.boolean().optional(),
   dry_run: z.boolean().optional(),
+  pre_approved: z.boolean().optional(),
+  origin_ring: z.union([z.literal(2), z.literal(3)]).optional(),
 }).strict();
 
 const ChainBodySchema = z.object({
@@ -33,6 +35,21 @@ const ChainBodySchema = z.object({
   reason: z.string().max(500).optional(),
   force_correction: z.boolean().optional(),
   dry_run: z.boolean().optional(),
+  pre_approved: z.boolean().optional(),
+  origin_ring: z.union([z.literal(2), z.literal(3)]).optional(),
+}).strict();
+
+/**
+ * Body for POST /rollback/delegation/:id — undo every action performed
+ * under a single delegation. See RollbackService.rollbackDelegation().
+ */
+const DelegationBodySchema = z.object({
+  max: z.number().int().positive().max(2000).optional(),
+  reason: z.string().max(500).optional(),
+  force_correction: z.boolean().optional(),
+  dry_run: z.boolean().optional(),
+  pre_approved: z.boolean().optional(),
+  origin_ring: z.union([z.literal(2), z.literal(3)]).optional(),
 }).strict();
 
 function orgIdOf(req: Request): string {
@@ -63,8 +80,11 @@ export class RollbackAPI {
   private registerRoutes(): void {
     // Static prefixes FIRST so Express doesn't match them as trace_ids.
     this.router.post('/chain', this.chain.bind(this));
+    this.router.post('/delegation/:id', this.delegation.bind(this));
     this.router.get('/sagas', this.listSagas.bind(this));
     this.router.get('/sagas/:id', this.getSaga.bind(this));
+    this.router.post('/sagas/:id/approve', this.approveSaga.bind(this));
+    this.router.post('/sagas/:id/reject', this.rejectSaga.bind(this));
     this.router.get('/metrics', this.metricsHandler.bind(this));
     this.router.get('/metrics.json', this.metricsJsonHandler.bind(this));
     this.router.get('/dlq', this.listDlq.bind(this));
@@ -74,6 +94,71 @@ export class RollbackAPI {
     this.router.post('/dlq/:id/dismiss', this.dismissDlq.bind(this));
     this.router.get('/:trace_id/preview', this.preview.bind(this));
     this.router.post('/:trace_id', this.single.bind(this));
+  }
+
+  /**
+   * POST /rollback/delegation/:id — undo every trace under a
+   * delegation (arXiv:2606.09692).
+   */
+  private async delegation(req: Request, res: Response): Promise<void> {
+    const parsed = DelegationBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid body', issues: parsed.error.issues });
+      return;
+    }
+    const id = String(req.params.id ?? '').trim();
+    if (!id || !/^[A-Za-z0-9._:-]{1,128}$/.test(id)) {
+      res.status(400).json({ error: 'invalid delegation id' });
+      return;
+    }
+    try {
+      const result = await this.svc.rollbackDelegation({
+        orgId: orgIdOf(req),
+        delegation_id: id,
+        actor: actorOf(req),
+        ...parsed.data,
+      });
+      res.json(result);
+    } catch (err: any) {
+      this.logger.error({ err: err?.message, delegation_id: id }, 'delegation rollback failed');
+      res.status(500).json({ error: err?.message ?? 'internal error' });
+    }
+  }
+
+  /** POST /rollback/sagas/:id/approve — resume a PAUSED_FOR_APPROVAL saga. */
+  private async approveSaga(req: Request, res: Response): Promise<void> {
+    if (!this.sagas) { res.status(503).json({ error: 'saga service not wired' }); return; }
+    const orgId = orgIdOf(req);
+    const sagaId = req.params.id;
+    const actor = actorOf(req);
+    try {
+      this.sagas.approvePaused({
+        orgId, sagaId,
+        approver: actor.user_email ?? actor.user_id ?? 'unknown',
+      });
+      res.json({ ok: true, saga_id: sagaId, state: 'EXECUTING' });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message ?? 'approve failed' });
+    }
+  }
+
+  /** POST /rollback/sagas/:id/reject — abort a PAUSED_FOR_APPROVAL saga. */
+  private async rejectSaga(req: Request, res: Response): Promise<void> {
+    if (!this.sagas) { res.status(503).json({ error: 'saga service not wired' }); return; }
+    const orgId = orgIdOf(req);
+    const sagaId = req.params.id;
+    const actor = actorOf(req);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : undefined;
+    try {
+      this.sagas.rejectPaused({
+        orgId, sagaId,
+        approver: actor.user_email ?? actor.user_id ?? 'unknown',
+        reason,
+      });
+      res.json({ ok: true, saga_id: sagaId, state: 'ABORTED' });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message ?? 'reject failed' });
+    }
   }
 
   private listSagas(req: Request, res: Response): void {
@@ -218,6 +303,8 @@ export class RollbackAPI {
         reason:   parsed.data.reason,
         force_correction: parsed.data.force_correction,
         dry_run: parsed.data.dry_run,
+        pre_approved: parsed.data.pre_approved,
+        origin_ring: parsed.data.origin_ring,
         actor: actorOf(req),
       });
       res.status(out.aborted_at ? 207 : 200).json(out);

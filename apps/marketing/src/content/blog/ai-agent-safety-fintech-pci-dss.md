@@ -12,6 +12,13 @@ tags:
   - agent-safety
 answersQuery: "What PCI-DSS and SOC 2 requirements apply to AI agents that handle payments?"
 headlineStat: "PCI-DSS v4.0 Req 10 (logging) + Req 8 (access control) + SOC 2 CC6.1/CC7.2/CC8.1 cover ~80% of what a fintech AI agent compliance review will ask for."
+oneSentenceAnswer: "Fintech AI agents that touch cardholder data must satisfy PCI-DSS v4.0 Req 10 (tamper-evident logging), Req 8 (per-agent access control), and SOC 2 CC6.1 / CC7.2 / CC8.1, together covering about 80% of what a compliance review will ask for; tokenise cardholder data at the gateway to keep PCI scope tight."
+coverImage: "1611974789855-9c2a0a7236a3"
+keyTakeaways:
+  - "PCI-DSS v4.0 Req 10 (logging) and Req 8 (access control) apply to every agent tool call that touches cardholder data."
+  - "SOC 2 CC6.1 / CC7.2 / CC8.1 cover ~80% of what a fintech AI agent compliance review will ask for."
+  - "The audit log must be tamper-evident; plain Postgres rows fail Req 10.5 under v4.0."
+  - "Tokenise cardholder data at the gateway, not in the LLM prompt, to keep PCI scope tight."
 ---
 
 **Short answer**: a fintech AI agent that touches cardholder data or initiates transfers must satisfy specific clauses of PCI-DSS v4.0 (logging, access control, change management) and SOC 2 Type II (security, availability, confidentiality). The hard part isn't finding the requirements — it's producing the evidence that maps each tool call to a controlled, auditable, policy-gated action. This article maps the requirements to concrete enforcement patterns and shows what evidence a reviewer accepts.
@@ -40,7 +47,7 @@ The requirements that hit AI agents the hardest:
 
 The big shift in PCI v4.0 (effective March 2025) is the explicit requirement for **automated testing** and **continuous control validation** — exactly what an AI agent firewall enables.
 
-## How AEGIS maps to each requirement
+## How does AEGIS map to each PCI-DSS + SOC 2 requirement?
 
 ### Req 7 — Need-to-know access
 
@@ -144,7 +151,7 @@ Walk through what a SOC 2 Type II audit feels like for a fintech using AEGIS:
 
 Each step is **evidence**, not testimony. That's the difference between "we have audit logs" (which everyone says) and "we have *verifiable* audit logs" (which is what compliance buyers actually want).
 
-## Concrete checklist — the items reviewers always ask for
+## What concrete evidence do fintech reviewers always ask for?
 
 If you're preparing for either certification:
 

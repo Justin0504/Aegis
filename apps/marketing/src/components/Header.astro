@@ -1,6 +1,6 @@
 ---
 interface Props {
-  current?: 'home' | 'pricing' | 'docs' | 'security' | 'blog' | 'demo';
+  current?: 'home' | 'pricing' | 'docs' | 'security' | 'blog' | 'demo' | 'contact';
 }
 const { current } = Astro.props;
 ---
@@ -16,6 +16,7 @@ const { current } = Astro.props;
       <a href="/blog"     class:list={[{ active: current === 'blog' }]}>Blog</a>
       <a href="/docs"     class:list={[{ active: current === 'docs' }]}>Docs</a>
       <a href="/security" class:list={[{ active: current === 'security' }]}>Security</a>
+      <a href="/contact"  class:list={[{ active: current === 'contact'  }]}>Contact</a>
       <a href="https://github.com/Justin0504/Aegis" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <div class="cta">
@@ -31,6 +32,39 @@ const { current } = Astro.props;
       top: 0;
       background: var(--bg);
       z-index: 50;
+      /* Scroll-driven backdrop-blur — nav softens the content behind
+         it once the page has scrolled past ~48px. Pure CSS via
+         `animation-timeline: scroll()` (Chrome 115+, Safari 26+).
+         @supports gate keeps older browsers on the flat bg. */
+      transition: box-shadow 0.25s ease;
+    }
+    @supports (animation-timeline: scroll()) {
+      .site-header {
+        background: color-mix(in oklab, var(--bg) 82%, transparent);
+        -webkit-backdrop-filter: saturate(1.1) blur(10px);
+                backdrop-filter: saturate(1.1) blur(10px);
+        animation: header-scrolled linear both;
+        animation-timeline: scroll(root);
+        animation-range: 0 96px;
+      }
+      @keyframes header-scrolled {
+        from {
+          background: var(--bg);
+          box-shadow: 0 0 0 rgba(10, 10, 10, 0);
+        }
+        to {
+          background: color-mix(in oklab, var(--bg) 72%, transparent);
+          box-shadow: 0 1px 0 var(--hairline), 0 8px 22px rgba(10, 10, 10, 0.05);
+        }
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .site-header {
+        animation: none !important;
+        -webkit-backdrop-filter: none;
+                backdrop-filter: none;
+        background: var(--bg);
+      }
     }
     .header-inner {
       display: flex;

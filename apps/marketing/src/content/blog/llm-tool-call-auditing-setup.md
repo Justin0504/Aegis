@@ -12,6 +12,21 @@ tags:
   - structured-logging
 answersQuery: "How do I set up production-grade audit logging for my LLM agent's tool calls?"
 headlineStat: "Median time to implement minimal tool-call auditing in AEGIS: 27 minutes (docker compose + 2 env vars). Median time to satisfy a SOC 2 auditor: 1 day."
+oneSentenceAnswer: "A production-grade tool-call audit setup ships in about 30 minutes and satisfies four properties — structured JSON events, complete coverage per attempt, contextualised links from prompt to result, and tamper-evidence via append-only storage with Merkle anchoring."
+coverImage: "1558494949-ef010cbdcc31"
+keyTakeaways:
+  - "Plain Postgres rows fail tamper-evidence in any serious compliance review — use append-only storage with hashing."
+  - "OpenTelemetry GenAI semantic conventions give you a vendor-neutral schema for tool call events."
+  - "Retention: 1 year minimum for SOC 2; 6 years for HIPAA. Align it once, write it down."
+  - "Median time to ship a working tool-call audit pipeline in AEGIS: 27 minutes (docker compose + 2 env vars)."
+  - "Add Merkle anchoring once the basic pipeline is green — ship the simple version first."
+howToDuration: "PT30M"
+howToSteps:
+  - "Bring up the AEGIS gateway with docker compose (sqlite backend is fine for the first pipeline)."
+  - "Install the language SDK (Python or TypeScript) and point AEGIS_GATEWAY_URL at your gateway."
+  - "Emit one tool call trace per agent decision using the SDK's structured event schema (OpenTelemetry GenAI semantic conventions)."
+  - "Configure retention aligned to your compliance target (1 year for SOC 2, 6 years for HIPAA)."
+  - "Verify tamper-evidence by running the offline verifier CLI against the transparency log."
 ---
 
 **Short answer**: a production-grade tool-call audit setup needs four properties — *structured* (machine-queryable JSON, not free-text), *complete* (every call, every retry, every error), *contextualised* (links input prompt → tool call → result), and *tamper-evident* (an attacker who breaches your DB can't quietly rewrite the past). This article walks through the 30-minute setup that satisfies all four, the schema, the retention strategy, and how it composes with OpenTelemetry.
@@ -177,7 +192,7 @@ The answer with AEGIS:
 
 Hashes go everywhere. Raw values only land in your private (typically encrypted) DB. OTel attributes are deliberately the bare minimum needed for ops — enough to trace performance issues but not enough to leak customer data into a logging vendor.
 
-## Common failure modes (and how AEGIS handles them)
+## What are the common tool-call auditing failure modes (and how does AEGIS handle each)?
 
 A short list of things production agents do that bad audit setups miss:
 

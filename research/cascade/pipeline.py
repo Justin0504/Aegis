@@ -37,6 +37,11 @@ try:
 except ImportError:  # pragma: no cover
     L2XGBoost = None  # type: ignore
 
+try:
+    from .temperature_scaling import TemperatureScaler
+except ImportError:  # pragma: no cover
+    TemperatureScaler = None  # type: ignore
+
 
 @dataclass
 class CascadeThresholds:
@@ -76,6 +81,7 @@ class CascadePipeline(Baseline):
         xgb_max_depth: int = 6,
         xgb_learning_rate: float = 0.1,
         random_state: int = 0,
+        l3_scaler: "TemperatureScaler | None" = None,
     ):
         self.l1 = l1
         self.l3 = l3
@@ -84,6 +90,7 @@ class CascadePipeline(Baseline):
         self.use_l2 = use_l2
         self.use_l3 = use_l3
         self.l2_mode = l2_mode
+        self.l3_scaler = l3_scaler
         self._if = None
         self._xgb = None
         self._fitted = False
@@ -228,11 +235,23 @@ class CascadePipeline(Baseline):
         if self.use_l3 and self.l3 is not None:
             p3 = self.l3.predict(record)
             cost += p3.cost_usd or 0.0
-            rationale_parts.append(f"L3={p3.decision.value}:{(p3.rationale or '')[:80]}")
+            raw_risk = p3.risk_score or l2_score or 0.0
+            # Guo et al. 2017 temperature scaling — corrects the ~26–29%
+            # ECE we measured on gpt-4o-mini / claude-haiku-4-5. Without
+            # this, downstream thresholding is theatre.
+            if self.l3_scaler is not None:
+                cal_risk = self.l3_scaler.calibrate_scalar(raw_risk)
+                rationale_parts.append(
+                    f"L3={p3.decision.value}:raw={raw_risk:.3f}:cal={cal_risk:.3f}:{(p3.rationale or '')[:60]}"
+                )
+                risk_out = cal_risk
+            else:
+                rationale_parts.append(f"L3={p3.decision.value}:{(p3.rationale or '')[:80]}")
+                risk_out = raw_risk
             return Prediction(
                 record_id=record.id,
                 decision=p3.decision,
-                risk_score=p3.risk_score or l2_score or 0.0,
+                risk_score=risk_out,
                 latency_ms=(time.perf_counter() - t0) * 1000,
                 cost_usd=cost,
                 layer_fired="L3",

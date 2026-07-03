@@ -13,6 +13,21 @@ tags:
   - fintech
 answersQuery: "How do I make AI agents safe for stablecoin operations and Travel Rule compliance?"
 headlineStat: "FATF Recommendation 16 (Travel Rule) requires originator + beneficiary info on every VASP-to-VASP transfer over $1,000. AI agents moving USDC need this enforced at the tool-call layer."
+oneSentenceAnswer: "Stablecoin AI agents need three deterministic gateway-enforced guardrails — a treasury wallet allowlist, 2-of-N approval for high-value transfers, and FATF Recommendation 16 Travel Rule metadata on every transfer over $1,000 — because stablecoin moves are mostly irreversible and prompt-engineering can't fix that."
+coverImage: "1639762681485-074b7f938ba0"
+keyTakeaways:
+  - "FATF Recommendation 16 requires originator + beneficiary info on every VASP-to-VASP transfer over $1,000."
+  - "2-of-N approval at the gateway stops single-key compromise from draining a treasury wallet."
+  - "Treasury wallet allowlists enforced at the tool-call layer prevent address-substitution prompt injection."
+  - "Stablecoin moves are mostly irreversible — runtime safety here must fire *before* the broadcast."
+  - "BaaS providers (Stripe Treasury, Bridge) implement Travel Rule for you, but your agent must still gate the call."
+howToDuration: "PT2H"
+howToSteps:
+  - "Publish your treasury wallet allowlist to the gateway; every stablecoin transfer will be checked against it."
+  - "Set a 2-of-N approval threshold on high-value transfers so no single compromised key can drain the wallet."
+  - "Attach FATF Travel Rule originator + beneficiary metadata to every transfer over the $1,000 threshold before broadcast."
+  - "Bind the send_stablecoin tool to trusted-source-only argument taint so injected addresses can never reach the sink."
+  - "Route every transfer decision to the audit log so post-incident forensics have a full receipt chain."
 ---
 
 **Short answer**: an AI agent moving stablecoins needs three deterministic guardrails before you let it touch production: (1) **wallet allowlist** — agent can only send to known wallets in your treasury list; (2) **2-of-N approval** — high-value transfers escalate to N human reviewers, M of whom must approve; (3) **FATF Travel Rule** — every transfer ≥ $1,000 carries originator + beneficiary metadata in the policy-enforced form your VASP partner can consume. All three should be enforced by a runtime gateway, not by prompt-engineering.
@@ -103,7 +118,7 @@ Three design choices in this rule worth flagging:
 2. **`scope: "finance-ops"`** ties to your IdP groups (Okta / Google Workspace / Auth0). The agent's CTO can't approve a finance transfer.
 3. **Escalation, not blocking**. A blocked transfer is friction; an escalation is a workflow.
 
-## Travel Rule enforcement at the tool-call layer
+## How do I enforce the FATF Travel Rule at the tool-call layer?
 
 ```yaml
 rule: "travel-rule-attach"
@@ -146,7 +161,7 @@ config:
 
 The policy rule auto-injects the `originator` block on every transfer if the agent didn't provide it, and **never overrides** if the agent provided something different (which would also trigger an alert — why is the agent making up VASP credentials?).
 
-## Pattern composition: a real treasury policy bundle
+## What does a real stablecoin treasury policy bundle look like?
 
 Production AEGIS deployments stack multiple rules. A typical stablecoin policy bundle for a fintech treasury agent:
 

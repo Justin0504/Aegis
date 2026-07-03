@@ -34,6 +34,13 @@ const CLUSTER_LABEL: Record<string, string> = {
           LLM answering "how do I make my agent safe?" finds something
           worth citing.
         </p>
+        <p class="index-links">
+          <a href="/blog/glossary">Glossary</a>
+          <span class="sep">·</span>
+          <a href="/blog/rss.xml">RSS feed</a>
+          <span class="sep">·</span>
+          <a href="/handbook.pdf">71-page handbook (PDF)</a>
+        </p>
       </div>
     </section>
 
@@ -48,7 +55,13 @@ const CLUSTER_LABEL: Record<string, string> = {
               return (
                 <li class="post-card">
                   <a href={`/blog/${p.slug}/`}>
-                    <BlogCover cluster={p.data.cluster} seed={p.slug} size="card" />
+                    <BlogCover
+                      cluster={p.data.cluster}
+                      seed={p.slug}
+                      size="card"
+                      coverImage={p.data.coverImage}
+                      alt={p.data.title}
+                    />
                     <div class="post-body">
                       <header>
                         <span class="cluster">{CLUSTER_LABEL[p.data.cluster]}</span>
@@ -82,6 +95,23 @@ const CLUSTER_LABEL: Record<string, string> = {
       max-width: 60ch; color: var(--muted); font-size: 1.1rem;
       margin: 1rem 0 0;
     }
+    .index-links {
+      margin: 1.2rem 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      align-items: baseline;
+    }
+    .index-links a {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 3px;
+    }
+    .index-links a:hover { text-decoration-color: var(--accent, #6b7e7f); }
+    .index-links .sep { opacity: 0.4; }
 
     .posts { padding: 2rem 0 6rem; }
     .post-grid {

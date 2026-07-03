@@ -13,6 +13,14 @@ tags:
   - measurement
 answersQuery: "Why are LLM guard models overconfident, and how do I measure it?"
 headlineStat: "gpt-4o-mini overall ECE 26.5% · claude-haiku-4-5 overall ECE 29.2% · neither is well-calibrated"
+oneSentenceAnswer: "LLM guard models are overconfident by 20 to 30 percentage points on borderline and jailbreak cases; measure it with the Guo et al. 2017 binning ECE estimator (gpt-4o-mini scored 26.5% overall ECE, claude-haiku-4-5 scored 29.2%), then fix with post-hoc temperature scaling before your confidence thresholds become theatre."
+coverImage: "1551288049-bebda4e38f71"
+keyTakeaways:
+  - "Calibration is distinct from accuracy. A 95% accurate judge can still mislead a threshold-based gate."
+  - "Measured Expected Calibration Error: gpt-4o-mini 26.5%, claude-haiku-4-5 29.2% — both severely miscalibrated."
+  - "Per-category ECE explodes on borderline and jailbreak cases (60–89%): models are most confident when wrong."
+  - "Temperature scaling reduces ECE by ~40% on the same data; do this before trusting any confidence threshold."
+  - "Anyone gating production AI agents on judge confidence should publish ECE, not just accuracy."
 ---
 
 **Short answer**: every LLM-as-a-judge we've measured is overconfident, often by 20–30 percentage points, and the gap is *worst exactly when it matters most* — under jailbreak, indirect prompt injection, and borderline policy calls. Anyone gating production AI agents on a guard model's confidence score needs to publish their Expected Calibration Error (ECE), not just their accuracy.

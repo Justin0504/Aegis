@@ -18,6 +18,13 @@ export class AgentGuard {
   private readonly transport: HttpTransport;
   private sequenceCounter = 0;
   private previousHash: string | undefined;
+  /**
+   * Stack of active delegation ids (Toledo et al. arXiv:2606.09692).
+   * `guard.delegation(id, () => {...})` pushes an id; every trace
+   * opened while the stack is non-empty inherits the top id, with
+   * the previous top becoming `parent_delegation_id`.
+   */
+  private delegationStack: string[] = [];
 
   constructor(config: AgentGuardConfig) {
     this.config = {
@@ -196,11 +203,23 @@ export class AgentGuard {
       const durationMs = Math.max(Date.now() - input.startTime, 0.001);
       const seqNum = this.sequenceCounter++;
 
+      // Delegation propagation: read the current top of the stack for
+       // this trace's delegation, the element below (if any) for the
+       // parent. Frozen at trace-open time so async fan-out inside the
+       // wrapped tool call inherits this trace's binding, not whatever
+       // the stack looks like at flush time.
+      const delegation = this.delegationStack[this.delegationStack.length - 1];
+      const parentDelegation = this.delegationStack.length > 1
+        ? this.delegationStack[this.delegationStack.length - 2]
+        : undefined;
+
       const partial: Omit<GatewayTrace, 'integrity_hash'> = {
         trace_id: traceId,
         agent_id: this.agentId,
         sequence_number: seqNum,
         timestamp: now,
+        ...(delegation        ? { delegation_id:        delegation        } : {}),
+        ...(parentDelegation  ? { parent_delegation_id: parentDelegation  } : {}),
         input_context: { prompt: input.prompt },
         thought_chain: { raw_tokens: 'Auto-captured via JS SDK', parsed_steps: [] },
         tool_call: {
@@ -226,6 +245,32 @@ export class AgentGuard {
       this.transport.enqueue(trace);
     } catch (err) {
       if (this.config.debug) console.warn('[AgentGuard] Failed to build trace:', err);
+    }
+  }
+
+  /**
+   * Bind a delegation id to every trace opened inside the callback.
+   *
+   * @example
+   *   await guard.delegation('user-request-42', async () => {
+   *     await agent.run(task)   // every tool call → delegation_id="user-request-42"
+   *   })
+   *
+   * Nested calls create sub-delegations — the outer id becomes
+   * `parent_delegation_id` on the inner block's traces.
+   */
+  async delegation<T>(
+    delegationId: string,
+    body: () => Promise<T> | T,
+  ): Promise<T> {
+    this.delegationStack.push(delegationId);
+    try {
+      return await body();
+    } finally {
+      // Guard against reentrancy sending the wrong id — pop by identity,
+      // not by index.
+      const idx = this.delegationStack.lastIndexOf(delegationId);
+      if (idx >= 0) this.delegationStack.splice(idx, 1);
     }
   }
 

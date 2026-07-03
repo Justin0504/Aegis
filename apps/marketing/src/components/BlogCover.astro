@@ -2,31 +2,29 @@
 /**
  * BlogCover.astro
  *
- * Per-post SVG cover image. Deliberately *not* a Topify-style AI-stock
- * illustration — those look generic and degrade brand trust. Instead
- * we render one of N geometric / data-viz patterns matching the
- * article's cluster, with the painted-canvas palette consistent with
- * the rest of the AEGIS site.
+ * Renders the cover for a blog post.
  *
- * Rendered both as the inline hero on the article page and as the
- * thumbnail on /blog (same SVG, different size).
+ *  - If `coverImage` (an Unsplash photo ID) is provided, render the
+ *    real photograph at the 16:9 Open Graph aspect ratio.
+ *  - Otherwise, fall back to a deterministic SVG generated from the
+ *    article cluster + slug seed (no broken-image state ever).
  *
- * Add a new pattern by adding a case to the switch in <svg>.
+ * The SVG generator is preserved verbatim so existing articles
+ * without a coverImage keep their hand-painted look.
  */
 
 interface Props {
-  /** Same enum as content collection. */
   cluster: 'agent-safety' | 'verticals' | 'comparison' | 'deep-dive';
-  /** Article slug — used to seed the per-pattern variations (so the
-   *  same article always gets the same cover). */
   seed: string;
-  /** "card" = thumbnail size, "hero" = full-width article header. */
   size?: 'card' | 'hero';
-  /** Optional headline overlay (just for hero use). */
   caption?: string;
+  /** Unsplash photo ID — the part after "photo-" in the URL. */
+  coverImage?: string;
+  /** Used as the alt text when coverImage is set. */
+  alt?: string;
 }
 
-const { cluster, seed, size = 'card', caption } = Astro.props;
+const { cluster, seed, size = 'card', caption, coverImage, alt } = Astro.props;
 
 // Deterministic per-seed value in [0, 1)
 function hash01(s: string): number {
@@ -43,7 +41,6 @@ const r = hash01(seed);
 const r2 = hash01(seed + ':2');
 const r3 = hash01(seed + ':3');
 
-// Painted-canvas palette — matches the bento + hero animation.
 const PALETTES = {
   'deep-dive':    ['#A4B3A0', '#E8DDC4', '#B7C8C9', '#D4B5A8', '#7B8B7E'],
   'agent-safety': ['#D4B5A8', '#E8DDC4', '#A4B3A0', '#B7C8C9', '#8B6F60'],
@@ -51,174 +48,177 @@ const PALETTES = {
   'comparison':   ['#E8DDC4', '#A4B3A0', '#B7C8C9', '#D4B5A8', '#7C7456'],
 };
 const palette = PALETTES[cluster];
-
-// Pick a primary stroke colour from the darker end of the palette.
 const stroke = palette[4];
 
-// Dimensions — viewBox is always 1200x675 (16:9 Open Graph standard).
-// CSS scales it to whatever container needs.
+// Unsplash CDN — w/h enforce the 16:9 OG ratio, q=80 keeps under 200 KB,
+// fit=crop lets Unsplash auto-center on the focal point.
+const W = size === 'hero' ? 1600 : 800;
+const H = Math.round(W * 9 / 16);
+const photoUrl = coverImage
+  ? `https://images.unsplash.com/photo-${coverImage}?w=${W}&h=${H}&q=80&fit=crop&auto=format`
+  : null;
 ---
 
 <div class={`cover cover-${size}`} aria-hidden={!caption}>
-  <svg viewBox="0 0 1200 675" preserveAspectRatio="xMidYMid slice" role="img">
-    {/* Painted canvas backdrop — 4 large radial gradients + noise */}
-    <defs>
-      <radialGradient id={`g1-${seed}`} cx="20%" cy="25%" r="60%">
-        <stop offset="0%"  stop-color={palette[0]} stop-opacity="0.9"/>
-        <stop offset="70%" stop-color={palette[0]} stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id={`g2-${seed}`} cx="80%" cy="20%" r="55%">
-        <stop offset="0%"  stop-color={palette[1]} stop-opacity="0.85"/>
-        <stop offset="70%" stop-color={palette[1]} stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id={`g3-${seed}`} cx="70%" cy="85%" r="60%">
-        <stop offset="0%"  stop-color={palette[2]} stop-opacity="0.85"/>
-        <stop offset="70%" stop-color={palette[2]} stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id={`g4-${seed}`} cx="10%" cy="90%" r="55%">
-        <stop offset="0%"  stop-color={palette[3]} stop-opacity="0.7"/>
-        <stop offset="70%" stop-color={palette[3]} stop-opacity="0"/>
-      </radialGradient>
-      <filter id={`noise-${seed}`}>
-        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed={Math.floor(r * 100)} />
-        <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
-      </filter>
-    </defs>
+  {photoUrl ? (
+    <>
+      <img
+        src={photoUrl}
+        alt={alt ?? caption ?? ''}
+        width={W}
+        height={H}
+        loading={size === 'hero' ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+      {/* Painted-canvas tint overlay so the photo carries the brand */}
+      <div class={`tint tint-${cluster}`} aria-hidden="true"></div>
+      {caption && size === 'hero' && (
+        <figcaption class="caption">{caption}</figcaption>
+      )}
+    </>
+  ) : (
+    <svg viewBox="0 0 1200 675" preserveAspectRatio="xMidYMid slice" role="img">
+      <defs>
+        <radialGradient id={`g1-${seed}`} cx="20%" cy="25%" r="60%">
+          <stop offset="0%"  stop-color={palette[0]} stop-opacity="0.9"/>
+          <stop offset="70%" stop-color={palette[0]} stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id={`g2-${seed}`} cx="80%" cy="20%" r="55%">
+          <stop offset="0%"  stop-color={palette[1]} stop-opacity="0.85"/>
+          <stop offset="70%" stop-color={palette[1]} stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id={`g3-${seed}`} cx="70%" cy="85%" r="60%">
+          <stop offset="0%"  stop-color={palette[2]} stop-opacity="0.85"/>
+          <stop offset="70%" stop-color={palette[2]} stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id={`g4-${seed}`} cx="10%" cy="90%" r="55%">
+          <stop offset="0%"  stop-color={palette[3]} stop-opacity="0.7"/>
+          <stop offset="70%" stop-color={palette[3]} stop-opacity="0"/>
+        </radialGradient>
+        <filter id={`noise-${seed}`}>
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed={Math.floor(r * 100)} />
+          <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
+        </filter>
+      </defs>
 
-    <rect width="1200" height="675" fill={palette[1]} />
-    <rect width="1200" height="675" fill={`url(#g1-${seed})`} />
-    <rect width="1200" height="675" fill={`url(#g2-${seed})`} />
-    <rect width="1200" height="675" fill={`url(#g3-${seed})`} />
-    <rect width="1200" height="675" fill={`url(#g4-${seed})`} />
+      <rect width="1200" height="675" fill={palette[1]} />
+      <rect width="1200" height="675" fill={`url(#g1-${seed})`} />
+      <rect width="1200" height="675" fill={`url(#g2-${seed})`} />
+      <rect width="1200" height="675" fill={`url(#g3-${seed})`} />
+      <rect width="1200" height="675" fill={`url(#g4-${seed})`} />
 
-    {/* Subtle dotted grid (gives "data" feel) */}
-    <g opacity="0.18">
-      {Array.from({ length: 30 }, (_, x) =>
-        Array.from({ length: 17 }, (_, y) => (
-          <circle cx={x * 42 + 21} cy={y * 42 + 21} r="1.6" fill="rgba(10,10,10,0.6)" />
-        ))
-      ).flat()}
-    </g>
-
-    {/* Cluster-specific motif */}
-    {cluster === 'deep-dive' && (
-      /* Reliability-diagram bars — for technical articles. Some bars
-         under-confident, some over. The "gap" between conf and acc
-         visualises ECE. */
-      <g transform={`translate(${180 + r * 80}, ${130 + r2 * 40})`}>
-        {Array.from({ length: 10 }, (_, i) => {
-          const x = i * 78;
-          const conf = (i + 0.5) / 10;
-          // The further right, the more "overconfident": acc lags conf
-          const accGap = 0.05 + r3 * 0.20;
-          const acc = Math.max(0.04, conf - (i / 10) * accGap);
-          const confH = conf * 320;
-          const accH = acc * 320;
-          return (
-            <g>
-              <rect x={x}      y={420 - confH} width="32" height={confH} fill={palette[4]} opacity="0.32" rx="3" />
-              <rect x={x + 36} y={420 - accH}  width="32" height={accH}  fill={palette[4]} opacity="0.72" rx="3" />
-            </g>
-          );
-        })}
-        <line x1="-20" y1="420" x2="800" y2="420" stroke={stroke} stroke-width="2" opacity="0.5" />
-      </g>
-    )}
-
-    {cluster === 'agent-safety' && (
-      /* Tainted-flow lines + risk nodes — for attack/defence articles */
-      <g transform="translate(150, 130)">
-        {/* Source nodes (untrusted) */}
-        <g>
-          {[0, 1, 2, 3].map(i => (
-            <circle cx={20} cy={50 + i * 100} r="22" fill={palette[3]} stroke={stroke} stroke-width="2.5" opacity="0.85" />
-          ))}
-        </g>
-        {/* Tool-call sink */}
-        <rect x={780} y={140} width={120} height={120} rx="14" fill={palette[4]} opacity="0.85" />
-        {/* Flow arrows — bezier curves from sources to sink */}
-        {[0, 1, 2, 3].map(i => {
-          const y1 = 50 + i * 100;
-          return (
-            <path
-              d={`M 42 ${y1} C 300 ${y1}, 500 200, 780 200`}
-              stroke={stroke}
-              stroke-width="2.4"
-              fill="none"
-              opacity={0.35 + (i / 6)}
-              stroke-dasharray={i % 2 === 0 ? '8 4' : ''}
-              stroke-linecap="round"
-            />
-          );
-        })}
-        {/* Risk dot on each line */}
-        {[0, 1, 2, 3].map(i => (
-          <circle cx={400} cy={170 + i * 8} r="6" fill={palette[3]} stroke={stroke} stroke-width="1.6" />
-        ))}
-      </g>
-    )}
-
-    {cluster === 'verticals' && (
-      /* Compliance-grid motif — rows of "checks" representing audit
-         controls landing as passed/partial/uncovered cells */
-      <g transform="translate(180, 140)">
-        {Array.from({ length: 6 }, (_, row) =>
-          Array.from({ length: 10 }, (_, col) => {
-            const seed1 = hash01(seed + `:${row}-${col}`);
-            const filled = seed1 > 0.3;
-            const partial = !filled && seed1 > 0.18;
-            return (
-              <rect
-                x={col * 80}
-                y={row * 60}
-                width="60"
-                height="38"
-                rx="6"
-                fill={filled ? palette[4] : 'transparent'}
-                stroke={filled ? 'transparent' : stroke}
-                stroke-width="1.6"
-                opacity={partial ? 0.4 : (filled ? 0.78 : 0.35)}
-              />
-            );
-          })
+      <g opacity="0.18">
+        {Array.from({ length: 30 }, (_, x) =>
+          Array.from({ length: 17 }, (_, y) => (
+            <circle cx={x * 42 + 21} cy={y * 42 + 21} r="1.6" fill="rgba(10,10,10,0.6)" />
+          ))
         ).flat()}
       </g>
-    )}
 
-    {cluster === 'comparison' && (
-      /* Two-column comparison: blocks on the left vs right with a
-         vertical divider, suggesting head-to-head */
-      <g transform="translate(0, 110)">
-        <line x1="600" y1="0" x2="600" y2="455" stroke={stroke} stroke-width="2.2" opacity="0.4" />
-        {Array.from({ length: 5 }, (_, i) => {
-          const y = i * 95 + 30;
-          const lH = 28 + hash01(seed + `:l${i}`) * 32;
-          const rH = 28 + hash01(seed + `:r${i}`) * 32;
-          const lW = 240 + hash01(seed + `:lw${i}`) * 200;
-          const rW = 240 + hash01(seed + `:rw${i}`) * 200;
-          return (
-            <g>
-              <rect x={580 - lW} y={y} width={lW} height={lH} fill={palette[4]} opacity="0.7" rx="6" />
-              <rect x={620}     y={y} width={rW} height={rH} fill={palette[0]} opacity="0.7" rx="6" />
-            </g>
-          );
-        })}
-      </g>
-    )}
+      {cluster === 'deep-dive' && (
+        <g transform={`translate(${180 + r * 80}, ${130 + r2 * 40})`}>
+          {Array.from({ length: 10 }, (_, i) => {
+            const x = i * 78;
+            const conf = (i + 0.5) / 10;
+            const accGap = 0.05 + r3 * 0.20;
+            const acc = Math.max(0.04, conf - (i / 10) * accGap);
+            const confH = conf * 320;
+            const accH = acc * 320;
+            return (
+              <g>
+                <rect x={x}      y={420 - confH} width="32" height={confH} fill={palette[4]} opacity="0.32" rx="3" />
+                <rect x={x + 36} y={420 - accH}  width="32" height={accH}  fill={palette[4]} opacity="0.72" rx="3" />
+              </g>
+            );
+          })}
+          <line x1="-20" y1="420" x2="800" y2="420" stroke={stroke} stroke-width="2" opacity="0.5" />
+        </g>
+      )}
 
-    {/* Noise overlay */}
-    <rect width="1200" height="675" fill={`black`} filter={`url(#noise-${seed})`} opacity="0.7" />
+      {cluster === 'agent-safety' && (
+        <g transform="translate(150, 130)">
+          <g>
+            {[0, 1, 2, 3].map(i => (
+              <circle cx={20} cy={50 + i * 100} r="22" fill={palette[3]} stroke={stroke} stroke-width="2.5" opacity="0.85" />
+            ))}
+          </g>
+          <rect x={780} y={140} width={120} height={120} rx="14" fill={palette[4]} opacity="0.85" />
+          {[0, 1, 2, 3].map(i => {
+            const y1 = 50 + i * 100;
+            return (
+              <path
+                d={`M 42 ${y1} C 300 ${y1}, 500 200, 780 200`}
+                stroke={stroke}
+                stroke-width="2.4"
+                fill="none"
+                opacity={0.35 + (i / 6)}
+                stroke-dasharray={i % 2 === 0 ? '8 4' : ''}
+                stroke-linecap="round"
+              />
+            );
+          })}
+          {[0, 1, 2, 3].map(i => (
+            <circle cx={400} cy={170 + i * 8} r="6" fill={palette[3]} stroke={stroke} stroke-width="1.6" />
+          ))}
+        </g>
+      )}
 
-    {/* Caption (only on hero) */}
-    {caption && size === 'hero' && (
-      <g>
-        <rect x="60" y="540" width={Math.min(1080, caption.length * 17 + 40)} height="80" rx="8" fill="rgba(255,255,255,0.92)" />
-        <text x="80" y="585" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="500" fill="#0a0a0a">
-          {caption}
-        </text>
-      </g>
-    )}
-  </svg>
+      {cluster === 'verticals' && (
+        <g transform="translate(180, 140)">
+          {Array.from({ length: 6 }, (_, row) =>
+            Array.from({ length: 10 }, (_, col) => {
+              const seed1 = hash01(seed + `:${row}-${col}`);
+              const filled = seed1 > 0.3;
+              const partial = !filled && seed1 > 0.18;
+              return (
+                <rect
+                  x={col * 80}
+                  y={row * 60}
+                  width="60"
+                  height="38"
+                  rx="6"
+                  fill={filled ? palette[4] : 'transparent'}
+                  stroke={filled ? 'transparent' : stroke}
+                  stroke-width="1.6"
+                  opacity={partial ? 0.4 : (filled ? 0.78 : 0.35)}
+                />
+              );
+            })
+          ).flat()}
+        </g>
+      )}
+
+      {cluster === 'comparison' && (
+        <g transform="translate(0, 110)">
+          <line x1="600" y1="0" x2="600" y2="455" stroke={stroke} stroke-width="2.2" opacity="0.4" />
+          {Array.from({ length: 5 }, (_, i) => {
+            const y = i * 95 + 30;
+            const lH = 28 + hash01(seed + `:l${i}`) * 32;
+            const rH = 28 + hash01(seed + `:r${i}`) * 32;
+            const lW = 240 + hash01(seed + `:lw${i}`) * 200;
+            const rW = 240 + hash01(seed + `:rw${i}`) * 200;
+            return (
+              <g>
+                <rect x={580 - lW} y={y} width={lW} height={lH} fill={palette[4]} opacity="0.7" rx="6" />
+                <rect x={620}     y={y} width={rW} height={rH} fill={palette[0]} opacity="0.7" rx="6" />
+              </g>
+            );
+          })}
+        </g>
+      )}
+
+      <rect width="1200" height="675" fill={`black`} filter={`url(#noise-${seed})`} opacity="0.7" />
+
+      {caption && size === 'hero' && (
+        <g>
+          <rect x="60" y="540" width={Math.min(1080, caption.length * 17 + 40)} height="80" rx="8" fill="rgba(255,255,255,0.92)" />
+          <text x="80" y="585" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="500" fill="#0a0a0a">
+            {caption}
+          </text>
+        </g>
+      )}
+    </svg>
+  )}
 </div>
 
 <style>
@@ -239,9 +239,37 @@ const stroke = palette[4];
       0 18px 44px rgba(10, 10, 10, 0.12),
       0 2px 6px rgba(10, 10, 10, 0.06);
   }
-  .cover svg {
+  .cover svg,
+  .cover img {
     width: 100%;
     height: 100%;
     display: block;
+    object-fit: cover;
+  }
+  /* Painted-canvas tint layer — keeps Unsplash photos on-brand */
+  .tint {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    opacity: 0.32;
+  }
+  .tint-agent-safety { background: linear-gradient(135deg, #D4B5A8 0%, transparent 55%), linear-gradient(225deg, #8B6F60 0%, transparent 60%); }
+  .tint-verticals    { background: linear-gradient(135deg, #B7C8C9 0%, transparent 55%), linear-gradient(225deg, #6B7E7F 0%, transparent 60%); }
+  .tint-comparison   { background: linear-gradient(135deg, #E8DDC4 0%, transparent 55%), linear-gradient(225deg, #7C7456 0%, transparent 60%); }
+  .tint-deep-dive    { background: linear-gradient(135deg, #A4B3A0 0%, transparent 55%), linear-gradient(225deg, #7B8B7E 0%, transparent 60%); }
+
+  .caption {
+    position: absolute;
+    left: 24px;
+    bottom: 24px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #0a0a0a;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.4rem;
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    max-width: calc(100% - 48px);
+    line-height: 1.3;
   }
 </style>

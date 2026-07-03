@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FileText, Shield, ScrollText, Sparkles,
   CheckCircle, AlertTriangle, Settings, FlaskConical,
   ShieldHalf, Compass, ClipboardList, UserRound, Layers, FileCheck2,
-  ScanLine, Menu, X, Wrench, ChevronDown, Brain,
+  ScanLine, Menu, X, Wrench, ChevronDown, Brain, Undo2,
 } from 'lucide-react'
 import { useTraceStream } from '@/hooks/useTraceStream'
 import { BlockAlertToast } from '@/components/ui/block-alert-toast'
@@ -21,6 +21,7 @@ const navigation = [
   { name: 'Overview',    href: '/',           icon: LayoutDashboard },
   { name: 'Activity',    href: '/traces',     icon: FileText        },
   { name: 'Approvals',   href: '/approvals',  icon: CheckCircle     },
+  { name: 'Rollbacks',   href: '/rollbacks',  icon: Undo2           },
   { name: 'Violations',  href: '/violations', icon: AlertTriangle   },
   { name: 'Agents',      href: '/agents',     icon: UserRound       },
   { name: 'Policies',    href: '/policies',   icon: Shield          },

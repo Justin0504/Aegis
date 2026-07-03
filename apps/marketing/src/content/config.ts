@@ -45,6 +45,30 @@ const blog = defineCollection({
     // is built around (e.g. "OpenAI gpt-4o-mini ECE 26.5%").
     headlineStat: z.string().optional(),
 
+    // Unsplash photo ID (the part after "photo-" in the URL).
+    // When present, the cover renders the real photograph instead of
+    // the parameterised SVG. SVG remains the deterministic fallback.
+    coverImage:  z.string().optional(),
+
+    // 3–5 short bullets summarising the article. Rendered as a
+    // "Key takeaways" callout near the top — the GEO-canonical place
+    // for LLM crawlers to extract a citable answer.
+    keyTakeaways: z.array(z.string()).optional(),
+
+    // Setup-style articles: numbered steps. When present, the page
+    // emits a HowTo JSON-LD block (Google rich result + LLM step
+    // extraction). Each step should be a short imperative sentence.
+    howToSteps:    z.array(z.string()).optional(),
+    // ISO 8601 duration; optional. Example: "PT30M".
+    howToDuration: z.string().optional(),
+
+    // A single-sentence declarative answer to `answersQuery`. Rendered
+    // AT THE VERY TOP of the article inside a `speakable` container.
+    // This is the block Perplexity / AI Overview / Google Gemini
+    // extract verbatim when synthesising a one-line answer. Shorter
+    // and more copy-safe than `description`.
+    oneSentenceAnswer: z.string().min(20).max(420).optional(),
+
     draft:       z.boolean().default(false),
   }),
 });

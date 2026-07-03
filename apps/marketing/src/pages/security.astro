@@ -32,6 +32,24 @@ const cryptoCapabilities = [
   { name: 'Zero-dep offline verifier',   detail: 'A 245-line CLI (`tools/verify-log/index.mjs`) verifies inclusion + consistency proofs with no Node deps beyond the standard library. Runs in any air-gapped environment.' },
   { name: 'Signed release artifacts',    detail: 'Every npm tarball, PyPI wheel, and gateway Docker image ships with an Ed25519 signature + CycloneDX SBOM + SLSA-compatible attestation. Pin trust on the public key once.' },
 ];
+
+// Prior-art references AEGIS explicitly implements. Two decisions
+// weren't ours to invent; we cite the papers we're aligned with so
+// buyers with a research team can check the framing.
+const architectureRefs = [
+  {
+    tag:   'arXiv:2606.07119',
+    title: 'The Three-Ring Architecture — Toledo et al., 2026',
+    url:   'https://arxiv.org/abs/2606.07119',
+    aegis: 'AEGIS is the Ring-2 control plane. Ring 3 (LLM decision) has non-deterministic deviations that "propagate through complex organisational systems without retrospective traceability" — so every Ring-3-originated saga auto-pauses for human approval before compensating, regardless of magnitude. Sagas carry an origin_ring column so approvers can see the provenance.',
+  },
+  {
+    tag:   'arXiv:2606.09692',
+    title: 'Observability for Delegated Execution — Toledo et al., 2026',
+    url:   'https://arxiv.org/abs/2606.09692',
+    aegis: 'Traces carry a bound delegation_id (and parent_delegation_id for sub-delegations) written at execution time by the SDK — not reconstructed heuristically. This gives forensic queries and delegation-scoped rollback (POST /rollback/delegation/:id) semantics that standard audit logs cannot express.',
+  },
+];
 ---
 
 <Layout
@@ -107,6 +125,29 @@ const cryptoCapabilities = [
             <article class="crypto">
               <h3>{c.name}</h3>
               <p>{c.detail}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ARCHITECTURE REFERENCES ─────────────────────────────────── -->
+    <section class="section">
+      <div class="container container-narrow">
+        <h2 id="architecture">Architecture references</h2>
+        <p class="lede-2">
+          Two design decisions weren't ours to invent. We cite the
+          papers AEGIS is aligned with so buyers with a research team
+          can check the framing before the security review.
+        </p>
+        <div class="ref-list">
+          {architectureRefs.map(r => (
+            <article class="ref">
+              <p class="ref-tag">
+                <a href={r.url} rel="noopener" target="_blank">{r.tag}</a>
+              </p>
+              <h3>{r.title}</h3>
+              <p>{r.aegis}</p>
             </article>
           ))}
         </div>
@@ -283,6 +324,40 @@ const cryptoCapabilities = [
     }
     .crypto h3 { font-size: 1.05rem; margin: 0 0 0.4rem; }
     .crypto p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+    /* Architecture references */
+    .ref-list {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .ref {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .ref-tag {
+      margin: 0 0 0.35rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+    .ref-tag a {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 3px;
+    }
+    .ref-tag a:hover { text-decoration-color: var(--accent, #6b7e7f); }
+    .ref h3 {
+      font-family: var(--font-serif);
+      font-size: 1.05rem;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.005em;
+    }
+    .ref p { margin: 0; color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
 
     /* Data table */
     .data-table {

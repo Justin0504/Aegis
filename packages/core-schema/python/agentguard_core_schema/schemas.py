@@ -70,6 +70,15 @@ class SafetyValidation(BaseModel):
 class AgentActionTrace(BaseModel):
     trace_id: UUID = Field(default_factory=uuid4)
     parent_trace_id: Optional[UUID] = None
+
+    # Delegation-scoped observability per Toledo et al. arXiv:2606.09692.
+    # `delegation_id` is the root identifier of the delegation this call
+    # was performed under (bound at ingest time, not reconstructed).
+    # `parent_delegation_id` links a sub-delegation to its parent — used
+    # when an agent spawns sub-agents.
+    delegation_id: Optional[str] = None
+    parent_delegation_id: Optional[str] = None
+
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     sequence_number: int = Field(ge=0)
@@ -121,6 +130,12 @@ class TraceBundle(BaseModel):
 
 class CreateTraceRequest(BaseModel):
     parent_trace_id: Optional[UUID] = None
+
+    # Delegation context — populated by the SDK's DelegationScope stack.
+    # See AgentActionTrace above for the rationale.
+    delegation_id: Optional[str] = None
+    parent_delegation_id: Optional[str] = None
+
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     sequence_number: int = Field(ge=0)

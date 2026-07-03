@@ -52,9 +52,59 @@ const ogImageUrl = ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`
     <title>{title}</title>
   </head>
   <body>
+    <!--
+      Scroll progress bar — thin gradient bar at the top of the
+      viewport that fills as the reader scrolls. Hitachi Vantara uses
+      the same pattern (red→purple under their header). Ours goes
+      sand → sage → deep-sand so it reads as an AEGIS palette indicator
+      rather than a decoration. JS-driven because Astro's lightningcss
+      build strips `animation-timeline: scroll()`.
+    -->
+    <div id="aegis-scroll-progress" aria-hidden="true"></div>
+    <script is:inline>
+      (() => {
+        const bar = document.getElementById('aegis-scroll-progress');
+        if (!bar) return;
+        let raf = 0;
+        const update = () => {
+          const doc = document.documentElement;
+          const max = doc.scrollHeight - doc.clientHeight;
+          const pct = max > 0 ? doc.scrollTop / max : 0;
+          bar.style.transform = 'scaleX(' + pct.toFixed(4) + ')';
+          raf = 0;
+        };
+        const onScroll = () => {
+          if (raf) return;
+          raf = requestAnimationFrame(update);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll, { passive: true });
+        update();
+      })();
+    </script>
+
     <slot />
 
     <style is:global>
+      /* Scroll progress bar — fixed above every sticky header. */
+      #aegis-scroll-progress {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        z-index: 100;
+        background: linear-gradient(
+          90deg,
+          hsl( 45 35% 78%)  0%,
+          hsl(150 26% 56%) 45%,
+          hsl( 25 40% 55%) 100%
+        );
+        transform-origin: left center;
+        transform: scaleX(0);
+        will-change: transform;
+        pointer-events: none;
+        box-shadow: 0 1px 4px rgba(10, 10, 10, 0.10);
+      }
+
       :root {
         --bg: #eae3d2;
         --surface: #f2edd8;

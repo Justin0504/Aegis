@@ -86,7 +86,7 @@ curl -fsSL https://aegistraces.com/install | sh
 <br>
 
 <div align="center">
-<img src="docs/images/dashboard-overview.png" alt="AEGIS Compliance Cockpit" width="820">
+<img src="docs/images/cockpit/overview.png" alt="AEGIS Compliance Cockpit — Overview" width="820">
 <br>
 <sub>The AEGIS Compliance Cockpit — real-time monitoring across all your agents.</sub>
 </div>
@@ -109,6 +109,86 @@ Watch it trace tool calls, block SQL injection, detect PII, and pause for human 
 <img src="docs/images/readme_demo1.gif" alt="Dashboard walkthrough" width="820">
 
 </div>
+
+---
+
+## Inside the Compliance Cockpit
+
+Six operator views cover the end-to-end lifecycle: what agents did, who did it, what got blocked, and what your MITRE-style threat coverage looks like.
+
+<table>
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/overview.png"><img src="docs/images/cockpit/overview.png" alt="Overview — 24h activity, KPIs, agent activity feed" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>01</sub> Overview
+Rolling 24-hour activity curve for every agent. Four load-bearing KPIs at the top: **actions**, **agents**, **blocked**, **pending review**. The lower panel streams recent agent actions and traces so ops always sees the last thing that happened without leaving the page.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/activity.png"><img src="docs/images/cockpit/activity.png" alt="Activity — forensic trace list + per-trace explainer" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>02</sub> Activity
+Forensic audit trail of every tool call. Filterable list on the left; on the right, a per-trace explainer with **What it tried**, **Result**, **Quality** tabs. Every blocked action shows the exact policy that fired and the DSL condition that matched — no guessing which rule caught it.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/agents.png"><img src="docs/images/cockpit/agents.png" alt="Agents — registry with owner, scope, last-seen" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>03</sub> Agents
+The agent registry: every agent that has ever touched the gateway, with the human owner, the operational scope (**PRODUCTION** / **STAGING** / **RESTRICTED**), a hashed secret, and last-seen timestamp. Status filters for **Active / Unregistered / Suspended / Deprecated** so out-of-lifecycle agents can't slip through unnoticed.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/violation.png"><img src="docs/images/cockpit/violation.png" alt="Violations — grouped by policy with severity" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>04</sub> Violations
+Every block, grouped by the policy that fired: `no-privileged-file-access`, `no-arbitrary-shell-execution`, `no-destructive-sql`, `block-personal-email-in-checkout`, and any custom rule you write. Severity chips (**CRITICAL / HIGH / MEDIUM / LOW**) let a compliance lead triage by risk in one glance.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/coverage.png"><img src="docs/images/cockpit/coverage.png" alt="Coverage — MITRE-style threat matrix" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>05</sub> Threat coverage
+MITRE-ATLAS-style coverage: how many of the 40 agent-attack techniques you've written a detector for. Per-tactic bars for **Initial Compromise · Execution · Privilege Escalation · Credential Access · Data Exfiltration · Persistence · Discovery · Impact · Defense Evasion · Lateral Movement**. Green = fully closed, sand = open, red = uncovered — so gaps are impossible to miss.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/memory.png"><img src="docs/images/cockpit/memory.png" alt="Memory & cross-agent — beyond-the-call signals" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>06</sub> Memory & Cross-Agent
+The signals that _don't_ fit an activity row: **tainted memory recall** (agent retrieved a poisoned item from its knowledge base), **undeclared agent-to-agent data crossings**, and **pre-instruction PII** (personal data present in tool arguments before any prompt mentioned it). Each event carries a severity and a concrete fix hint (`Quarantine the memory item`, `Reset the agent's short-term memory window`, …).
+
+</td>
+</tr>
+</table>
 
 ---
 

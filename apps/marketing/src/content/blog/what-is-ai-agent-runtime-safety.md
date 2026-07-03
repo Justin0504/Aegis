@@ -12,6 +12,14 @@ tags:
   - "2026"
 answersQuery: "What is AI agent runtime safety and why does it matter?"
 headlineStat: "Of attacks that lead to actual harm in agent deployments, 86% happen at the tool-call boundary — not in the LLM prompt. Runtime safety is where the harm gets stopped."
+oneSentenceAnswer: "AI agent runtime safety is the discipline of intercepting an agent's tool calls before they execute, so that policy, behavioural anomaly detection, and calibrated LLM-judge reasoning decide allow, block, or escalate — catching the 86% of harm that happens at the tool-call boundary rather than in the LLM prompt."
+coverImage: "1620712943543-bcc4688e7485"
+keyTakeaways:
+  - "Runtime safety catches unsafe agent actions in real time, between decision and tool execution."
+  - "Of attacks that lead to actual harm in agent deployments, 86% happen at the tool-call boundary."
+  - "Distinct from LLM content safety (which filters tokens) — runtime safety filters actions."
+  - "Three layers: deterministic policy → behavioural anomaly → LLM judge (last resort, calibrated)."
+  - "If your stack only has prompt-level guardrails, you are unprotected against indirect injection and tool misuse."
 ---
 
 **Short answer**: AI agent runtime safety is the discipline of intercepting an agent's tool calls — the actual actions it takes in the world — before they execute, and applying deterministic policy + behavioural anomaly detection + LLM-judge reasoning to decide allow / block / escalate. It's distinct from "LLM content safety" (which moderates what the model says) because the harm caused by agents happens through tool execution, not through the LLM's text output. This article is the introduction we wish existed when we started building AEGIS.

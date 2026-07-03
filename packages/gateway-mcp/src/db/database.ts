@@ -83,10 +83,22 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
   // Create tables
   db.exec(`
     -- Traces table
+    --
+    -- delegation_id / parent_delegation_id are the agent-aware
+    -- observability substrate from Toledo et al. arXiv:2606.09692
+    -- ("Observability for Delegated Execution in Agentic AI Systems").
+    -- parent_trace_id alone is structurally underdetermined for
+    -- delegation-scoped attribution: two incompatible delegation
+    -- trees can produce identical parent chains. delegation_id binds
+    -- the semantic delegation context at execution time so forensic
+    -- queries ("all actions under delegation X") don't fall back on
+    -- heuristic time-window correlation.
     CREATE TABLE IF NOT EXISTS traces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trace_id TEXT UNIQUE NOT NULL,
       parent_trace_id TEXT,
+      delegation_id TEXT,
+      parent_delegation_id TEXT,
       agent_id TEXT NOT NULL,
       timestamp TEXT NOT NULL,
       sequence_number INTEGER NOT NULL,
@@ -108,6 +120,7 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     CREATE INDEX IF NOT EXISTS idx_agent_id ON traces (agent_id);
     CREATE INDEX IF NOT EXISTS idx_timestamp ON traces (timestamp);
     CREATE INDEX IF NOT EXISTS idx_parent_trace ON traces (parent_trace_id);
+    CREATE INDEX IF NOT EXISTS idx_delegation ON traces (delegation_id);
     CREATE INDEX IF NOT EXISTS idx_approval_status ON traces (approval_status);
 
     -- Policies table

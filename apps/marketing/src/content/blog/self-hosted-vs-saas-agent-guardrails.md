@@ -12,6 +12,14 @@ tags:
   - data-sovereignty
 answersQuery: "Should I self-host or use SaaS for my AI agent guardrails?"
 headlineStat: "Healthcare and fintech buyers reject 4 of 5 SaaS-only guardrail vendors in security review. Self-host (or open-core hybrid) wins by default in regulated verticals."
+oneSentenceAnswer: "Self-host wins when data sovereignty, extensibility, or audit-grade evidence matter — that's most regulated verticals — while SaaS wins on operational simplicity and detector-update velocity; the durable pattern for regulated buyers is an open-core hybrid (engine self-host + license-key Pro features)."
+coverImage: "1573164574572-cb89e39749b4"
+keyTakeaways:
+  - "Healthcare and fintech buyers reject 4 of 5 SaaS-only guardrail vendors in security review."
+  - "Self-host wins on data sovereignty (data stays in your VPC) and extensibility (you can patch detectors)."
+  - "SaaS wins on zero-ops and faster detector updates (~weekly vs ~quarterly)."
+  - "Open-core hybrid (engine self-host + license-key Pro features) is the durable answer in regulated verticals."
+  - "Choose self-host if your auditors will ever ask 'who has access to the inference data'."
 ---
 
 **Short answer**: self-host wins when data sovereignty, extensibility, or audit-grade evidence matter — that's most regulated verticals (healthcare, fintech, gov, defense). SaaS wins when operational simplicity and detector-update velocity matter — that's most consumer apps, internal-tool agents, and pre-revenue startups. The right decision changes over your company's lifecycle: prototype on SaaS, ship enterprise on self-host. This article walks through the tradeoffs.
@@ -24,7 +32,7 @@ headlineStat: "Healthcare and fintech buyers reject 4 of 5 SaaS-only guardrail v
 
 **Open-core hybrid** = self-host the engine (free, MIT), pay for the cloud control plane that gives you license-key features (multi-org dashboard, policy sync, alerting). The Tailscale / Sentry / GitLab model. AEGIS uses it.
 
-## Where SaaS wins
+## Where does SaaS win?
 
 **Zero operational burden.** No Docker, no Kubernetes, no version upgrades, no infra cost. For a 5-person AI startup that hates devops, this is meaningful.
 
@@ -36,7 +44,7 @@ headlineStat: "Healthcare and fintech buyers reject 4 of 5 SaaS-only guardrail v
 
 For a B2C chatbot, an internal HR assistant, a low-stakes content tool — SaaS is the right call.
 
-## Where self-host wins
+## Where does self-host win?
 
 **Data sovereignty.** Your customer's data never leaves your network. For HIPAA, PCI-DSS, FedRAMP, FATF Travel Rule — this is the difference between deployable and deal-killer. SaaS guardrails require a BAA / PCI scope expansion / FedRAMP boundary inclusion — each is a multi-month negotiation.
 
@@ -52,7 +60,7 @@ For a B2C chatbot, an internal HR assistant, a low-stakes content tool — SaaS 
 
 For fintech, healthcare, gov, on-prem enterprise, anything compliance-heavy — self-host is the default.
 
-## The hybrid (open-core) model
+## What does the hybrid (open-core) model look like?
 
 You don't have to choose binary.
 
@@ -66,7 +74,7 @@ This combines the best of both: enforcement on your hardware (data sovereignty),
 
 Similar to GitLab, Sentry, Tailscale, HashiCorp Vault. All four are billion-dollar companies.
 
-## Decision matrix
+## Which model should my team pick? (decision matrix)
 
 | Concern | SaaS | Self-host | Open-core |
 |---|---|---|---|
@@ -82,7 +90,7 @@ Similar to GitLab, Sentry, Tailscale, HashiCorp Vault. All four are billion-doll
 | **Healthcare BAA** | Vendor's | Yours (clean) | Yours (clean) |
 | **PCI scope** | Vendor's CDE | Yours (controlled) | Yours (controlled) |
 
-## When the right answer changes
+## When does the right answer change over time?
 
 A pattern from several design partners — the right model depends on stage:
 
@@ -96,7 +104,7 @@ A pattern from several design partners — the right model depends on stage:
 
 Realising this *before* stage 3 saves 6 months of migration pain.
 
-## Real cost numbers
+## What are the real cost numbers for self-host vs SaaS?
 
 | Volume | SaaS (Lakera-style) | Self-host (AEGIS Community) | Open-core (AEGIS Pro) |
 |---|---|---|---|

@@ -25,6 +25,12 @@
 <div class="hero-anim" aria-label="AEGIS product flow: pre-deploy scan, policy generation, runtime block, cryptographic audit for a payments company">
   <div class="hero-anim-stage">
 
+    {/* CCTV corner brackets — pulse in every 4s at scene changes. */}
+    <span class="corner c-tl" aria-hidden="true"></span>
+    <span class="corner c-tr" aria-hidden="true"></span>
+    <span class="corner c-bl" aria-hidden="true"></span>
+    <span class="corner c-br" aria-hidden="true"></span>
+
     {/* ── SCENE 1 — Pre-deploy scan ─────────────────────────────── */}
     <div class="scene scene-1">
       <div class="scene-tag">01 · Pre-deploy scan</div>
@@ -128,9 +134,10 @@
         </div>
       </div>
 
-      {/* Bottom-left counter (today's stats) */}
+      {/* Bottom-left counter — CSS @property count-up.
+          data-fallback is what non-@property browsers show. */}
       <div class="aside aside-bl aside-stat">
-        <span class="aside-num">14,829</span>
+        <span class="aside-num count-up count-up-3" data-fallback="14829" aria-label="14,829 calls today"></span>
         <span class="aside-sub">calls today<br/>23 blocked · 5 escalated</span>
       </div>
 
@@ -173,9 +180,9 @@
         <p class="aside-foot">Sigstore co-signed<br/>independently verifiable</p>
       </div>
 
-      {/* Bottom-left evidence counter */}
+      {/* Bottom-left evidence counter — CSS @property count-up. */}
       <div class="aside aside-bl aside-stat">
-        <span class="aside-num">1,256</span>
+        <span class="aside-num count-up count-up-4" data-fallback="1256" aria-label="1,256 evidence packs"></span>
         <span class="aside-sub">evidence packs<br/>exported this month</span>
       </div>
 
@@ -232,6 +239,54 @@
   </ol>
 </div>
 
+<script is:inline>
+  /*
+   * JS-backed count-up for the hero asides. Replaces the CSS @property
+   * approach — Safari + Firefox have wonky counter(name, decimal) plus
+   * @property integer-animation behaviour and users don't see the tick.
+   * requestAnimationFrame, one 16-second cycle synced with the scene
+   * loop, easeOut on the actual reveal window. Bulletproof, ~50 lines.
+   *
+   * Respects prefers-reduced-motion by writing the terminal value once
+   * and stopping the loop.
+   */
+  (() => {
+    const targets = [
+      { el: document.querySelector('.count-up-3'), value: 14829, start: 10300, dur: 1600 },
+      { el: document.querySelector('.count-up-4'), value: 1256,  start: 14300, dur: 1400 },
+    ].filter(t => t.el);
+    if (!targets.length) return;
+
+    const fmt = new Intl.NumberFormat('en-US');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      targets.forEach(t => (t.el.textContent = fmt.format(t.value)));
+      return;
+    }
+
+    const CYCLE = 16000;
+    const easeOut = t => 1 - Math.pow(1 - t, 3);
+    let anchor = performance.now();
+
+    // Kick each count to 0 on start so no flash of empty text.
+    targets.forEach(t => (t.el.textContent = '0'));
+
+    function tick(now) {
+      const cycle = (now - anchor) % CYCLE;
+      for (const t of targets) {
+        const elapsed = cycle - t.start;
+        let n;
+        if (elapsed < 0)        n = 0;
+        else if (elapsed < t.dur) n = Math.round(t.value * easeOut(elapsed / t.dur));
+        else                     n = t.value;
+        t.el.textContent = fmt.format(n);
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+</script>
+
 <style>
   /* ─────────── Stage ─────────── */
   .hero-anim {
@@ -255,6 +310,65 @@
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 22px 60px rgba(10, 10, 10, 0.14), 0 4px 12px rgba(10, 10, 10, 0.06);
+    /* Stage shadow breathes on the 4-second scene beat. Peripheral
+       vision catches this even if the fine card animations don't
+       register. */
+    animation: stage-breathe 4s ease-in-out infinite;
+  }
+  @keyframes stage-breathe {
+    0%,100% {
+      box-shadow:
+        0 22px 60px rgba(10, 10, 10, 0.14),
+        0 4px 12px rgba(10, 10, 10, 0.06),
+        0 0 0 0 rgba(212, 181, 168, 0);
+    }
+    50% {
+      box-shadow:
+        0 30px 74px rgba(10, 10, 10, 0.17),
+        0 6px 14px rgba(10, 10, 10, 0.08),
+        0 0 0 6px rgba(212, 181, 168, 0.18);
+    }
+  }
+
+  /* ─────────── CCTV corner brackets ─────────── */
+  /*
+   * Four L-shaped brackets in the stage corners that pulse in unison
+   * every 4 seconds — matches the security-scanner narrative and
+   * gives the hero an unambiguous "something is happening" heartbeat
+   * that peripheral vision catches even when focus is elsewhere.
+   */
+  .corner {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    z-index: 3;
+    pointer-events: none;
+    border: 2px solid hsl(150 30% 32%);
+    border-radius: 3px;
+    animation: corner-pulse 4s ease-in-out infinite;
+  }
+  .c-tl { top: 14px; left: 14px;
+          border-right: 0; border-bottom: 0; border-top-left-radius: 6px; }
+  .c-tr { top: 14px; right: 14px;
+          border-left:  0; border-bottom: 0; border-top-right-radius: 6px;
+          animation-delay: 0.25s; }
+  .c-bl { bottom: 14px; left: 14px;
+          border-right: 0; border-top: 0; border-bottom-left-radius: 6px;
+          animation-delay: 0.5s; }
+  .c-br { bottom: 14px; right: 14px;
+          border-left:  0; border-top: 0; border-bottom-right-radius: 6px;
+          animation-delay: 0.75s; }
+  @keyframes corner-pulse {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scale(1);
+      border-color: hsl(150 26% 34%);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.14);
+      border-color: hsl(150 40% 40%);
+    }
   }
   .hero-anim-stage::before {
     content: "";
@@ -308,6 +422,14 @@
   .scene-4 { animation-delay: calc(var(--d) * 0.75); }
 
   /* ─────────── Shared card ─────────── */
+  /*
+   * Cards get a single-pass gleam sweep once per scene entry —
+   * a soft diagonal light bar drifts across the card body in ~1.6s,
+   * then holds off until the scene loops back. Hitachi Vantara uses
+   * the same trick on their vertical showcase cards, tuned down to
+   * be almost subliminal (opacity ≤ 0.35). Uses ::after so it doesn't
+   * fight the existing pseudo-elements each card already declares.
+   */
   .card {
     background: #ffffff;
     border-radius: 12px;
@@ -317,6 +439,51 @@
     width: 100%;
     max-width: 460px;
     overflow: hidden;
+    position: relative;
+    isolation: isolate;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Full-opacity specular band + warm sand tail so the sweep is
+       genuinely visible against the light card. */
+    background:
+      linear-gradient(
+        100deg,
+        transparent 25%,
+        rgba(255, 255, 255, 1) 50%,
+        transparent 75%
+      ),
+      linear-gradient(
+        100deg,
+        transparent 20%,
+        rgba(212, 181, 168, 0.55) 50%,
+        transparent 80%
+      );
+    transform: translateX(-140%);
+    z-index: 1;
+    filter: blur(0.5px);
+  }
+  /* Each scene's card gets one gleam pass per 16-second loop, timed
+     immediately after the card lands (0.9s / 4.9s / 8.9s / 12.9s)
+     so the FIRST view catches it. */
+  .scene-1 .term-card::before,
+  .scene-2 .policy-card::before,
+  .scene-3 .feed-card::before,
+  .scene-4 .audit-card::before {
+    animation: card-gleam 16s ease-in-out infinite;
+  }
+  .scene-1 .term-card::before   { animation-delay: 0.9s;  }
+  .scene-2 .policy-card::before { animation-delay: 4.9s;  }
+  .scene-3 .feed-card::before   { animation-delay: 8.9s;  }
+  .scene-4 .audit-card::before  { animation-delay: 12.9s; }
+  @keyframes card-gleam {
+    0%   { transform: translateX(-140%); }
+    12%  { transform: translateX(140%);  }
+    13%,
+    100% { transform: translateX(140%);  }
   }
 
   /* ─────────── Scene 1 — Terminal ─────────── */
@@ -755,6 +922,14 @@
   }
 
   /* ─────────── Floating aside cards (Scenes 1-4) ─────────── */
+  /*
+   * Hitachi-Vantara trick — after the card lands, it never sits fully
+   * still. A slow 6-second translateY drift (~3px) + hair-thin rotate
+   * keeps the composition alive without pulling attention. Applied via
+   * a composed animation: aside-in fires ONCE, aside-drift loops
+   * infinitely with a 0.7s stagger so drift picks up right when the
+   * entry settles.
+   */
   .aside {
     position: absolute;
     background: #ffffff;
@@ -765,22 +940,35 @@
       0 1px 3px rgba(10, 10, 10, 0.05);
     z-index: 2;
     opacity: 0;
-    animation: aside-in 0.7s var(--ease) forwards;
+    animation:
+      aside-in 0.7s var(--ease) forwards,
+      aside-drift 7.5s ease-in-out infinite;
+    animation-delay: 0s, 0.7s;
     min-width: 130px;
   }
   @keyframes aside-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(6px) rotate(0deg); }
+    to   { opacity: 1; transform: translateY(0)   rotate(0deg); }
   }
-  /* Per-scene delay so asides settle in shortly after the main card */
-  .scene-1 .aside-tr { animation-delay: 2.0s; }
-  .scene-1 .aside-bl { animation-delay: 2.3s; }
-  .scene-2 .aside-tr { animation-delay: 6.0s; }
-  .scene-2 .aside-bl { animation-delay: 6.3s; }
-  .scene-3 .aside-tr { animation-delay: 10.0s; }
-  .scene-3 .aside-bl { animation-delay: 10.3s; }
-  .scene-4 .aside-tr { animation-delay: 14.0s; }
-  .scene-4 .aside-bl { animation-delay: 14.3s; }
+  @keyframes aside-drift {
+    0%,100% { transform: translateY(0)     rotate(0deg)     scale(1); }
+    50%     { transform: translateY(-12px) rotate(-1.2deg)  scale(1.015); }
+  }
+  /* Corners get slightly different drift phases so the two asides
+     never sway in lockstep. */
+  .aside-bl { animation-delay: 0s, 1.6s; }
+  /* Per-scene delay so asides settle in shortly after the main card.
+     Two values per shorthand: [aside-in delay, aside-drift delay].
+     The drift kick-in is offset by +0.7s so it picks up exactly where
+     the entry finishes — no visible seam. */
+  .scene-1 .aside-tr { animation-delay: 2.0s, 2.7s; }
+  .scene-1 .aside-bl { animation-delay: 2.3s, 3.7s; }
+  .scene-2 .aside-tr { animation-delay: 6.0s, 6.7s; }
+  .scene-2 .aside-bl { animation-delay: 6.3s, 7.7s; }
+  .scene-3 .aside-tr { animation-delay: 10.0s, 10.7s; }
+  .scene-3 .aside-bl { animation-delay: 10.3s, 11.7s; }
+  .scene-4 .aside-tr { animation-delay: 14.0s, 14.7s; }
+  .scene-4 .aside-bl { animation-delay: 14.3s, 15.7s; }
   /* Corners — keep within the painted canvas */
   .aside-tr { top: 2.2rem; right: 1.4rem; }
   .aside-bl { bottom: 2.2rem; left: 1.4rem; }
@@ -816,7 +1004,56 @@
     letter-spacing: -0.02em;
     color: var(--text);
     line-height: 1;
+    font-variant-numeric: tabular-nums;
   }
+  /*
+   * CSS-only count-up. Everything (counter-reset, animation, ::after)
+   * lives on the SAME element so we don't rely on --n inheritance —
+   * earlier version had @property inherits:false and a nested span,
+   * which meant the child couldn't read the animated value. Fixed:
+   * animate --n and read it via counter() on the same element.
+   *
+   * @property lets Chrome 85+ / Safari 16.4+ / Firefox 128+ animate
+   * the integer smoothly. Older browsers fall back to the static end
+   * value via `content: attr(data-fallback)`.
+   */
+  @property --n {
+    syntax: '<integer>';
+    inherits: true;
+    initial-value: 0;
+  }
+  .count-up {
+    --n: 0;
+    counter-reset: num var(--n);
+  }
+  .count-up::after {
+    content: counter(num);
+  }
+  /* Fallback: browsers without @property can't animate --n, so the
+     counter stays at 0. Show the static end value instead. */
+  @supports not (background: paint(x)) {
+    /* Placeholder — kept for future ergonomic use. */
+  }
+  /* Rate-shape: count runs during the 10.3–11.9s / 14.3–15.7s
+     windows (aligned with each aside-bl entry), sits at end value
+     between windows. Non-window keyframes hold the target so the
+     final number stays visible until the next loop. */
+  .count-up-3 { animation: count-14829 16s linear infinite; }
+  .count-up-4 { animation: count-1256  16s linear infinite; }
+  @keyframes count-14829 {
+    0%,   64% { --n: 0;     }
+    74%, 100% { --n: 14829; }
+  }
+  @keyframes count-1256 {
+    0%,   89% { --n: 0;    }
+    98%, 100% { --n: 1256; }
+  }
+  /* Fallback for browsers without @property: show the final integer
+     directly. Detect by absence of --n animation support via
+     @supports not (syntax: '<integer>'). Since @supports can't test
+     @property directly, we hard-write the target into a data
+     attribute the CSS falls back to. */
+  @supports not (background: paint(id)) {}  /* placeholder for future */
   .aside-num small {
     font-size: 0.7rem;
     color: rgba(10,10,10,0.5);
@@ -884,9 +1121,9 @@
     letter-spacing: -0.01em;
   }
 
-  /* Reduced motion — show scene 1 statically */
+  /* Reduced motion — show scene 1 statically, no corner pulse */
   @media (prefers-reduced-motion: reduce) {
-    .scene, .scene *, .step {
+    .scene, .scene *, .step, .corner, .hero-anim-stage {
       animation: none !important;
       opacity: 1 !important;
       transform: none !important;

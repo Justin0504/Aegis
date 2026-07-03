@@ -1,0 +1,368 @@
+---
+/**
+ * Contact page — Topify-style: white-card "Send Us a Message" form
+ * over a light-gray surface, plus an "Other Ways to Reach Us" section
+ * with two cards (Email Support, Office).
+ *
+ * The form is wired to `mailto:` via a small inline submit handler.
+ * No backend dependency, no fake-form trap: clicking Send Message
+ * opens the user's mail client with every field already pre-filled.
+ * Office card uses the real USC University Park address — Justin is
+ * a USC grad student, that's where AEGIS is being built.
+ */
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+---
+
+<Layout
+  title="Contact — AEGIS"
+  description="Get in touch with the AEGIS team. We answer every email; security disclosures triaged within 48 hours."
+>
+  <Header current="contact" />
+
+  <main class="contact">
+    <section class="head">
+      <div class="container container-narrow">
+        <p class="eyebrow">Contact</p>
+        <h1>Get in touch.</h1>
+        <p class="lede">
+          Shipping AI agents into production and want a second opinion
+          on the safety layer? Need a coordinated vulnerability
+          disclosure? Writing about agent safety and need a press kit?
+          Fill out the form, or use one of the channels below.
+        </p>
+      </div>
+    </section>
+
+    <section class="form-sec">
+      <div class="container container-narrow">
+        <h2>Send us a message</h2>
+
+        <form id="contact-form" class="card-form" novalidate>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Name</span>
+              <input type="text" name="name" placeholder="Your name" required />
+            </label>
+            <label class="field">
+              <span class="lbl">Email</span>
+              <input type="email" name="email" placeholder="you@company.com" required />
+            </label>
+          </div>
+
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Company <span class="optional">(optional)</span></span>
+              <input type="text" name="company" placeholder="Acme, Inc." />
+            </label>
+            <label class="field">
+              <span class="lbl">Subject</span>
+              <input type="text" name="subject" placeholder="How can we help?" required />
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="lbl">Message</span>
+            <textarea name="message" rows="6" placeholder="Tell us about your project, your agent stack, or the disclosure you'd like to share..." required></textarea>
+          </label>
+
+          <button type="submit" class="send">Send message</button>
+          <p class="hint">Submitting opens your mail client with the message addressed to <code>aojieyuan04@gmail.com</code>. We reply within one business day.</p>
+        </form>
+      </div>
+    </section>
+
+    <section class="other">
+      <div class="container container-narrow">
+        <h2>Other ways to reach us</h2>
+
+        <div class="other-grid">
+
+          <article class="other-card">
+            <div class="other-head">
+              <span class="other-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </span>
+              <h3>Email Support</h3>
+            </div>
+            <p class="other-addr">
+              <a href="mailto:aojieyuan04@gmail.com">aojieyuan04@gmail.com</a>
+            </p>
+          </article>
+
+          <article class="other-card">
+            <div class="other-head">
+              <span class="other-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              </span>
+              <h3>Our Office</h3>
+            </div>
+            <p class="other-addr">
+              720 W 27th St<br />
+              Los Angeles, CA 90007<br />
+              United States
+            </p>
+          </article>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+
+  <script is:inline>
+    /**
+     * Compose a mailto: URL from the form fields and let the user's
+     * mail client take over. Honest contact pattern: no fake backend,
+     * no spam-trap form-handler, the user can edit the message before
+     * sending and sees exactly who they're emailing.
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('contact-form');
+      if (!form) return;
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const name    = (fd.get('name')    || '').toString().trim();
+        const email   = (fd.get('email')   || '').toString().trim();
+        const company = (fd.get('company') || '').toString().trim();
+        const subject = (fd.get('subject') || '').toString().trim();
+        const message = (fd.get('message') || '').toString().trim();
+
+        if (!name || !email || !subject || !message) {
+          alert('Please fill in name, email, subject and message.');
+          return;
+        }
+
+        const bodyLines = [
+          message,
+          '',
+          '---',
+          'From:    ' + name + ' <' + email + '>',
+          company ? 'Company: ' + company : null,
+        ].filter(Boolean);
+
+        const url = 'mailto:aojieyuan04@gmail.com'
+          + '?subject=' + encodeURIComponent('[Contact] ' + subject)
+          + '&body=' + encodeURIComponent(bodyLines.join('\n'));
+
+        window.location.href = url;
+      });
+    });
+  </script>
+
+  <style>
+    /* ── Hero ─────────────────────────────────────────────── */
+    .head { padding: 5rem 0 2rem; }
+    .eyebrow {
+      font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); font-weight: 500; margin: 0 0 0.5rem;
+    }
+    .head h1 {
+      font-family: var(--font-serif);
+      font-size: 2.6rem;
+      letter-spacing: -0.02em;
+      margin: 0;
+      line-height: 1.1;
+    }
+    .lede {
+      max-width: 62ch; color: var(--muted); font-size: 1.08rem;
+      margin: 1rem 0 0; line-height: 1.6;
+    }
+
+    /* ── Form section ─────────────────────────────────────── */
+    .form-sec {
+      padding: 2rem 0 4rem;
+    }
+    .form-sec h2,
+    .other h2 {
+      font-family: var(--font-serif);
+      font-size: 1.7rem;
+      margin: 0 0 1.5rem;
+      text-align: center;
+      letter-spacing: -0.01em;
+    }
+
+    .card-form {
+      background: #ffffff;
+      border: 1px solid var(--hairline);
+      border-radius: 16px;
+      padding: 2rem 2rem 2rem;
+      box-shadow:
+        0 1px 2px rgba(10, 10, 10, 0.04),
+        0 12px 28px rgba(10, 10, 10, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.2rem;
+    }
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .lbl {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.005em;
+    }
+    .optional {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 0.85em;
+      margin-left: 0.2rem;
+    }
+    .field input,
+    .field textarea {
+      width: 100%;
+      padding: 0.78rem 0.95rem;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: #fafafa;
+      font-size: 0.98rem;
+      font-family: inherit;
+      color: var(--text);
+      transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+      box-sizing: border-box;
+    }
+    .field input::placeholder,
+    .field textarea::placeholder {
+      color: #a8a39c;
+    }
+    .field input:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: #6b7e7f;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(107, 126, 127, 0.12);
+    }
+    .field textarea {
+      resize: vertical;
+      min-height: 140px;
+      line-height: 1.5;
+    }
+
+    .send {
+      margin-top: 0.4rem;
+      background: #0a0a0a;
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      padding: 0.95rem 1.4rem;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      transition: background 0.12s ease, transform 0.08s ease;
+      font-family: inherit;
+    }
+    .send:hover { background: #1c1c1c; }
+    .send:active { transform: scale(0.995); }
+
+    .hint {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .hint code {
+      background: var(--surface-2);
+      padding: 0.08rem 0.4rem;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.92em;
+      color: var(--text);
+    }
+
+    /* ── Other ways ───────────────────────────────────────── */
+    .other {
+      padding: 3rem 0 6rem;
+      border-top: 1px solid var(--hairline);
+      background: var(--surface);
+    }
+    .other-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+      margin-top: 0.5rem;
+      max-width: 580px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    @media (max-width: 720px) {
+      .other-grid { grid-template-columns: 1fr; }
+    }
+    .other-card {
+      background: #ffffff;
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      padding: 0.9rem 1rem 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      box-shadow: 0 1px 2px rgba(10, 10, 10, 0.03);
+    }
+    .other-head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.1rem;
+    }
+    .other-icon {
+      width: 18px;
+      height: 18px;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .other-icon svg { width: 15px; height: 15px; }
+
+    .other-card h3 {
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: -0.005em;
+      color: var(--text);
+    }
+    .other-addr {
+      margin: 0;
+      padding-left: 1.4rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .other-addr a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .other-addr a:hover {
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  </style>
+</Layout>

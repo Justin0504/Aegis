@@ -46,14 +46,20 @@ import { randomUUID } from 'crypto';
 
 import { AuditLogService } from './audit-log';
 import { TransparencyLogService } from './transparency-log';
-import { CompensationRegistry, CompensatorDecl } from './compensation-registry';
+import { CompensationRegistry, CompensatorDecl, CostEstimate, HIGH_COST_MAGNITUDES } from './compensation-registry';
+import { topologicalRollbackOrder, parseDepends, TraceForRollback } from './causal-rollback';
 import { ReversibilityClassifier, ReversibilityClass } from './reversibility';
 import { SnapshotCaptureService, SnapshotRow } from './snapshot-capture';
 import { SagaService } from './saga';
 import { RollbackMetricsService, RollbackOutcome } from './rollback-metrics';
 import { DlqService } from './dlq';
 
-export type RollbackStatus = 'rolled_back' | 'no_op' | 'failed' | 'unsupported';
+export type RollbackStatus =
+  | 'rolled_back'
+  | 'no_op'
+  | 'failed'
+  | 'unsupported'
+  | 'pending_approval';
 
 export interface RollbackOptions {
   /** Operator-facing reason. Carried into the audit row. */
@@ -65,6 +71,19 @@ export interface RollbackOptions {
   /** When true, plan but don't execute. Useful for "show me what would
    *  happen" UI. */
   dry_run?: boolean;
+  /** When true, skip the high-cost approval pause even for a compensator
+   *  whose `cost_estimate.magnitude` is 'high' / 'catastrophic'.
+   *  Set by RollbackAPI after an operator explicitly approves a paused
+   *  saga; do NOT set from normal callers. */
+  pre_approved?: boolean;
+  /** Three-Ring origin tag (Toledo et al. arXiv:2606.07119):
+   *   2 = deterministic strategies-based flow — auto-compensate is safe.
+   *   3 = LLM-originated decision — auto-pause for human approval
+   *       regardless of cost_estimate, because a non-deterministic
+   *       actor's deviations propagate without retrospective
+   *       traceability.
+   *  Defaults to 2 (Ring-2 fail-safe) if omitted. */
+  origin_ring?: 2 | 3;
   /** Operator id for attribution in the audit row. */
   actor?: { user_id?: string; user_email?: string; ip_address?: string };
 }
@@ -86,6 +105,10 @@ export interface RollbackResult {
   /** Duration of the compensator execution (ms). Surfaced for the
    *  metrics layer. */
   duration_ms?: number;
+  /** Operator-declared cost hint for this compensator. Present when
+   *  the compensator registry has `cost_estimate` set; carries through
+   *  to the preview API and the approval queue UI. */
+  cost_estimate?: CostEstimate;
 }
 
 export interface ChainOptions extends RollbackOptions {
@@ -98,6 +121,28 @@ export interface ChainOptions extends RollbackOptions {
 
 export interface ChainResult {
   agent_id: string;
+  scanned: number;
+  results: RollbackResult[];
+  aborted_at?: string;
+  saga_id?: string;
+}
+
+/**
+ * Delegation-scoped rollback options. Rolls back every trace whose
+ * `delegation_id` equals the requested id — semantically "undo all
+ * actions performed under this delegation" as defined by Toledo et al.
+ * arXiv:2606.09692. Traces are compensated in reverse time order,
+ * same as rollbackChain, so a saga is opened for the whole batch.
+ */
+export interface DelegationRollbackOptions extends RollbackOptions {
+  delegation_id: string;
+  /** Cap on traces processed. Default 500 (delegations can be larger
+   *  than time-scoped chains). */
+  max?: number;
+}
+
+export interface DelegationRollbackResult {
+  delegation_id: string;
   scanned: number;
   results: RollbackResult[];
   aborted_at?: string;
@@ -145,12 +190,20 @@ export class RollbackService {
 
   /** Best-effort migration — adds rollback bookkeeping columns to
    *  `traces` if they aren't already present. Safe to call repeatedly
-   *  (each ALTER is wrapped in a `try/catch` per column). */
+   *  (each ALTER is wrapped in a `try/catch` per column).
+   *
+   *  delegation_id / parent_delegation_id per Toledo et al.
+   *  arXiv:2606.09692 — agent-aware observability substrate binding
+   *  delegation context at execution time so downstream queries
+   *  ("what happened under delegation X") don't rely on heuristic
+   *  time-window correlation. */
   private ensureColumns(): void {
     for (const ddl of [
       `ALTER TABLE traces ADD COLUMN reversibility_class TEXT`,
       `ALTER TABLE traces ADD COLUMN rolled_back_at TEXT`,
       `ALTER TABLE traces ADD COLUMN rollback_audit_id INTEGER`,
+      `ALTER TABLE traces ADD COLUMN delegation_id TEXT`,
+      `ALTER TABLE traces ADD COLUMN parent_delegation_id TEXT`,
     ]) {
       try { this.db.exec(ddl); }
       catch (err: any) {
@@ -158,6 +211,13 @@ export class RollbackService {
           this.logger.warn({ err: err?.message, ddl }, 'rollback ddl skipped');
         }
       }
+    }
+    // Index on delegation_id — required for rollbackDelegation() to
+    // stay sub-linear on large trace tables.
+    try {
+      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_delegation ON traces (delegation_id)`);
+    } catch (err: any) {
+      this.logger.warn({ err: err?.message }, 'delegation index skipped');
     }
   }
 
@@ -171,6 +231,7 @@ export class RollbackService {
         kind: 'rollback_single',
         root_trace_id: opts.trace_id,
         reason: opts.reason ?? null,
+        origin_ring: opts.origin_ring ?? 2,
       });
       this.safeTransition(opts.orgId, sagaId, 'EXECUTING');
     }
@@ -233,12 +294,52 @@ export class RollbackService {
       ? this.renderPlan(compensator, trace, toolCall)
       : { kind: 'no-op', reason: cls.class === 'idempotent' ? 'idempotent: nothing to undo' : 'no compensator declared' };
 
+    const costEstimate: CostEstimate | undefined = compensator?.cost_estimate;
+
     if (opts.dry_run) {
       this.closeSagaAfterEarlyExit(opts._sagaId, opts.orgId, 'COMPLETED', sagaId);
       return {
         status: 'no_op', trace_id: opts.trace_id, reversibility_class: cls.class,
         compensator_kind: compensator?.kind ?? 'absent',
         planned_action: plannedAction,
+        cost_estimate: costEstimate,
+        saga_id: sagaId,
+      };
+    }
+
+    // Approval hold: pause the saga before firing when EITHER
+    //   (a) the compensator is high-cost (magnitude ∈ {high, catastrophic}), OR
+    //   (b) the saga's origin is Ring-3 (LLM decision) per Toledo et al.
+    //       arXiv:2606.07119 — "non-deterministic actor's deviations
+    //       propagate without retrospective traceability", so every
+    //       Ring-3 rollback needs human eyes even for trivial cost.
+    const isRing3     = (opts.origin_ring ?? 2) === 3;
+    const isHighCost  = costEstimate && HIGH_COST_MAGNITUDES.includes(costEstimate.magnitude);
+    const needsApproval = !opts.pre_approved && (isHighCost || isRing3);
+    if (compensator && this.sagas && sagaId && needsApproval) {
+      const pauseReason = isHighCost
+        ? `high-cost compensator: ${costEstimate!.magnitude}` +
+          (costEstimate!.note ? ` — ${costEstimate!.note}` : '')
+        : `Ring-3 origin (LLM decision) — human approval required`;
+      try {
+        this.sagas.pauseForApproval({
+          orgId: opts.orgId,
+          sagaId,
+          reason: pauseReason,
+        });
+      } catch (err) {
+        this.logger.warn(
+          { err: (err as Error).message, sagaId },
+          'pauseForApproval failed; proceeding to execute',
+        );
+      }
+      return {
+        status: 'pending_approval',
+        trace_id: opts.trace_id,
+        reversibility_class: cls.class,
+        compensator_kind: compensator.kind,
+        planned_action: plannedAction,
+        cost_estimate: costEstimate,
         saga_id: sagaId,
       };
     }
@@ -380,6 +481,7 @@ export class RollbackService {
       saga_id: sagaId,
       error: execError,
       planned_action: plannedAction,
+      cost_estimate: costEstimate,
       duration_ms: durationMs,
     };
   }
@@ -414,6 +516,107 @@ export class RollbackService {
   }
 
   /**
+   * Delegation-scoped rollback. Given a delegation_id, roll back every
+   * un-rolled-back trace tagged with that delegation, in reverse
+   * chronological order.
+   *
+   * Per Toledo et al. arXiv:2606.09692, delegation-scoped attribution
+   * is structurally underdetermined from parent_trace_id alone —
+   * two incompatible delegation trees can produce identical parent
+   * chains. This method uses the bound delegation_id (populated at
+   * trace-ingest time by the SDK) to reconstruct the delegation
+   * subtree deterministically, without heuristic time-window
+   * correlation.
+   */
+  async rollbackDelegation(
+    opts: { orgId: string } & DelegationRollbackOptions,
+  ): Promise<DelegationRollbackResult> {
+    const limit = opts.max ?? 500;
+    // Pull the full causal signal — parent_trace_id + timestamp — so
+    // we can order compensations topologically instead of by naive
+    // reverse-time (see services/causal-rollback.ts).
+    const rows = this.db.prepare(
+      `SELECT trace_id, parent_trace_id, timestamp FROM traces
+        WHERE delegation_id = ?
+          AND rolled_back_at IS NULL
+        ORDER BY timestamp DESC LIMIT ?`,
+    ).all(opts.delegation_id, limit) as TraceForRollback[];
+
+    const orderedTraceIds = topologicalRollbackOrder(
+      rows,
+      this.collectExtraDeps(rows.map(r => r.trace_id)),
+    );
+
+    let sagaId: string | undefined;
+    if (this.sagas) {
+      sagaId = this.sagas.open({
+        orgId: opts.orgId,
+        kind: 'rollback_chain',    // reuse chain kind; the audit row carries delegation_id
+        agent_id: null,
+        root_trace_id: orderedTraceIds[0] ?? null,
+        reason: opts.reason ?? `delegation:${opts.delegation_id}`,
+        origin_ring: opts.origin_ring ?? 2,
+      });
+      this.safeTransition(opts.orgId, sagaId, 'EXECUTING');
+    }
+
+    const results: RollbackResult[] = [];
+    let aborted_at: string | undefined;
+    for (const traceId of orderedTraceIds) {
+      const res = await this.rollback({
+        orgId: opts.orgId,
+        trace_id: traceId,
+        reason: opts.reason,
+        dry_run: opts.dry_run,
+        force_correction: opts.force_correction,
+        pre_approved: opts.pre_approved,
+        origin_ring: opts.origin_ring,
+        actor: opts.actor,
+        _sagaId: sagaId,
+      });
+      results.push(res);
+      if (res.status === 'failed') { aborted_at = traceId; break; }
+    }
+
+    if (this.sagas && sagaId) {
+      if (aborted_at) {
+        this.safeTransition(opts.orgId, sagaId, 'COMPENSATING');
+        this.safeTransition(opts.orgId, sagaId, 'FAILED');
+      } else {
+        this.safeTransition(opts.orgId, sagaId, 'COMPLETED');
+      }
+    }
+
+    this.audit.log({
+      org_id: opts.orgId,
+      action: 'rollback.delegation',
+      resource_type: 'delegation',
+      resource_id: opts.delegation_id,
+      user_id:    opts.actor?.user_id,
+      user_email: opts.actor?.user_email,
+      ip_address: opts.actor?.ip_address,
+      details: {
+        delegation_id: opts.delegation_id,
+        scanned: rows.length,
+        rolled_back: results.filter(r => r.status === 'rolled_back').length,
+        unsupported: results.filter(r => r.status === 'unsupported').length,
+        failed:      results.filter(r => r.status === 'failed').length,
+        pending_approval: results.filter(r => r.status === 'pending_approval').length,
+        aborted_at,
+        dry_run: !!opts.dry_run,
+      },
+    });
+
+    return {
+      delegation_id: opts.delegation_id,
+      scanned: rows.length,
+      results,
+      aborted_at,
+      saga_id: sagaId,
+    };
+  }
+
+  /**
    * Saga-style chain. Walks the agent's traces in reverse chronological
    * order from `since` (exclusive, ISO timestamp) and fires each
    * compensator. Aborts on first failure — subsequent traces stay
@@ -422,10 +625,18 @@ export class RollbackService {
   async rollbackChain(opts: { orgId: string } & ChainOptions): Promise<ChainResult> {
     const limit = opts.max ?? 200;
     const rows = this.db.prepare(
-      `SELECT trace_id FROM traces
+      `SELECT trace_id, parent_trace_id, timestamp FROM traces
         WHERE agent_id = ? AND timestamp > ? AND rolled_back_at IS NULL
         ORDER BY timestamp DESC LIMIT ?`,
-    ).all(opts.agent_id, opts.since, limit) as { trace_id: string }[];
+    ).all(opts.agent_id, opts.since, limit) as TraceForRollback[];
+
+    // Causal-DAG ordering (SagaGuard 2026 pattern) — children roll
+    // back before parents, siblings by newest-first. Falls back to
+    // reverse-time when there's no dependency signal.
+    const orderedTraceIds = topologicalRollbackOrder(
+      rows,
+      this.collectExtraDeps(rows.map(r => r.trace_id)),
+    );
 
     // Open one saga that all rollback() calls in this chain belong to.
     let sagaId: string | undefined;
@@ -434,18 +645,19 @@ export class RollbackService {
         orgId: opts.orgId,
         kind: 'rollback_chain',
         agent_id: opts.agent_id,
-        root_trace_id: rows[0]?.trace_id ?? null,
+        root_trace_id: orderedTraceIds[0] ?? null,
         reason: opts.reason ?? null,
+        origin_ring: opts.origin_ring ?? 2,
       });
       this.safeTransition(opts.orgId, sagaId, 'EXECUTING');
     }
 
     const results: RollbackResult[] = [];
     let aborted_at: string | undefined;
-    for (const r of rows) {
+    for (const traceId of orderedTraceIds) {
       const res = await this.rollback({
         orgId: opts.orgId,
-        trace_id: r.trace_id,
+        trace_id: traceId,
         reason: opts.reason,
         dry_run: opts.dry_run,
         force_correction: opts.force_correction,
@@ -453,7 +665,7 @@ export class RollbackService {
         _sagaId: sagaId,
       });
       results.push(res);
-      if (res.status === 'failed') { aborted_at = r.trace_id; break; }
+      if (res.status === 'failed') { aborted_at = traceId; break; }
     }
 
     // Close the saga at the right terminal state.
@@ -489,6 +701,39 @@ export class RollbackService {
   }
 
   // ── helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Look up any explicit `depends_on` edges already stored on
+   * saga_step for these trace_ids. Only saga_steps whose depends_on
+   * is populated are relevant — most trace batches will return an
+   * empty map, and rollback then falls back to parent_trace_id
+   * (implicit causality) plus timestamp tiebreak.
+   */
+  private collectExtraDeps(traceIds: string[]): Map<string, string[]> {
+    if (traceIds.length === 0) return new Map();
+    // Bound the IN clause defensively — SQLite has a limit on
+    // parameter counts (~999 by default). We chunk if needed.
+    const CHUNK = 500;
+    const rows: Array<{ trace_id: string; depends_on: string | null }> = [];
+    for (let i = 0; i < traceIds.length; i += CHUNK) {
+      const slice = traceIds.slice(i, i + CHUNK);
+      const placeholders = slice.map(() => '?').join(',');
+      try {
+        const got = this.db.prepare(
+          `SELECT trace_id, depends_on FROM saga_step
+            WHERE depends_on IS NOT NULL
+              AND trace_id IN (${placeholders})`,
+        ).all(...slice) as Array<{ trace_id: string; depends_on: string | null }>;
+        rows.push(...got);
+      } catch (err: any) {
+        // Older DBs may not have the depends_on column yet — safe fallback.
+        if (!/no such column|no such table/i.test(err?.message ?? '')) {
+          this.logger.warn({ err: err?.message }, 'depends_on lookup failed');
+        }
+      }
+    }
+    return parseDepends(rows);
+  }
 
   private getTrace(traceId: string): TraceRow | null {
     return this.db.prepare(

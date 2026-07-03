@@ -6,6 +6,7 @@ import DecisionLog from '@/components/DecisionLog.astro';
 import HeroAnimation from '@/components/HeroAnimation.astro';
 import CockpitMockup from '@/components/CockpitMockup.astro';
 import CompatibleStacks from '@/components/CompatibleStacks.astro';
+import VerticalTabs    from '@/components/VerticalTabs.astro';
 import Testimonials from '@/components/Testimonials.astro';
 import Screenshot from '@/components/Screenshot.astro';
 import Icon from '@/components/Icon.astro';
@@ -330,6 +331,11 @@ const USE_PLACEHOLDERS = false;
         </article>
       </div>
     </section>
+
+    <!-- ── VERTICAL TAB SELECTOR (Hitachi-style category switcher) ── -->
+    <!-- Follows the "Beyond the call — Tainted memory" bento cell so    -->
+    <!-- the visitor gets: features → concrete verticals → integration.  -->
+    <VerticalTabs />
 
     <!-- ── ZERO CODE CHANGE ────────────────────────────────────────── -->
     <section class="zero-code">

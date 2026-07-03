@@ -13,6 +13,13 @@ tags:
   - transparency-log
 answersQuery: "How do I prove my AI agent's audit log was never edited after the fact?"
 headlineStat: "RFC 6962 (Certificate Transparency) is the same standard browsers use to detect rogue SSL certificates. AEGIS applies it to every agent decision."
+oneSentenceAnswer: "Store agent decisions in an RFC 6962 Merkle tree with each root co-signed by an independent witness (Sigstore pattern); auditors verify inclusion and consistency proofs against any witness without trusting the operator, using the same cryptographic standard browsers use to detect rogue SSL certificates."
+coverImage: "1633265486064-086b219458ec"
+keyTakeaways:
+  - "RFC 6962 Merkle trees give O(log n) inclusion and consistency proofs over the full agent decision log."
+  - "Sigstore-style witness co-signature stops the operator from silently rewinding the log."
+  - "An auditor can verify the log was never edited without trusting the operator or rescanning the full chain."
+  - "Same standard browsers use to detect rogue SSL certs — proven cryptography, not novel research."
 ---
 
 **Short answer**: an audit log stored in a regular database can be edited by anyone with write access to that database, including (eventually) an attacker who breaches it. A *cryptographic* audit log uses the same Merkle-tree append-only structure as Certificate Transparency (RFC 6962). Each entry's hash chains into a tree whose root is co-signed by an independent witness service. Any post-hoc edit changes the root — and the discrepancy is detectable years later by anyone who saw the old root. This is what AEGIS ships; this article explains why it matters and how it works.

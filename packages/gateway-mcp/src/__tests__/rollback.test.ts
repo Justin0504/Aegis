@@ -34,6 +34,7 @@ function setup() {
   db.exec(`
     CREATE TABLE traces (
       trace_id TEXT PRIMARY KEY,
+      parent_trace_id TEXT,
       agent_id TEXT NOT NULL,
       timestamp TEXT NOT NULL,
       sequence_number INTEGER,

@@ -14,6 +14,14 @@ tags:
   - attack-examples
 answersQuery: "What is indirect prompt injection and how do I defend my AI agent against it?"
 headlineStat: "IPIGuard (EMNLP 2025 oral) drops attack success rate from 4.43% → 0.69% by tracking parameter-level data flow rather than blocking by classifier."
+oneSentenceAnswer: "Indirect prompt injection is when an attacker hides instructions in tool outputs your agent later reads — webpages, emails, retrieved documents — and the fix is parameter-level taint propagation, which drops attack success rate from 4.43% (classifier-only) to 0.69% (IPIGuard, EMNLP 2025 oral)."
+coverImage: "1586282391129-76a6df230234"
+keyTakeaways:
+  - "Indirect prompt injection hides instructions in tool outputs (web pages, emails, PDFs) the agent later reads."
+  - "Classifier-only defenses leak; IPIGuard drops ASR from 4.43% → 0.69% with parameter-level taint."
+  - "Treat every tool output as untrusted source, and every tool argument as a potential sink."
+  - "Bind sensitive sinks (payment, email, file-write) to trusted-source-only parameter taint."
+  - "Document Markdown / HTML / JSON parsers are the most exploited injection surfaces in 2026."
 ---
 
 **Short answer**: indirect prompt injection (IPI) is when an attacker hides instructions in *content your agent reads later* — a webpage, an email body, a Stack Overflow answer, a retrieval-augmented document — and those instructions hijack the agent's tool calls. Text-classifier defences (the kind ChatGPT's moderation API ships) catch direct injection but miss IPI by 60–90 % on the AgentDojo benchmark. The fix is parameter-level taint propagation: label every tool argument with where it came from, and gate sinks (`send_email`, `write_file`, `transfer`) on that label.
@@ -122,7 +130,7 @@ The agent's summariser obediently includes "consent obtained for research-networ
 
 **What AEGIS sees**: the `update_patient_record` tool call has a `consents.research` field set to `true`, provenance `retrieval` (patient-chart text). The policy `consent-must-be-structured` requires consent flags to originate from a structured `consent_form` source, *never* from free-text patient notes. The flag is stripped before the EHR write executes. The audit log records both the attempted attack and the strip — usable as evidence for a HIPAA breach investigation if it ever escalates.
 
-## The general defence pattern
+## What is the general defence pattern against indirect prompt injection?
 
 Across all 5 examples the same architecture wins:
 

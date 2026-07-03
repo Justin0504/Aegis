@@ -35,23 +35,53 @@ const LOGOS: Logo[] = [
   { name: 'Databricks',    color: '#FF3621', path: 'M.95 14.184L12 20.403l9.919-5.55v2.21L12 22.662l-10.484-5.96-.565.308v.77L12 24l11.05-6.218v-4.317l-.515-.309L12 19.118l-9.867-5.653v-2.21L12 16.805l11.05-6.218V6.32l-.515-.308L12 11.974 2.647 6.681 12 1.388l7.76 4.368.668-.411v-.566L12 0 .95 6.27v.72L12 13.207l9.919-5.55v2.26L12 15.52 1.516 9.56l-.565.308Z' },
   { name: 'Cloudflare',    color: '#F38020', path: 'M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727' },
 ];
----
 
+// Split into two rows so the top and bottom marquees can scroll in
+// opposite directions — visually distinctive without adding or
+// removing any content vs the static grid.
+const rowA = LOGOS.slice(0, 8);
+const rowB = LOGOS.slice(8, 16);
+---
 <section class="cs">
   <div class="container">
     <p class="cs-eyebrow">Compatible with the stacks teams already ship</p>
 
-    <ul class="cs-grid">
-      {LOGOS.map(l => (
-        <li class="cs-cell">
-          {/* fill-rule="evenodd" so brand marks with interior cutouts —
-             Anthropic A slash, Coinbase ring, OpenAI petals — render
-             with the right negative space at 20-px size. */}
-          <svg viewBox="0 0 24 24" fill={l.color} fill-rule="evenodd" aria-hidden="true"><path d={l.path} /></svg>
-          <span>{l.name}</span>
-        </li>
-      ))}
-    </ul>
+    <div class="cs-marquee">
+      {/* Top row — scrolls right → left. Duplicated inline for
+          seamless -50% loop; the duplicate is aria-hidden so screen
+          readers only announce the first 8 logos. */}
+      <ul class="cs-track cs-track--left" role="list">
+        {rowA.map(l => (
+          <li class="cs-cell">
+            <svg viewBox="0 0 24 24" fill={l.color} fill-rule="evenodd" aria-hidden="true"><path d={l.path} /></svg>
+            <span>{l.name}</span>
+          </li>
+        ))}
+        {rowA.map(l => (
+          <li class="cs-cell" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill={l.color} fill-rule="evenodd" aria-hidden="true"><path d={l.path} /></svg>
+            <span>{l.name}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Bottom row — scrolls left → right (opposite direction),
+          slightly slower so the two rows don't sync. */}
+      <ul class="cs-track cs-track--right" role="list">
+        {rowB.map(l => (
+          <li class="cs-cell">
+            <svg viewBox="0 0 24 24" fill={l.color} fill-rule="evenodd" aria-hidden="true"><path d={l.path} /></svg>
+            <span>{l.name}</span>
+          </li>
+        ))}
+        {rowB.map(l => (
+          <li class="cs-cell" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill={l.color} fill-rule="evenodd" aria-hidden="true"><path d={l.path} /></svg>
+            <span>{l.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   </div>
 </section>
 
@@ -69,29 +99,75 @@ const LOGOS: Logo[] = [
     margin: 0 0 2.2rem;
     font-weight: 500;
   }
-  .cs-grid {
+  /* Marquee wrapper — hides the overflow of both tracks and applies
+     an edge-fade mask so logos dissolve into the background instead
+     of a hard cutoff. */
+  .cs-marquee {
+    border: 1px solid var(--hairline);
+    border-left: 0;
+    border-right: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 6%,
+      #000 94%,
+      transparent 100%
+    );
+            mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 6%,
+      #000 94%,
+      transparent 100%
+    );
+  }
+
+  /* Each track holds 2× the logos and is animated by translateX,
+     so translating by exactly -50% loops seamlessly. width:max-content
+     lets the flex row expand past the container instead of shrinking. */
+  .cs-track {
+    display: flex;
     list-style: none;
     padding: 0;
     margin: 0;
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 0;
-    border-top: 1px solid var(--hairline);
-    border-left: 1px solid var(--hairline);
+    width: max-content;
+    will-change: transform;
   }
+  .cs-track + .cs-track { border-top: 1px solid var(--hairline); }
+
+  .cs-track--left  { animation: cs-scroll-left  38s linear infinite; }
+  .cs-track--right { animation: cs-scroll-right 44s linear infinite; }
+
+  @keyframes cs-scroll-left  {
+    from { transform: translateX(0);    }
+    to   { transform: translateX(-50%); }
+  }
+  @keyframes cs-scroll-right {
+    from { transform: translateX(-50%); }
+    to   { transform: translateX(0);    }
+  }
+
+  /* Pause when the pointer is anywhere in the row — so users can
+     read a specific logo they spotted. */
+  .cs-marquee:hover .cs-track,
+  .cs-marquee:focus-within .cs-track { animation-play-state: paused; }
+
   .cs-cell {
+    flex: 0 0 auto;
+    width: 180px;                  /* consistent cell width in the flex row */
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     padding: 1.4rem 0.6rem;
     border-right: 1px solid var(--hairline);
-    border-bottom: 1px solid var(--hairline);
     color: var(--muted);
     font-size: 0.92rem;
     font-weight: 500;
     letter-spacing: -0.005em;
     transition: background 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
   }
   .cs-cell:hover {
     background: var(--bg);
@@ -102,13 +178,32 @@ const LOGOS: Logo[] = [
     height: 20px;
     flex-shrink: 0;
   }
-  .cs-fine {
-    text-align: center;
-    color: var(--muted);
-    font-size: 0.78rem;
-    margin: 2rem 0 0;
+
+  /* Reduced-motion: fall back to the static Railway-style grid we
+     had before. No animation, no mask, no marquee — content-identical
+     to the pre-change layout. */
+  @media (prefers-reduced-motion: reduce) {
+    .cs-marquee {
+      -webkit-mask-image: none;
+              mask-image: none;
+      border: 0;
+    }
+    .cs-track {
+      animation: none;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border-top: 1px solid var(--hairline);
+      border-left: 1px solid var(--hairline);
+    }
+    .cs-track > [aria-hidden="true"] { display: none; }
+    .cs-track + .cs-track { border-top: 0; }
+    .cs-cell { width: auto; border-bottom: 1px solid var(--hairline); }
+    @media (max-width: 1080px) { .cs-track { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 640px)  { .cs-track { grid-template-columns: repeat(2, 1fr); } }
   }
 
-  @media (max-width: 1080px) { .cs-grid { grid-template-columns: repeat(4, 1fr); } }
-  @media (max-width: 640px)  { .cs-grid { grid-template-columns: repeat(2, 1fr); } .cs-cell { padding: 1.1rem 0.4rem; font-size: 0.85rem; } }
+  @media (max-width: 640px) {
+    .cs-cell { width: 150px; padding: 1.1rem 0.4rem; font-size: 0.85rem; }
+  }
 </style>

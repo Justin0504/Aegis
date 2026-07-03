@@ -37,15 +37,49 @@ class TraceContext:
         trace_id: UUID,
         parent_trace_id: Optional[UUID] = None,
         sequence_number: int = 0,
+        delegation_id: Optional[str] = None,
+        parent_delegation_id: Optional[str] = None,
     ):
         self.trace_id = trace_id
         self.parent_trace_id = parent_trace_id
+        # Delegation context — populated from AgentGuard's delegation stack
+        # at trace-open time. Frozen for the life of the trace so async
+        # child work can't drift into a different delegation.
+        self.delegation_id = delegation_id
+        self.parent_delegation_id = parent_delegation_id
         self.sequence_number = sequence_number
         self.start_time = time.time()
         self.captured_stdout: Optional[str] = None
         self.captured_stderr: Optional[str] = None
         self.captured_llm_calls: List[Dict[str, Any]] = []
         self.exception: Optional[Exception] = None
+
+
+class DelegationScope:
+    """Context-manager returned by AgentGuard.delegation().
+
+    ``with guard.delegation("user-request-xyz"): ...`` pushes a
+    delegation id onto the current guard's stack. Every trace opened
+    inside the ``with`` block carries that id. Sub-delegations (nested
+    ``with`` blocks) inherit the outer id as ``parent_delegation_id``.
+    """
+
+    def __init__(self, guard: "AgentGuard", delegation_id: str):
+        self._guard = guard
+        self._id = delegation_id
+
+    def __enter__(self) -> str:
+        stack = getattr(self._guard, "_delegation_stack", None)
+        if stack is None:
+            self._guard._delegation_stack = []  # type: ignore[attr-defined]
+            stack = self._guard._delegation_stack
+        stack.append(self._id)
+        return self._id
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        stack = getattr(self._guard, "_delegation_stack", [])
+        if stack and stack[-1] == self._id:
+            stack.pop()
 
 
 class AgentGuard:
@@ -56,6 +90,10 @@ class AgentGuard:
         self._sequence_counter = 0
         self._previous_hash: Optional[str] = None
         self._trace_stack: List[TraceContext] = []
+        # Stack of active delegation ids (Toledo et al. arXiv:2606.09692).
+        # Each `with guard.delegation(...)` pushes; every trace opened
+        # while the stack is non-empty inherits the top id.
+        self._delegation_stack: List[str] = []
 
         # Normalise agent_id to UUID once — reused for every trace
         try:
@@ -154,14 +192,41 @@ class AgentGuard:
 
         return decorator if func is None else decorator(func)
 
+    def delegation(self, delegation_id: str) -> "DelegationScope":
+        """Bind a delegation id to every trace opened inside the block.
+
+        Example::
+
+            with guard.delegation("user-request-42"):
+                agent.run(task)          # every tool call → delegation_id="user-request-42"
+
+        Nested scopes create sub-delegations — the outer id becomes
+        ``parent_delegation_id`` on the inner block's traces.
+        """
+        return DelegationScope(self, delegation_id)
+
     @contextmanager
     def _create_trace_context(self):
         """Create a new trace context."""
         parent_id = self._trace_stack[-1].trace_id if self._trace_stack else None
+
+        # Delegation propagation: the top of the delegation stack is this
+        # trace's delegation_id; the element below it (if any) becomes
+        # parent_delegation_id — that's how sub-delegations link back to
+        # their parent in the forensic query.
+        current_delegation: Optional[str] = None
+        parent_delegation: Optional[str] = None
+        if self._delegation_stack:
+            current_delegation = self._delegation_stack[-1]
+            if len(self._delegation_stack) > 1:
+                parent_delegation = self._delegation_stack[-2]
+
         ctx = TraceContext(
             trace_id=uuid4(),
             parent_trace_id=parent_id,
             sequence_number=self._sequence_counter,
+            delegation_id=current_delegation,
+            parent_delegation_id=parent_delegation,
         )
         self._sequence_counter += 1
 
@@ -338,6 +403,8 @@ class AgentGuard:
         trace_request = CreateTraceRequest(
             agent_id=self._agent_uuid,
             parent_trace_id=ctx.parent_trace_id,
+            delegation_id=ctx.delegation_id,
+            parent_delegation_id=ctx.parent_delegation_id,
             sequence_number=ctx.sequence_number,
             input_context=input_context,
             thought_chain=thought_chain,

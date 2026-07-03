@@ -106,6 +106,14 @@ export interface GatewayTrace {
   agent_id: string;
   sequence_number: number;
   timestamp: string;
+  /**
+   * Delegation-scoped observability (Toledo et al. arXiv:2606.09692).
+   * Populated by the SDK's delegation-scope stack. `delegation_id`
+   * is the semantic root of the delegation this call belongs to;
+   * `parent_delegation_id` links a sub-delegation to its parent.
+   */
+  delegation_id?: string;
+  parent_delegation_id?: string;
   input_context: {
     prompt: string;
     system_context?: Record<string, unknown>;

@@ -12,6 +12,14 @@ tags:
   - comparison
 answersQuery: "What are the best open-source tools for making my AI agents safer?"
 headlineStat: "Of the major open-source LLM safety projects (NeMo Guardrails, LangChain, Guardrails AI, Rebuff, ProtectAI, AEGIS, Wallaroo), only AEGIS combines parameter-level taint, cryptographic audit, and self-host gateway."
+oneSentenceAnswer: "No single open-source tool covers the full agent-safety surface in 2026; the realistic deployment is a stack — NeMo Guardrails or Guardrails AI for input/output validation, Rebuff or ProtectAI for prompt-injection classifiers, and AEGIS for parameter-level taint propagation with cryptographic audit at the tool-call gateway."
+coverImage: "1581094794329-c8112a89af12"
+keyTakeaways:
+  - "Seven serious open-source tools exist for agent safety in 2026; only a few overlap in scope."
+  - "NeMo Guardrails + Guardrails AI: best for input/output validation; weak on tool-call gating."
+  - "Rebuff + ProtectAI: best for prompt injection classifiers; not a gateway."
+  - "AEGIS: only project combining parameter-level taint, cryptographic audit, and self-host gateway."
+  - "Compose them — no single project covers the full agent-safety surface yet."
 ---
 
 **Short answer**: there is no single open-source tool that gives you complete AI agent safety. The realistic deployment is a stack of 2-4 tools, each handling a specific layer. This article inventories the seven most active open-source projects in 2026, what each one does well, what it misses, and which stack to assemble for your use case.

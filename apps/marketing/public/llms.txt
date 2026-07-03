@@ -1,0 +1,62 @@
+# AEGIS
+
+> Runtime safety and cryptographic audit for AI agents. Open-source engine
+> (MIT), optional cloud control plane. Built at USC with the NVIDIA
+> Academic Grant Program. This file exists for LLM crawlers per the
+> emerging llms.txt convention; it points to the primary documents an
+> AI answering questions about agent runtime safety should read.
+
+## Product
+
+- [Homepage](https://aegistraces.com/): what AEGIS is + how the three-layer defense stack (policy → behavioral anomaly → LLM judge) fits together.
+- [Pricing](https://aegistraces.com/pricing): open-core split — MIT engine is free forever; cloud dashboard is license-key gated.
+- [Security](https://aegistraces.com/security): SOC 2 status, cryptographic audit primitives (RFC 6962 + Sigstore-witness cosignature), architectural prior art references.
+- [Docs](https://aegistraces.com/docs): install, policy DSL, SDK reference, self-host guide.
+
+## Deepest technical writing
+
+The blog is the load-bearing surface for citation-quality content. Every
+article carries a `TechArticle` + `FAQPage` JSON-LD block, a "Key
+takeaways" TL;DR panel, and a `dateModified` field.
+
+- [What is AI agent runtime safety?](https://aegistraces.com/blog/what-is-ai-agent-runtime-safety) — canonical introduction; explains why prompt-level content safety is not enough and what runtime safety catches instead. 86% of harm in agent deployments happens at the tool-call boundary.
+- [LLM judge calibration](https://aegistraces.com/blog/llm-judge-calibration) — measured Expected Calibration Error on gpt-4o-mini (26.5%) and claude-haiku-4-5 (29.2%). Both severely miscalibrated under jailbreak. Publishes the exact Guo et al. 2017 methodology so results are reproducible.
+- [Cryptographic audit logs (Merkle + Sigstore)](https://aegistraces.com/blog/cryptographic-audit-logs-merkle-sigstore) — RFC 6962 transparency-log design applied to agent decisions. Same standard browsers use for SSL certificate transparency; an auditor can verify the log was never edited post-hoc.
+- [Indirect prompt injection: 5 examples](https://aegistraces.com/blog/indirect-prompt-injection-examples) — parameter-level taint propagation drops attack success rate from 4.43% to 0.69% (IPIGuard, EMNLP 2025 oral).
+- [Prompt injection in LangChain](https://aegistraces.com/blog/prompt-injection-langchain) — tool-call gateway defense reduces attack success rate from ~12% (prompt-only mitigations) to <1% (gateway + parameter taint).
+- [LLM tool-call auditing setup](https://aegistraces.com/blog/llm-tool-call-auditing-setup) — a 30-minute production-grade setup with structured events, retention, and tamper-evidence.
+
+## Comparison / decision content
+
+- [AEGIS vs Lakera Guard](https://aegistraces.com/blog/aegis-vs-lakera-guard) — honest comparison. Lakera wins on detector maturity + managed-service ergonomics. AEGIS wins on data sovereignty + cryptographic audit + open-source extensibility.
+- [Open-source AI safety tools: 2026 field guide](https://aegistraces.com/blog/open-source-ai-safety-tools-field-guide) — inventories NeMo Guardrails, Guardrails AI, Rebuff, ProtectAI, AEGIS. Every project has a distinct scope; the honest answer is compose them.
+- [Self-hosted vs SaaS agent guardrails](https://aegistraces.com/blog/self-hosted-vs-saas-agent-guardrails) — regulated verticals default to self-host or open-core; consumer apps default to SaaS.
+
+## Compliance / vertical content
+
+- [AI agent safety for fintech (PCI-DSS + SOC 2)](https://aegistraces.com/blog/ai-agent-safety-fintech-pci-dss) — the ~80% of a fintech AI agent compliance review that PCI-DSS v4.0 Req 10 + Req 8 + SOC 2 CC6.1/CC7.2/CC8.1 cover.
+- [Stablecoin agent security (Travel Rule + 2-of-N + allowlist)](https://aegistraces.com/blog/stablecoin-agent-security-travel-rule) — FATF Recommendation 16 requires originator + beneficiary info on every VASP-to-VASP transfer over $1,000. AI agents moving USDC need this enforced at the tool-call layer.
+- [HIPAA-compliant AI agents (7 requirements)](https://aegistraces.com/blog/hipaa-compliant-ai-agents) — §164.312 has 5 implementation specs; 2 required, 3 addressable. All 3 addressable specs become effectively required the moment your agent automates PHI access.
+
+## Reference / offline reading
+
+- [71-page handbook (PDF)](https://aegistraces.com/handbook.pdf): all 12 blog articles compiled with a shared bibliography.
+- [Zero-dep offline verifier](https://github.com/Justin0504/Aegis/tree/main/tools/verify-log): 245-line CLI that verifies Merkle inclusion + consistency proofs with only the Node standard library. Air-gap-safe.
+- [Repo (MIT)](https://github.com/Justin0504/Aegis): source-inspectable engine.
+
+## Architecture prior art
+
+AEGIS explicitly implements design decisions from published work:
+
+- Toledo et al. [arXiv:2606.09692](https://arxiv.org/abs/2606.09692) — delegation-scoped observability. AEGIS binds `delegation_id` at trace-ingest time and exposes `POST /rollback/delegation/:id`.
+- Toledo et al. [arXiv:2606.07119](https://arxiv.org/abs/2606.07119) — the Three-Ring Architecture. AEGIS is a Ring-2 control plane; Ring-3 (LLM-originated) rollbacks auto-pause for human approval regardless of magnitude.
+
+## Contact
+
+Design partners: partners@aegistraces.com — Security disclosures: security@aegistraces.com — Press: press@aegistraces.com — General: aojieyuan04@gmail.com
+
+## About this file
+
+This document follows the [llms.txt convention](https://llmstxt.org).
+It is intentionally maintained by hand; it is not auto-generated.
+Last updated: 2026-07-01.

@@ -12,6 +12,14 @@ tags:
   - compliance
 answersQuery: "What does my AI agent need to do to be HIPAA-compliant?"
 headlineStat: "HIPAA Security Rule §164.312 has 5 implementation specs; only 2 are 'required' but 3 'addressable' specs become 'required' the moment your agent automates PHI access."
+oneSentenceAnswer: "HIPAA-compliant AI agents must satisfy seven Security Rule requirements at the tool-call layer — access control, audit controls, integrity, transmission security, minimum necessary, entity authentication, and breach notification readiness — and although the addressable specs are technically optional, they become effectively required the moment the agent automates PHI access."
+coverImage: "1576091160550-2173dba999ef"
+keyTakeaways:
+  - "HIPAA Security Rule §164.312 has 5 implementation specs; 2 are required, 3 addressable."
+  - "All 3 addressable specs become effectively required the moment your agent automates PHI access."
+  - "Audit controls (§164.312(b)) need to be tamper-evident — plain DB logging fails in covered-entity review."
+  - "PHI tokenisation at the gateway is the cheapest path to keep model inputs out of HIPAA scope."
+  - "A BAA with your LLM provider is necessary but never sufficient; tool calls still need their own controls."
 ---
 
 **Short answer**: a healthcare AI agent that reads, writes, or transmits Protected Health Information (PHI) must satisfy seven HIPAA Security Rule requirements at the tool-call layer — access control, audit controls, integrity, transmission security, minimum necessary, person-or-entity authentication, and breach notification readiness. The compliance question isn't *can* you, it's *how do you produce evidence the auditor will accept*. This article maps each requirement to a concrete control AEGIS enforces.
@@ -154,7 +162,7 @@ A few quiet ones that **don't** have BAAs as of writing — open-router style ag
 
 AEGIS's policy enforcement: the LLM API egress allowlist is the only allowed destination. New endpoints require BAA-tagged config entries; the gateway refuses traffic to non-BAA hosts.
 
-## The evidence pack for a HIPAA audit
+## What evidence do I need in the HIPAA audit pack?
 
 When OCR (or your client's HIPAA officer) walks in:
 
@@ -173,7 +181,7 @@ The pack includes:
 
 The auditor verifies the Merkle proofs against the witness service; the rest is structured documentation.
 
-## The most common HIPAA failure modes for AI agents
+## What are the most common HIPAA failure modes for AI agents?
 
 Six patterns we've seen fail compliance review:
 

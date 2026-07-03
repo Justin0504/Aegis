@@ -415,6 +415,19 @@ export class TraceAPI {
       redactedObs,
     );
 
+    // Delegation-scoped observability (Toledo et al. arXiv:2606.09692).
+    // The delegation columns were added to `traces` by
+    // RollbackService.ensureColumns; we simply persist whatever the SDK
+    // sent so `rollbackDelegation` can query by delegation_id.
+    const delegationId =
+      (trace as any).delegation_id != null
+        ? String((trace as any).delegation_id)
+        : null;
+    const parentDelegationId =
+      (trace as any).parent_delegation_id != null
+        ? String((trace as any).parent_delegation_id)
+        : null;
+
     this.db.prepare(`
       INSERT INTO traces (
         trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
@@ -423,7 +436,8 @@ export class TraceAPI {
         safety_validation, approval_status, approved_by,
         environment, version, tags,
         model, input_tokens, output_tokens, cost_usd,
-        session_id, pii_detected, content_hash
+        session_id, pii_detected, content_hash,
+        delegation_id, parent_delegation_id
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
@@ -431,7 +445,8 @@ export class TraceAPI {
         ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, ?,
-        ?, ?, ?
+        ?, ?, ?,
+        ?, ?
       )
     `).run(
       String(trace.trace_id),
@@ -459,6 +474,8 @@ export class TraceAPI {
       sessionId,
       piiDetected,
       contentHash,
+      delegationId,
+      parentDelegationId,
     );
 
     // Emit OTEL span async, non-blocking
