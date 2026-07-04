@@ -80,6 +80,15 @@ export interface AuthorizeResult {
   attributionStrength: 'strong' | 'weak';
 }
 
+/**
+ * Result of a capability check — the gate's per-call decision about
+ * whether the agent is attested to call this tool.
+ */
+export interface CapabilityCheck {
+  allowed: boolean;
+  reason: string;
+}
+
 export class AgentRegistryService {
   /** In-process event bus for lifecycle events. Subscribers (e.g. the
    *  onboarding SSE endpoint) listen for `first_sighting`. Single process
@@ -296,6 +305,46 @@ export class AgentRegistryService {
       agent,
       blocked: false,
       attributionStrength: agent.status === 'active' ? 'strong' : 'weak',
+    };
+  }
+
+  /**
+   * Capability attestation — enforce that the agent only calls tools it
+   * declared at registration time.
+   *
+   * Behaviour:
+   *  - If the agent has no `declared_tools` set → allowed (backwards
+   *    compatible: unattested agents are unrestricted; ops can tighten
+   *    per-agent by populating the field).
+   *  - If the tool name matches a declared entry exactly, or matches a
+   *    wildcard prefix (`stripe.*` matches `stripe.refund`), it's
+   *    allowed.
+   *  - Otherwise blocked with a specific reason.
+   *
+   * Wildcards use the shell-style `*` at the tail only —
+   * `foo.*` matches `foo.anything`; interior stars are treated as
+   * literals so nothing can shadow a specific rule by accident.
+   */
+  checkCapability(opts: { agentId: string; toolName: string }): CapabilityCheck {
+    const agent = this.get(opts.agentId);
+    if (!agent) return { allowed: true, reason: 'agent not registered — no declared_tools to enforce' };
+
+    const declared = agent.declared_tools;
+    if (!declared || declared.length === 0) {
+      return { allowed: true, reason: 'no declared_tools set — capability check skipped' };
+    }
+    for (const entry of declared) {
+      if (entry === opts.toolName) return { allowed: true, reason: `matched declared_tool "${entry}"` };
+      if (entry.endsWith('.*')) {
+        const prefix = entry.slice(0, -2);  // "stripe.*" → "stripe."
+        if (opts.toolName.startsWith(prefix + '.')) {
+          return { allowed: true, reason: `matched declared_tool wildcard "${entry}"` };
+        }
+      }
+    }
+    return {
+      allowed: false,
+      reason: `tool "${opts.toolName}" is not in the agent's declared_tools attestation (${declared.length} entries).`,
     };
   }
 

@@ -145,6 +145,27 @@ export class CheckAPI {
             ? { build_artifact: buildArtifact, source_commit: sourceCommit }
             : undefined;
           this.agentRegistry.touch({ orgId, agentId: body.agent_id, provenance });
+
+          // Capability attestation gate — refuses a tool call whose name
+          // isn't in the agent's declared_tools list. Opt-in: agents with
+          // no declared_tools set skip this check entirely, so existing
+          // installations don't regress.
+          const cap = this.agentRegistry.checkCapability({
+            agentId:  body.agent_id,
+            toolName: body.tool_name,
+          });
+          if (!cap.allowed) {
+            const checkId = randomUUID();
+            const latencyMs = Date.now() - start;
+            return res.json({
+              decision: 'block',
+              reason:   cap.reason,
+              check_id: checkId,
+              risk_level: 'HIGH',
+              category:  'unattested-tool',
+              latency_ms: latencyMs,
+            });
+          }
         }
 
         // user_category_overrides from client is ignored for security —

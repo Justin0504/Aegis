@@ -13,6 +13,8 @@ import { CheckAPI } from './api/check';
 import { AgentsAPI } from './api/agents';
 import { OnboardingAPI } from './api/onboarding';
 import { RollbackAPI } from './api/rollback';
+import { WorkflowAPI } from './api/workflow';
+import { WorkflowExtractorService } from './services/workflow/extractor';
 import { RollbackService } from './services/rollback';
 import { ReversibilityClassifier } from './services/reversibility';
 import { CompensationRegistry } from './services/compensation-registry';
@@ -662,6 +664,9 @@ async function main() {
   app.use('/api/v1/onboarding', requireAuth, new OnboardingAPI(agentRegistry, logger).router);
   app.use('/api/v1/rollback',   requireAuth, new RollbackAPI(rollbackService, logger, sagaService, rollbackMetrics, dlqService).router);
   app.use('/api/v1/scan',       requireAuth, new PredeployScanAPI(predeployScan, scanHistory, logger).router);
+  // WorkflowAPI is stateless — one service, no DB. Every extraction
+  // runs entirely in-memory over the uploaded source files.
+  app.use('/api/v1/workflow',   requireAuth, new WorkflowAPI(new WorkflowExtractorService(), logger, auditLog, dslPolicy).router);
 
   // Enterprise admin routes (auth + feature gate)
   app.use('/api/v1/admin', requireAuth, requireFeature('multi-tenancy'),

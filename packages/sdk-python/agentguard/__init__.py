@@ -152,6 +152,8 @@ def auto(
     smolagents_ok      = instrument.patch_smolagents()
     pydantic_ai_ok     = instrument.patch_pydantic_ai()
     autogen_ok         = instrument.patch_autogen()
+    litellm_ok         = instrument.patch_litellm()
+    http_tools_ok      = instrument.patch_http_tools()
 
     patched = []
     if anthropic_ok or anthropic_async_ok: patched.append("Anthropic")
@@ -165,6 +167,8 @@ def auto(
     if smolagents_ok:                      patched.append("smolagents")
     if pydantic_ai_ok:                     patched.append("Pydantic-AI")
     if autogen_ok:                         patched.append("AutoGen")
+    if litellm_ok:                         patched.append("LiteLLM")
+    if http_tools_ok:                      patched.append("HTTP-tools")
 
     if patched:
         print(f"[AEGIS] Auto-instrumented: {', '.join(patched)} → {gateway_url}")

@@ -20,9 +20,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Clock, CheckCircle2, XCircle, AlertTriangle, Sparkles, ShieldAlert } from 'lucide-react'
+import { Clock, CheckCircle2, XCircle, AlertTriangle, Sparkles, ShieldAlert, ListTree } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { friendlyAgent } from '@/lib/friendly-names'
+import { SagaTimelineDrawer } from './saga-timeline-drawer'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -51,6 +52,7 @@ export function RollbackApprovalsView() {
   const [pending, setPending] = useState<Record<string, 'approving' | 'rejecting'>>({})
   const [rejectDrafts, setRejectDrafts] = useState<Record<string, string>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [openSagaId, setOpenSagaId] = useState<string | null>(null)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['rollback-paused-sagas'],
@@ -215,6 +217,18 @@ export function RollbackApprovalsView() {
                       </span>
                     )}
                     {s.paused_at && <span>Paused: {formatDate(s.paused_at)}</span>}
+                    <button
+                      onClick={() => setOpenSagaId(s.id)}
+                      style={{
+                        background: 'none', border: 0, padding: 0, color: MUTED,
+                        textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem',
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      }}
+                      title="Open saga step timeline"
+                    >
+                      <ListTree size={11} />
+                      View timeline
+                    </button>
                     {s.reason && (
                       <button
                         onClick={() => setExpanded(x => ({ ...x, [s.id]: !x[s.id] }))}
@@ -300,6 +314,10 @@ export function RollbackApprovalsView() {
           {' '}row with the approver's identity. Approvals fire the compensator immediately.
         </p>
       </footer>
+
+      {openSagaId && (
+        <SagaTimelineDrawer sagaId={openSagaId} onClose={() => setOpenSagaId(null)} />
+      )}
     </div>
   )
 }

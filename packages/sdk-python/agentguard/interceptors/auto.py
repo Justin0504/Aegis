@@ -15,6 +15,54 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import uuid4
 
 
+def _debug_env() -> bool:
+    return os.environ.get('AEGIS_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+
+# Known outbound HTTP sinks — URL prefix → tool name prefix.
+# Order matters: longer prefixes should win, so if you add a sub-path
+# override put it BEFORE its parent prefix in insertion order.
+HTTP_TOOL_ENDPOINTS: Dict[str, str] = {
+    # Payments / money movement
+    'https://api.stripe.com/':      'stripe',
+    'https://api.circle.com/':      'circle_usdc',
+    'https://api.coinbase.com/':    'coinbase',
+    'https://api.brex.com/':        'brex',
+    'https://production.plaid.com/':'plaid',
+    'https://sandbox.plaid.com/':   'plaid',
+    'https://api.paypal.com/':      'paypal',
+
+    # Comms
+    'https://slack.com/api/':       'slack',
+    'https://api.slack.com/':       'slack',
+    'https://api.twilio.com/':      'twilio',
+    'https://api.sendgrid.com/':    'sendgrid',
+    'https://api.resend.com/':      'resend',
+    'https://api.postmarkapp.com/': 'postmark',
+
+    # Storage / infra
+    'https://api.github.com/':      'github',
+    'https://api.digitalocean.com/':'digitalocean',
+    'https://api.aws.amazon.com/':  'aws',
+    'https://s3.amazonaws.com/':    's3',
+
+    # AI providers (fallback — usually caught by SDK patches above)
+    'https://api.openai.com/':      'openai',
+    'https://api.anthropic.com/':   'anthropic',
+    'https://generativelanguage.googleapis.com/': 'gemini',
+    'https://api.cohere.ai/':       'cohere',
+    'https://api.mistral.ai/':      'mistral',
+    'https://api.deepseek.com/':    'deepseek',
+    'https://openrouter.ai/':       'openrouter',
+
+    # Healthcare
+    'https://fhir.epic.com/':       'fhir_epic',
+
+    # Data / observability
+    'https://api.segment.io/':      'segment',
+}
+
+
 def _build_identity_headers(cfg) -> Dict[str, str]:
     """
     Header set that pins agent identity on every gateway call.
@@ -1180,6 +1228,258 @@ class AutoInstrument:
         except Exception as e:
             print(f"[AEGIS] AutoGen auto-patch failed: {e}")
             return False
+
+    # ── LiteLLM (module-level completion + acompletion) ────────────────────
+
+    def patch_litellm(self) -> bool:
+        """Patches litellm.completion / litellm.acompletion at the module
+        level. LiteLLM routes 100+ providers through one OpenAI-shaped
+        API, so a lot of teams sit behind it. Same tool-call handshake
+        as our OpenAI patch: intercept tool_calls in the choice, gate
+        via _check_block, capture the follow-up tool message to close
+        the trace.
+        """
+        try:
+            import litellm  # type: ignore
+            original_sync  = getattr(litellm, 'completion',  None)
+            original_async = getattr(litellm, 'acompletion', None)
+            if not original_sync and not original_async:
+                return False
+            instrument = self
+
+            def _capture_tool_result(messages):
+                """Close pending traces when the follow-up tool message arrives."""
+                for msg in messages or []:
+                    if msg.get('role') != 'tool':
+                        continue
+                    tid    = msg.get('tool_call_id')
+                    result = msg.get('content', '')
+                    with instrument._lock:
+                        pending = instrument._pending.pop(tid, None)
+                    if pending:
+                        instrument._send_trace(
+                            tool_name=pending['tool_name'],
+                            input_prompt=pending['input_prompt'],
+                            arguments=pending['arguments'],
+                            result=result,
+                            start_time=pending['start_time'],
+                            error=None,
+                            token_usage=pending.get('token_usage'),
+                        )
+
+            def _register_tool_calls(response, messages):
+                """Gate + record any tool_calls the LLM emitted."""
+                choices = getattr(response, 'choices', None) or []
+                if not choices:
+                    return
+                choice = choices[0]
+                finish = getattr(choice, 'finish_reason', None) or (
+                    choice.get('finish_reason') if isinstance(choice, dict) else None
+                )
+                if finish != 'tool_calls':
+                    return
+                # LiteLLM returns either an OpenAI-style object or a dict.
+                message = getattr(choice, 'message', None) or (
+                    choice.get('message') if isinstance(choice, dict) else None
+                )
+                tool_calls = (
+                    getattr(message, 'tool_calls', None) or
+                    (message.get('tool_calls') if isinstance(message, dict) else None) or []
+                )
+                last_prompt = next(
+                    (m.get('content', '') for m in reversed(messages or [])
+                     if m.get('role') == 'user'), ''
+                )
+                usage = getattr(response, 'usage', None) or (
+                    response.get('usage') if isinstance(response, dict) else None
+                )
+                token_usage = {}
+                if usage:
+                    token_usage = {
+                        'input_tokens':  getattr(usage, 'prompt_tokens', None)
+                                         or (usage.get('prompt_tokens') if isinstance(usage, dict) else 0) or 0,
+                        'output_tokens': getattr(usage, 'completion_tokens', None)
+                                         or (usage.get('completion_tokens') if isinstance(usage, dict) else 0) or 0,
+                        'model':         getattr(response, 'model', None)
+                                         or (response.get('model') if isinstance(response, dict) else None),
+                    }
+                import json as _j
+                for tc in tool_calls:
+                    fn = getattr(tc, 'function', None) or (tc.get('function') if isinstance(tc, dict) else None)
+                    if fn is None:
+                        continue
+                    name = getattr(fn, 'name', None) or (fn.get('name') if isinstance(fn, dict) else None)
+                    args_raw = getattr(fn, 'arguments', None) or (fn.get('arguments') if isinstance(fn, dict) else '{}')
+                    try:
+                        args = _j.loads(args_raw or '{}')
+                    except Exception:
+                        args = {}
+                    tc_id = getattr(tc, 'id', None) or (tc.get('id') if isinstance(tc, dict) else None) or f'tc_{id(tc)}'
+                    if name:
+                        instrument._check_block(name, args)
+                        with instrument._lock:
+                            instrument._pending[tc_id] = {
+                                'tool_name':    name,
+                                'input_prompt': last_prompt or name,
+                                'arguments':    args,
+                                'start_time':   time.time(),
+                                'token_usage':  token_usage,
+                            }
+
+            def patched_sync(**kwargs):
+                messages = kwargs.get('messages', [])
+                _capture_tool_result(messages)
+                response = original_sync(**kwargs)
+                try:
+                    _register_tool_calls(response, messages)
+                except Exception as e:
+                    print(f'[AEGIS] LiteLLM sync post-hook failed: {e}')
+                return response
+
+            async def patched_async(**kwargs):
+                messages = kwargs.get('messages', [])
+                _capture_tool_result(messages)
+                response = await original_async(**kwargs)
+                try:
+                    _register_tool_calls(response, messages)
+                except Exception as e:
+                    print(f'[AEGIS] LiteLLM async post-hook failed: {e}')
+                return response
+
+            if original_sync:  litellm.completion  = patched_sync
+            if original_async: litellm.acompletion = patched_async
+            return True
+        except Exception as e:
+            print(f'[AEGIS] LiteLLM auto-patch failed: {e}')
+            return False
+
+    # ── HTTP tool-endpoint interception ───────────────────────────────────
+    #
+    # Any outbound HTTP call whose URL is on the "known tool endpoint"
+    # allow-list (Stripe / Circle / Coinbase / Twilio / Slack / SendGrid /
+    # GitHub API / Anthropic + OpenAI proxy paths, etc.) gets gated via
+    # _check_block, then a trace is emitted with the tool name we derive
+    # from the host + path. Zero code change — patches `requests.request`
+    # and `httpx.request` (both sync + async) once at instrument time.
+    #
+    # Non-tool calls (any URL not on the allow-list) are NEVER
+    # intercepted — this can't accidentally wrap the SDK's own POST
+    # /traces call.
+    #
+    # Registry is intentionally small + curated. Extend
+    # HTTP_TOOL_ENDPOINTS below to add new sinks.
+
+    def patch_http_tools(self) -> bool:
+        """Intercept known tool-provider HTTP endpoints.
+
+        Returns True when at least one HTTP client library was patched.
+        Failure is silent per-client — an app using httpx but not
+        requests still gets httpx intercepted.
+        """
+        patched_any = False
+        instrument = self
+
+        def _match_tool(url: str, method: str) -> Optional[str]:
+            """Return a tool_name if the URL matches a known sink, else None."""
+            if not url:
+                return None
+            u = url.lower()
+            for prefix, tool_prefix in HTTP_TOOL_ENDPOINTS.items():
+                if u.startswith(prefix):
+                    # Derive a compact tool name: <provider>.<verb>.<slug>
+                    # e.g. https://api.stripe.com/v1/refunds → stripe.post.v1_refunds
+                    path = u[len(prefix):].split('?')[0].strip('/')
+                    slug = path.replace('/', '_')[:40] or 'root'
+                    return f'{tool_prefix}.{method.lower()}.{slug}'
+            return None
+
+        # requests
+        try:
+            import requests  # type: ignore
+            original = requests.Session.request
+            def patched_request(self_sess, method, url, **kwargs):
+                tool_name = _match_tool(url, method)
+                if tool_name is None:
+                    return original(self_sess, method, url, **kwargs)
+                args = {
+                    'method': method,
+                    'url':    url,
+                    'params': kwargs.get('params'),
+                    'json':   kwargs.get('json'),
+                    'data':   kwargs.get('data'),
+                }
+                instrument._check_block(tool_name, args)
+                start = time.time()
+                error: Optional[str] = None
+                result = None
+                try:
+                    result = original(self_sess, method, url, **kwargs)
+                    return result
+                except Exception as e:
+                    error = str(e); raise
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name, input_prompt=url,
+                        arguments=args,
+                        result=f'HTTP {getattr(result, "status_code", "?")}' if result else None,
+                        start_time=start, error=error,
+                    )
+            requests.Session.request = patched_request
+            patched_any = True
+        except Exception as e:
+            if _debug_env():
+                print(f'[AEGIS] requests HTTP-tool patch skipped: {e}')
+
+        # httpx (sync + async)
+        try:
+            import httpx  # type: ignore
+            orig_sync  = httpx.Client.request
+            orig_async = httpx.AsyncClient.request
+
+            def patched_httpx_sync(self_c, method, url, **kwargs):
+                tool_name = _match_tool(str(url), method)
+                if tool_name is None:
+                    return orig_sync(self_c, method, url, **kwargs)
+                args = {'method': method, 'url': str(url), 'params': kwargs.get('params'),
+                        'json': kwargs.get('json'), 'content': str(kwargs.get('content', ''))[:400]}
+                instrument._check_block(tool_name, args)
+                start = time.time()
+                try:
+                    r = orig_sync(self_c, method, url, **kwargs)
+                    return r
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name, input_prompt=str(url),
+                        arguments=args, result=None,
+                        start_time=start, error=None,
+                    )
+
+            async def patched_httpx_async(self_c, method, url, **kwargs):
+                tool_name = _match_tool(str(url), method)
+                if tool_name is None:
+                    return await orig_async(self_c, method, url, **kwargs)
+                args = {'method': method, 'url': str(url), 'params': kwargs.get('params'),
+                        'json': kwargs.get('json'), 'content': str(kwargs.get('content', ''))[:400]}
+                await instrument._async_check_block(tool_name, args)
+                start = time.time()
+                try:
+                    r = await orig_async(self_c, method, url, **kwargs)
+                    return r
+                finally:
+                    instrument._send_trace(
+                        tool_name=tool_name, input_prompt=str(url),
+                        arguments=args, result=None,
+                        start_time=start, error=None,
+                    )
+
+            httpx.Client.request      = patched_httpx_sync
+            httpx.AsyncClient.request = patched_httpx_async
+            patched_any = True
+        except Exception as e:
+            if _debug_env():
+                print(f'[AEGIS] httpx HTTP-tool patch skipped: {e}')
+
+        return patched_any
 
     # ── Send trace ─────────────────────────────────────────────────────────
 
