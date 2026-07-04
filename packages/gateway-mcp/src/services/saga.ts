@@ -290,7 +290,16 @@ export class SagaService {
    *
    *  `depends_on` is an optional array of trace_ids this step depends
    *  on — used by causal-DAG rollback planning. When absent, the
-   *  chain falls back to reverse-chronological order. */
+   *  chain falls back to reverse-chronological order.
+   *
+   *  Race safety: the previous implementation read `step_count`,
+   *  INSERTed with `step_idx = read + 1`, then UPDATEd `step_count`
+   *  in three separate statements. Two concurrent appendStep() calls
+   *  on the same saga would each read the same count and INSERT the
+   *  same step_idx. This version wraps all three writes in an
+   *  IMMEDIATE transaction and derives the next idx from the actual
+   *  saga_step row count, so the write-read-write cycle is atomic
+   *  under SQLite's single-writer semantics. */
   appendStep(opts: {
     sagaId: string;
     trace_id: string;
@@ -300,28 +309,37 @@ export class SagaService {
     error?: string | null;
     depends_on?: string[] | null;
   }): number {
-    const sequence = this.db.prepare(
-      `SELECT step_count FROM saga WHERE id = ?`,
-    ).get(opts.sagaId) as { step_count: number } | undefined;
-    const nextIdx = (sequence?.step_count ?? 0) + 1;
-
     const dependsOnSerialised = opts.depends_on && opts.depends_on.length > 0
       ? opts.depends_on.join(',')
       : null;
 
-    const r = this.db.prepare(
-      `INSERT INTO saga_step (saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, depends_on)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      opts.sagaId, nextIdx, opts.trace_id, opts.outcome,
-      opts.compensator_kind, opts.duration_ms, opts.error ?? null,
-      dependsOnSerialised,
-    );
+    const tx = this.db.transaction((): number => {
+      // Source of truth for next idx is saga_step's own row count for
+      // this saga, not the mutable `step_count` column — the column
+      // is a denormalised cache that could drift in the presence of
+      // manual DB tampering.
+      const row = this.db.prepare(
+        `SELECT COUNT(*) AS n FROM saga_step WHERE saga_id = ?`,
+      ).get(opts.sagaId) as { n: number };
+      const nextIdx = row.n + 1;
 
-    this.db.prepare(
-      `UPDATE saga SET step_count = step_count + 1 WHERE id = ?`,
-    ).run(opts.sagaId);
-    return Number(r.lastInsertRowid);
+      const r = this.db.prepare(
+        `INSERT INTO saga_step (saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, depends_on)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        opts.sagaId, nextIdx, opts.trace_id, opts.outcome,
+        opts.compensator_kind, opts.duration_ms, opts.error ?? null,
+        dependsOnSerialised,
+      );
+      // Keep the cache column in sync — matches the same tx so
+      // readers of `saga.step_count` see the incremented value or
+      // none at all, never a torn read.
+      this.db.prepare(
+        `UPDATE saga SET step_count = ? WHERE id = ?`,
+      ).run(nextIdx, opts.sagaId);
+      return Number(r.lastInsertRowid);
+    });
+    return tx();
   }
 
   /** Fetch the saga record. */
@@ -333,14 +351,38 @@ export class SagaService {
     return row ?? null;
   }
 
-  /** Fetch all steps for a saga in step_idx order. */
-  steps(opts: { sagaId: string; orgId: string }): SagaStep[] {
-    // Scope check: only return steps if the saga itself is in the org
-    if (!this.get(opts)) return [];
-    return this.db.prepare(
+  /**
+   * Fetch steps for a saga in step_idx order.
+   *
+   *   opts.limit / opts.after   — pagination.
+   *     `after` is a step_idx cursor (exclusive). Callers get the
+   *     next page with `after = lastRow.step_idx`. Guards the API
+   *     from wildly-large sagas (approvals-heavy chain rollbacks
+   *     can accumulate hundreds of steps).
+   *
+   * The `total` count comes back so the client can render "42 of
+   * 500 steps" without a second round-trip.
+   */
+  steps(opts: {
+    sagaId: string;
+    orgId: string;
+    limit?: number;
+    after?: number;
+  }): { steps: SagaStep[]; total: number } {
+    if (!this.get(opts)) return { steps: [], total: 0 };
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const after = opts.after ?? 0;
+    const total = (this.db.prepare(
+      `SELECT COUNT(*) AS n FROM saga_step WHERE saga_id = ?`,
+    ).get(opts.sagaId) as { n: number }).n;
+    const rows = this.db.prepare(
       `SELECT id, saga_id, step_idx, trace_id, outcome, compensator_kind, duration_ms, error, recorded_at, depends_on
-         FROM saga_step WHERE saga_id = ? ORDER BY step_idx ASC`,
-    ).all(opts.sagaId) as SagaStep[];
+         FROM saga_step
+        WHERE saga_id = ? AND step_idx > ?
+        ORDER BY step_idx ASC
+        LIMIT ?`,
+    ).all(opts.sagaId, after, limit) as SagaStep[];
+    return { steps: rows, total };
   }
 
   /** List sagas for a tenant. Supports filtering by state. */

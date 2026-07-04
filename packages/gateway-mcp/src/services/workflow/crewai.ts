@@ -278,13 +278,27 @@ function truncate(s: string, n = 80): string {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
-/** Return the balanced-paren substring starting at `openIdx` (points at "("). */
+/** Return the balanced-paren substring starting at `openIdx` (points at "(").
+ *  Skips content inside quoted strings so a `)` inside a description
+ *  literal doesn't close the outer call, and handles Python's `\\"`
+ *  (odd-run-of-backslashes = escaped quote). */
 function balancedArgs(text: string, openIdx: number): string {
   if (text[openIdx] !== '(') return '';
   let depth = 0;
+  let inStr: string | null = null;
   for (let i = openIdx; i < text.length; i++) {
-    if (text[i] === '(') depth++;
-    else if (text[i] === ')') { depth--; if (depth === 0) return text.slice(openIdx + 1, i); }
+    const c = text[i];
+    if (inStr) {
+      if (c === inStr) {
+        let bs = 0;
+        for (let j = i - 1; j >= 0 && text[j] === '\\'; j--) bs++;
+        if (bs % 2 === 0) inStr = null;
+      }
+      continue;
+    }
+    if (c === '"' || c === "'") { inStr = c; continue; }
+    if (c === '(') depth++;
+    else if (c === ')') { depth--; if (depth === 0) return text.slice(openIdx + 1, i); }
   }
   return text.slice(openIdx + 1);
 }

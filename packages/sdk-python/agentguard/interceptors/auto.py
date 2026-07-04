@@ -1379,11 +1379,31 @@ class AutoInstrument:
         patched_any = False
         instrument = self
 
+        # Defensive exclusion — the AEGIS SDK's own transport uses
+        # httpx to POST /api/v1/traces to the gateway. That URL must
+        # NEVER match the tool allowlist (it wouldn't today, since
+        # gateway URLs are usually `http://localhost` or an internal
+        # host that isn't on HTTP_TOOL_ENDPOINTS, but future misuse
+        # like a customer routing traces through `api.stripe.com` as
+        # a proxy would cause infinite recursion). We compare the URL
+        # prefix directly against the configured gateway_url.
+        gateway_prefix = ''
+        try:
+            gw = getattr(self._guard.config, 'gateway_url', None)
+            if isinstance(gw, str):
+                gateway_prefix = gw.rstrip('/').lower()
+        except Exception:
+            gateway_prefix = ''
+
         def _match_tool(url: str, method: str) -> Optional[str]:
             """Return a tool_name if the URL matches a known sink, else None."""
             if not url:
                 return None
             u = url.lower()
+            # Never intercept the SDK's own gateway traffic — this
+            # is the recursion guard mentioned above.
+            if gateway_prefix and u.startswith(gateway_prefix):
+                return None
             for prefix, tool_prefix in HTTP_TOOL_ENDPOINTS.items():
                 if u.startswith(prefix):
                     # Derive a compact tool name: <provider>.<verb>.<slug>

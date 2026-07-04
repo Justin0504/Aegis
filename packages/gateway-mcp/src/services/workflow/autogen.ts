@@ -281,7 +281,16 @@ function balancedArgs(text: string, openIdx: number): string {
   for (let i = openIdx; i < text.length; i++) {
     const c = text[i];
     if (inStr) {
-      if (c === inStr && text[i - 1] !== '\\') inStr = null;
+      // Correct escape counting: a run of N backslashes is
+      // "escaped" iff N is odd. `\\"` (two backslashes + quote) is
+      // an escaped backslash followed by an unescaped quote — the
+      // quote DOES close the string. The naive `text[i-1] !== '\\'`
+      // check treated it as escaped and read past the closer.
+      if (c === inStr) {
+        let bs = 0;
+        for (let j = i - 1; j >= 0 && text[j] === '\\'; j--) bs++;
+        if (bs % 2 === 0) inStr = null;
+      }
       continue;
     }
     if (c === '"' || c === "'") { inStr = c; continue; }

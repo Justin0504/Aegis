@@ -18,7 +18,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Clock, CheckCircle2, XCircle, AlertTriangle, Sparkles, ShieldAlert, ListTree } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
@@ -54,6 +54,20 @@ export function RollbackApprovalsView() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [openSagaId, setOpenSagaId] = useState<string | null>(null)
 
+  // Track tab visibility — under load, 100 cockpit tabs in background
+  // polling every 5s = 20 rps hammering /sagas. When the tab is hidden
+  // we suspend refetch; browsers already throttle setInterval in bg
+  // tabs but that's not universal (Safari's throttle is aggressive,
+  // Firefox less so). Explicit gate is cheap and predictable.
+  const [tabVisible, setTabVisible] = useState(
+    typeof document === 'undefined' ? true : document.visibilityState === 'visible',
+  )
+  useEffect(() => {
+    const onVis = () => setTabVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['rollback-paused-sagas'],
     queryFn: async () => {
@@ -64,7 +78,10 @@ export function RollbackApprovalsView() {
       const json = await res.json()
       return (json.sagas ?? []) as Saga[]
     },
-    refetchInterval: 5000,
+    // Refetch only when the tab is visible — background tabs never
+    // hit the gateway.
+    refetchInterval: tabVisible ? 5000 : false,
+    refetchIntervalInBackground: false,
     retry: 1,
   })
 

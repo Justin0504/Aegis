@@ -58,11 +58,12 @@ describe('SagaService — state machine + step ledger', () => {
     const id = svc.open({ orgId: 'org-1', kind: 'rollback_chain' });
     svc.appendStep({ sagaId: id, trace_id: 't1', outcome: 'rolled_back', compensator_kind: 'webhook', duration_ms: 12 });
     svc.appendStep({ sagaId: id, trace_id: 't2', outcome: 'failed',      compensator_kind: 'webhook', duration_ms: 87, error: 'HTTP 503' });
-    const steps = svc.steps({ orgId: 'org-1', sagaId: id });
-    expect(steps).toHaveLength(2);
-    expect(steps[0].step_idx).toBe(1);
-    expect(steps[1].step_idx).toBe(2);
-    expect(steps[1].error).toBe('HTTP 503');
+    const page = svc.steps({ orgId: 'org-1', sagaId: id });
+    expect(page.steps).toHaveLength(2);
+    expect(page.total).toBe(2);
+    expect(page.steps[0].step_idx).toBe(1);
+    expect(page.steps[1].step_idx).toBe(2);
+    expect(page.steps[1].error).toBe('HTTP 503');
     expect(svc.get({ orgId: 'org-1', sagaId: id })!.step_count).toBe(2);
   });
 
@@ -82,7 +83,7 @@ describe('SagaService — state machine + step ledger', () => {
     const svc = setup();
     const aId = svc.open({ orgId: 'org-A', kind: 'rollback_single' });
     expect(svc.get({ orgId: 'org-B', sagaId: aId })).toBeNull();
-    expect(svc.steps({ orgId: 'org-B', sagaId: aId })).toHaveLength(0);
+    expect(svc.steps({ orgId: 'org-B', sagaId: aId }).steps).toHaveLength(0);
     expect(svc.list({ orgId: 'org-B' })).toHaveLength(0);
   });
 

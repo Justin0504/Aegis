@@ -137,8 +137,18 @@ export class CoverageScanService {
     // list). Populated as we dry-run bindings.
     const ruleHits = new Map<string, number>();
 
+    // Memoise per-tool DSL results — the same tool name commonly appears
+    // in 3-5 nodes (agent + task-level override in CrewAI, multiple
+    // LangGraph nodes calling the same helper). A 200-binding workflow
+    // with 40 distinct tool names goes from 200 DSL walks to 40.
+    //
+    // Cache key = tool_name + '|' + category (category can vary if the
+    // classifier disagrees per binding — unlikely but not impossible).
+    // Value is the MatchResult or `null` sentinel for "no match".
+    const evalCache = new Map<string, ReturnType<NonNullable<typeof evaluator>['evaluate']>>();
+
     const bindings: CoverageBinding[] = workflow.tool_bindings.map(b =>
-      this.evaluateBinding(b, evaluator, ruleHits),
+      this.evaluateBinding(b, evaluator, ruleHits, evalCache),
     );
 
     // Summary + per-node stats.
@@ -216,6 +226,7 @@ export class CoverageScanService {
     b: ToolBinding,
     evaluator: ReturnType<DslPolicyService['getEvaluator']>,
     ruleHits: Map<string, number>,
+    evalCache: Map<string, ReturnType<NonNullable<typeof evaluator>['evaluate']>>,
   ): CoverageBinding {
     // Classify the tool call (uses the same classifier the runtime
     // check pipeline uses, so coverage numbers reflect production).
@@ -234,21 +245,28 @@ export class CoverageScanService {
       };
     }
 
-    // Synthesise the minimum DslContext that a real /check request
-    // would present. Rules that only depend on tool.name / category
-    // will fire; rules that require runtime signals (anomaly, PII,
-    // alignment) can't be evaluated statically — we treat those as
-    // "warn" (partially-covered).
-    const ctx = {
-      tool: { name: b.tool_name, args: {} },
-      classifier: category ? { category } : undefined,
-      agent: { id: 'predeploy-scan' },
-    };
-    let match: MatchResult | null = null;
-    try {
-      match = evaluator.evaluate(ctx as any);
-    } catch {
-      match = null;
+    // Cache lookup — same tool_name + category = same DSL verdict.
+    const cacheKey = `${b.tool_name} ${category ?? ''}`;
+    let match: MatchResult | null;
+    if (evalCache.has(cacheKey)) {
+      match = evalCache.get(cacheKey) ?? null;
+    } else {
+      // Synthesise the minimum DslContext that a real /check request
+      // would present. Rules that only depend on tool.name / category
+      // will fire; rules that require runtime signals (anomaly, PII,
+      // alignment) can't be evaluated statically — we treat those as
+      // "warn" (partially-covered).
+      const ctx = {
+        tool: { name: b.tool_name, args: {} },
+        classifier: category ? { category } : undefined,
+        agent: { id: 'predeploy-scan' },
+      };
+      try {
+        match = evaluator.evaluate(ctx as any);
+      } catch {
+        match = null;
+      }
+      evalCache.set(cacheKey, match);
     }
 
     if (match) {

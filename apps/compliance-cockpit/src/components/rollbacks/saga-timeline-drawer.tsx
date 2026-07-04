@@ -11,7 +11,7 @@
  * packages/gateway-mcp/src/services/saga.ts (SagaStep interface).
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, XCircle, MinusCircle, Clock, AlertOctagon } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -48,17 +48,38 @@ interface SagaDetail {
     origin_ring: number | null
   }
   steps: SagaStep[]
+  page: { total: number; limit: number; after: number }
 }
 
+const STEP_PAGE_SIZE = 100
+
 export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClose: () => void }) {
-  const { data, isLoading, isError } = useQuery({
+  // useInfiniteQuery — the first page reads steps 1..100, subsequent
+  // pages read step_idx > last-seen. `total` lets us render a
+  // "42 of 500 shown" hint without a second round-trip.
+  const {
+    data, isLoading, isError, fetchNextPage,
+    hasNextPage, isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['saga-detail', sagaId],
-    queryFn: async () => {
-      const res = await fetch(`/api/gateway/api/v1/rollback/sagas/${sagaId}`)
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const url = `/api/gateway/api/v1/rollback/sagas/${sagaId}?limit=${STEP_PAGE_SIZE}&after=${pageParam ?? 0}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error(`gateway ${res.status}`)
       return (await res.json()) as SagaDetail
     },
+    getNextPageParam: (last) => {
+      if (!last.steps.length) return undefined
+      const lastIdx = last.steps[last.steps.length - 1].step_idx
+      return lastIdx < last.page.total ? lastIdx : undefined
+    },
   })
+
+  const pages = data?.pages ?? []
+  const saga  = pages[0]?.saga
+  const total = pages[0]?.page.total ?? 0
+  const allSteps = pages.flatMap(p => p.steps)
 
   return (
     <>
@@ -115,45 +136,52 @@ export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClos
             Failed to load saga.
           </p>
         )}
-        {data && (
+        {saga && (
           <>
             <section style={{ padding: '1rem 1.4rem', borderBottom: `1px solid ${BORDER}` }}>
               <dl style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '0.4rem 0.8rem',
                            margin: 0, fontSize: '0.85rem' }}>
                 <dt style={{ color: MUTED }}>State</dt>
                 <dd style={{ margin: 0 }}>
-                  <StateBadge state={data.saga.state} />
+                  <StateBadge state={saga.state} />
                 </dd>
                 <dt style={{ color: MUTED }}>Kind</dt>
-                <dd style={{ margin: 0, color: TEXT }}>{data.saga.kind}</dd>
+                <dd style={{ margin: 0, color: TEXT }}>{saga.kind}</dd>
                 <dt style={{ color: MUTED }}>Agent</dt>
                 <dd style={{ margin: 0, color: TEXT, fontFamily: 'ui-monospace, monospace' }}>
-                  {data.saga.agent_id ?? '—'}
+                  {saga.agent_id ?? '—'}
                 </dd>
                 <dt style={{ color: MUTED }}>Started</dt>
-                <dd style={{ margin: 0, color: TEXT }}>{formatDate(data.saga.started_at)}</dd>
-                {data.saga.completed_at && (
+                <dd style={{ margin: 0, color: TEXT }}>{formatDate(saga.started_at)}</dd>
+                {saga.completed_at && (
                   <>
                     <dt style={{ color: MUTED }}>Completed</dt>
-                    <dd style={{ margin: 0, color: TEXT }}>{formatDate(data.saga.completed_at)}</dd>
+                    <dd style={{ margin: 0, color: TEXT }}>{formatDate(saga.completed_at)}</dd>
                   </>
                 )}
                 <dt style={{ color: MUTED }}>Origin</dt>
                 <dd style={{ margin: 0, color: TEXT }}>
-                  {data.saga.origin_ring === 3 ? 'Ring-3 (LLM decision)'
-                  : data.saga.origin_ring === 2 ? 'Ring-2 (deterministic)'
+                  {saga.origin_ring === 3 ? 'Ring-3 (LLM decision)'
+                  : saga.origin_ring === 2 ? 'Ring-2 (deterministic)'
                   : '—'}
                 </dd>
                 <dt style={{ color: MUTED }}>Steps</dt>
-                <dd style={{ margin: 0, color: TEXT }}><b>{data.saga.step_count}</b></dd>
+                <dd style={{ margin: 0, color: TEXT }}>
+                  <b>{allSteps.length}</b>
+                  {total > allSteps.length && (
+                    <span style={{ color: MUTED, marginLeft: '0.35rem' }}>
+                      of {total} shown
+                    </span>
+                  )}
+                </dd>
               </dl>
-              {data.saga.reason && (
+              {saga.reason && (
                 <p style={{
                   marginTop: '0.9rem', padding: '0.5rem 0.7rem',
                   background: CARD, borderLeft: `2px solid ${BORDER}`,
                   fontSize: '0.82rem', color: TEXT,
                 }}>
-                  Operator reason: {data.saga.reason}
+                  Operator reason: {saga.reason}
                 </p>
               )}
             </section>
@@ -165,18 +193,18 @@ export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClos
               }}>
                 Timeline
               </p>
-              {data.steps.length === 0 && (
+              {allSteps.length === 0 && (
                 <p style={{ color: MUTED, fontSize: '0.88rem' }}>No steps recorded.</p>
               )}
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, position: 'relative' }}>
                 {/* Vertical spine */}
-                {data.steps.length > 0 && (
+                {allSteps.length > 0 && (
                   <div style={{
                     position: 'absolute', left: 10, top: 8, bottom: 8,
                     width: 1, background: BORDER, zIndex: 0,
                   }} />
                 )}
-                {data.steps.map(step => (
+                {allSteps.map(step => (
                   <li key={step.id} style={{
                     position: 'relative', paddingLeft: '2.2rem', marginBottom: '0.9rem',
                     zIndex: 1,
@@ -228,6 +256,25 @@ export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClos
                   </li>
                 ))}
               </ol>
+              {hasNextPage && (
+                <button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  style={{
+                    marginTop: '0.8rem', width: '100%',
+                    padding: '0.55rem 0.9rem',
+                    background: 'transparent',
+                    color: TEXT, fontSize: '0.85rem', fontWeight: 500,
+                    border: `1px solid ${BORDER}`, borderRadius: 6,
+                    cursor: isFetchingNextPage ? 'not-allowed' : 'pointer',
+                    opacity: isFetchingNextPage ? 0.5 : 1,
+                  }}
+                >
+                  {isFetchingNextPage
+                    ? 'Loading more…'
+                    : `Load next ${Math.min(STEP_PAGE_SIZE, total - allSteps.length)} steps`}
+                </button>
+              )}
             </section>
           </>
         )}

@@ -181,8 +181,15 @@ export class RollbackAPI {
     const orgId = (req as any).orgId ?? 'default';
     const saga = this.sagas.get({ orgId, sagaId: req.params.id });
     if (!saga) { res.status(404).json({ error: 'saga not found' }); return; }
-    const steps = this.sagas.steps({ orgId, sagaId: req.params.id });
-    res.json({ saga, steps });
+    // Pagination — see SagaService.steps(). Defaults keep the UI's
+    // initial render bounded (100 steps) even on huge sagas; the
+    // client requests further pages via `?after=<step_idx>&limit=100`.
+    const limit = Number(req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100;
+    const after = Number(req.query.after) >= 0 ? Number(req.query.after) : 0;
+    const { steps, total } = this.sagas.steps({
+      orgId, sagaId: req.params.id, limit, after,
+    });
+    res.json({ saga, steps, page: { total, limit, after } });
   }
 
   private metricsHandler(req: Request, res: Response): void {

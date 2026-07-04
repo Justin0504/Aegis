@@ -260,6 +260,15 @@ function extractIdentifiers(raw: string | undefined): string[] {
   return out;
 }
 
+/** Count trailing backslashes at position i-1..0. An odd count means
+ *  the char at i is escaped. Handles `\\"` (escaped-backslash + real
+ *  quote) correctly. */
+function isEscaped(text: string, i: number): boolean {
+  let bs = 0;
+  for (let j = i - 1; j >= 0 && text[j] === '\\'; j--) bs++;
+  return bs % 2 === 1;
+}
+
 function balancedBraces(text: string, openIdx: number): string {
   if (text[openIdx] !== '{') return '';
   let depth = 0;
@@ -267,7 +276,7 @@ function balancedBraces(text: string, openIdx: number): string {
   for (let i = openIdx; i < text.length; i++) {
     const c = text[i];
     if (inStr) {
-      if (c === inStr && text[i - 1] !== '\\') inStr = null;
+      if (c === inStr && !isEscaped(text, i)) inStr = null;
       continue;
     }
     if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
@@ -285,7 +294,7 @@ function extractChainTail(text: string, start: number): string {
   for (let i = start; i < text.length; i++) {
     const c = text[i];
     if (inStr) {
-      if (c === inStr && text[i - 1] !== '\\') inStr = null;
+      if (c === inStr && !isEscaped(text, i)) inStr = null;
       continue;
     }
     if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
