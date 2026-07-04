@@ -186,35 +186,62 @@ export class WorkflowExtractorService {
       }
     }
 
-    // Cycle detection (DFS grey/black).
-    const colour = new Map<string, 0 | 1 | 2>();     // 0=white 1=grey 2=black
+    // Cycle detection — iterative DFS to avoid blowing the JS stack on
+    // pathologically deep graphs (a 10 000-node linear chain would
+    // recurse 10 000 frames deep; Node's default is ~13 000).
+    //
+    // Colours: 0=white (unseen) 1=grey (on stack) 2=black (done).
+    // A grey→grey edge is a back-edge → cycle. We stop after the first
+    // reported cycle (cockpit shows one at a time; users don't need
+    // an exhaustive enumeration for a warning).
+    const colour = new Map<string, 0 | 1 | 2>();
     for (const id of nodeIds) colour.set(id, 0);
     let cycleReported = false;
-    const dfs = (u: string, path: string[]): boolean => {
-      colour.set(u, 1);
-      for (const v of adj.get(u) ?? []) {
-        if (colour.get(v) === 1) {
-          if (!cycleReported) {
-            warns.push({
-              severity: 'info',
-              code: 'CYCLE_DETECTED',
-              message: `Cycle detected: ${[...path, u, v].join(' → ')}. Legal in LangGraph / CrewAI but requires termination logic.`,
-            });
-            cycleReported = true;
-          }
-          return true;
+
+    // Explicit stack of DFS frames. `iter` is the outEdges iterator
+    // for the current node — we resume it after descending into a
+    // child so post-order colouring stays correct.
+    interface Frame { node: string; iter: Iterator<string>; path: string[]; }
+
+    outer: for (const root of nodeIds) {
+      if (colour.get(root) !== 0) continue;
+      const stack: Frame[] = [{
+        node: root,
+        iter: (adj.get(root) ?? new Set<string>()).values(),
+        path: [],
+      }];
+      colour.set(root, 1);
+
+      while (stack.length) {
+        const top = stack[stack.length - 1];
+        const step = top.iter.next();
+        if (step.done) {
+          colour.set(top.node, 2);
+          stack.pop();
+          continue;
         }
-        if (colour.get(v) === 0) {
-          if (dfs(v, [...path, u])) return true;
+        const child = step.value;
+        const c = colour.get(child);
+        if (c === 1) {
+          warns.push({
+            severity: 'info',
+            code: 'CYCLE_DETECTED',
+            message: `Cycle detected: ${[...top.path, top.node, child].join(' → ')}. Legal in LangGraph / CrewAI but requires termination logic.`,
+          });
+          cycleReported = true;
+          break outer;
+        }
+        if (c === 0) {
+          colour.set(child, 1);
+          stack.push({
+            node: child,
+            iter: (adj.get(child) ?? new Set<string>()).values(),
+            path: [...top.path, top.node],
+          });
         }
       }
-      colour.set(u, 2);
-      return false;
-    };
-    for (const id of nodeIds) {
-      if (colour.get(id) === 0) dfs(id, []);
-      if (cycleReported) break;
     }
+    void cycleReported;
 
     return warns;
   }

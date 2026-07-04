@@ -42,12 +42,25 @@ export interface TraceForRollback {
  * @param extraDeps   Optional trace_id → list of trace_ids that must
  *                    be rolled back BEFORE it. Typically sourced from
  *                    saga_step.depends_on.
+ * @param onWarn      Optional diagnostics sink. Called once with a
+ *                    `CYCLE_IN_DEPENDS_ON` code when the dependency
+ *                    graph is cyclic and the fallback reverse-time
+ *                    ordering had to be used. Callers that want to
+ *                    surface this to the operator should log or forward
+ *                    it. Optional so existing call-sites don't break.
  * @returns           Ordered list of trace_ids; earlier ids should be
  *                    compensated first.
  */
+export interface RollbackWarning {
+  code: 'CYCLE_IN_DEPENDS_ON';
+  message: string;
+  affected_trace_ids: string[];
+}
+
 export function topologicalRollbackOrder(
   traces: TraceForRollback[],
   extraDeps: Map<string, string[]> = new Map(),
+  onWarn?: (w: RollbackWarning) => void,
 ): string[] {
   if (traces.length === 0) return [];
 
@@ -127,12 +140,28 @@ export function topologicalRollbackOrder(
   }
 
   // Cycle fallback — should be impossible for a well-formed trace tree
-  // but we never want to silently drop a trace from the rollback batch.
+  // (parent_trace_id points backwards in time by construction), but a
+  // hand-authored `depends_on` chain can introduce one. Never silently
+  // drop a trace from the rollback batch: append the cyclic remainder
+  // in reverse-time order and — critically — surface the situation to
+  // the caller so an operator sees WHY the ordering degraded.
   if (order.length < traces.length) {
     const missing = traces
       .filter(t => !removed.has(t.trace_id))
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     for (const t of missing) order.push(t.trace_id);
+
+    if (onWarn) {
+      const ids = missing.map(t => t.trace_id);
+      onWarn({
+        code: 'CYCLE_IN_DEPENDS_ON',
+        message:
+          `Rollback graph has a cycle involving ${ids.length} trace(s); ` +
+          `used reverse-time fallback ordering. Check saga_step.depends_on ` +
+          `for a chain that refers back to an earlier step.`,
+        affected_trace_ids: ids,
+      });
+    }
   }
 
   return order;

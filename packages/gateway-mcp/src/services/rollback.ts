@@ -545,6 +545,7 @@ export class RollbackService {
     const orderedTraceIds = topologicalRollbackOrder(
       rows,
       this.collectExtraDeps(rows.map(r => r.trace_id)),
+      (w) => this.logger.warn({ ...w }, 'causal-rollback: ordering degraded'),
     );
 
     let sagaId: string | undefined;
@@ -636,6 +637,7 @@ export class RollbackService {
     const orderedTraceIds = topologicalRollbackOrder(
       rows,
       this.collectExtraDeps(rows.map(r => r.trace_id)),
+      (w) => this.logger.warn({ ...w }, 'causal-rollback: ordering degraded'),
     );
 
     // Open one saga that all rollback() calls in this chain belong to.

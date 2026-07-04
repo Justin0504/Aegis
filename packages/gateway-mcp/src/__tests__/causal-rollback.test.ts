@@ -73,6 +73,29 @@ describe('topologicalRollbackOrder — causal DAG chain rollback', () => {
   test('empty input returns empty', () => {
     expect(topologicalRollbackOrder([])).toEqual([]);
   });
+
+  test('cycle triggers CYCLE_IN_DEPENDS_ON warning via onWarn', () => {
+    const traces = [
+      t('A', null, '2026-07-01T10:00:00Z'),
+      t('B', null, '2026-07-01T10:00:01Z'),
+    ];
+    const extraDeps = new Map([['A', ['B']], ['B', ['A']]]);
+    const warnings: any[] = [];
+    topologicalRollbackOrder(traces, extraDeps, (w) => warnings.push(w));
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('CYCLE_IN_DEPENDS_ON');
+    expect(warnings[0].affected_trace_ids.sort()).toEqual(['A', 'B']);
+  });
+
+  test('acyclic input does NOT fire the warning', () => {
+    const traces = [
+      t('1', null, '2026-07-01T10:00:00Z'),
+      t('2', '1',  '2026-07-01T10:00:01Z'),
+    ];
+    const warnings: any[] = [];
+    topologicalRollbackOrder(traces, undefined, (w) => warnings.push(w));
+    expect(warnings).toHaveLength(0);
+  });
 });
 
 describe('parseDepends', () => {
