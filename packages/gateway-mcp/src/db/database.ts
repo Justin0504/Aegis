@@ -120,7 +120,6 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     CREATE INDEX IF NOT EXISTS idx_agent_id ON traces (agent_id);
     CREATE INDEX IF NOT EXISTS idx_timestamp ON traces (timestamp);
     CREATE INDEX IF NOT EXISTS idx_parent_trace ON traces (parent_trace_id);
-    CREATE INDEX IF NOT EXISTS idx_delegation ON traces (delegation_id);
     CREATE INDEX IF NOT EXISTS idx_approval_status ON traces (approval_status);
 
     -- Policies table
@@ -237,6 +236,14 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // INSERT time. IntegrityService recomputes it at verify time and
     // flags any mismatch as content_tamper.
     `ALTER TABLE traces ADD COLUMN content_hash TEXT`,
+    // Delegation lineage. These are declared in the CREATE TABLE above,
+    // but SQLite's `CREATE TABLE IF NOT EXISTS` is a no-op on pre-existing
+    // tables, so any DB created before this column was added stays without
+    // it and the CREATE INDEX at the bottom of the schema block explodes.
+    // ALTER-add here is idempotent (wrapped in try/catch below).
+    `ALTER TABLE traces ADD COLUMN delegation_id TEXT`,
+    `ALTER TABLE traces ADD COLUMN parent_delegation_id TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_delegation ON traces (delegation_id)`,
     // ── B2B multi-tenant: policies per org ───────────────────────────
     // Existing rows are the 7 platform-default policies; they get
     // org_id='*' which the engine treats as "applies to every tenant

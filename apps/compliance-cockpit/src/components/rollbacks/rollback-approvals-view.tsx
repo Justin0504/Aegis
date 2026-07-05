@@ -87,7 +87,7 @@ export function RollbackApprovalsView() {
     queryKey: ['rollback-paused-sagas'],
     queryFn: async () => {
       const res = await fetch(
-        '/api/gateway/api/v1/rollback/sagas?state=PAUSED_FOR_APPROVAL&limit=100',
+        '/api/gateway/rollback/sagas?state=PAUSED_FOR_APPROVAL&limit=100',
       )
       if (!res.ok) throw new Error(`gateway returned ${res.status}`)
       const json = await res.json()
@@ -109,7 +109,7 @@ export function RollbackApprovalsView() {
         ? JSON.stringify({ reason: rejectDrafts[saga.id] })
         : JSON.stringify({})
       const res = await fetch(
-        `/api/gateway/api/v1/rollback/sagas/${saga.id}/${action}`,
+        `/api/gateway/rollback/sagas/${saga.id}/${action}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -65,7 +65,7 @@ export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClos
     queryKey: ['saga-detail', sagaId],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      const url = `/api/gateway/api/v1/rollback/sagas/${sagaId}?limit=${STEP_PAGE_SIZE}&after=${pageParam ?? 0}`
+      const url = `/api/gateway/rollback/sagas/${sagaId}?limit=${STEP_PAGE_SIZE}&after=${pageParam ?? 0}`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`gateway ${res.status}`)
       return (await res.json()) as SagaDetail
