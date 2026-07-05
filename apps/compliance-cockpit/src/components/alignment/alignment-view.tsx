@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { gw } from '@/lib/gateway'
 import { ShieldAlert, ShieldCheck, Wand2, Compass } from 'lucide-react'
+import { ToolIcon } from '@/lib/tool-icons'
 
 const BORDER  = 'hsl(var(--border))'
 const TEXT    = 'hsl(var(--foreground))'
@@ -199,12 +200,15 @@ export function AlignmentView() {
               <label className="text-[11px] uppercase tracking-wider block mb-1" style={{ color: MUTED }}>
                 Tool name
               </label>
-              <input
-                value={tool}
-                onChange={(e) => setTool(e.target.value)}
-                className="w-full font-mono text-[13px] rounded-md border px-2 py-1.5"
-                style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
-              />
+              <div className="flex items-center gap-2">
+                <ToolIcon name={tool} size={26} />
+                <input
+                  value={tool}
+                  onChange={(e) => setTool(e.target.value)}
+                  className="flex-1 min-w-0 font-mono text-[13px] rounded-md border px-2 py-1.5"
+                  style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
+                />
+              </div>
             </div>
             <div className="col-span-2">
               <label className="text-[11px] uppercase tracking-wider block mb-1" style={{ color: MUTED }}>

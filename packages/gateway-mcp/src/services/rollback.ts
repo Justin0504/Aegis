@@ -317,10 +317,15 @@ export class RollbackService {
     const isHighCost  = costEstimate && HIGH_COST_MAGNITUDES.includes(costEstimate.magnitude);
     const needsApproval = !opts.pre_approved && (isHighCost || isRing3);
     if (compensator && this.sagas && sagaId && needsApproval) {
+      // Format: second token is the compensated tool name (e.g.
+      // `stripe_refund`, `postgres_row`). The cockpit parses this out
+      // via CARD_BRAND_HINT_RE to render the target service's brand
+      // icon on the approval card. Do not reshape without updating
+      // that regex.
       const pauseReason = isHighCost
-        ? `high-cost compensator: ${costEstimate!.magnitude}` +
+        ? `high-cost ${toolName}: ${costEstimate!.magnitude}` +
           (costEstimate!.note ? ` — ${costEstimate!.note}` : '')
-        : `Ring-3 origin (LLM decision) — human approval required`;
+        : `Ring-3 ${toolName}: LLM decision — human approval required`;
       try {
         this.sagas.pauseForApproval({
           orgId: opts.orgId,

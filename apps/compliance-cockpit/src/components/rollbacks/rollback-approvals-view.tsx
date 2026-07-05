@@ -24,6 +24,21 @@ import { Clock, CheckCircle2, XCircle, AlertTriangle, Sparkles, ShieldAlert, Lis
 import { formatDate } from '@/lib/utils'
 import { friendlyAgent } from '@/lib/friendly-names'
 import { SagaTimelineDrawer } from './saga-timeline-drawer'
+import { ToolIcon } from '@/lib/tool-icons'
+
+// Pause reasons persisted by the gateway follow one of two shapes:
+//   "high-cost <tool_name>: <magnitude> — <note>"
+//   "Ring-3 <tool_name>: LLM decision — human approval required"
+// We pull the second token out for the row's brand icon. If the shape
+// ever drifts (older records from before this format was introduced),
+// the match returns null and we fall back to a generic icon.
+const CARD_BRAND_HINT_RE = /^(?:high-cost|Ring-3)\s+([A-Za-z0-9_.-]+)\s*:/
+
+function toolFromPauseReason(reason: string | null): string | null {
+  if (!reason) return null
+  const m = reason.match(CARD_BRAND_HINT_RE)
+  return m ? m[1] : null
+}
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -173,12 +188,19 @@ export function RollbackApprovalsView() {
           const isPendingApprove = pending[s.id] === 'approving'
           const isPendingReject  = pending[s.id] === 'rejecting'
 
+          const toolHint = toolFromPauseReason(s.pause_reason)
+
           return (
             <li key={s.id} style={{
               padding: '1rem 1.1rem', borderRadius: 12, background: CARD,
               border: `1px solid ${BORDER}`,
             }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                {toolHint && (
+                  <div style={{ paddingTop: '0.15rem', flexShrink: 0 }}>
+                    <ToolIcon name={toolHint} size={32} />
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
                     <span style={{

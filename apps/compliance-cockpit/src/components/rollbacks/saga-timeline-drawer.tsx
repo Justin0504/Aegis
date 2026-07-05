@@ -14,6 +14,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, XCircle, MinusCircle, Clock, AlertOctagon } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { ToolIcon } from '@/lib/tool-icons'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -214,13 +215,16 @@ export function SagaTimelineDrawer({ sagaId, onClose }: { sagaId: string; onClos
                       background: CARD, borderRadius: 8, padding: '0.6rem 0.8rem',
                       border: `1px solid ${BORDER}`,
                     }}>
-                      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline',
+                      <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center',
                                     fontSize: '0.82rem', color: MUTED, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: 'ui-monospace, monospace', color: TEXT, fontWeight: 600 }}>
                           #{step.step_idx}
                         </span>
                         <OutcomePill outcome={step.outcome} />
-                        <span>{step.compensator_kind}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <ToolIcon name={step.compensator_kind} size={18} />
+                          <span style={{ color: TEXT }}>{step.compensator_kind}</span>
+                        </span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, monospace' }}>
                           {step.duration_ms}ms
                         </span>
