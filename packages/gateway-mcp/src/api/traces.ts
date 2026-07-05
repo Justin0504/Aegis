@@ -215,7 +215,26 @@ export class TraceAPI {
            FROM traces WHERE cost_usd > 0 ${agent_id ? 'AND agent_id = ?' : ''}`
         ).get(...(agent_id ? [agent_id] : [])) as any;
 
-        res.json({ by_agent_model: rows, total_cost_usd: overall?.total ?? 0,
+        // By-tool aggregation. tool_name lives inside the tool_call JSON
+        // blob (no denormalised column), so we pull it via SQLite's JSON1
+        // extension. Rows where extraction yields NULL (malformed blobs,
+        // legacy shape) collapse into a single '(unknown)' bucket rather
+        // than being dropped — matches how the ToolIcon fallback works.
+        let toolSql = `SELECT
+            COALESCE(json_extract(tool_call, '$.tool_name'), '(unknown)') AS tool_name,
+            COUNT(*) as trace_count,
+            SUM(input_tokens) as total_input_tokens,
+            SUM(output_tokens) as total_output_tokens,
+            SUM(cost_usd) as total_cost_usd
+          FROM traces WHERE 1=1`;
+        const toolParams: any[] = [];
+        if (agent_id) { toolSql += ' AND agent_id = ?'; toolParams.push(agent_id); }
+        if (since)    { toolSql += ' AND timestamp >= ?'; toolParams.push(since); }
+        toolSql += ` GROUP BY json_extract(tool_call, '$.tool_name')
+                     ORDER BY total_cost_usd DESC, trace_count DESC`;
+        const byTool = this.db.prepare(toolSql).all(...toolParams);
+
+        res.json({ by_agent_model: rows, by_tool: byTool, total_cost_usd: overall?.total ?? 0,
           total_input_tokens: overall?.inp ?? 0, total_output_tokens: overall?.out ?? 0 });
       } catch (error) {
         this.logger.error({ error }, 'Cost stats error');

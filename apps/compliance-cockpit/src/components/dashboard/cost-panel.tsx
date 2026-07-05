@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { DollarSign, Cpu, TrendingUp, BarChart2 } from 'lucide-react'
+import { ToolIcon } from '@/lib/tool-icons'
 
 const MUTED  = 'hsl(var(--muted-foreground))'
 const TEXT   = 'hsl(var(--foreground))'
@@ -50,10 +51,15 @@ export function CostPanel() {
   })
 
   const rows: any[] = data?.by_agent_model ?? []
+  const byTool: any[] = data?.by_tool ?? []
   const totalCost   = data?.total_cost_usd    ?? 0
   const totalInput  = data?.total_input_tokens  ?? 0
   const totalOutput = data?.total_output_tokens ?? 0
   const totalTokens = totalInput + totalOutput
+
+  const topTools = byTool.slice(0, 8)
+  const maxToolCost = Math.max(...topTools.map((t: any) => t.total_cost_usd ?? 0), 0.000001)
+  const totalToolCalls = byTool.reduce((s: number, t: any) => s + (t.trace_count ?? 0), 0)
 
   // Aggregate by model for the bar chart
   const byModel = Object.values(
@@ -135,6 +141,56 @@ export function CostPanel() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Cost by tool (brand). Answers "which downstream services are
+          my agents actually spending inference on?" — the model view
+          above answers "which LLM vendor is billing me". Different
+          questions; keep both. */}
+      {topTools.length > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-xs font-semibold" style={{ color: MUTED }}>Cost by Tool</p>
+            <p className="text-[10px]" style={{ color: MUTED }}>
+              {fmtK(totalToolCalls)} calls across {byTool.length} tool{byTool.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {topTools.map((t: any) => {
+              const cost = t.total_cost_usd ?? 0
+              const pct  = (cost / maxToolCost) * 100
+              const name = t.tool_name ?? '(unknown)'
+              return (
+                <div key={name}
+                  style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: '9px 12px',
+                           background: 'hsl(var(--card))' }}
+                  className="flex items-center gap-3">
+                  <ToolIcon name={name} size={22} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-mono truncate" style={{ color: TEXT }} title={name}>
+                        {name}
+                      </span>
+                      <div className="flex items-center gap-3 text-[11px]" style={{ color: MUTED }}>
+                        <span>{fmtK(t.trace_count ?? 0)} calls</span>
+                        <span className="font-semibold tabular-nums" style={{ color: TEXT }}>{fmt$(cost)}</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 4, background: SOFT_2, borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'hsl(0 0% 52%)',
+                                    borderRadius: 2, transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {byTool.length > topTools.length && (
+            <p className="text-[10px] mt-2" style={{ color: MUTED }}>
+              + {byTool.length - topTools.length} more tools not shown
+            </p>
+          )}
         </div>
       )}
 

@@ -159,23 +159,22 @@ export function ViolationsView() {
                       className="rounded-lg border p-4"
                       style={{ borderColor: rc.border, background: rc.bg }}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center gap-1.5 flex-shrink-0 mt-0.5">
-                          <ToolIcon name={trace.tool_call?.tool_name} size={26} />
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ background: rc.text }}
-                            aria-label={risk}
-                          />
+                      <div className="flex items-start gap-3.5">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <ToolIcon name={trace.tool_call?.tool_name} size={40} />
                         </div>
                         <div className="min-w-0 space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold" style={{ color: TEXT }}>
-                              {friendlyAgent(trace.agent_id)}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold font-mono truncate" style={{ color: TEXT }}
+                              title={trace.tool_call?.tool_name}>
+                              {trace.tool_call?.tool_name ?? 'unknown'}
                             </span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide"
                               style={{ background: `${rc.text}15`, color: rc.text }}>
                               {risk}
+                            </span>
+                            <span className="text-[11px]" style={{ color: MUTED }}>
+                              by <span style={{ color: TEXT }}>{friendlyAgent(trace.agent_id)}</span>
                             </span>
                           </div>
                           <p className="text-xs" style={{ color: TEXT }}>

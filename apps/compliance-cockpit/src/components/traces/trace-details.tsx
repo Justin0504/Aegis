@@ -10,6 +10,7 @@ import { formatDate, getStatusColor, getRiskLevelColor } from '@/lib/utils'
 import { friendlyAgent } from '@/lib/friendly-names'
 import { useState, ReactNode } from 'react'
 import { AnomalyExplanationPanel } from './anomaly-explanation-panel'
+import { ToolIcon } from '@/lib/tool-icons'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -268,10 +269,16 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
     <Card className="h-[calc(100vh-200px)] overflow-hidden flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <CardTitle className="truncate">
-              {friendlyAgent(trace.agent_id)}
-            </CardTitle>
+          <div className="flex items-center gap-3 min-w-0">
+            <ToolIcon name={trace.tool_call?.tool_name} size={48} />
+            <div className="min-w-0">
+              <CardTitle className="truncate leading-tight">
+                {trace.tool_call?.tool_name ?? 'unknown tool'}
+              </CardTitle>
+              <p className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>
+                by {friendlyAgent(trace.agent_id)}
+              </p>
+            </div>
             {trace.pii_detected > 0 && (
               <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
                 style={{ background: 'hsl(0 0% 0% / 0.12)', color: 'hsl(0 0% 0%)' }}>
