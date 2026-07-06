@@ -15,6 +15,75 @@ const {
 const siteUrl = Astro.site?.toString().replace(/\/$/, '') ?? 'https://aegistraces.com';
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, siteUrl).toString();
 const ogImageUrl = ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`;
+
+// Global Organization schema — emitted on every page so any crawler
+// landing anywhere on the site can resolve who owns it, where the
+// source lives, and how to contact the maintainer. `sameAs` links
+// out to GitHub / arXiv work — crawlers use these to cross-verify
+// authority (an org with a real repo + published prior art ranks
+// differently than an org with only a landing page).
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type':    'Organization',
+  '@id':      `${siteUrl}/#organization`,
+  name:       'AEGIS',
+  alternateName: 'AgentGuard',
+  url:        siteUrl,
+  logo: {
+    '@type': 'ImageObject',
+    url:     `${siteUrl}/favicon.svg`,
+  },
+  description: 'Open-source runtime safety and cryptographic audit platform for AI agents.',
+  foundingDate: '2025',
+  founder: {
+    '@type': 'Person',
+    name:    'Aojie Yuan',
+    affiliation: {
+      '@type': 'CollegeOrUniversity',
+      name:    'University of Southern California',
+    },
+  },
+  contactPoint: [
+    {
+      '@type':       'ContactPoint',
+      email:         'partners@aegistraces.com',
+      contactType:   'sales',
+      areaServed:    'Worldwide',
+      availableLanguage: ['English'],
+    },
+    {
+      '@type':       'ContactPoint',
+      email:         'security@aegistraces.com',
+      contactType:   'security',
+      areaServed:    'Worldwide',
+    },
+  ],
+  sameAs: [
+    'https://github.com/Justin0504/Aegis',
+    'https://arxiv.org/abs/2606.09692',
+    'https://arxiv.org/abs/2606.07119',
+  ],
+};
+
+// Global WebSite schema — declares the site as a searchable entity
+// and (critically) tells Google's Sitelinks Searchbox where the
+// in-site search URL lives. Even when we don't ship a real search UI,
+// declaring the /blog?q= URL template lets AI answer engines route
+// users straight to filtered content rather than the landing page.
+const websiteLd = {
+  '@context': 'https://schema.org',
+  '@type':    'WebSite',
+  '@id':      `${siteUrl}/#website`,
+  url:        siteUrl,
+  name:       'AEGIS',
+  publisher:  { '@id': `${siteUrl}/#organization` },
+  inLanguage: 'en-US',
+  potentialAction: {
+    '@type':       'SearchAction',
+    target:        `${siteUrl}/blog?q={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
+};
 ---
 <!doctype html>
 <html lang="en">
@@ -48,6 +117,9 @@ const ogImageUrl = ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`
       href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
+
+    <script type="application/ld+json" set:html={JSON.stringify(organizationLd)}></script>
+    <script type="application/ld+json" set:html={JSON.stringify(websiteLd)}></script>
 
     <title>{title}</title>
   </head>

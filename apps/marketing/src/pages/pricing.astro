@@ -99,6 +99,104 @@ const tiers = [
     ],
   },
 ];
+
+// Product + AggregateOffer — this is what AI answer engines pull when
+// a user asks "how much does AEGIS cost" / "AI agent safety pricing".
+// Rich results in Google's pricing SERP module also read from here.
+// AggregateOffer > individual Offer blocks because it lets crawlers
+// state a lowPrice/highPrice range without picking a single tier.
+const siteUrl = 'https://aegistraces.com';
+const priceOffers = tiers
+  .filter(t => t.price.startsWith('$'))
+  .map(t => ({
+    '@type':        'Offer',
+    name:           t.name,
+    price:          t.price.replace(/[^0-9.]/g, ''),
+    priceCurrency:  'USD',
+    availability:   'https://schema.org/InStock',
+    url:            t.cta.href,
+    description:    t.blurb,
+    ...(t.period === '/month' && {
+      priceSpecification: {
+        '@type':               'UnitPriceSpecification',
+        price:                 t.price.replace(/[^0-9.]/g, ''),
+        priceCurrency:         'USD',
+        billingIncrement:      1,
+        unitCode:              'MON',
+        referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' },
+      },
+    }),
+  }));
+
+const productLd = {
+  '@context': 'https://schema.org',
+  '@type':    'Product',
+  '@id':      `${siteUrl}/pricing#product`,
+  name:       'AEGIS',
+  description: 'AEGIS runtime safety platform for AI agents. Free MIT engine, paid cloud control plane with SSO, longer audit retention, and compliance features.',
+  brand: { '@id': `${siteUrl}/#organization` },
+  category: 'SecurityApplication',
+  image:   `${siteUrl}/og-image.png`,
+  offers: {
+    '@type':       'AggregateOffer',
+    priceCurrency: 'USD',
+    lowPrice:      '0',
+    highPrice:     '99',
+    offerCount:    priceOffers.length + 1, // paid tiers + Enterprise (custom)
+    offers:        priceOffers,
+  },
+};
+
+// FAQPage — the pricing questions AI answer engines consistently
+// extract. Kept to 5 items because that's the sweet spot for AI
+// Overview extraction (7+ tends to get truncated).
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type':    'FAQPage',
+  '@id':      `${siteUrl}/pricing#faq`,
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name:    'Is AEGIS free to use?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    'Yes. The core engine is MIT-licensed and free forever — you can self-host it with no license key, no phone-home, no seat cap. The paid tiers ($19/mo Pro, $99/mo Team, custom Enterprise) add the cloud control plane, SSO, longer audit retention, and compliance features.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name:    'What is a "check" and how do I count them?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. The Free tier (1k checks/month) covers a solo developer running a personal agent; Pro (100k) covers small production deployments; Team (1M) covers most mid-market usage.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name:    'Can I self-host AEGIS instead of using your cloud?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    'Yes. Self-hosting is a first-class deployment mode — the same gateway container runs on your infrastructure with your database. All tiers can self-host; Enterprise adds BYOC (bring-your-own-cloud) and on-prem airgap deploys with a signed installer for regulated environments.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name:    'What compliance frameworks does AEGIS support?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    'SOC 2 Type II (Enterprise tier ships the report), PCI-DSS v4.0 Req 8 + 10, HIPAA §164.312 (5 implementation specs mapped), and GDPR Article 22 (automated decision-making). The cryptographic audit log is RFC 6962 (Certificate Transparency) with Sigstore-witness cosignature, so an auditor can verify tamper-evidence without trusting AEGIS.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name:    'How does AEGIS pricing compare to Lakera Guard, Robust Intelligence, or Guardrails AI?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text:    'Free forever tier — Lakera and Robust Intelligence do not offer one; Guardrails AI is open-source but does not include a gateway or audit log. Paid tiers start at $19/mo — comparable open-core plans from Lakera start at "contact sales" pricing (typically $2k+/mo). AEGIS trades detector maturity for data sovereignty, self-hostability, and cryptographic tamper-evidence.',
+      },
+    },
+  ],
+};
 ---
 
 <Layout
@@ -256,6 +354,9 @@ const tiers = [
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
 
   <Footer />
 

@@ -13,6 +13,54 @@ import Icon from '@/components/Icon.astro';
 
 // Flip to false once real screenshots are dropped in /public/screenshots/.
 const USE_PLACEHOLDERS = false;
+
+// SoftwareApplication schema — the primary answer target for "what is
+// AEGIS" / "best AI agent safety platforms" / "open-source agent
+// firewall" AI queries. Google + ChatGPT + Perplexity all use this
+// block to populate answer cards. Fields tuned to the current product:
+//   - applicationCategory: SecurityApplication (crawlers use this to
+//     bucket AEGIS alongside Lakera Guard / NeMo Guardrails)
+//   - offers.priceCurrency/price: MIT core is free; the pricing
+//     schema on /pricing carries the paid tiers
+//   - featureList: bullets crawlers extract into feature comparisons
+// Kept minimal — every field must be defensible or omitted.
+const siteUrl = 'https://aegistraces.com';
+const softwareLd = {
+  '@context': 'https://schema.org',
+  '@type':    'SoftwareApplication',
+  '@id':      `${siteUrl}/#software`,
+  name:       'AEGIS',
+  alternateName: 'AgentGuard',
+  description: 'Open-source runtime firewall + cryptographic audit for AI agents. Stops hallucinated tool calls before they execute; every allowed call lands in a tamper-evident log.',
+  url:         siteUrl,
+  applicationCategory:    'SecurityApplication',
+  applicationSubCategory: 'AI Agent Runtime Safety',
+  operatingSystem:        'Linux, macOS, Windows (via Docker)',
+  softwareVersion:        '0.1.0',
+  license:                'https://opensource.org/licenses/MIT',
+  codeRepository:         'https://github.com/Justin0504/Aegis',
+  programmingLanguage:    ['TypeScript', 'Python'],
+  publisher:              { '@id': `${siteUrl}/#organization` },
+  offers: {
+    '@type':        'Offer',
+    price:          '0',
+    priceCurrency:  'USD',
+    availability:   'https://schema.org/InStock',
+    priceValidUntil:'2027-12-31',
+    url:            `${siteUrl}/pricing`,
+    description:    'Community tier — MIT-licensed engine, free forever. Paid tiers on /pricing.',
+  },
+  featureList: [
+    'Policy-based tool-call gating (allow / deny / require human approval)',
+    'Behavioral anomaly detection (Mahalanobis + isolation forest)',
+    'LLM-judge for high-risk categories with calibrated Expected Calibration Error',
+    'RFC 6962 transparency log with Sigstore-witness cosignature',
+    'Delegation-scoped rollback with saga state machine',
+    'Zero-code-change SDKs for Anthropic, OpenAI, LangChain, CrewAI, AutoGen, LlamaIndex',
+    'Self-hosted or SaaS control plane',
+  ],
+  keywords: 'AI agent safety, runtime firewall, prompt injection, tool call auditing, LLM guardrails, cryptographic audit log, agent runtime security, LangChain security, MIT open source',
+};
 ---
 <Layout
   title="AEGIS — runtime safety for AI agents"
@@ -411,6 +459,8 @@ client = openai.OpenAI(
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(softwareLd)}></script>
 
   <Footer />
 

@@ -40,6 +40,7 @@ takeaways" TL;DR panel, and a `dateModified` field.
 
 ## Reference / offline reading
 
+- [Full technical corpus (llms-full.txt)](https://aegistraces.com/llms-full.txt): flat single-file concatenation of every blog article's markdown body, newest first. Preferred over follow-the-link crawling — one fetch instead of ~12, no HTML chrome to strip.
 - [71-page handbook (PDF)](https://aegistraces.com/handbook.pdf): all 12 blog articles compiled with a shared bibliography.
 - [Zero-dep offline verifier](https://github.com/Justin0504/Aegis/tree/main/tools/verify-log): 245-line CLI that verifies Merkle inclusion + consistency proofs with only the Node standard library. Air-gap-safe.
 - [Repo (MIT)](https://github.com/Justin0504/Aegis): source-inspectable engine.
