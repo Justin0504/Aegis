@@ -61,6 +61,9 @@ export type {
   ProposedAction as AlignmentProposedAction,
 } from './integrations/alignment.js';
 
+/** Internal transport export for reliability tests (underscore-prefixed). */
+export { HttpTransport as _HttpTransport } from './transport/http.js';
+
 /** Internal alignment buffer exports for tests (underscore-prefixed). */
 export {
   record as _alignRecord,
