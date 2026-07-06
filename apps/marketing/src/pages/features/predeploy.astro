@@ -2,6 +2,67 @@
 import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
+
+// HowTo schema — this is a step-by-step CI setup, exactly what HowTo
+// was designed for. AI answer engines lift the numbered steps into
+// "how do I add X to my CI" answers with the checklist rendered
+// verbatim. Keep step names imperative ("Add the workflow", "Set the
+// fail threshold") because that maps to how the crawlers render them.
+const siteUrl = 'https://aegistraces.com';
+const howToLd = {
+  '@context': 'https://schema.org',
+  '@type':    'HowTo',
+  '@id':      `${siteUrl}/features/predeploy#howto`,
+  name:       'Add AEGIS pre-deployment scanning to your CI',
+  description: 'Fail pull requests that introduce policy violations, secret leaks, or unsafe agent tool configurations — before they merge to main.',
+  totalTime:  'PT10M',
+  tool: [
+    { '@type': 'HowToTool', name: 'GitHub Actions' },
+    { '@type': 'HowToTool', name: 'AEGIS predeploy-scan-action' },
+    { '@type': 'HowToTool', name: 'agentguard CLI' },
+  ],
+  supply: [
+    { '@type': 'HowToSupply', name: 'AEGIS policy bundle (.aegis/policies.json)' },
+    { '@type': 'HowToSupply', name: 'Prompt-injection corpus (optional, for regression tests)' },
+  ],
+  step: [
+    {
+      '@type': 'HowToStep',
+      position: 1,
+      name:     'Add the workflow file',
+      text:     'Create .github/workflows/aegis-predeploy.yml in your repo. Use the AEGIS predeploy-scan-action@v1 step, which runs on every pull request against main.',
+      url:      `${siteUrl}/features/predeploy#step-workflow`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 2,
+      name:     'Set the fail threshold',
+      text:     'Set fail-on to HIGH for production repos (blocks merge on any HIGH-severity finding) or MEDIUM for stricter reviews. Set never to run in report-only mode.',
+      url:      `${siteUrl}/features/predeploy#step-threshold`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 3,
+      name:     'Require MITRE ATLAS technique coverage',
+      text:     'Add require-coverage: AAT-T1,AAT-T4,AAT-T5,AAT-T10 to force the scanner to fail if the policy bundle does not cover those attack techniques. Blocks silent regression.',
+      url:      `${siteUrl}/features/predeploy#step-coverage`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 4,
+      name:     'Emit SARIF for inline PR annotations',
+      text:     'Add output: sarif. GitHub Code Scanning auto-renders SARIF as inline comments on the changed lines. No extra reviewer setup needed.',
+      url:      `${siteUrl}/features/predeploy#step-sarif`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 5,
+      name:     'Open a test PR',
+      text:     'Push a branch that violates one of your policies (or has a secret in a fixture). The action will fail the check with the exact rule name and file:line reference. Merge is blocked until fixed or explicitly overridden.',
+      url:      `${siteUrl}/features/predeploy#step-verify`,
+    },
+  ],
+};
 ---
 <Layout
   title="Pre-deployment scanning — AEGIS"
@@ -215,6 +276,9 @@ jobs:
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(howToLd)}></script>
+
   <Footer />
 
   <style>

@@ -50,6 +50,79 @@ const architectureRefs = [
     aegis: 'Traces carry a bound delegation_id (and parent_delegation_id for sub-delegations) written at execution time by the SDK — not reconstructed heuristically. This gives forensic queries and delegation-scoped rollback (POST /rollback/delegation/:id) semantics that standard audit logs cannot express.',
   },
 ];
+
+// AboutPage schema — /security is a credibility-signal page. AI answer
+// engines routing "is AEGIS SOC 2 compliant" / "how does AEGIS handle
+// PII" / "what encryption does AEGIS use" queries hit here. AboutPage
+// tells crawlers "this is an authoritative first-party description of
+// the entity", higher trust weight than generic WebPage.
+const siteUrl = 'https://aegistraces.com';
+const aboutLd = {
+  '@context': 'https://schema.org',
+  '@type':    'AboutPage',
+  '@id':      `${siteUrl}/security#aboutpage`,
+  url:        `${siteUrl}/security`,
+  name:       'Security & Compliance — AEGIS',
+  description: 'AEGIS security posture: SOC 2 Type II in progress (Q1 2027), GDPR/DPA shipping, cryptographic audit primitives (RFC 6962 + Sigstore witnesses), EU AI Act Article 14 transparency, and prior-art references for delegation-scoped observability + the Three-Ring Architecture.',
+  isPartOf:   { '@id': `${siteUrl}/#website` },
+  about:      { '@id': `${siteUrl}/#organization` },
+  primaryImageOfPage: {
+    '@type': 'ImageObject',
+    url:     `${siteUrl}/og-image.png`,
+  },
+  mainContentOfPage: {
+    '@type': 'WebPageElement',
+    text:    'Cryptographic audit primitives: RFC 6962 transparency log with Sigstore-style witness cosignatures. Zero-dep offline verifier (245-line CLI) runs in air-gapped environments. TLS 1.3 in transit; AES-256 at rest. SHA-256 content fingerprints; Ed25519 root signatures. Per-plan data retention with self-service deletion.',
+  },
+  // FAQPage embedded inside the security page — AI Overviews often
+  // extract these as "AEGIS security FAQ" cards. Same 5-question
+  // limit as pricing to avoid truncation.
+  mainEntity: {
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name:    'Is AEGIS SOC 2 compliant?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text:    'SOC 2 Type II is in progress with a target of Q1 2027. Policies and the evidence pipeline are live via Drata; the CPA engagement is signed. Enterprise-tier customers can request the current audit letter and gap analysis under NDA. Sub-SOC 2 controls (encryption in transit + at rest, MFA, RBAC, incident response) already ship in the product.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name:    'How does AEGIS handle PII in agent traces?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text:    'A built-in PII detector runs on every trace at ingestion time. Detected fields are flagged on the trace record and can be redacted from the cockpit view at the org admin\'s option. The raw values are never sent to third parties (LLM judge included — the judge sees redacted placeholders). Retention is per-plan: Free 7 days, Pro 30, Team 90, Enterprise contractual.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name:    'Can I verify the AEGIS audit log without trusting AEGIS?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text:    'Yes. The transparency log uses RFC 6962 (the same standard as browser SSL certificate transparency). Signed tree heads can be cosigned by independent witnesses following the Sigstore protocol; you verify against ANY witness without trusting AEGIS infrastructure. A 245-line zero-dependency CLI (tools/verify-log) verifies inclusion + consistency proofs offline — runs in air-gapped environments with only the Node.js standard library.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name:    'What encryption does AEGIS use?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text:    'TLS 1.3 with ALPN in transit; HSTS preload-eligible on all managed domains. AES-256 disk encryption at rest on managed deployments. SHA-256 for content fingerprints and transparency-log leaf hashes. Ed25519 for tree-head signatures and signed release artifacts. Bearer tokens and API keys are hashed at rest (SHA-256) — a lost key cannot be retrieved, only rotated.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name:    'Does AEGIS meet EU AI Act transparency requirements?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text:    'Yes for Article 14 (transparency of automated decisions). Every agent decision AEGIS gates produces a counterfactual explainer (why did this pass, why would it have failed) plus a tamper-evident audit-log entry. The combination meets the decision-explainability requirement without shipping raw prompts to auditors — the explainer works on the decision graph, not the LLM output.',
+        },
+      },
+    ],
+  },
+};
 ---
 
 <Layout
@@ -228,6 +301,8 @@ const architectureRefs = [
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(aboutLd)}></script>
 
   <Footer />
 

@@ -4,12 +4,27 @@ interface Props {
   description?: string;
   ogImage?: string;
   canonicalPath?: string;
+  // When set, Layout emits Article-flavored OG tags in addition to
+  // website-flavored ones. Blog posts pass these through.
+  articleMeta?: {
+    publishedTime?: string;   // ISO 8601
+    modifiedTime?:  string;   // ISO 8601
+    author?:        string;
+    section?:       string;   // e.g. "Runtime safety"
+    tags?:          string[];
+  };
+  // When true, suppress the auto-generated BreadcrumbList. Blog +
+  // glossary emit their own with better labels — no need for the
+  // pathname-derived one to compete.
+  suppressAutoBreadcrumb?: boolean;
 }
 const {
   title = 'AEGIS — runtime safety for AI agents',
   description = 'AEGIS is the open-source runtime firewall for AI agents. Stop hallucinated tool calls before they hit production — zero code change, SOC 2 framework, multi-tenant, MIT licensed.',
   ogImage = '/og-image.png',
   canonicalPath,
+  articleMeta,
+  suppressAutoBreadcrumb = false,
 } = Astro.props;
 
 const siteUrl = Astro.site?.toString().replace(/\/$/, '') ?? 'https://aegistraces.com';
@@ -65,6 +80,42 @@ const organizationLd = {
   ],
 };
 
+// Auto-generated BreadcrumbList from the current pathname. Blog +
+// glossary opt out via suppressAutoBreadcrumb and provide their own
+// (they know the article title; we only know the slug here). Any
+// crawler that lands anywhere non-blog now gets a proper crumb trail
+// — before this, only /blog/* had one. Title-Cases the last segment
+// so /features/predeploy renders as "Features → Predeploy".
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+function titleCase(seg: string): string {
+  return seg
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+const breadcrumbLd = (() => {
+  if (suppressAutoBreadcrumb || currentPath === '/') return null;
+  const segs = currentPath.split('/').filter(Boolean);
+  const items = [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl + '/' },
+  ];
+  let acc = '';
+  segs.forEach((seg, i) => {
+    acc += '/' + seg;
+    items.push({
+      '@type': 'ListItem',
+      position: i + 2,
+      name:    titleCase(seg),
+      item:    siteUrl + acc + '/',
+    } as any);
+  });
+  return {
+    '@context': 'https://schema.org',
+    '@type':    'BreadcrumbList',
+    itemListElement: items,
+  };
+})();
+
 // Global WebSite schema — declares the site as a searchable entity
 // and (critically) tells Google's Sitelinks Searchbox where the
 // in-site search URL lives. Even when we don't ship a real search UI,
@@ -94,22 +145,35 @@ const websiteLd = {
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={canonical} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
     <meta name="theme-color" content="#eae3d2" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1816" media="(prefers-color-scheme: dark)" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
-    <!-- Open Graph -->
+    {/* Open Graph — website by default, article when articleMeta is set.
+        Article-flavoured OG carries first-class publishedTime + author
+        fields that AI answer engines (especially Bing / Copilot) treat
+        as freshness signals separate from what they see in JSON-LD. */}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={articleMeta ? 'article' : 'website'} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content="AEGIS" />
     <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:alt" content={title} />
+    {articleMeta?.publishedTime && <meta property="article:published_time" content={articleMeta.publishedTime} />}
+    {articleMeta?.modifiedTime  && <meta property="article:modified_time"  content={articleMeta.modifiedTime}  />}
+    {articleMeta?.author        && <meta property="article:author"         content={articleMeta.author}        />}
+    {articleMeta?.section       && <meta property="article:section"        content={articleMeta.section}       />}
+    {articleMeta?.tags?.map(t => <meta property="article:tag" content={t} />)}
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={title} />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -120,6 +184,7 @@ const websiteLd = {
 
     <script type="application/ld+json" set:html={JSON.stringify(organizationLd)}></script>
     <script type="application/ld+json" set:html={JSON.stringify(websiteLd)}></script>
+    {breadcrumbLd && <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)}></script>}
 
     <title>{title}</title>
   </head>

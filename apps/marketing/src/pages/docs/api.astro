@@ -2,6 +2,57 @@
 import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
+
+// APIReference schema — Google + Cody + Codeium all index API docs
+// with this type. Signals to crawlers "this URL is authoritative
+// reference material for endpoints, not marketing copy" so it ranks
+// on developer queries ("AEGIS check endpoint", "how to POST /api/v1/
+// check") without competing with the homepage on brand queries.
+// Nested WebAPI carries per-endpoint metadata that API-aware crawlers
+// (Postman, RapidAPI, Kagi) map to their explorer UIs.
+const siteUrl = 'https://aegistraces.com';
+const apiReferenceLd = {
+  '@context': 'https://schema.org',
+  '@type':    'APIReference',
+  '@id':      `${siteUrl}/docs/api#apireference`,
+  name:       'AEGIS REST API Reference',
+  description: 'Complete REST API for the AEGIS gateway: tool-call checks, trace ingestion, policy CRUD, anomaly queries, SCIM 2.0 user provisioning, and RFC 6962 transparency-log endpoints.',
+  url:        `${siteUrl}/docs/api`,
+  isPartOf:   { '@id': `${siteUrl}/#website` },
+  about:      { '@id': `${siteUrl}/#software` },
+  programmingLanguage: ['HTTP', 'JSON'],
+  targetPlatform:      ['REST', 'HTTPS'],
+  proficiencyLevel:    'Beginner',
+  // Curated WebAPI list — the endpoints crawlers most often route
+  // developer queries to. Kept to the 10 most cited; the full list
+  // lives in the rendered <h3> headings for humans.
+  potentialAction: [
+    {
+      '@type':       'ConsumeAction',
+      target:        `${siteUrl}/docs/api#post-check`,
+      name:          'POST /api/v1/check — gate a tool call',
+      description:   'Submit a tool_call to the gateway and receive an allow / block / pending decision. The core enforcement point every SDK adapter calls before executing a tool.',
+    },
+    {
+      '@type':       'ConsumeAction',
+      target:        `${siteUrl}/docs/api#post-traces`,
+      name:          'POST /api/v1/traces — ingest a trace',
+      description:   'Emit a trace record after a tool call completes. Rows enter the audit log + transparency log for later verification.',
+    },
+    {
+      '@type':       'ConsumeAction',
+      target:        `${siteUrl}/docs/api#get-policies`,
+      name:          'GET /api/v1/policies — list active policies',
+      description:   'Return every policy the gateway enforces for the caller\'s org, including wildcard + tenant-specific rules.',
+    },
+    {
+      '@type':       'ConsumeAction',
+      target:        `${siteUrl}/docs/api#tlog`,
+      name:          'GET /api/v1/transparency-log/proof/:leaf_index — Merkle inclusion proof',
+      description:   'RFC 6962 inclusion proof for a specific leaf. Combined with a signed tree head, the caller can verify tamper-evidence offline.',
+    },
+  ],
+};
 ---
 <Layout
   title="REST API reference — Docs"
@@ -137,6 +188,9 @@ curl -H "Authorization: Bearer scim_xxx" https://gateway.aegistraces.com/scim/v2
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(apiReferenceLd)}></script>
+
   <Footer />
 
   <style>

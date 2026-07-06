@@ -236,7 +236,18 @@ const bibtex = `@misc{${bibtexKey},
 const apa = `${authorLastFirst} (${pubYear}, ${pubMonthDay}). ${post.data.title}. AEGIS. ${url}`;
 ---
 
-<Layout title={`${post.data.title} — AEGIS`} description={post.data.description}>
+<Layout
+  title={`${post.data.title} — AEGIS`}
+  description={post.data.description}
+  suppressAutoBreadcrumb
+  articleMeta={{
+    publishedTime: post.data.publishedAt.toISOString(),
+    modifiedTime:  (post.data.updatedAt ?? post.data.publishedAt).toISOString(),
+    author:        post.data.author,
+    section:       post.data.cluster ?? 'AI agent safety',
+    tags:          post.data.tags ?? [],
+  }}
+>
   <Header current="blog" />
 
   {/* JSON-LD must be inline in <head>; Astro lets us put it anywhere

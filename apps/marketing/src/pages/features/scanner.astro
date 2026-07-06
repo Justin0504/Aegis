@@ -3,6 +3,48 @@ import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import PhotoBand from '@/components/PhotoBand.astro';
+
+// HowTo — scanning an existing agent repo is a 3-step recipe that
+// AI answer engines get asked about constantly ("how do I discover
+// what my LangChain agent is calling", "how do I inventory my MCP
+// tools"). Named the steps after the actions instead of the outcomes
+// because that maps better to imperative rendering.
+const siteUrl = 'https://aegistraces.com';
+const howToLd = {
+  '@context': 'https://schema.org',
+  '@type':    'HowTo',
+  '@id':      `${siteUrl}/features/scanner#howto`,
+  name:       'Discover every agent, tool, and framework in a codebase with AEGIS scan',
+  description: 'Point AEGIS at any folder — it walks the repo via tree-sitter AST and emits a structured inventory of every agent framework, every tool binding, every LLM SDK, every workflow node. No annotation, no SDK install.',
+  totalTime:  'PT30S',
+  tool: [
+    { '@type': 'HowToTool', name: 'agentguard CLI' },
+    { '@type': 'HowToTool', name: 'tree-sitter (bundled)' },
+  ],
+  step: [
+    {
+      '@type': 'HowToStep',
+      position: 1,
+      name:     'Install the desktop bundle',
+      text:     'Download the AEGIS desktop bundle for macOS / Linux / Windows, or install the standalone CLI via npm install -g @agentguard/cli. No account required for scan.',
+      url:      `${siteUrl}/features/scanner#step-install`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 2,
+      name:     'Run agentguard scan on the repo',
+      text:     'Run "agentguard scan ~/your-agent-repo". The scanner walks every Python / JS / TS / TSX file via tree-sitter AST, plus MCP config files under ~/.config/, and prints a candidate table: kind (import / http / mcp), confidence, framework, entry-point status, and file path.',
+      url:      `${siteUrl}/features/scanner#step-scan`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 3,
+      name:     'Extract the workflow graph',
+      text:     'When a supported framework (LangGraph / CrewAI / AutoGen / Mastra / Vercel-AI) is detected, the scanner emits nodes, edges, tools, and risk signals (e.g. sensitive-relay chains like search_kb → send_email). The JSON output drops directly into "agentguard inject" for gateway auto-instrumentation, or into the AI policy generator.',
+      url:      `${siteUrl}/features/scanner#step-graph`,
+    },
+  ],
+};
 ---
 <Layout
   title="One-click workflow scanner — AEGIS"
@@ -180,6 +222,9 @@ WORKFLOW GRAPH (langgraph):
       </div>
     </section>
   </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(howToLd)}></script>
+
   <Footer />
 
   <style>
