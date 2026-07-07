@@ -123,6 +123,60 @@ function printTable(headers: string[], widths: number[], rows: string[][]) {
   rows.forEach(r => console.log(r.map((c, i) => col(c, widths[i])).join('  ')));
 }
 
+// ── Output-mode helpers ─────────────────────────────────────────────
+//
+// Every command that opts in checks `jsonMode()` and either
+// `emitHuman(...)` (a table, coloured chips, whatever fits the eye) or
+// `emitJSON(obj)` (a single line, machine-parseable). The pattern is
+// `if (jsonMode()) return emitJSON(obj);` at the top of the action —
+// keeps the readable path unchanged for the majority of interactive use.
+//
+// Not every command has been migrated yet; new commands (tail, replay,
+// completion below) are JSON-aware from birth. Migrating the older
+// ones is mechanical and can happen incrementally.
+function jsonMode(): boolean {
+  return Boolean(program.opts().json);
+}
+
+function emitJSON(payload: unknown): void {
+  process.stdout.write(JSON.stringify(payload) + '\n');
+}
+
+function emitHuman(fn: () => void): void {
+  if (jsonMode()) return;
+  fn();
+}
+
+// ── TTY-aware colour ────────────────────────────────────────────────
+//
+// Reads NO_COLOR (https://no-color.org) and skips colour when stdout
+// isn't a TTY, so `agentguard status | grep OK` and CI logs stay
+// clean. Colours are opt-in per call site — no accidental colouring.
+const COLOR_ENABLED = (() => {
+  if (process.env.NO_COLOR) return false;
+  if (process.env.FORCE_COLOR) return true;
+  return Boolean(process.stdout.isTTY);
+})();
+
+const ANSI = {
+  reset:   '\x1b[0m',
+  bold:    '\x1b[1m',
+  dim:     '\x1b[2m',
+  red:     '\x1b[31m',
+  green:   '\x1b[32m',
+  yellow:  '\x1b[33m',
+  blue:    '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan:    '\x1b[36m',
+} as const;
+
+type Colour = keyof typeof ANSI;
+
+function c(text: string, colour: Colour): string {
+  if (!COLOR_ENABLED) return text;
+  return `${ANSI[colour]}${text}${ANSI.reset}`;
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 const program = new Command();
@@ -130,7 +184,12 @@ const program = new Command();
 program
   .name('agentguard')
   .description('CLI for AEGIS AgentGuard gateway')
-  .version('1.0.0');
+  .version('1.0.0')
+  // Global machine-readable output. Commands that support it check
+  // jsonMode() and emit a single JSON object instead of formatted text.
+  // Any script downstream can then `jq` the result.
+  .option('--json', 'Emit machine-readable JSON to stdout')
+  .option('--no-color', 'Disable ANSI colour (also honours NO_COLOR env)');
 
 // ── configure ────────────────────────────────────────────────────────────────
 program
@@ -173,12 +232,11 @@ program
   .action(async () => {
     try {
       const data = await request('GET', `${gatewayUrl()}/health`);
-      console.log(`✓ Gateway is UP  —  ${data.timestamp ?? 'ok'}`);
+      if (jsonMode()) return emitJSON({ status: 'up', gateway_url: gatewayUrl(), ...data });
+      console.log(`${c('✓', 'green')} Gateway is UP  —  ${data.timestamp ?? 'ok'}`);
     } catch (e: any) {
-      console.error(`✗ Gateway unreachable: ${e.message}`);
-      // Exit 2 — environment failure, matches the convention used by
-      // `agentguard doctor`. Reserves exit 1 for "ran fine, gateway
-      // returned a problem we want to surface to scripts."
+      if (jsonMode()) { emitJSON({ status: 'down', gateway_url: gatewayUrl(), error: e.message }); process.exit(2); }
+      console.error(`${c('✗', 'red')} Gateway unreachable: ${e.message}`);
       process.exit(2);
     }
   });
@@ -198,6 +256,7 @@ traces
     if (opts.status) params.set('approval_status', opts.status);
 
     const data = await request('GET', `${gatewayUrl()}/api/v1/traces?${params}`);
+    if (jsonMode()) return emitJSON({ traces: data.traces ?? [], total: data.total ?? data.traces?.length ?? 0 });
     if (!data.traces?.length) { console.log('No traces found.'); return; }
 
     printTable(
@@ -207,12 +266,21 @@ traces
         String(t.trace_id).substring(0, 18),
         String(t.agent_id).substring(0, 12),
         t.tool_call?.tool_name ?? '?',
-        t.approval_status ?? 'PENDING',
+        colouredStatus(t.approval_status ?? 'PENDING'),
         fmtDate(t.timestamp),
       ])
     );
     console.log(`\n${data.traces.length} traces`);
   });
+
+// Small helper — coloured status chip. Kept local so command action
+// bodies don't drown in colour logic.
+function colouredStatus(status: string): string {
+  if (status === 'APPROVED')          return c(status, 'green');
+  if (status === 'REJECTED')          return c(status, 'red');
+  if (status === 'PENDING_APPROVAL')  return c(status, 'yellow');
+  return status;
+}
 
 traces
   .command('approve <traceId>')
@@ -287,8 +355,9 @@ program
     if (opts.agent) params.set('agent_id', opts.agent);
 
     const data = await request('GET', `${gatewayUrl()}/api/v1/traces/stats/cost?${params}`);
+    if (jsonMode()) return emitJSON(data);
 
-    console.log(`\nTotal spend:  ${fmt$(data.total_cost_usd ?? 0)}`);
+    console.log(`\nTotal spend:  ${c(fmt$(data.total_cost_usd ?? 0), 'bold')}`);
     console.log(`Input tokens: ${(data.total_input_tokens ?? 0).toLocaleString()}`);
     console.log(`Output tokens:${(data.total_output_tokens ?? 0).toLocaleString()}\n`);
 
@@ -299,6 +368,20 @@ program
         data.by_agent_model.map((r: any) => [
           String(r.agent_id).substring(0, 12),
           String(r.model ?? 'unknown'),
+          String(r.trace_count ?? 0),
+          ((r.total_input_tokens ?? 0) + (r.total_output_tokens ?? 0)).toLocaleString(),
+          fmt$(r.total_cost_usd ?? 0),
+        ])
+      );
+    }
+    // Also render the new by-tool aggregation (Cockpit shows this too).
+    if (data.by_tool?.length) {
+      console.log(`\n${c('By tool:', 'dim')}`);
+      printTable(
+        ['TOOL', 'CALLS', 'TOKENS', 'COST'],
+        [32, 8, 12, 10],
+        data.by_tool.slice(0, 10).map((r: any) => [
+          String(r.tool_name ?? '(unknown)').substring(0, 32),
           String(r.trace_count ?? 0),
           ((r.total_input_tokens ?? 0) + (r.total_output_tokens ?? 0)).toLocaleString(),
           fmt$(r.total_cost_usd ?? 0),
@@ -435,9 +518,13 @@ judge
     console.log();
   });
 
-// ── scan (supply chain security) ─────────────────────────────────────────────
+// ── supply-scan (supply chain security) ─────────────────────────────
+// Renamed from `scan` to disambiguate from the framework/agent scanner
+// below (`agentguard scan <path>`). Commander doesn't allow two
+// subcommands with the same name.
 program
-  .command('scan [dir]')
+  .command('supply-scan [dir]')
+  .alias('supply-chain-scan')
   .description('Scan directory for supply chain security issues (source maps, secrets, unsafe configs)')
   .option('--fix', 'Auto-fix: add *.map to .npmignore')
   .action(async (dir, opts) => {
@@ -1859,6 +1946,256 @@ program
     const { spawn } = await import('child_process');
     const child = spawn(process.execPath, args, { stdio: 'inherit' });
     child.on('exit', code => process.exit(code ?? 0));
+  });
+
+// ── tail ────────────────────────────────────────────────────────────
+//
+// Live-tails traces from the gateway. Polls /api/v1/traces?since=... on
+// a short interval and prints each new one as a single line. Colour-
+// coded by risk_level so glancing at the terminal tells you what the
+// agent is doing without needing to open the cockpit.
+//
+// Design note: not using SSE / websockets because the gateway doesn't
+// expose one, and polling is what Sentry / Datadog / Honeycomb CLIs
+// do anyway. If we ship an SSE endpoint later, this command can be
+// upgraded transparently — the argument shape stays the same.
+program
+  .command('tail')
+  .description('Live-tail traces from the gateway (Ctrl+C to exit)')
+  .option('-a, --agent <id>',        'Filter by agent ID')
+  .option('-i, --interval <ms>',     'Poll interval in milliseconds', '2000')
+  .option('-t, --tool <name>',       'Filter by tool_name substring')
+  .option('-r, --risk <level>',      'Minimum risk level (LOW|MEDIUM|HIGH|CRITICAL)')
+  .action(async (opts) => {
+    const intervalMs = Math.max(500, parseInt(opts.interval, 10));
+    const riskOrder: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
+    const riskFloor = opts.risk ? (riskOrder[opts.risk] ?? 0) : -1;
+    const toolNeedle = opts.tool?.toLowerCase();
+    let since: string | undefined;
+
+    if (!jsonMode()) {
+      console.error(c('agentguard tail — polling every ' + intervalMs + 'ms. Ctrl+C to exit.', 'dim'));
+    }
+
+    // Track seen trace_ids across a short window so a slow gateway
+    // returning duplicates on the boundary doesn't print them twice.
+    const seen = new Set<string>();
+    const seenMax = 512;
+
+    process.on('SIGINT', () => {
+      if (!jsonMode()) console.error(c('\nagentguard tail — stopped.', 'dim'));
+      process.exit(0);
+    });
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        const params = new URLSearchParams({ limit: '100' });
+        if (opts.agent) params.set('agent_id', opts.agent);
+        if (since)     params.set('start_time', since);
+        const data = await request('GET', `${gatewayUrl()}/api/v1/traces?${params}`);
+        const traces: any[] = (data.traces ?? [])
+          .filter((t: any) => !seen.has(t.trace_id))
+          // Poll returns newest-first; reverse so we print chronologically
+          .reverse();
+        for (const t of traces) {
+          const risk = t.safety_validation?.risk_level ?? 'LOW';
+          if (riskFloor >= 0 && (riskOrder[risk] ?? 0) < riskFloor) continue;
+          const toolName = t.tool_call?.tool_name ?? '?';
+          if (toolNeedle && !toolName.toLowerCase().includes(toolNeedle)) continue;
+
+          seen.add(t.trace_id);
+          if (seen.size > seenMax) {
+            // Trim oldest — Set preserves insertion order.
+            const drop = seen.size - seenMax;
+            let i = 0;
+            for (const id of seen) { if (i++ >= drop) break; seen.delete(id); }
+          }
+
+          if (jsonMode()) {
+            emitJSON({
+              trace_id:  t.trace_id,
+              timestamp: t.timestamp,
+              agent_id:  t.agent_id,
+              tool_name: toolName,
+              risk,
+              status:    t.approval_status,
+              blocked:   Boolean(t.blocked),
+            });
+          } else {
+            const riskColour: Colour =
+              risk === 'CRITICAL' ? 'red' :
+              risk === 'HIGH'     ? 'red' :
+              risk === 'MEDIUM'   ? 'yellow' :
+              'dim';
+            const stamp = new Date(t.timestamp).toISOString().slice(11, 19);
+            console.log(
+              `${c(stamp, 'dim')}  ${c(risk.padEnd(8), riskColour)}  ${c(String(t.agent_id).slice(0, 12).padEnd(12), 'cyan')}  ${toolName.padEnd(28)}  ${t.approval_status ?? ''}`,
+            );
+          }
+        }
+        // Advance the since cursor to the most recent trace we saw,
+        // whether it passed filters or not — avoids re-fetching them.
+        const newest = (data.traces ?? [])[0];
+        if (newest?.timestamp) since = newest.timestamp;
+      } catch (e: any) {
+        if (jsonMode()) emitJSON({ error: e.message, retry_in_ms: intervalMs });
+        else console.error(c(`tail: ${e.message}`, 'red'));
+      }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+  });
+
+// ── replay ──────────────────────────────────────────────────────────
+//
+// Manually drain the SDK's local disk fallback into the gateway. The
+// Python + JS SDKs auto-replay on startup, but there's no automatic
+// replay for existing processes (e.g. long-running server that never
+// restarts). This command is the operator-facing companion — point it
+// at any AGENTGUARD_TRACES_DIR (default ~/.agentguard/traces) and it
+// walks the queue oldest-first, POSTing each file and deleting on
+// success, stopping on first failure so the operator can investigate.
+program
+  .command('replay')
+  .description('Replay locally-persisted traces into the gateway')
+  .option('-d, --dir <path>', 'Trace fallback directory', path.join(os.homedir(), '.agentguard', 'traces'))
+  .option('--dry-run',        'List queued traces without sending')
+  .option('--rate <n>',       'Max sends per second', '20')
+  .action(async (opts) => {
+    const dir = path.resolve(opts.dir);
+    let files: string[];
+    try {
+      files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort();
+    } catch (e: any) {
+      if (jsonMode()) return emitJSON({ error: `cannot read ${dir}: ${e.message}` });
+      console.error(c(`✗ Cannot read ${dir}: ${e.message}`, 'red'));
+      process.exit(2);
+    }
+    if (!files.length) {
+      if (jsonMode()) return emitJSON({ queued: 0, sent: 0, failed: 0, dir });
+      console.log(`${c('✓', 'green')} No traces queued in ${dir}`);
+      return;
+    }
+
+    if (opts.dryRun) {
+      if (jsonMode()) return emitJSON({ queued: files.length, dir, files });
+      console.log(`${c('•', 'yellow')} ${files.length} trace(s) queued in ${dir}:`);
+      for (const f of files.slice(0, 20)) console.log(`  ${f}`);
+      if (files.length > 20) console.log(`  … and ${files.length - 20} more`);
+      return;
+    }
+
+    const rate = Math.max(1, parseInt(opts.rate, 10));
+    const intervalMs = 1000 / rate;
+    let sent = 0, failed = 0;
+
+    for (const name of files) {
+      const full = path.join(dir, name);
+      let payload: any;
+      try { payload = JSON.parse(fs.readFileSync(full, 'utf8')); }
+      catch (e: any) {
+        if (!jsonMode()) console.error(c(`  skip ${name}: ${e.message}`, 'yellow'));
+        try { fs.unlinkSync(full); } catch { /* ignore */ }
+        continue;
+      }
+      try {
+        await request('POST', `${gatewayUrl()}/api/v1/traces`, payload);
+        fs.unlinkSync(full);
+        sent++;
+        if (!jsonMode()) console.log(`${c('✓', 'green')} ${name}`);
+      } catch (e: any) {
+        failed++;
+        if (!jsonMode()) console.error(`${c('✗', 'red')} ${name}: ${e.message}`);
+        // Stop on first failure — operator investigates before we
+        // fire the whole queue at a broken gateway.
+        break;
+      }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+
+    const remaining = files.length - sent - failed;
+    if (jsonMode()) return emitJSON({ queued: files.length, sent, failed, remaining, dir });
+    console.log(`\n${c('Sent:', 'bold')} ${sent}  ${c('Failed:', failed ? 'red' : 'dim')} ${failed}  Remaining: ${remaining}`);
+    if (failed) process.exit(1);
+  });
+
+// ── completion ──────────────────────────────────────────────────────
+//
+// Shell tab-completion for bash / zsh / fish. Commander doesn't ship
+// completion out of the box, so we emit hand-rolled scripts that
+// enumerate the top-level command names + a handful of common
+// subcommands. Installation is documented in the printed banner.
+program
+  .command('completion <shell>')
+  .description('Emit shell tab-completion script (bash|zsh|fish)')
+  .action((shell) => {
+    // Pull command names from the Commander tree so this stays in
+    // sync as new commands are added.
+    const cmds = program.commands.map(cmd => cmd.name()).filter(n => n !== 'completion');
+    const cmdList = cmds.join(' ');
+
+    if (shell === 'bash') {
+      process.stdout.write(`# agentguard bash completion
+# Install:  agentguard completion bash > /usr/local/etc/bash_completion.d/agentguard
+#   or add to ~/.bashrc:  eval "$(agentguard completion bash)"
+_agentguard_complete() {
+  local cur prev
+  COMPREPLY=()
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  local cmds="${cmdList}"
+  if [ "\${COMP_CWORD}" -eq 1 ]; then
+    COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
+    return 0
+  fi
+  # Common option completion — offer --json and --help for any command.
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(compgen -W "--json --no-color --help" -- "$cur") )
+    return 0
+  fi
+}
+complete -F _agentguard_complete agentguard
+`);
+      return;
+    }
+
+    if (shell === 'zsh') {
+      process.stdout.write(`#compdef agentguard
+# agentguard zsh completion
+# Install:  agentguard completion zsh > "\${fpath[1]}/_agentguard"
+#   or eval directly:  eval "$(agentguard completion zsh)"
+_agentguard() {
+  local -a commands
+  commands=(${cmds.map(n => `'${n}:${n}'`).join(' ')})
+  _arguments -C \\
+    '(-h --help)'{-h,--help}'[show help]' \\
+    '--json[emit machine-readable JSON]' \\
+    '--no-color[disable ANSI colour]' \\
+    '1: :->cmds' \\
+    '*::arg:->args'
+  case "$state" in
+    cmds) _describe 'command' commands ;;
+    args) _files ;;
+  esac
+}
+_agentguard "$@"
+`);
+      return;
+    }
+
+    if (shell === 'fish') {
+      process.stdout.write(`# agentguard fish completion
+# Install:  agentguard completion fish > ~/.config/fish/completions/agentguard.fish
+complete -c agentguard -f -n '__fish_use_subcommand' -a "${cmdList}"
+complete -c agentguard -l json      -d 'Emit JSON output'
+complete -c agentguard -l no-color  -d 'Disable ANSI colour'
+complete -c agentguard -l help -s h -d 'Show help'
+`);
+      return;
+    }
+
+    console.error(c(`unknown shell "${shell}" — use bash, zsh, or fish`, 'red'));
+    process.exit(2);
   });
 
 program.parse(process.argv);
