@@ -11,11 +11,16 @@ import { useAlerts } from '@/hooks/useAlerts'
 import { AgentCompare } from './agent-compare'
 import { FileDown } from 'lucide-react'
 import { USE_MOCK, mockTraces } from '@/lib/mock-traces'
+import { TraceSearchBar } from './trace-search-bar'
 
 export function TracesView() {
   const [selectedTrace, setSelectedTrace] = useState<string | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  // DSL search results — when populated, takes precedence over the
+  // plain agent-filtered list. `null` means "no active search, use
+  // the default trace-list endpoint".
+  const [searchResults, setSearchResults] = useState<{ traces: any[]; total: number } | null>(null)
 
   async function handleExport(allTraces: any[]) {
     setExporting(true)
@@ -67,9 +72,14 @@ export function TracesView() {
   })
 
   // Mock-mode swap — same shape, deterministic for demos / screenshots.
-  const effectiveTraces = USE_MOCK
+  const defaultTraces = USE_MOCK
     ? { traces: selectedAgent ? mockTraces().filter((t: any) => t.agent_id === selectedAgent) : mockTraces() }
     : traces
+  // If the user has an active DSL search, that becomes the source of
+  // truth for the list. Otherwise fall through to the agent-filtered
+  // default fetch — preserves existing behaviour for anyone who
+  // never touches the search bar.
+  const effectiveTraces = searchResults ?? defaultTraces
 
   useAlerts(effectiveTraces?.traces || [])
 
@@ -111,6 +121,7 @@ export function TracesView() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
+          <TraceSearchBar onResults={setSearchResults} />
           <div className="grid gap-4 md:grid-cols-12">
             <div className="col-span-5">
               <TracesList
