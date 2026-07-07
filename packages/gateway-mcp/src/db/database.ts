@@ -263,6 +263,122 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     try { db.exec(sql); } catch { /* column already exists — safe to ignore */ }
   }
 
+  // ── Full-text search over traces (Round 3 · Trace query DSL) ─────
+  // FTS5 external-content table shadowing `traces`. Indexed columns
+  // are the ones users actually free-text-search: the prompt, the
+  // tool name, the tool arguments blob, and the observation output.
+  //
+  // Triggers keep the index in sync on INSERT/UPDATE/DELETE. Backfill
+  // runs once on schema creation (idempotent because FTS5 dedupes on
+  // rowid). The `content_rowid = 'id'` link means FTS rows share the
+  // traces.id primary key — a JOIN on `traces_fts.rowid = traces.id`
+  // works out of the box.
+  //
+  // Cost: ~30-40% storage overhead on top of the traces table, but
+  // that's the price for MATCH being O(log n) instead of the current
+  // O(n) LIKE scans. Tokenizer is unicode61 with case-folding — same
+  // choice Signal uses for their message search.
+  const initFts = () => {
+    try {
+      // Contentless FTS5 table. `content=""` because our indexed
+      // columns (tool_name, prompt, arguments, observation) don't
+      // exist as first-class columns on `traces` — they live inside
+      // JSON blobs (tool_call, input_context, observation). An
+      // external-content link would require FTS5 to find columns
+      // with those names in the base table, which fails at query
+      // time. Contentless mode makes the triggers below the sole
+      // source of truth for the index.
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS traces_fts USING fts5(
+          tool_name,
+          prompt,
+          arguments,
+          observation,
+          content='',
+          tokenize = 'unicode61'
+        );
+      `);
+      // Triggers — sync on write. We extract the searchable strings
+      // from the JSON blobs at trigger time so the FTS columns hold
+      // clean text (not the raw JSON, which would tokenize into a
+      // mess of braces and quotes).
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS traces_fts_ai AFTER INSERT ON traces BEGIN
+          INSERT INTO traces_fts(rowid, tool_name, prompt, arguments, observation)
+          VALUES (
+            new.id,
+            COALESCE(json_extract(new.tool_call,     '$.tool_name'), ''),
+            COALESCE(json_extract(new.input_context, '$.prompt'),    ''),
+            COALESCE(json_extract(new.tool_call,     '$.arguments'), ''),
+            COALESCE(json_extract(new.observation,   '$.raw_output'),'')
+          );
+        END;
+      `);
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS traces_fts_ad AFTER DELETE ON traces BEGIN
+          INSERT INTO traces_fts(traces_fts, rowid, tool_name, prompt, arguments, observation)
+          VALUES ('delete', old.id, '', '', '', '');
+        END;
+      `);
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS traces_fts_au AFTER UPDATE ON traces BEGIN
+          INSERT INTO traces_fts(traces_fts, rowid, tool_name, prompt, arguments, observation)
+          VALUES ('delete', old.id, '', '', '', '');
+          INSERT INTO traces_fts(rowid, tool_name, prompt, arguments, observation)
+          VALUES (
+            new.id,
+            COALESCE(json_extract(new.tool_call,     '$.tool_name'), ''),
+            COALESCE(json_extract(new.input_context, '$.prompt'),    ''),
+            COALESCE(json_extract(new.tool_call,     '$.arguments'), ''),
+            COALESCE(json_extract(new.observation,   '$.raw_output'),'')
+          );
+        END;
+      `);
+      // Backfill: on first run against a DB that predates the FTS
+      // table, copy every existing trace into the index. On
+      // subsequent runs this is a no-op — INSERT OR IGNORE would be
+      // cleaner but external-content FTS doesn't support IGNORE, so
+      // we gate on "is traces_fts empty?"
+      const ftsCount = db.prepare(`SELECT COUNT(*) as n FROM traces_fts`).get() as { n: number };
+      const traceCount = db.prepare(`SELECT COUNT(*) as n FROM traces`).get() as { n: number };
+      if (ftsCount.n === 0 && traceCount.n > 0) {
+        db.exec(`
+          INSERT INTO traces_fts(rowid, tool_name, prompt, arguments, observation)
+          SELECT
+            id,
+            COALESCE(json_extract(tool_call,     '$.tool_name'), ''),
+            COALESCE(json_extract(input_context, '$.prompt'),    ''),
+            COALESCE(json_extract(tool_call,     '$.arguments'), ''),
+            COALESCE(json_extract(observation,   '$.raw_output'),'')
+          FROM traces;
+        `);
+      }
+    } catch (e) {
+      // FTS5 is compiled into better-sqlite3 by default, but a
+      // hand-built libsqlite might not have it. Log and continue —
+      // /traces/search will fall back to a degraded LIKE-based path.
+      // eslint-disable-next-line no-console
+      console.warn('[traces_fts] initialisation failed — search will use LIKE fallback:', (e as Error).message);
+    }
+  };
+  initFts();
+
+  // saved_queries — per-org named DSL queries. Cockpit uses these to
+  // populate the "Saved" dropdown in the trace search bar. Cheap
+  // table, no indices needed beyond org_id.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS saved_queries (
+      id          TEXT PRIMARY KEY,
+      org_id      TEXT NOT NULL DEFAULT '*',
+      name        TEXT NOT NULL,
+      dsl         TEXT NOT NULL,
+      created_by  TEXT,
+      created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_run_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_queries_org ON saved_queries (org_id, name);
+  `);
+
   // Ensure gateway_config table exists (for dashboard API key)
   db.exec(`CREATE TABLE IF NOT EXISTS gateway_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
 

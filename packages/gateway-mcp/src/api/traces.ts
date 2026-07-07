@@ -14,6 +14,8 @@ import { redactObjectPii } from '../services/pii';
 import { emitTraceSpan } from '../services/otel';
 import { AgentRegistryService } from '../services/agent-registry';
 import { computeContentHash } from '../services/content-hash';
+import { compileQuery } from '../services/trace-query-dsl';
+import { randomUUID } from 'crypto';
 
 /** Map a model string + tool name to the GenAI semconv `gen_ai.system`
  *  value. Used to populate the span attribute Datadog GenAI / Honeycomb
@@ -155,6 +157,135 @@ export class TraceAPI {
         this.logger.error({ error }, 'Failed to query traces');
         res.status(500).json({ error: 'Internal server error' });
       }
+    });
+
+    // POST /search — DSL-powered full-text + structured trace search.
+    // The DSL is documented in packages/gateway-mcp/src/services/trace-query-dsl.ts
+    // (Pratt parser, field whitelist, SQLite FTS5 backend).
+    //
+    // Body:
+    //   {
+    //     q:      "agent:foo AND @args.amount:>10000 AND \"secret\"",
+    //     limit:  number   (default 100, max 1000)
+    //     offset: number   (default 0)
+    //   }
+    //
+    // Response:
+    //   {
+    //     traces: [...],
+    //     total:  number,      // total matching before limit/offset
+    //     took_ms: number,     // server-side query time
+    //     query: { sql, params, fts_match }   // reflected for debugging
+    //   }
+    //
+    // POST (not GET) because DSL strings can be long and encoding
+    // them into URLs is painful; also keeps them out of proxy access
+    // logs by default.
+    this.router.post('/search', async (req: Request, res: Response) => {
+      const started = Date.now();
+      const bodySchema = z.object({
+        q:      z.string().max(4096),
+        limit:  z.number().int().min(1).max(1000).optional().default(100),
+        offset: z.number().int().min(0).optional().default(0),
+      });
+      let body: z.infer<typeof bodySchema>;
+      try { body = bodySchema.parse(req.body); }
+      catch (e) {
+        return res.status(400).json({ error: 'invalid body', details: (e as z.ZodError).issues });
+      }
+
+      let compiled;
+      try { compiled = compileQuery(body.q); }
+      catch (e) {
+        return res.status(400).json({ error: (e as Error).message });
+      }
+
+      // Compose the SELECT. If the query touched an FTS-indexed
+      // column (either free-text or `prompt:"..."`) we JOIN
+      // traces_fts and add the MATCH filter on top of the whitelist-
+      // compiled WHERE. Otherwise it's a plain traces scan.
+      const useFts = Boolean(compiled.ftsMatch);
+      const joinClause = useFts ? 'JOIN traces_fts ON traces_fts.rowid = traces.id' : '';
+      const ftsWhere   = useFts ? ' AND traces_fts MATCH ?' : '';
+      const whereParams = useFts ? [...compiled.params, compiled.ftsMatch] : compiled.params;
+
+      try {
+        const countSql = `SELECT COUNT(*) as n FROM traces ${joinClause} WHERE ${compiled.sql}${ftsWhere}`;
+        const total = (this.db.prepare(countSql).get(...whereParams) as any).n as number;
+
+        const listSql = `SELECT traces.* FROM traces ${joinClause}
+                         WHERE ${compiled.sql}${ftsWhere}
+                         ORDER BY traces.timestamp DESC
+                         LIMIT ? OFFSET ?`;
+        const rows = this.db.prepare(listSql).all(...whereParams, body.limit, body.offset) as any[];
+
+        res.json({
+          traces:  rows.map(this.parseTrace),
+          total,
+          limit:   body.limit,
+          offset:  body.offset,
+          took_ms: Date.now() - started,
+          query:   {
+            sql:       compiled.sql,
+            params:    compiled.params,
+            fts_match: compiled.ftsMatch,
+          },
+        });
+      } catch (e) {
+        this.logger.error({ err: (e as Error).message, dsl: body.q }, 'trace search failed');
+        res.status(500).json({ error: 'search failed', message: (e as Error).message });
+      }
+    });
+
+    // Saved queries — per-org named DSL queries. Cockpit uses these
+    // to populate the "Saved" dropdown in the trace search bar.
+    // Tenancy: every row is scoped by org_id; the '*' wildcard is
+    // reserved for platform-default queries (none shipped yet).
+    this.router.get('/saved-queries', async (req: Request, res: Response) => {
+      const orgId = (req as any).orgId ?? 'default';
+      const rows = this.db.prepare(
+        `SELECT id, name, dsl, created_by, created_at, last_run_at
+           FROM saved_queries WHERE org_id = ? OR org_id = '*'
+           ORDER BY name`,
+      ).all(orgId);
+      res.json({ saved_queries: rows });
+    });
+
+    this.router.post('/saved-queries', async (req: Request, res: Response) => {
+      const schema = z.object({
+        name: z.string().min(1).max(100),
+        dsl:  z.string().min(1).max(4096),
+      });
+      let body: z.infer<typeof schema>;
+      try { body = schema.parse(req.body); }
+      catch (e) { return res.status(400).json({ error: 'invalid body', details: (e as z.ZodError).issues }); }
+
+      // Validate the DSL by compiling it — refuse to save a query
+      // that doesn't parse, so the cockpit's saved-queries dropdown
+      // never contains something that will 400 when clicked.
+      try { compileQuery(body.dsl); }
+      catch (e) { return res.status(400).json({ error: `dsl does not compile: ${(e as Error).message}` }); }
+
+      const orgId = (req as any).orgId ?? 'default';
+      const userId = (req as any).userId ?? (req as any).apiKeyName ?? null;
+      const id = randomUUID();
+      this.db.prepare(
+        `INSERT INTO saved_queries (id, org_id, name, dsl, created_by)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).run(id, orgId, body.name, body.dsl, userId);
+      res.status(201).json({ id, name: body.name, dsl: body.dsl });
+    });
+
+    this.router.delete('/saved-queries/:id', async (req: Request, res: Response) => {
+      const orgId = (req as any).orgId ?? 'default';
+      // Cross-tenant isolation: DELETE gated by (id, org_id) so a
+      // caller from org A cannot delete an org B row even by guessing
+      // the id.
+      const info = this.db.prepare(
+        `DELETE FROM saved_queries WHERE id = ? AND org_id = ?`,
+      ).run(req.params.id, orgId);
+      if (info.changes === 0) return res.status(404).json({ error: 'not found' });
+      res.status(204).end();
     });
 
     // Update trace (approval + score)  [defined before GET /:traceId intentionally]
