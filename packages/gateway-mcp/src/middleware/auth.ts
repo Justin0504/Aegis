@@ -13,7 +13,12 @@ const OPEN_ROUTES: Array<{ method: string; pattern: RegExp }> = [
   // browser kick off a login. /me + /logout still require Bearer.
   { method: 'GET',  pattern: /^\/api\/v1\/auth\/login-url$/ },
   { method: 'POST', pattern: /^\/api\/v1\/auth\/callback$/ },
-  { method: 'POST', pattern: /^\/api\/v1\/traces/ },
+  // SDK ingest paths — open by design (SDKs pin identity via x-api-key,
+  // which the trace-ingest handler resolves via ingestOrgId). Restricted
+  // to the two actual ingest routes so /search, /saved-queries, and
+  // /stats/cost fall through to normal auth + orgId scoping.
+  { method: 'POST', pattern: /^\/api\/v1\/traces\/?$/ },
+  { method: 'POST', pattern: /^\/api\/v1\/traces\/batch\/?$/ },
   { method: 'POST', pattern: /^\/api\/v1\/check$/ },
   { method: 'GET',  pattern: /^\/api\/v1\/check\/[^/]+\/decision$/ },
   { method: 'GET',  pattern: /^\/api\/v1\/auth\/key$/ },  // bootstrap endpoint
@@ -161,7 +166,9 @@ export function createAuthMiddleware(db: Database.Database) {
           req.keyName = row.name;
           req.keyPrefix = row.key_prefix;
           // Update last_used_at
-          db.prepare('UPDATE org_api_keys SET last_used_at = datetime("now") WHERE id = ?').run(row.id);
+          // SINGLE quotes around 'now' — double-quoted 'now' is a
+          // column reference in SQLite's strict mode and 500s.
+          db.prepare(`UPDATE org_api_keys SET last_used_at = datetime('now') WHERE id = ?`).run(row.id);
           return next();
         }
       }

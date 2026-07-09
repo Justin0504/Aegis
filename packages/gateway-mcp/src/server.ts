@@ -639,7 +639,11 @@ async function main() {
   };
 
   // ── SDK ingest routes (public — no auth required) ────────────────────────
-  app.use('/api/v1/traces', new TraceAPI(db, logger, agentRegistry).router);
+  // requireAuth is idempotent for open routes — isOpenRoute() lets the
+  // SDK ingest paths (POST /api/v1/traces + /batch) through without a
+  // key. Everything else (GET /traces, POST /search, /saved-queries,
+  // /stats/cost) needs an authenticated req.orgId for tenant scoping.
+  app.use('/api/v1/traces', requireAuth, new TraceAPI(db, logger, agentRegistry).router);
   app.use('/api/v1/check',  new CheckAPI(
     db, policyEngine, logger, webhooks, undefined,
     config.anomaly.enabled ? anomalyDetector : undefined,

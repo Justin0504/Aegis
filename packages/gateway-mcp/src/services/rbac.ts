@@ -110,7 +110,7 @@ export class RBACService {
     if (row.expires_at && new Date(row.expires_at) < new Date()) return { valid: false };
 
     // Update last_used_at
-    this.db.prepare('UPDATE org_api_keys SET last_used_at = datetime("now") WHERE id = ?').run(row.id);
+    this.db.prepare(`UPDATE org_api_keys SET last_used_at = datetime('now') WHERE id = ?`).run(row.id);
 
     return {
       valid: true,
@@ -122,7 +122,7 @@ export class RBACService {
   }
 
   revokeApiKey(keyId: string): void {
-    this.db.prepare('UPDATE org_api_keys SET revoked_at = datetime("now") WHERE id = ?').run(keyId);
+    this.db.prepare(`UPDATE org_api_keys SET revoked_at = datetime('now') WHERE id = ?`).run(keyId);
   }
 
   listApiKeys(orgId: string): OrgApiKey[] {
@@ -161,11 +161,11 @@ export class RBACService {
   }
 
   updateUserRole(userId: string, role: Role): void {
-    this.db.prepare('UPDATE users SET role = ?, updated_at = datetime("now") WHERE id = ?').run(role, userId);
+    this.db.prepare(`UPDATE users SET role = ?, updated_at = datetime('now') WHERE id = ?`).run(role, userId);
   }
 
   deactivateUser(userId: string): void {
-    this.db.prepare('UPDATE users SET status = ?, updated_at = datetime("now") WHERE id = ?').run('deactivated', userId);
+    this.db.prepare(`UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?`).run('deactivated', userId);
   }
 
   // ── Permission check ──────────────────────────────────────────────────────
@@ -205,11 +205,11 @@ export class RBACService {
   }
 
   updateOrgPlan(orgId: string, plan: string): void {
-    this.db.prepare('UPDATE organizations SET plan = ?, updated_at = datetime("now") WHERE id = ?').run(plan, orgId);
+    this.db.prepare(`UPDATE organizations SET plan = ?, updated_at = datetime('now') WHERE id = ?`).run(plan, orgId);
   }
 
   updateOrgSettings(orgId: string, settings: Record<string, any>): void {
-    this.db.prepare('UPDATE organizations SET settings = ?, updated_at = datetime("now") WHERE id = ?')
+    this.db.prepare(`UPDATE organizations SET settings = ?, updated_at = datetime('now') WHERE id = ?`)
       .run(JSON.stringify(settings), orgId);
   }
 }

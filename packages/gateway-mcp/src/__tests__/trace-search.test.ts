@@ -78,6 +78,10 @@ function insertTrace(db: Database.Database, overrides: any = {}) {
     delegation_id: null,
     parent_delegation_id: null,
     agent_id: overrides.agent_id ?? crypto.randomUUID(),
+    // Attribute the fixture to the same orgId the test middleware
+    // sets on the request (`org-A` unless overridden). Aligns with
+    // the tenant-scoped WHERE in the /search endpoint added by Round D.
+    org_id: overrides.org_id ?? 'org-A',
     timestamp: overrides.timestamp ?? now,
     sequence_number: overrides.sequence_number ?? 0,
     input_context:   JSON.stringify(overrides.input_context ?? { prompt: 'hello world' }),

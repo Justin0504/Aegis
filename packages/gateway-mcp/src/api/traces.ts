@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import Database from 'better-sqlite3';
 import { Logger } from 'pino';
 import { z } from 'zod';
-import { createHash } from 'crypto';
 import {
   AgentActionTraceSchema,
   TraceQuerySchema,
@@ -15,7 +14,7 @@ import { emitTraceSpan } from '../services/otel';
 import { AgentRegistryService } from '../services/agent-registry';
 import { computeContentHash } from '../services/content-hash';
 import { compileQuery } from '../services/trace-query-dsl';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 
 /** Map a model string + tool name to the GenAI semconv `gen_ai.system`
  *  value. Used to populate the span attribute Datadog GenAI / Honeycomb
@@ -76,6 +75,30 @@ export class TraceAPI {
     this.setupRoutes();
   }
 
+  /**
+   * Resolve the tenant that owns an ingest. POST /traces is on the
+   * auth middleware's open list (the SDK needs to send traces without
+   * a JWT round-trip), so `req.orgId` is not populated for us. We
+   * best-effort look up the SDK's `x-api-key` against `org_api_keys`
+   * ourselves. Missing / invalid key → 'default' so a solo self-host
+   * deployment keeps working; malicious keys can't spoof another
+   * tenant because the hash lookup will fail.
+   */
+  private ingestOrgId(req: Request): string {
+    if ((req as any).orgId) return (req as any).orgId as string;
+    const apiKey = req.headers['x-api-key'] as string | undefined;
+    if (apiKey && apiKey.startsWith('aegis_')) {
+      try {
+        const hash = createHash('sha256').update(apiKey).digest('hex');
+        const row = this.db.prepare(
+          `SELECT org_id FROM org_api_keys WHERE key_hash = ? AND revoked_at IS NULL`,
+        ).get(hash) as { org_id?: string } | undefined;
+        if (row?.org_id) return row.org_id;
+      } catch { /* org_api_keys may not exist on minimal test schemas */ }
+    }
+    return 'default';
+  }
+
   private getCachedStmt(sql: string): Database.Statement {
     const hit = this.stmtCache.get(sql);
     if (hit) {
@@ -123,7 +146,7 @@ export class TraceAPI {
           }, 'Hash chain gap detected');
         }
 
-        await this.storeTrace(trace, req.body);
+        await this.storeTrace(trace, req.body, this.ingestOrgId(req));
         this.noteSighting(req, trace.agent_id as string);
         res.status(201).json({ trace_id: trace.trace_id });
       } catch (error) {
@@ -143,8 +166,9 @@ export class TraceAPI {
           return res.status(400).json({ error: 'traces must be an array' });
         }
         const validTraces = traces.map((t, i) => ({ parsed: AgentActionTraceSchema.parse(t), raw: t }));
+        const ingestOrg = this.ingestOrgId(req);
         const transaction = this.db.transaction((rows: any[]) => {
-          for (const { parsed, raw } of rows) this.insertTrace(parsed, raw);
+          for (const { parsed, raw } of rows) this.insertTrace(parsed, raw, ingestOrg);
         });
         transaction(validTraces);
         for (const { parsed } of validTraces) this.noteSighting(req, parsed.agent_id as string);
@@ -160,14 +184,19 @@ export class TraceAPI {
       try {
         const query = TraceQuerySchema.parse(req.query);
 
-        let baseSql = 'FROM traces WHERE 1=1';
-        const params: any[] = [];
+        // Tenant scope — COALESCE handles legacy rows written before
+        // the org_id column existed; they attribute to 'default' so a
+        // solo self-host stays consistent, while multi-tenant setups
+        // that authenticated the caller see only their org's rows.
+        const orgId = (req as any).orgId ?? 'default';
+        let baseSql = `FROM traces WHERE COALESCE(org_id, 'default') = ?`;
+        const params: any[] = [orgId];
 
         if (query.agent_id) { baseSql += ' AND agent_id = ?'; params.push(query.agent_id); }
         if (query.start_time) { baseSql += ' AND timestamp >= ?'; params.push(query.start_time); }
         if (query.end_time) { baseSql += ' AND timestamp <= ?'; params.push(query.end_time); }
         if (query.risk_level) {
-          baseSql += " AND json_extract(safety_validation, '$.risk_level') = ?";
+          baseSql += ' AND risk_level_v = ?';
           params.push(query.risk_level);
         }
         if (query.approval_status) { baseSql += ' AND approval_status = ?'; params.push(query.approval_status); }
@@ -231,12 +260,19 @@ export class TraceAPI {
       const useFts = Boolean(compiled.ftsMatch);
       const joinClause = useFts ? 'JOIN traces_fts ON traces_fts.rowid = traces.id' : '';
       const ftsWhere   = useFts ? ' AND traces_fts MATCH ?' : '';
-      const whereParams = useFts ? [...compiled.params, compiled.ftsMatch] : compiled.params;
+      // Tenant scope — inject an unconditional org_id filter so no
+      // DSL query can cross tenants. COALESCE handles legacy rows
+      // written before org_id existed (Round D isolation fix).
+      const orgId = (req as any).orgId ?? 'default';
+      const tenantWhere = `COALESCE(traces.org_id, 'default') = ?`;
+      const whereParams = useFts
+        ? [orgId, ...compiled.params, compiled.ftsMatch]
+        : [orgId, ...compiled.params];
 
       try {
-        const countSql = `SELECT COUNT(*) as n FROM traces ${joinClause} WHERE ${compiled.sql}${ftsWhere}`;
+        const countSql = `SELECT COUNT(*) as n FROM traces ${joinClause} WHERE ${tenantWhere} AND ${compiled.sql}${ftsWhere}`;
         const listSql  = `SELECT traces.* FROM traces ${joinClause}
-                         WHERE ${compiled.sql}${ftsWhere}
+                         WHERE ${tenantWhere} AND ${compiled.sql}${ftsWhere}
                          ORDER BY traces.timestamp DESC
                          LIMIT ? OFFSET ?`;
         // Prepared-statement cache — the same DSL query re-run (dashboard
@@ -356,6 +392,10 @@ export class TraceAPI {
     this.router.get('/stats/cost', async (req: Request, res: Response) => {
       try {
         const { agent_id, since } = req.query as Record<string, string>;
+        const orgId = (req as any).orgId ?? 'default';
+        // Tenant scope on every SELECT — before this, a tenant could
+        // read another tenant's cost totals via GET /stats/cost. The
+        // COALESCE handles legacy rows written pre-org_id.
         let sql = `SELECT
           agent_id,
           model,
@@ -363,8 +403,8 @@ export class TraceAPI {
           SUM(input_tokens) as total_input_tokens,
           SUM(output_tokens) as total_output_tokens,
           SUM(cost_usd) as total_cost_usd
-        FROM traces WHERE 1=1`;
-        const params: any[] = [];
+        FROM traces WHERE COALESCE(org_id, 'default') = ?`;
+        const params: any[] = [orgId];
         if (agent_id) { sql += ' AND agent_id = ?'; params.push(agent_id); }
         if (since)    { sql += ' AND timestamp >= ?'; params.push(since); }
         sql += ' GROUP BY agent_id, model ORDER BY total_cost_usd DESC';
@@ -372,25 +412,21 @@ export class TraceAPI {
 
         const overall = this.db.prepare(
           `SELECT SUM(cost_usd) as total, SUM(input_tokens) as inp, SUM(output_tokens) as out
-           FROM traces WHERE cost_usd > 0 ${agent_id ? 'AND agent_id = ?' : ''}`
-        ).get(...(agent_id ? [agent_id] : [])) as any;
+           FROM traces WHERE COALESCE(org_id, 'default') = ? AND cost_usd > 0
+             ${agent_id ? 'AND agent_id = ?' : ''}`
+        ).get(...(agent_id ? [orgId, agent_id] : [orgId])) as any;
 
-        // By-tool aggregation. tool_name lives inside the tool_call JSON
-        // blob (no denormalised column), so we pull it via SQLite's JSON1
-        // extension. Rows where extraction yields NULL (malformed blobs,
-        // legacy shape) collapse into a single '(unknown)' bucket rather
-        // than being dropped — matches how the ToolIcon fallback works.
         let toolSql = `SELECT
-            COALESCE(json_extract(tool_call, '$.tool_name'), '(unknown)') AS tool_name,
+            COALESCE(tool_name_v, '(unknown)') AS tool_name,
             COUNT(*) as trace_count,
             SUM(input_tokens) as total_input_tokens,
             SUM(output_tokens) as total_output_tokens,
             SUM(cost_usd) as total_cost_usd
-          FROM traces WHERE 1=1`;
-        const toolParams: any[] = [];
+          FROM traces WHERE COALESCE(org_id, 'default') = ?`;
+        const toolParams: any[] = [orgId];
         if (agent_id) { toolSql += ' AND agent_id = ?'; toolParams.push(agent_id); }
         if (since)    { toolSql += ' AND timestamp >= ?'; toolParams.push(since); }
-        toolSql += ` GROUP BY json_extract(tool_call, '$.tool_name')
+        toolSql += ` GROUP BY tool_name_v
                      ORDER BY total_cost_usd DESC, trace_count DESC`;
         const byTool = this.db.prepare(toolSql).all(...toolParams);
 
@@ -560,11 +596,11 @@ export class TraceAPI {
     return { model, inputTokens, outputTokens };
   }
 
-  private async storeTrace(trace: any, raw: any) {
-    this.insertTrace(trace, raw);
+  private async storeTrace(trace: any, raw: any, orgId: string) {
+    this.insertTrace(trace, raw, orgId);
   }
 
-  private insertTrace(trace: any, raw: any) {
+  private insertTrace(trace: any, raw: any, orgId: string) {
     const { model, inputTokens, outputTokens } = this.extractTokenUsage(raw);
     const costUsd = (model && (inputTokens || outputTokens))
       ? calculateCost(model, inputTokens, outputTokens)
@@ -616,7 +652,7 @@ export class TraceAPI {
         environment, version, tags,
         model, input_tokens, output_tokens, cost_usd,
         session_id, pii_detected, content_hash,
-        delegation_id, parent_delegation_id
+        delegation_id, parent_delegation_id, org_id
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
@@ -625,7 +661,7 @@ export class TraceAPI {
         ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?,
-        ?, ?
+        ?, ?, ?
       )
     `).run(
       String(trace.trace_id),
@@ -655,6 +691,7 @@ export class TraceAPI {
       contentHash,
       delegationId,
       parentDelegationId,
+      orgId,
     );
 
     // Emit OTEL span async, non-blocking

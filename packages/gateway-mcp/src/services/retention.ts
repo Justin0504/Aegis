@@ -87,7 +87,7 @@ export class RetentionService {
         }
 
         // Update last_purge_at
-        this.db.prepare('UPDATE retention_policies SET last_purge_at = datetime("now") WHERE id = ?')
+        this.db.prepare(`UPDATE retention_policies SET last_purge_at = datetime('now') WHERE id = ?`)
           .run(policy.id);
       } catch (err: any) {
         this.logger.error({ err, policy: policy.id }, 'Retention purge failed');

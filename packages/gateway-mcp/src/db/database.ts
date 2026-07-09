@@ -271,6 +271,13 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
         GENERATED ALWAYS AS (json_extract(tool_call, '$.tool_name')) VIRTUAL`,
     `ALTER TABLE traces ADD COLUMN risk_level_v TEXT
         GENERATED ALWAYS AS (json_extract(safety_validation, '$.risk_level')) VIRTUAL`,
+    // Multi-tenant isolation — the traces table historically had no
+    // org_id, so ANY authenticated tenant could DSL-search another
+    // tenant's traces (found by the Round D isolation audit). Column
+    // is nullable so legacy rows stay queryable via the 'default' org
+    // (COALESCE in the endpoint). New rows write the real orgId.
+    `ALTER TABLE traces ADD COLUMN org_id TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_traces_org_ts ON traces (org_id, timestamp DESC)`,
     // Composite indexes leading with the extracted field + timestamp DESC.
     // Matches the DSL compiler's ORDER BY traces.timestamp DESC — the
     // planner walks the index in reverse without a TEMP B-TREE sort.
