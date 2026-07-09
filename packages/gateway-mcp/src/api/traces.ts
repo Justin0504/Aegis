@@ -61,6 +61,12 @@ export { computeContentHash };
 export class TraceAPI {
   public readonly router: Router;
 
+  // Prepared-statement cache for /search. Keyed by SQL text, bounded
+  // to STMT_CACHE_MAX so a random-query flood can't drive memory
+  // growth. LRU-ish: on overflow we drop the oldest insertion.
+  private static readonly STMT_CACHE_MAX = 512;
+  private stmtCache = new Map<string, Database.Statement>();
+
   constructor(
     private db: Database.Database,
     private logger: Logger,
@@ -68,6 +74,24 @@ export class TraceAPI {
   ) {
     this.router = Router();
     this.setupRoutes();
+  }
+
+  private getCachedStmt(sql: string): Database.Statement {
+    const hit = this.stmtCache.get(sql);
+    if (hit) {
+      // Refresh position in insertion order — cheap LRU approximation.
+      this.stmtCache.delete(sql);
+      this.stmtCache.set(sql, hit);
+      return hit;
+    }
+    const stmt = this.db.prepare(sql);
+    this.stmtCache.set(sql, stmt);
+    if (this.stmtCache.size > TraceAPI.STMT_CACHE_MAX) {
+      // Delete the oldest entry (Map preserves insertion order).
+      const firstKey = this.stmtCache.keys().next().value;
+      if (firstKey) this.stmtCache.delete(firstKey);
+    }
+    return stmt;
   }
 
   /** Record the sighting so the agents table, last_seen_at, and the
@@ -211,13 +235,18 @@ export class TraceAPI {
 
       try {
         const countSql = `SELECT COUNT(*) as n FROM traces ${joinClause} WHERE ${compiled.sql}${ftsWhere}`;
-        const total = (this.db.prepare(countSql).get(...whereParams) as any).n as number;
-
-        const listSql = `SELECT traces.* FROM traces ${joinClause}
+        const listSql  = `SELECT traces.* FROM traces ${joinClause}
                          WHERE ${compiled.sql}${ftsWhere}
                          ORDER BY traces.timestamp DESC
                          LIMIT ? OFFSET ?`;
-        const rows = this.db.prepare(listSql).all(...whereParams, body.limit, body.offset) as any[];
+        // Prepared-statement cache — the same DSL query re-run (dashboard
+        // auto-refresh, saved queries, tail) reuses the compiled plan
+        // instead of re-preparing. better-sqlite3 caches the plan per
+        // Statement handle; we cache the handles here keyed by SQL text.
+        // Size bounded to keep an attacker from blowing memory with
+        // random unique queries.
+        const total = (this.getCachedStmt(countSql).get(...whereParams) as any).n as number;
+        const rows  = this.getCachedStmt(listSql).all(...whereParams, body.limit, body.offset) as any[];
 
         res.json({
           traces:  rows.map(this.parseTrace),

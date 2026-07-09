@@ -1,6 +1,6 @@
 # AEGIS Gateway — Performance
 
-> Generated: 2026-07-07T10:18:31.695Z
+> Generated: 2026-07-09T07:24:43.392Z
 > Machine: darwin arm64
 > Node: v22.21.1
 > Per-scenario duration: 10s (warmup 2s)
@@ -13,13 +13,15 @@ The numbers below are what a single-instance gateway on a MacBook can sustain to
 
 | Scenario | VUs | Throughput (rps) | p50 | p95 | p99 | Errors |
 |---|---:|---:|---:|---:|---:|---:|
-| Baseline · GET /health | 10 | 15159 | 0.47ms | 1.39ms | 1.91ms | 0.00% |
-| Baseline · GET /health | 50 | 15879 | 2.93ms | 4.84ms | 6.21ms | 0.00% |
-| Baseline · GET /health | 100 | 15736 | 6.07ms | 9.51ms | 11.59ms | 0.00% |
-| Write · POST /api/v1/traces (unique rows) | 10 | 1163 | 7.44ms | 18.06ms | 22.45ms | 0.00% |
-| Write · POST /api/v1/traces (unique rows) | 50 | 613 | 78.69ms | 96.20ms | 178.13ms | 0.00% |
-| Read · POST /api/v1/traces/search | 10 | 111 | 73.09ms | 155.59ms | 164.59ms | 0.00% |
-| Read · POST /api/v1/traces/search | 50 | 109 | 304.68ms | 689.93ms | 6659.04ms | 0.00% |
+| Baseline · GET /health | 10 | 15301 | 0.47ms | 1.38ms | 1.92ms | 0.00% |
+| Baseline · GET /health | 50 | 15946 | 2.95ms | 4.85ms | 6.38ms | 0.00% |
+| Baseline · GET /health | 100 | 15715 | 6.07ms | 9.49ms | 11.68ms | 0.00% |
+| Write · POST /api/v1/traces (unique rows) | 10 | 341 | 23.67ms | 51.92ms | 66.61ms | 0.00% |
+| Write · POST /api/v1/traces (unique rows) | 50 | 318 | 148.44ms | 170.69ms | 449.51ms | 0.00% |
+| Read · POST /api/v1/traces/search (indexed field) | 10 | 552 | 14.66ms | 31.01ms | 32.19ms | 0.00% |
+| Read · POST /api/v1/traces/search (indexed field) | 50 | 553 | 86.68ms | 91.73ms | 178.00ms | 0.00% |
+| Read · POST /api/v1/traces/search (JSON path, no index) | 10 | 101 | 79.77ms | 170.96ms | 181.92ms | 0.00% |
+| Read · POST /api/v1/traces/search (JSON path, no index) | 50 | 100 | 324.73ms | 717.54ms | 7550.89ms | 0.00% |
 
 ## Notes per scenario
 
@@ -31,9 +33,14 @@ The numbers below are what a single-instance gateway on a MacBook can sustain to
 
 - **Endpoint:** `POST http://localhost:8080/api/v1/traces`
 
-### Read · POST /api/v1/traces/search
+### Read · POST /api/v1/traces/search (indexed field)
 
 - **Endpoint:** `POST http://localhost:8080/api/v1/traces/search`
+
+### Read · POST /api/v1/traces/search (JSON path, no index)
+
+- **Endpoint:** `POST http://localhost:8080/api/v1/traces/search`
+- **Caveat:** Filters via json_extract on a dynamic path — no generated column can precompute this. If a customer needs this filter hot, tool_call.arguments has to expose the field as top-level in the SDK.
 
 ## Reproducing
 
@@ -59,22 +66,22 @@ node tools/loadtest/load.mjs --url http://localhost:8080/health --method GET --v
     "url": "http://localhost:8080/health",
     "method": "GET",
     "duration_s": 10,
-    "started_at": "2026-07-07T10:17:08.738Z",
-    "total_requests": 151612,
+    "started_at": "2026-07-09T07:22:56.120Z",
+    "total_requests": 153036,
     "overflow_samples_dropped": 0,
-    "ok": 151612,
+    "ok": 153036,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 15159.2,
+    "throughput_rps": 15300.9,
     "error_rate": 0,
     "latency_ms": {
       "p50": 0.47,
-      "p90": 1.07,
-      "p95": 1.39,
-      "p99": 1.91,
-      "p999": 2.65,
-      "max": 4.21,
-      "mean": 0.66
+      "p90": 1.08,
+      "p95": 1.38,
+      "p99": 1.92,
+      "p999": 2.48,
+      "max": 8.22,
+      "mean": 0.65
     },
     "server_p95_ms_delta": null,
     "server_p50_ms_delta": null
@@ -85,22 +92,22 @@ node tools/loadtest/load.mjs --url http://localhost:8080/health --method GET --v
     "url": "http://localhost:8080/health",
     "method": "GET",
     "duration_s": 10,
-    "started_at": "2026-07-07T10:17:20.780Z",
-    "total_requests": 158850,
+    "started_at": "2026-07-09T07:23:08.162Z",
+    "total_requests": 159508,
     "overflow_samples_dropped": 0,
-    "ok": 158850,
+    "ok": 159508,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 15879.4,
+    "throughput_rps": 15946.3,
     "error_rate": 0,
     "latency_ms": {
-      "p50": 2.93,
+      "p50": 2.95,
       "p90": 4.22,
-      "p95": 4.84,
-      "p99": 6.21,
-      "p999": 7.72,
-      "max": 56.82,
-      "mean": 3.15
+      "p95": 4.85,
+      "p99": 6.38,
+      "p999": 8.12,
+      "max": 49.46,
+      "mean": 3.13
     },
     "server_p95_ms_delta": null,
     "server_p50_ms_delta": null
@@ -111,22 +118,22 @@ node tools/loadtest/load.mjs --url http://localhost:8080/health --method GET --v
     "url": "http://localhost:8080/health",
     "method": "GET",
     "duration_s": 10.01,
-    "started_at": "2026-07-07T10:17:32.823Z",
-    "total_requests": 157471,
+    "started_at": "2026-07-09T07:23:20.207Z",
+    "total_requests": 157250,
     "overflow_samples_dropped": 0,
-    "ok": 157471,
+    "ok": 157250,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 15736.1,
+    "throughput_rps": 15714.8,
     "error_rate": 0,
     "latency_ms": {
       "p50": 6.07,
-      "p90": 8.1,
-      "p95": 9.51,
-      "p99": 11.59,
-      "p999": 13.45,
-      "max": 254.48,
-      "mean": 6.35
+      "p90": 8.23,
+      "p95": 9.49,
+      "p99": 11.68,
+      "p999": 27.85,
+      "max": 227.99,
+      "mean": 6.36
     },
     "server_p95_ms_delta": null,
     "server_p50_ms_delta": null
@@ -136,23 +143,23 @@ node tools/loadtest/load.mjs --url http://localhost:8080/health --method GET --v
     "vus": 10,
     "url": "http://localhost:8080/api/v1/traces",
     "method": "POST",
-    "duration_s": 10.01,
-    "started_at": "2026-07-07T10:17:44.872Z",
-    "total_requests": 11643,
+    "duration_s": 10.03,
+    "started_at": "2026-07-09T07:23:32.261Z",
+    "total_requests": 3419,
     "overflow_samples_dropped": 0,
-    "ok": 11643,
+    "ok": 3419,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 1162.6,
+    "throughput_rps": 341,
     "error_rate": 0,
     "latency_ms": {
-      "p50": 7.44,
-      "p90": 14.82,
-      "p95": 18.06,
-      "p99": 22.45,
-      "p999": 25.85,
-      "max": 30.85,
-      "mean": 8.6
+      "p50": 23.67,
+      "p90": 48.97,
+      "p95": 51.92,
+      "p99": 66.61,
+      "p999": 101.34,
+      "max": 118.46,
+      "mean": 29.29
     },
     "server_p95_ms_delta": 5,
     "server_p50_ms_delta": 5
@@ -162,75 +169,127 @@ node tools/loadtest/load.mjs --url http://localhost:8080/health --method GET --v
     "vus": 50,
     "url": "http://localhost:8080/api/v1/traces",
     "method": "POST",
-    "duration_s": 10.09,
-    "started_at": "2026-07-07T10:17:56.939Z",
-    "total_requests": 6189,
+    "duration_s": 10.16,
+    "started_at": "2026-07-09T07:23:44.333Z",
+    "total_requests": 3234,
     "overflow_samples_dropped": 0,
-    "ok": 6189,
+    "ok": 3234,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 613.4,
+    "throughput_rps": 318.4,
     "error_rate": 0,
     "latency_ms": {
-      "p50": 78.69,
-      "p90": 91.22,
-      "p95": 96.2,
-      "p99": 178.13,
-      "p999": 1305.38,
-      "max": 1719.85,
-      "mean": 81.15
+      "p50": 148.44,
+      "p90": 161.65,
+      "p95": 170.69,
+      "p99": 449.51,
+      "p999": 3280.67,
+      "max": 3743.59,
+      "mean": 155.79
     },
     "server_p95_ms_delta": 5,
     "server_p50_ms_delta": 5
   },
   {
-    "scenario": "search_trace",
+    "scenario": "search_indexed",
+    "vus": 10,
+    "url": "http://localhost:8080/api/v1/traces/search",
+    "method": "POST",
+    "duration_s": 10.02,
+    "started_at": "2026-07-09T07:23:56.528Z",
+    "total_requests": 5525,
+    "overflow_samples_dropped": 0,
+    "ok": 5525,
+    "err": 0,
+    "error_status": {},
+    "throughput_rps": 551.5,
+    "error_rate": 0,
+    "latency_ms": {
+      "p50": 14.66,
+      "p90": 30.64,
+      "p95": 31.01,
+      "p99": 32.19,
+      "p999": 47.16,
+      "max": 74.97,
+      "mean": 18.11
+    },
+    "server_p95_ms_delta": 5,
+    "server_p50_ms_delta": 5
+  },
+  {
+    "scenario": "search_indexed",
+    "vus": 50,
+    "url": "http://localhost:8080/api/v1/traces/search",
+    "method": "POST",
+    "duration_s": 10.09,
+    "started_at": "2026-07-09T07:24:08.584Z",
+    "total_requests": 5581,
+    "overflow_samples_dropped": 0,
+    "ok": 5581,
+    "err": 0,
+    "error_status": {},
+    "throughput_rps": 553,
+    "error_rate": 0,
+    "latency_ms": {
+      "p50": 86.68,
+      "p90": 89.09,
+      "p95": 91.73,
+      "p99": 178,
+      "p999": 1725.59,
+      "max": 2196.78,
+      "mean": 90.01
+    },
+    "server_p95_ms_delta": 5,
+    "server_p50_ms_delta": 5
+  },
+  {
+    "scenario": "search_json_path",
     "vus": 10,
     "url": "http://localhost:8080/api/v1/traces/search",
     "method": "POST",
     "duration_s": 10.09,
-    "started_at": "2026-07-07T10:18:09.104Z",
-    "total_requests": 1118,
+    "started_at": "2026-07-09T07:24:20.747Z",
+    "total_requests": 1022,
     "overflow_samples_dropped": 0,
-    "ok": 1118,
+    "ok": 1022,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 110.8,
+    "throughput_rps": 101.3,
     "error_rate": 0,
     "latency_ms": {
-      "p50": 73.09,
-      "p90": 153.77,
-      "p95": 155.59,
-      "p99": 164.59,
-      "p999": 302.25,
-      "max": 391.27,
-      "mean": 89.84
+      "p50": 79.77,
+      "p90": 167.89,
+      "p95": 170.96,
+      "p99": 181.92,
+      "p999": 333.86,
+      "max": 422.79,
+      "mean": 98.28
     },
-    "server_p95_ms_delta": 10,
+    "server_p95_ms_delta": 25,
     "server_p50_ms_delta": 10
   },
   {
-    "scenario": "search_trace",
+    "scenario": "search_json_path",
     "vus": 50,
     "url": "http://localhost:8080/api/v1/traces/search",
     "method": "POST",
-    "duration_s": 10.43,
-    "started_at": "2026-07-07T10:18:21.252Z",
-    "total_requests": 1132,
+    "duration_s": 10.49,
+    "started_at": "2026-07-09T07:24:32.899Z",
+    "total_requests": 1053,
     "overflow_samples_dropped": 0,
-    "ok": 1132,
+    "ok": 1053,
     "err": 0,
     "error_status": {},
-    "throughput_rps": 108.5,
+    "throughput_rps": 100.4,
     "error_rate": 0,
     "latency_ms": {
-      "p50": 304.68,
-      "p90": 401,
-      "p95": 689.93,
-      "p99": 6659.04,
-      "p999": 10416.65,
-      "max": 10431.89,
-      "mean": 451.2
+      "p50": 324.73,
+      "p90": 431.87,
+      "p95": 717.54,
+      "p99": 7550.89,
+      "p999": 10474.57,
+      "max": 10484.78,
+      "mean": 486.36
     },
     "server_p95_ms_delta": 25,
     "server_p50_ms_delta": 10

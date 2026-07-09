@@ -78,17 +78,31 @@ const scenarios = [
     vus_levels: [10, 50],
   },
   {
-    name: 'search_trace',
-    label: 'Read · POST /api/v1/traces/search',
+    name: 'search_indexed',
+    label: 'Read · POST /api/v1/traces/search (indexed field)',
     args: [
       '--url', 'http://localhost:8080/api/v1/traces/search',
       '--method', 'POST',
-      '--body', JSON.stringify({
-        q: 'tool:noop AND @args.label:loadtest',
-        limit: 100,
-      }),
+      // `tool` maps to the tool_name_v generated column with a
+      // covering index. Represents the hot dashboard path where
+      // operators filter on a known field.
+      '--body', JSON.stringify({ q: 'tool:noop', limit: 100 }),
     ],
     vus_levels: [10, 50],
+  },
+  {
+    name: 'search_json_path',
+    label: 'Read · POST /api/v1/traces/search (JSON path, no index)',
+    args: [
+      '--url', 'http://localhost:8080/api/v1/traces/search',
+      '--method', 'POST',
+      // @args.label extracts from tool_call.arguments — a dynamic
+      // JSON path that can't be pre-indexed without knowing the
+      // customer's schema. Real cost for the flexibility.
+      '--body', JSON.stringify({ q: 'tool:noop AND @args.label:loadtest', limit: 100 }),
+    ],
+    vus_levels: [10, 50],
+    caveat: 'Filters via json_extract on a dynamic path — no generated column can precompute this. If a customer needs this filter hot, tool_call.arguments has to expose the field as top-level in the SDK.',
   },
 ];
 

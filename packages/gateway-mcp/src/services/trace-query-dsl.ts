@@ -73,12 +73,19 @@ const FIELDS: Record<string, FieldSpec> = {
   session_id:      { kind: 'scalar', sqlExpr: 'session_id',      type: 'string' },
   delegation_id:   { kind: 'scalar', sqlExpr: 'delegation_id',   type: 'string' },
   parent_trace_id: { kind: 'scalar', sqlExpr: 'parent_trace_id', type: 'string' },
-  tool_name:       { kind: 'scalar', sqlExpr: "json_extract(tool_call, '$.tool_name')", type: 'string' },
+  // tool_name / risk are backed by virtual generated columns
+  // (`tool_name_v`, `risk_level_v`) with covering indexes. The bare
+  // column reference lets the SQLite planner pick up the index —
+  // COALESCE'ing with json_extract for legacy-DB fallback defeats
+  // the index. Migrations are idempotent so any boot brings the
+  // columns in; a query hitting a truly-legacy DB will error loud
+  // with "no such column" which is fixable, not silent-slow.
+  tool_name:       { kind: 'scalar', sqlExpr: 'tool_name_v',  type: 'string' },
   environment:     { kind: 'enum',   sqlExpr: 'environment', type: 'enum',
                      enumValues: ['DEVELOPMENT', 'STAGING', 'PRODUCTION'] },
   approval_status: { kind: 'enum',   sqlExpr: 'approval_status', type: 'enum',
                      enumValues: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'AUTO_APPROVED'] },
-  risk:            { kind: 'enum',   sqlExpr: "json_extract(safety_validation, '$.risk_level')", type: 'enum',
+  risk:            { kind: 'enum',   sqlExpr: 'risk_level_v', type: 'enum',
                      enumValues: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], ops: NUMERIC_OPS },
   anomaly_score:   { kind: 'scalar', sqlExpr: 'anomaly_score', type: 'number', ops: NUMERIC_OPS },
   cost_usd:        { kind: 'scalar', sqlExpr: 'cost_usd',      type: 'number', ops: NUMERIC_OPS },

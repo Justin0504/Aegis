@@ -257,6 +257,25 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // from the same schema. (See PolicyEngine.loadOrgPolicies.)
     `ALTER TABLE policies ADD COLUMN org_id TEXT NOT NULL DEFAULT '*'`,
     `CREATE INDEX IF NOT EXISTS idx_policies_org ON policies (org_id, enabled)`,
+    // ── Generated columns for indexable JSON paths (Round 4b · search perf) ──
+    // The DSL search compiler was emitting json_extract(tool_call, '$.tool_name')
+    // and json_extract(safety_validation, '$.risk_level') inline. SQLite's
+    // planner cannot use an index across the extract, so every filter on
+    // these dropped to a full-table scan (25k rows → p95 690ms at 50 VUs
+    // per PERFORMANCE.md). Virtual generated columns give the planner a
+    // handle it CAN index — same JSON path, no storage cost, evaluated on
+    // the fly at read time. STORED would save read time but doubles write
+    // cost and forces a full backfill on migration; VIRTUAL is the right
+    // tradeoff for an audit-log workload where writes dominate.
+    `ALTER TABLE traces ADD COLUMN tool_name_v TEXT
+        GENERATED ALWAYS AS (json_extract(tool_call, '$.tool_name')) VIRTUAL`,
+    `ALTER TABLE traces ADD COLUMN risk_level_v TEXT
+        GENERATED ALWAYS AS (json_extract(safety_validation, '$.risk_level')) VIRTUAL`,
+    // Composite indexes leading with the extracted field + timestamp DESC.
+    // Matches the DSL compiler's ORDER BY traces.timestamp DESC — the
+    // planner walks the index in reverse without a TEMP B-TREE sort.
+    `CREATE INDEX IF NOT EXISTS idx_tool_name_ts  ON traces (tool_name_v, timestamp DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_risk_level_ts ON traces (risk_level_v, timestamp DESC)`,
   ];
 
   for (const sql of migrations) {

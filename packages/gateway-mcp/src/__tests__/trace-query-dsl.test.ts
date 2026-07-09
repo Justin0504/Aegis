@@ -105,7 +105,10 @@ describe('trace-query DSL — compiler', () => {
 
   test('resolves aliases', () => {
     const { sql } = compileQuery('tool:stripe_refund');
-    expect(sql).toContain("json_extract(tool_call, '$.tool_name')");
+    // tool_name resolves to the indexed generated column `tool_name_v`
+    // (see db/database.ts). The bare column reference is what lets
+    // SQLite's planner pick up the covering index.
+    expect(sql).toContain('tool_name_v');
   });
 
   test('compiles enum with equality', () => {
