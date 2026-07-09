@@ -310,9 +310,31 @@ class Parser {
 
   private readValue(): string {
     const t = this.peek();
-    if (t.kind === 'STRING' || t.kind === 'IDENT' || t.kind === 'NUMBER') {
+    if (t.kind === 'STRING') {
       this.i++;
       return t.value;
+    }
+    // NUMBER-then-IDENT concatenation for values like UUIDs where the
+    // lexer split "1abc-def-..." into NUMBER("1") + IDENT("abc-def-...").
+    // Only concatenates when the two tokens are adjacent (no whitespace
+    // between them) — anything else would break `amount:>1000 tool:x`
+    // where the space is significant.
+    if (t.kind === 'NUMBER' || t.kind === 'IDENT') {
+      let value = t.value;
+      let pos = t.pos + t.value.length;
+      this.i++;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const next = this.peek();
+        if ((next.kind === 'IDENT' || next.kind === 'NUMBER') && next.pos === pos) {
+          value += next.value;
+          pos = next.pos + next.value.length;
+          this.i++;
+          continue;
+        }
+        break;
+      }
+      return value;
     }
     throw new SyntaxError(`expected value at ${t.pos}, got '${t.value}'`);
   }

@@ -212,6 +212,21 @@ export class RollbackService {
         }
       }
     }
+    // Concurrency lock table — see rollback() for rationale. INSERT
+    // OR IGNORE against a UNIQUE trace_id gives us an atomic "claim"
+    // primitive that prevents two concurrent rollback() calls on the
+    // same trace from both firing the compensator. Without this, a
+    // Stripe refund would run K times for K concurrent callers.
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS rollback_locks (
+          trace_id    TEXT PRIMARY KEY,
+          acquired_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    } catch (err: any) {
+      this.logger.warn({ err: err?.message }, 'rollback_locks table skipped');
+    }
     // Index on delegation_id — required for rollbackDelegation() to
     // stay sub-linear on large trace tables.
     try {
@@ -255,6 +270,64 @@ export class RollbackService {
         compensator_kind: 'absent', saga_id: sagaId };
     }
 
+    // ── Concurrency claim ────────────────────────────────────────────
+    //
+    // The check above (`trace.rolled_back_at`) is TOCTOU-unsafe: two
+    // concurrent rollback() calls both read NULL, both await the
+    // webhook, both fire the compensator. `INSERT OR IGNORE` against
+    // a UNIQUE trace_id column gives us an atomic claim primitive —
+    // whichever caller's INSERT changes 1 row won the race; the rest
+    // see 0 changes and return no_op immediately without touching the
+    // webhook.
+    //
+    // The lock is released in a try/finally at the end of the sync
+    // portion of this method so DLQ retry can re-acquire on the next
+    // attempt. If the process crashes between claim + release, the
+    // row stays until manual cleanup — acceptable because ingress
+    // rollback UI already has an "abandoned lock" recovery flow via
+    // saga state (a saga in EXECUTING with no active worker is the
+    // signal). If that flow proves painful, add a TTL sweep here.
+    let lockAcquired = false;
+    if (!opts.dry_run) {
+      const claim = this.db.prepare(
+        `INSERT OR IGNORE INTO rollback_locks (trace_id) VALUES (?)`,
+      ).run(opts.trace_id);
+      if (claim.changes === 0) {
+        this.closeSagaAfterEarlyExit(opts._sagaId, opts.orgId, 'COMPLETED', sagaId);
+        return {
+          status: 'no_op', trace_id: opts.trace_id,
+          reversibility_class: (trace.reversibility_class ?? 'compensable') as ReversibilityClass,
+          compensator_kind: 'absent', saga_id: sagaId,
+          error: 'concurrent rollback in progress',
+        };
+      }
+      lockAcquired = true;
+    }
+
+    try {
+      return await this._rollbackAfterClaim(opts, trace, sagaId);
+    } finally {
+      if (lockAcquired) {
+        try {
+          this.db.prepare(`DELETE FROM rollback_locks WHERE trace_id = ?`).run(opts.trace_id);
+        } catch (err: any) {
+          this.logger.warn({ err: err?.message, trace_id: opts.trace_id }, 'lock release failed');
+        }
+      }
+    }
+  }
+
+  /**
+   * Post-claim rollback body. Extracted so `rollback()` can wrap it
+   * in a try/finally that guarantees lock release across all early-
+   * exit paths. Do not call directly — the concurrency claim in
+   * rollback() is required for correctness.
+   */
+  private async _rollbackAfterClaim(
+    opts: { orgId: string; trace_id: string } & RollbackOptions & { _sagaId?: string },
+    trace: NonNullable<ReturnType<RollbackService['getTrace']>>,
+    sagaId: string | undefined,
+  ): Promise<RollbackResult> {
     const toolCall = safeJson<{ tool_name?: string; arguments?: Record<string, unknown> }>(trace.tool_call) ?? {};
     const toolName = toolCall.tool_name ?? 'unknown';
     const args     = toolCall.arguments ?? {};
