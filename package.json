@@ -15,6 +15,8 @@
     "test:e2e:nobuild":"node tools/e2e/smoke.mjs --no-build",
     "test:isolation":  "node tools/e2e/tenant-isolation.mjs",
     "test:isolation:nobuild": "node tools/e2e/tenant-isolation.mjs --no-build",
+    "test:sdk-chaos":  "python3 tools/e2e/sdk_chaos.py",
+    "test:sdk-chaos:nobuild": "python3 tools/e2e/sdk_chaos.py --no-build",
     "loadtest":        "node tools/loadtest/run.mjs",
     "lint": "turbo run lint",
     "docker:build": "docker-compose build",

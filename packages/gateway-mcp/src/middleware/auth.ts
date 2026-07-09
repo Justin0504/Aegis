@@ -28,6 +28,20 @@ function isOpenRoute(method: string, path: string): boolean {
   return OPEN_ROUTES.some(r => r.method === method && r.pattern.test(path));
 }
 
+/**
+ * Compute the URL path a caller actually hit, regardless of whether
+ * `requireAuth` was mounted at the app root (`req.path` is the full
+ * path) or scoped to a subpath (`req.path` is stripped of the mount
+ * prefix — e.g. inside `app.use('/api/v1/traces', requireAuth, ...)`
+ * a request to `/api/v1/traces` shows up as `req.path === '/'`).
+ * `req.originalUrl` preserves the full URL in both cases.
+ */
+function effectivePath(req: Request): string {
+  const orig = req.originalUrl || req.url || req.path;
+  const q = orig.indexOf('?');
+  return q < 0 ? orig : orig.slice(0, q);
+}
+
 /** Extend Express Request to carry tenant context. */
 declare global {
   namespace Express {
@@ -92,7 +106,7 @@ export function auditActor(req: Request): { user_email?: string; user_id?: strin
  */
 export function createAuthMiddleware(db: Database.Database) {
   return function requireAuth(req: Request, res: Response, next: NextFunction) {
-    if (isOpenRoute(req.method, req.path)) return next();
+    if (isOpenRoute(req.method, effectivePath(req))) return next();
 
     // ── Try Authorization: Bearer session token first ────────────────────
     // Sessions are the human-channel auth (post-SSO); API keys remain the
