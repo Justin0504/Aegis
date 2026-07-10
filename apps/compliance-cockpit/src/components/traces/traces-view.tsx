@@ -136,6 +136,10 @@ export function TracesView() {
                 <TraceDetails
                   traceId={selectedTrace}
                   onExport={() => {}}
+                  // Clicking a hop in the delegation waterfall swaps
+                  // the details panel to that trace — same slot,
+                  // different focus.
+                  onSelectTrace={setSelectedTrace}
                 />
               )}
             </div>

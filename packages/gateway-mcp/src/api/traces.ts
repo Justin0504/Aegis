@@ -353,6 +353,59 @@ export class TraceAPI {
       res.status(204).end();
     });
 
+    // GET /:traceId/delegation — every trace under the same delegation
+    // scope as this one, chronologically ordered. Drives the Cockpit's
+    // trace-detail waterfall: an operator clicking one hop of a
+    // multi-agent workflow can see every sibling + descendant hop the
+    // same delegation produced without stitching parent_trace_id
+    // pointers themselves.
+    //
+    // Toledo et al. arXiv:2606.09692 — delegation-scoped observability
+    // is the substrate for "what happened under delegation X" queries.
+    // We store delegation_id at ingest time from the SDK, so this is
+    // a straight indexed lookup instead of a heuristic time-window
+    // correlation.
+    //
+    // Response shape kept flat: an array of lightweight trace summaries
+    // so a 40-hop delegation renders under 10KB. Full trace bodies
+    // are one click away via /traces/:id.
+    this.router.get('/:traceId/delegation', async (req: Request, res: Response) => {
+      const orgId = (req as any).orgId ?? 'default';
+      const focusId = req.params.traceId;
+      try {
+        const focus = this.db.prepare(
+          `SELECT delegation_id FROM traces
+             WHERE trace_id = ? AND COALESCE(org_id, 'default') = ?`,
+        ).get(focusId, orgId) as { delegation_id: string | null } | undefined;
+
+        if (!focus) return res.status(404).json({ error: 'trace not found' });
+
+        // Traces without a delegation_id have no scope — the response
+        // is the single focus trace, so the client can render an
+        // "unlinked" state instead of a 404.
+        if (!focus.delegation_id) {
+          return res.json({ delegation_id: null, traces: [] });
+        }
+
+        const rows = this.db.prepare(
+          `SELECT trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
+                  tool_name_v AS tool_name,
+                  risk_level_v AS risk_level,
+                  approval_status, cost_usd,
+                  json_extract(observation, '$.duration_ms') AS duration_ms
+             FROM traces
+             WHERE delegation_id = ?
+               AND COALESCE(org_id, 'default') = ?
+             ORDER BY timestamp ASC, sequence_number ASC`,
+        ).all(focus.delegation_id, orgId);
+
+        res.json({ delegation_id: focus.delegation_id, traces: rows });
+      } catch (e) {
+        this.logger.error({ err: (e as Error).message, traceId: focusId }, 'delegation lookup failed');
+        res.status(500).json({ error: 'delegation lookup failed' });
+      }
+    });
+
     // Update trace (approval + score)  [defined before GET /:traceId intentionally]
     this.router.patch('/:traceId', async (req: Request, res: Response) => {
       try {

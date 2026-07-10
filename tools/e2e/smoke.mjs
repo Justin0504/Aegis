@@ -341,6 +341,42 @@ const scenarios = [
     },
   },
   {
+    name: 'delegation_endpoint',
+    prevents: 'The delegation waterfall (Cockpit trace-detail Round F) reading from a broken GET /:traceId/delegation — either 404 on a real trace, 500 on a trace with no delegation_id, or leaking rows across tenants.',
+    run: async () => {
+      // Ingest two traces that share a delegation scope and one that
+      // does not. The endpoint must find the two under delegation
+      // 'e2e-del-1' and return empty for the standalone.
+      const del = 'e2e-del-1';
+      const shared1 = makeTrace(); shared1.delegation_id = del; shared1.tool_call.tool_name = 'shared-a';
+      const shared2 = makeTrace(); shared2.delegation_id = del; shared2.parent_trace_id = shared1.trace_id;
+                                    shared2.tool_call.tool_name = 'shared-b';
+      const alone   = makeTrace(); alone.tool_call.tool_name = 'lone';
+      for (const t of [shared1, shared2, alone]) {
+        const r = await http('POST', '/api/v1/traces', { body: t });
+        assertEq(r.status, 201, `ingest for ${t.tool_call.tool_name}`);
+      }
+
+      // Delegation lookup on either shared trace returns both hops
+      const lookup = await http('GET', `/api/v1/traces/${shared1.trace_id}/delegation`);
+      assertEq(lookup.status, 200, 'delegation lookup status');
+      assertEq(lookup.body.delegation_id, del, 'delegation_id echoed');
+      assertEq(lookup.body.traces?.length, 2, `expected 2 hops, got ${lookup.body.traces?.length}`);
+      // Chronological order
+      const ids = lookup.body.traces.map((t) => t.trace_id);
+      assert(ids[0] === shared1.trace_id, 'first hop should be shared1 (earlier timestamp)');
+
+      // Lone trace: 200 with empty delegation
+      const lone = await http('GET', `/api/v1/traces/${alone.trace_id}/delegation`);
+      assertEq(lone.status, 200, 'lone lookup status');
+      assert(lone.body.delegation_id === null && lone.body.traces.length === 0, 'lone trace should return empty delegation');
+
+      // Non-existent trace: 404 (not 500)
+      const missing = await http('GET', `/api/v1/traces/00000000-0000-0000-0000-000000000000/delegation`);
+      assertEq(missing.status, 404, 'missing trace status');
+    },
+  },
+  {
     name: 'saved_queries_crud',
     prevents: 'saved_queries table migration missing, DSL validation bypass on save, cross-tenant leakage.',
     run: async () => {

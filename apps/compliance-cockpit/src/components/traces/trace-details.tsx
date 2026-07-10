@@ -11,6 +11,7 @@ import { friendlyAgent } from '@/lib/friendly-names'
 import { useState, ReactNode } from 'react'
 import { AnomalyExplanationPanel } from './anomaly-explanation-panel'
 import { ToolIcon } from '@/lib/tool-icons'
+import { DelegationWaterfall } from './delegation-waterfall'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -213,9 +214,12 @@ function SmartDataView({ data, label }: { data: any; label?: string }) {
 interface TraceDetailsProps {
   traceId: string
   onExport: () => void
+  /** Fired when the user picks a hop from the delegation waterfall.
+   *  Parent decides whether to swap the details panel to that trace. */
+  onSelectTrace?: (traceId: string) => void
 }
 
-export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
+export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsProps) {
   const queryClient = useQueryClient()
   const [feedback, setFeedback] = useState('')
   const [pendingScore, setPendingScore] = useState<number | null>(null)
@@ -446,6 +450,19 @@ export function TraceDetails({ traceId, onExport }: TraceDetailsProps) {
             ) : (
               <SmartDataView data={trace.observation.raw_output} />
             )}
+          </div>
+        </CollapsibleSection>
+
+        {/* Delegation waterfall — every hop under the same delegation
+            scope as this trace. Datadog / Sentry-style. Empty state
+            (no delegation_id) is quietly informative rather than a hole. */}
+        <CollapsibleSection
+          title="Delegation trace"
+          summary="waterfall of every hop under the same delegation scope"
+          defaultOpen={false}
+        >
+          <div className="pt-2">
+            <DelegationWaterfall traceId={traceId} onSelectTrace={onSelectTrace} />
           </div>
         </CollapsibleSection>
 
