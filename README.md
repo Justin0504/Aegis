@@ -282,30 +282,23 @@ narrow open-source libraries (LlamaFirewall, NeMo, Guardrails AI).
 AEGIS is the open-source platform that ships the full vertical —
 gateway, cascade, DSL, dashboard, audit trail, approvals — in one repo.
 
-|  | Lakera Guard | NeMo Guardrails | Cisco AI Defense | Guardrails AI | **AEGIS** |
-|--|--------------|------------------|------------------|---------------|-----------|
+The rows below are AEGIS's load-bearing differentiators — capabilities
+that don't ship in the incumbent guardrail libraries. Full 22-row
+matrix at [aegistraces.com/compare](https://aegistraces.com/compare).
+
+|  | Lakera | NeMo | Cisco AI Defense | Guardrails AI | **AEGIS** |
+|--|:--:|:--:|:--:|:--:|:--:|
 | Open source / self-hostable | paid tier | ✅ | ❌ | ✅ | ✅ |
 | Pre-execution blocking | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Agent identity + registration + secret rotation** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Per-agent declared tool scope enforcement** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Per-agent / per-tenant budget guard** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **AEGIS Agent Threat Ontology + coverage map** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Detector plugin contract (3rd-party / customer)** | ❌ | partial | ❌ | partial | ✅ |
-| **Per-tenant Policy DSL (fail-safe)** | ❌ | Colang | ❌ | ❌ | ✅ |
-| **RFC 6962 transparency log (offline-verifiable)** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Per-framework signed compliance bundles** | ❌ | ❌ | ❌ | partial | ✅ |
-| **Universal SIEM sinks (http / syslog / stdout)** | partial | ❌ | ✅ | ❌ | ✅ |
-| **OTLP trace export (Datadog/Honeycomb/Tempo/…)** | ❌ | ❌ | partial | ❌ | ✅ |
-| **LLM egress proxy (zero-code, any-language)** | ❌ | ❌ | ✅ | partial | ✅ |
-| **Cross-agent compromise correlator** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Sensitive-context taint tracking (PII → exfil)** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Memory-poison & indirect-prompt-injection detectors** | partial | partial | partial | ❌ | ✅ |
-| **Ed25519-signed release artifacts (npm + PyPI)** | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Behavioral anomaly detection (IsolationForest + PPM) | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Cost-aware L1→L2→L3 cascade | ❌ | ❌ | partial | ❌ | ✅ |
-| Human-in-the-loop approval flow | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Multi-framework SDK | API only | NVIDIA-centric | partial | ✅ | 14 frameworks |
-| Kill switch + admin audit log (SOC 2 prep) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Agent identity + secret rotation | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Per-agent declared tool scope | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Per-agent / per-tenant budget guard | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Agent Threat Ontology + coverage map | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Per-tenant Policy DSL (fail-safe) | ❌ | Colang | ❌ | ❌ | **✅** |
+| RFC 6962 transparency log (offline-verifiable) | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Cross-agent compromise correlator | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Human-in-the-loop approval flow | ❌ | ❌ | ❌ | ❌ | **✅** |
+| Reversible actions (compensator + saga) | ❌ | ❌ | ❌ | ❌ | **✅** |
 
 > If your point of comparison is *observability* (LangFuse, Helicone,
 > Arize) — those tell you **what happened**. AEGIS **prevents it from
@@ -361,10 +354,10 @@ flowchart LR
     classDef receipt  fill:#dfe4e6,stroke:#4b6a72,stroke-width:1px,color:#0a0a0a;
 
     class P1,P2,P3,P4,P5 stage;
-    class D              gate;
-    class EXE,RECEIPT    success;
-    class REVIEW         warn;
-    class ERR            block;
+    class D gate;
+    class EXE,RECEIPT success;
+    class REVIEW warn;
+    class ERR block;
 ```
 
 **Zero-config classification** — works on any tool name, any argument shape:
