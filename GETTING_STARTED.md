@@ -101,3 +101,18 @@ curl -X POST http://localhost:8080/api/v1/policies \
 | `make logs` | Tail logs |
 | `make clean` | Remove containers and volumes |
 | `make install-sdk` | Install Python SDK locally |
+
+---
+
+## Next reads
+
+By role — pick your lane:
+
+| I'm a… | Start here |
+|---|---|
+| **Developer** integrating the SDK | [`packages/sdk-python/README.md`](./packages/sdk-python/README.md) · [`packages/sdk-js/README.md`](./packages/sdk-js/README.md) |
+| **Operator** deploying + running it | [`docs/OPERATIONS.md`](./docs/OPERATIONS.md) — health checks, Prometheus + Grafana, rollback runbook, replay, rate limits |
+| **Architect** trying to understand the design | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — components, data flow, reversibility model, prior art |
+| **Contributor** making a PR | [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`docs/TESTING.md`](./docs/TESTING.md) — 4 harnesses, `npm run test:*` matrix |
+| **Compliance officer** doing an audit | [`SECURITY.md`](./SECURITY.md) · [`docs/OPERATIONS.md`](./docs/OPERATIONS.md#observability) · transparency log |
+| **Prospect** deciding whether to adopt | [aegistraces.com/docs](https://aegistraces.com/docs) · [`PERFORMANCE.md`](./PERFORMANCE.md) · [`COMMERCIAL.md`](./COMMERCIAL.md) |

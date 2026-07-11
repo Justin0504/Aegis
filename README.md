@@ -953,6 +953,13 @@ demo/
 
 **Tech Stack**: Node.js 20, Express, SQLite, Next.js 14, React 18, TailwindCSS, Python 3.10+, Go 1.21+
 
+> **Deeper reads** (role-based):
+> - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — component map, data flow, reversibility model, prior art
+> - [`docs/OPERATIONS.md`](./docs/OPERATIONS.md) — health, Prometheus + Grafana, rollback runbook, replay
+> - [`docs/TESTING.md`](./docs/TESTING.md) — 4 CI harnesses (unit + e2e + isolation + SDK chaos)
+> - [`tools/grafana/`](./tools/grafana/README.md) — importable dashboards
+> - [`GETTING_STARTED.md`](./GETTING_STARTED.md) · [`PERFORMANCE.md`](./PERFORMANCE.md) · [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+
 ---
 
 ## Deployment
