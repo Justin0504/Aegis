@@ -308,57 +308,30 @@ matrix at [aegistraces.com/compare](https://aegistraces.com/compare).
 
 ## How it works
 
-```mermaid
-%%{ init: {
-  "theme": "base",
-  "themeVariables": {
-    "primaryColor":        "#f2edd8",
-    "primaryTextColor":    "#0a0a0a",
-    "primaryBorderColor":  "#0a0a0a",
-    "lineColor":           "#5c5a50",
-    "secondaryColor":      "#ece6cf",
-    "tertiaryColor":       "#eae3d2",
-    "fontFamily":          "ui-sans-serif, -apple-system, Inter, sans-serif"
-  }
-}}%%
-flowchart LR
-    A(["Agent calls a tool"]) --> B["SDK · HTTP proxy · MCP proxy<br/><sub>zero-config interception</sub>"]
+An agent's SDK — Python, TypeScript, Go — wraps every tool call. The
+call goes to the AEGIS Gateway before it goes to the tool. The gateway
+runs a **5-stage pipeline**, decides, and either lets the call through,
+pauses for human review, or blocks it. Every allowed call lands in a
+tamper-evident audit log on the way back.
 
-    subgraph GW["<b>AEGIS Gateway</b>&nbsp;·&nbsp;5-stage pipeline"]
-        direction TB
-        P1["<b>1. Classify</b><br/><sub>SQL · file · network · shell</sub>"]
-        P2["<b>2. Anomaly</b><br/><sub>baseline deviation · spike</sub>"]
-        P3["<b>3. Evaluate</b><br/><sub>AJV policies · injection · exfil</sub>"]
-        P4["<b>4. Match DSL</b><br/><sub>per-tenant rules · fail-safe</sub>"]
-        P5["<b>5. Decide</b><br/><sub>strictest wins</sub>"]
-        P1 --> P2 --> P3 --> P4 --> P5
-    end
+**The pipeline**
 
-    B --> GW
-    P5 --> D{"decision"}
+| # | Stage | What it does |
+|---|---|---|
+| 1 | **Classify** | Tags the call by kind — `database` · `file` · `network` · `shell` · `prompt-injection` · `supply-chain` — from the tool name + arguments. Works on any tool, no annotations. |
+| 2 | **Anomaly** | Baseline deviation + spike detection against this agent's history (Mahalanobis + isolation forest). |
+| 3 | **Evaluate** | JSON-Schema (AJV) policies + injection / exfiltration detectors. |
+| 4 | **Match DSL** | Per-tenant policy rules; fail-safe (missing config = block, not allow). |
+| 5 | **Decide** | Strictest signal wins. Emits `allow` / `pending` / `block`. |
 
-    D -->|allow| EXE["Tool executes"]
-    D -->|pending| REVIEW["Human review<br/>in Cockpit"]
-    D -->|block| ERR["AgentGuardBlockedError<br/><sub>agent gets the reason</sub>"]
+**The outcome**
 
-    REVIEW -->|approve| EXE
-    REVIEW -->|reject| ERR
-
-    EXE --> RECEIPT["Signed &amp; hash-chained trace<br/><sub>Ed25519 · SHA-256 · RFC 6962 Merkle log</sub>"]
-
-    classDef stage    fill:#f2edd8,stroke:#0a0a0a,stroke-width:1px,color:#0a0a0a;
-    classDef gate     fill:#ece6cf,stroke:#0a0a0a,stroke-width:1.5px,color:#0a0a0a;
-    classDef success  fill:#d6e2d2,stroke:#4a6b4f,stroke-width:1px,color:#0a0a0a;
-    classDef warn     fill:#f5e1c8,stroke:#a06e2a,stroke-width:1px,color:#0a0a0a;
-    classDef block    fill:#e7c8c4,stroke:#8b3a2f,stroke-width:1px,color:#0a0a0a;
-    classDef receipt  fill:#dfe4e6,stroke:#4b6a72,stroke-width:1px,color:#0a0a0a;
-
-    class P1,P2,P3,P4,P5 stage;
-    class D gate;
-    class EXE,RECEIPT success;
-    class REVIEW warn;
-    class ERR block;
-```
+- **allow** — Tool executes. SDK emits a signed, hash-chained trace to
+  the RFC 6962 Merkle log.
+- **pending** — Agent pauses. The call surfaces in the Compliance
+  Cockpit's approval queue; a human clicks **Approve** or **Reject**.
+- **block** — SDK raises `AgentGuardBlockedError` back into the agent
+  with the exact reason. The tool never runs.
 
 **Zero-config classification** — works on any tool name, any argument shape:
 
