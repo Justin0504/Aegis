@@ -22,6 +22,7 @@
 import type {
   WorkflowGraph, Framework, ParsedWorkflow, WorkflowWarning,
 } from './types';
+import { nodeUuid, edgeUuid, bindingUuid, graphContentHash } from './types';
 import { detectFramework } from './detect';
 import { parseLangGraphPython } from './langgraph-python';
 import { parseCrewAI }          from './crewai';
@@ -131,6 +132,36 @@ export class WorkflowExtractorService {
     // corresponding pin marker before giving up.
     const version = parsed.framework_version ?? this.scanVersionAcrossAllFiles(winner, files);
 
+    // ── Assign deterministic UUIDs (Phase 1.1) ─────────────────────
+    //
+    // Framework parsers only fill (id, name, kind, source_ref, …) —
+    // they don't compute UUIDs so a parser change can't accidentally
+    // shift the on-wire identity contract. Orchestrator does it here,
+    // once, with a canonical rule (see types.ts nodeUuid/edgeUuid/
+    // bindingUuid). Downstream layers (policy DSL, compensators,
+    // intercept context) reference these UUIDs, so this is the ONLY
+    // place a UUID gets minted.
+    const nodesWithUuid = parsed.nodes.map(n => ({
+      ...n,
+      uuid: n.uuid ?? nodeUuid(n.id, n.source_ref?.file, n.kind),
+    }));
+    const edgesWithUuid = parsed.edges.map(e => ({
+      ...e,
+      uuid: e.uuid ?? edgeUuid(e.from, e.to, e.kind, e.condition),
+    }));
+    const bindingsWithUuid = parsed.tool_bindings.map(b => ({
+      ...b,
+      uuid: b.uuid ?? bindingUuid(b.node_id, b.tool_name),
+    }));
+
+    const contentHash = graphContentHash({
+      nodes:         nodesWithUuid,
+      edges:         edgesWithUuid,
+      tool_bindings: bindingsWithUuid,
+      entry_points:  parsed.entry_points,
+      finish_points: parsed.finish_points,
+    });
+
     return {
       agent_id,
       framework: parsed.framework,
@@ -141,12 +172,13 @@ export class WorkflowExtractorService {
         files_scanned: winnerFiles.length,
         language: parsed.language,
       },
-      nodes:          parsed.nodes,
-      edges:          parsed.edges,
-      tool_bindings:  parsed.tool_bindings,
+      nodes:          nodesWithUuid,
+      edges:          edgesWithUuid,
+      tool_bindings:  bindingsWithUuid,
       entry_points:   parsed.entry_points,
       finish_points:  parsed.finish_points,
       warnings: [...preExtractWarnings, ...parsed.warnings, ...postWarnings],
+      content_hash:   contentHash,
     };
   }
 
@@ -290,6 +322,14 @@ export class WorkflowExtractorService {
       nodes: [], edges: [], tool_bindings: [],
       entry_points: [], finish_points: [],
       warnings: args.warnings,
+      // Content hash of an empty graph is deterministic — callers can
+      // still bind an agent that failed to detect a framework (the
+      // hash simply won't match any subsequent extraction that
+      // discovers wiring).
+      content_hash: graphContentHash({
+        nodes: [], edges: [], tool_bindings: [],
+        entry_points: [], finish_points: [],
+      }),
     };
   }
 }
