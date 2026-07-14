@@ -39,7 +39,7 @@ function setup(): { db: Database.Database; guard: BudgetGuardService; tc: Tenant
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_seen_at TEXT,
-      capabilities TEXT, provenance TEXT
+      capabilities TEXT, provenance TEXT, workflow_hash TEXT
     );
     INSERT INTO organizations (id, name, slug, plan) VALUES ('default', 'd', 'd', 'community');
   `);

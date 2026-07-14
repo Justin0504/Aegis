@@ -57,6 +57,7 @@ function rowToAgent(row: any): RegisteredAgent {
     name: row.name ?? undefined,
     description: row.description ?? undefined,
     owner_email: row.owner_email ?? undefined,
+    workflow_hash: row.workflow_hash ?? undefined,
     declared_tools: row.declared_tools ? JSON.parse(row.declared_tools) : undefined,
     max_cost_daily_usd: row.max_cost_daily_usd ?? undefined,
     environments: row.environments ? JSON.parse(row.environments) : undefined,
@@ -129,6 +130,13 @@ export class AgentRegistryService {
     const capabilities = opts.req.capabilities ? JSON.stringify(opts.req.capabilities) : null;
     const provenance   = opts.req.provenance   ? JSON.stringify(opts.req.provenance)   : null;
 
+    // Workflow-hash binding: opt-in. If the caller provides one, it
+    // becomes the attested workflow for this agent — future authorize()
+    // calls will reject sightings whose workflow hash doesn't match.
+    // On re-register without a hash, we preserve the existing binding
+    // (silent clear would open a downgrade attack path).
+    const workflowHash = opts.req.workflow_hash ?? existing?.workflow_hash ?? null;
+
     if (existing) {
       this.db.prepare(
         `UPDATE agents SET
@@ -139,6 +147,7 @@ export class AgentRegistryService {
            public_key_pem = ?,
            capabilities = ?,
            provenance = ?,
+           workflow_hash = ?,
            updated_at = datetime('now')
          WHERE id = ?`,
       ).run(
@@ -153,6 +162,7 @@ export class AgentRegistryService {
         opts.req.public_key_pem ?? existing.public_key_pem ?? null,
         capabilities ?? existing.capabilities ?? null,
         provenance   ?? existing.provenance   ?? null,
+        workflowHash,
         id,
       );
     } else {
@@ -161,8 +171,8 @@ export class AgentRegistryService {
            (id, org_id, name, description, owner_email,
             declared_tools, max_cost_daily_usd, environments,
             status, secret_hash, public_key_pem,
-            capabilities, provenance)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`,
+            capabilities, provenance, workflow_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
       ).run(
         id, opts.orgId,
         opts.req.name ?? null,
@@ -170,7 +180,7 @@ export class AgentRegistryService {
         opts.req.owner_email ?? null,
         declared, opts.req.max_cost_daily_usd ?? null, envs,
         secretHash, opts.req.public_key_pem ?? null,
-        capabilities, provenance,
+        capabilities, provenance, workflowHash,
       );
     }
 
@@ -262,6 +272,13 @@ export class AgentRegistryService {
     /** SDK-reported build provenance — backfilled into the row on first
      *  sighting / when the row had no provenance yet. */
     provenance?: { build_artifact?: string; source_commit?: string };
+    /** Workflow-hash the SDK / proxy asserts this call originated from
+     *  (Phase 1.2). When the agent has a workflow_hash bound at
+     *  registration AND the sighting asserts a hash, they must match
+     *  or the call is blocked with `workflow_mismatch`. Missing header
+     *  is tolerated on legacy-agent rows (no binding = no enforcement)
+     *  so upgrade paths don't break in place. */
+    presentedWorkflowHash?: string;
   }): AuthorizeResult | null {
     this.touch({ orgId: opts.orgId, agentId: opts.agentId, provenance: opts.provenance });
     const agent = this.get(opts.agentId);
@@ -273,6 +290,20 @@ export class AgentRegistryService {
     }
     if (agent.status === 'deprecated') {
       return { agent, blocked: true, blockReason: 'agent deprecated', attributionStrength: 'weak' };
+    }
+
+    // Workflow-attestation check — only enforced when the row has a
+    // bound workflow_hash AND the sighting asserts one. This gives
+    // operators a clean staged rollout: register with hash → SDK
+    // starts sending header → enforcement kicks in for THAT agent
+    // only, without impacting any other agent in the fleet.
+    if (agent.workflow_hash && opts.presentedWorkflowHash
+        && agent.workflow_hash !== opts.presentedWorkflowHash) {
+      return {
+        agent, blocked: true,
+        blockReason: `workflow_mismatch (bound ${agent.workflow_hash.slice(0, 12)}…, presented ${opts.presentedWorkflowHash.slice(0, 12)}…)`,
+        attributionStrength: 'weak',
+      };
     }
 
     // A valid JWT is a strictly stronger proof of identity than the

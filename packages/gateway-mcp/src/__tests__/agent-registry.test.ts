@@ -16,7 +16,7 @@ function setup() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_seen_at TEXT,
-      capabilities TEXT, provenance TEXT
+      capabilities TEXT, provenance TEXT, workflow_hash TEXT
     );
   `);
   const logger = pino({ level: 'silent' });

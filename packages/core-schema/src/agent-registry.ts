@@ -90,6 +90,18 @@ export const AgentRegistrationRequestSchema = z.object({
   /** Build artifact + source commit + parent agent. SDK can auto-fill
    *  build_artifact + source_commit from env vars on first sighting. */
   provenance: AgentProvenanceSchema.optional(),
+  /**
+   * Deterministic content hash of the agent's workflow graph
+   * (WorkflowExtractorService's `content_hash`). When set, the gateway
+   * binds this hash into the agent's registry row and — from L4
+   * onwards — rejects incoming traffic whose sighted workflow hash
+   * doesn't match. Opt-in per agent: legacy agents that register
+   * without one keep working unchanged.
+   *
+   * 64 lowercase hex chars (SHA-256). Compute via
+   * `graphContentHash()` from services/workflow/types.ts.
+   */
+  workflow_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 });
 export type AgentRegistrationRequest = z.infer<typeof AgentRegistrationRequestSchema>;
 /** Input shape — what callers actually pass (defaults not yet applied). */
@@ -106,6 +118,9 @@ export const AgentUpdateRequestSchema = z.object({
   public_key_pem: z.string().nullable().optional(),
   capabilities: AgentCapabilitiesSchema.nullable().optional(),
   provenance: AgentProvenanceSchema.nullable().optional(),
+  /** Rebind or clear the workflow attestation hash. `null` = clear.
+   *  Same shape rules as AgentRegistrationRequestSchema.workflow_hash. */
+  workflow_hash: z.string().regex(/^[0-9a-f]{64}$/).nullable().optional(),
 });
 export type AgentUpdateRequest = z.infer<typeof AgentUpdateRequestSchema>;
 
@@ -117,6 +132,11 @@ export interface RegisteredAgent {
   name?: string;
   description?: string;
   owner_email?: string;
+  /** Workflow attestation hash. Present iff the agent registered with
+   *  a workflow_hash. Downstream `authorize()` calls compare this
+   *  against the incoming request's asserted hash and fail the check
+   *  on mismatch. */
+  workflow_hash?: string;
   declared_tools?: ReadonlyArray<string>;
   max_cost_daily_usd?: number;
   environments?: ReadonlyArray<AgentEnvironment>;

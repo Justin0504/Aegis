@@ -262,6 +262,12 @@ export function initializeEnterpriseSchema(db: Database.Database): void {
     `ALTER TABLE agents ADD COLUMN capabilities TEXT`,
     `ALTER TABLE agents ADD COLUMN provenance TEXT`,
     `CREATE INDEX IF NOT EXISTS idx_agents_spawned_by ON agents(json_extract(provenance, '$.spawned_by'))`,
+    // Phase 1.2 · workflow-hash attestation binding. Nullable so
+    // legacy agents that pre-date the workflow-anchored architecture
+    // keep working unchanged; enforcement in authorize() is gated on
+    // the row actually having a hash.
+    `ALTER TABLE agents ADD COLUMN workflow_hash TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_agents_workflow_hash ON agents(workflow_hash) WHERE workflow_hash IS NOT NULL`,
   ];
 
   for (const sql of orgMigrations) {
