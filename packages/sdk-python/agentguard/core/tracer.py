@@ -39,6 +39,8 @@ class TraceContext:
         sequence_number: int = 0,
         delegation_id: Optional[str] = None,
         parent_delegation_id: Optional[str] = None,
+        workflow_node_id: Optional[str] = None,
+        workflow_binding_id: Optional[str] = None,
     ):
         self.trace_id = trace_id
         self.parent_trace_id = parent_trace_id
@@ -47,6 +49,11 @@ class TraceContext:
         # child work can't drift into a different delegation.
         self.delegation_id = delegation_id
         self.parent_delegation_id = parent_delegation_id
+        # Phase 1.3 workflow anchoring — populated from the workflow_scope
+        # stack. Downstream L3 (NL policy DSL) resolves policies against
+        # these ids instead of matching on tool_name strings.
+        self.workflow_node_id = workflow_node_id
+        self.workflow_binding_id = workflow_binding_id
         self.sequence_number = sequence_number
         self.start_time = time.time()
         self.captured_stdout: Optional[str] = None
@@ -82,6 +89,45 @@ class DelegationScope:
             stack.pop()
 
 
+class WorkflowScope:
+    """Phase 1.3 · context-manager returned by AgentGuard.workflow_scope().
+
+    ``with guard.workflow_scope(node_id, binding_id): ...`` pushes a
+    workflow anchor onto the current guard's stack. Every trace opened
+    inside the ``with`` block carries those UUIDs, which the gateway
+    persists on the trace row so downstream L3 (NL policy DSL) and L5
+    (node-scoped compensators) can resolve node-level identity without
+    tool_name string matching.
+
+    Both ids are optional strings — passing None on either axis keeps
+    the outer scope's value (or leaves it None if unset). This lets a
+    caller narrow the node without also narrowing the binding.
+    """
+
+    def __init__(
+        self,
+        guard: "AgentGuard",
+        node_id: Optional[str],
+        binding_id: Optional[str] = None,
+    ):
+        self._guard = guard
+        self._node_id = node_id
+        self._binding_id = binding_id
+
+    def __enter__(self) -> "WorkflowScope":
+        stack = getattr(self._guard, "_workflow_stack", None)
+        if stack is None:
+            self._guard._workflow_stack = []  # type: ignore[attr-defined]
+            stack = self._guard._workflow_stack
+        stack.append((self._node_id, self._binding_id))
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        stack = getattr(self._guard, "_workflow_stack", [])
+        if stack and stack[-1] == (self._node_id, self._binding_id):
+            stack.pop()
+
+
 class AgentGuard:
     """Main class for AgentGuard SDK."""
 
@@ -94,6 +140,11 @@ class AgentGuard:
         # Each `with guard.delegation(...)` pushes; every trace opened
         # while the stack is non-empty inherits the top id.
         self._delegation_stack: List[str] = []
+        # Stack of active (workflow_node_id, workflow_binding_id) pairs
+        # (Phase 1.3). Each `with guard.workflow_scope(...)` pushes;
+        # every trace opened while the stack is non-empty inherits the
+        # top pair.
+        self._workflow_stack: List[tuple] = []
 
         # Normalise agent_id to UUID once — reused for every trace
         try:
@@ -205,6 +256,27 @@ class AgentGuard:
         """
         return DelegationScope(self, delegation_id)
 
+    def workflow_scope(
+        self,
+        node_id: Optional[str],
+        binding_id: Optional[str] = None,
+    ) -> "WorkflowScope":
+        """Bind workflow node + binding UUIDs to every trace opened inside.
+
+        Populates ``workflow_node_id`` / ``workflow_binding_id`` on the
+        emitted trace so downstream L3 (NL policy DSL) and L5 (node-
+        scoped compensators) can resolve against the workflow graph
+        instead of matching on tool_name strings. UUIDs come from
+        ``services/workflow/types.ts`` (``nodeUuid``, ``bindingUuid``).
+
+        Example::
+
+            NODE = "11111111-2222-3333-4444-555555555555"  # from workflow extract
+            with guard.workflow_scope(NODE):
+                stripe.refund(amount=1200)
+        """
+        return WorkflowScope(self, node_id, binding_id)
+
     @contextmanager
     def _create_trace_context(self):
         """Create a new trace context."""
@@ -221,12 +293,22 @@ class AgentGuard:
             if len(self._delegation_stack) > 1:
                 parent_delegation = self._delegation_stack[-2]
 
+        # Workflow anchor propagation (Phase 1.3) — top of the scope stack
+        # wins. Empty pair keys through to None so the wire schema stays
+        # optional-clean rather than sending explicit "null".
+        current_node: Optional[str] = None
+        current_binding: Optional[str] = None
+        if self._workflow_stack:
+            current_node, current_binding = self._workflow_stack[-1]
+
         ctx = TraceContext(
             trace_id=uuid4(),
             parent_trace_id=parent_id,
             sequence_number=self._sequence_counter,
             delegation_id=current_delegation,
             parent_delegation_id=parent_delegation,
+            workflow_node_id=current_node,
+            workflow_binding_id=current_binding,
         )
         self._sequence_counter += 1
 
@@ -405,6 +487,8 @@ class AgentGuard:
             parent_trace_id=ctx.parent_trace_id,
             delegation_id=ctx.delegation_id,
             parent_delegation_id=ctx.parent_delegation_id,
+            workflow_node_id=ctx.workflow_node_id,
+            workflow_binding_id=ctx.workflow_binding_id,
             sequence_number=ctx.sequence_number,
             input_context=input_context,
             thought_chain=thought_chain,

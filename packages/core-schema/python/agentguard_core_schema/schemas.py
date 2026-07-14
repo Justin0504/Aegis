@@ -79,6 +79,11 @@ class AgentActionTrace(BaseModel):
     delegation_id: Optional[str] = None
     parent_delegation_id: Optional[str] = None
 
+    # Phase 1.3 workflow anchoring — UUIDs from services/workflow/types.ts.
+    # Optional so pre-Phase-1.3 traces still validate.
+    workflow_node_id: Optional[str] = None
+    workflow_binding_id: Optional[str] = None
+
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     sequence_number: int = Field(ge=0)
@@ -135,6 +140,12 @@ class CreateTraceRequest(BaseModel):
     # See AgentActionTrace above for the rationale.
     delegation_id: Optional[str] = None
     parent_delegation_id: Optional[str] = None
+
+    # Phase 1.3 workflow anchoring — populated by WorkflowScope. Both
+    # are Optional[str] holding a UUID; None means "no workflow scope
+    # active" (fully backward compatible with pre-Phase-1.3 traces).
+    workflow_node_id: Optional[str] = None
+    workflow_binding_id: Optional[str] = None
 
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)

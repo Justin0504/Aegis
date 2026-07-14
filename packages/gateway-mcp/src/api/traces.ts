@@ -392,6 +392,7 @@ export class TraceAPI {
                   tool_name_v AS tool_name,
                   risk_level_v AS risk_level,
                   approval_status, cost_usd,
+                  workflow_node_id, workflow_binding_id,
                   json_extract(observation, '$.duration_ms') AS duration_ms
              FROM traces
              WHERE delegation_id = ?
@@ -696,6 +697,17 @@ export class TraceAPI {
         ? String((trace as any).parent_delegation_id)
         : null;
 
+    // Phase 1.3 workflow anchoring — SDK-populated fields plumbed
+    // straight through. Non-UUID inputs get nulled rather than
+    // rejected because the trace schema still validates the shape;
+    // the belt is the DB CHECK, the suspenders is here.
+    const workflowNodeId =
+      typeof (trace as any).workflow_node_id === 'string' && (trace as any).workflow_node_id
+        ? String((trace as any).workflow_node_id) : null;
+    const workflowBindingId =
+      typeof (trace as any).workflow_binding_id === 'string' && (trace as any).workflow_binding_id
+        ? String((trace as any).workflow_binding_id) : null;
+
     this.db.prepare(`
       INSERT INTO traces (
         trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
@@ -705,7 +717,8 @@ export class TraceAPI {
         environment, version, tags,
         model, input_tokens, output_tokens, cost_usd,
         session_id, pii_detected, content_hash,
-        delegation_id, parent_delegation_id, org_id
+        delegation_id, parent_delegation_id, org_id,
+        workflow_node_id, workflow_binding_id
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
@@ -714,7 +727,8 @@ export class TraceAPI {
         ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?,
-        ?, ?, ?
+        ?, ?, ?,
+        ?, ?
       )
     `).run(
       String(trace.trace_id),
@@ -745,6 +759,8 @@ export class TraceAPI {
       delegationId,
       parentDelegationId,
       orgId,
+      workflowNodeId,
+      workflowBindingId,
     );
 
     // Emit OTEL span async, non-blocking

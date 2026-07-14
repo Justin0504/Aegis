@@ -278,6 +278,17 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // (COALESCE in the endpoint). New rows write the real orgId.
     `ALTER TABLE traces ADD COLUMN org_id TEXT`,
     `CREATE INDEX IF NOT EXISTS idx_traces_org_ts ON traces (org_id, timestamp DESC)`,
+    // Phase 1.3 · workflow anchoring on the trace record. Both
+    // nullable — legacy SDKs that don't emit them keep working; new
+    // SDKs populate on every intercept. Downstream L3 (NL policy DSL)
+    // and L5 (node-scoped compensators) resolve node-level identity
+    // through these two columns rather than tool_name matching.
+    `ALTER TABLE traces ADD COLUMN workflow_node_id TEXT`,
+    `ALTER TABLE traces ADD COLUMN workflow_binding_id TEXT`,
+    // Composite index keyed by node — the NL DSL runs "which traces
+    // fired node X in the last 24 h" as a hot query and needs to
+    // avoid a table scan once trace volume grows.
+    `CREATE INDEX IF NOT EXISTS idx_traces_workflow_node ON traces (workflow_node_id, timestamp DESC) WHERE workflow_node_id IS NOT NULL`,
     // Composite indexes leading with the extracted field + timestamp DESC.
     // Matches the DSL compiler's ORDER BY traces.timestamp DESC — the
     // planner walks the index in reverse without a TEMP B-TREE sort.

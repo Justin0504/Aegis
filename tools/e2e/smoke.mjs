@@ -341,6 +341,28 @@ const scenarios = [
     },
   },
   {
+    name: 'workflow_anchor_round_trip',
+    prevents: 'Phase 1.3 regression — SDK sets workflow_node_id / workflow_binding_id, gateway drops them silently. Downstream L3 (NL policy DSL) and L5 (node-scoped compensators) would then have no anchor to resolve against.',
+    run: async () => {
+      // Fixed UUIDs so we can assert on exact round-trip.
+      const nodeId    = '11111111-2222-3333-4444-555555555555';
+      const bindingId = '66666666-7777-8888-9999-aaaaaaaaaaaa';
+      const t = makeTrace();
+      t.workflow_node_id    = nodeId;
+      t.workflow_binding_id = bindingId;
+
+      const ins = await http('POST', '/api/v1/traces', { body: t });
+      assertEq(ins.status, 201, `ingest with workflow anchors: ${JSON.stringify(ins.body)}`);
+
+      // Read back via GET /:id — parser spreads all columns, both
+      // fields should be present on the response.
+      const got = await http('GET', `/api/v1/traces/${t.trace_id}`);
+      assertEq(got.status, 200, 'get trace status');
+      assertEq(got.body.workflow_node_id,    nodeId,    'workflow_node_id round-trip');
+      assertEq(got.body.workflow_binding_id, bindingId, 'workflow_binding_id round-trip');
+    },
+  },
+  {
     name: 'delegation_endpoint',
     prevents: 'The delegation waterfall (Cockpit trace-detail Round F) reading from a broken GET /:traceId/delegation — either 404 on a real trace, 500 on a trace with no delegation_id, or leaking rows across tenants.',
     run: async () => {

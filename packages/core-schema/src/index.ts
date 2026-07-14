@@ -99,6 +99,19 @@ export const AgentActionTraceSchema = z.object({
   environment: z.enum(['DEVELOPMENT', 'STAGING', 'PRODUCTION']).default('DEVELOPMENT'),
   version: z.string().default('1.0.0'),
   tags: z.array(z.string()).nullable().optional(),
+
+  // ── Workflow anchoring (Phase 1.3) ───────────────────────────────
+  // Populated by the SDK when it can correlate the intercepted call
+  // back to a node in the agent's extracted WorkflowGraph. Downstream
+  // layers (NL policy DSL, node-scoped compensators, cockpit
+  // delegation waterfall) consume these as the canonical anchor.
+  //
+  // Optional so:
+  //   · legacy SDKs that pre-date workflow extraction keep working
+  //   · calls that genuinely have no workflow context (ad-hoc /check,
+  //     one-off scripts) don't have to synthesize a fake node id
+  workflow_node_id:    z.string().uuid().nullable().optional(),
+  workflow_binding_id: z.string().uuid().nullable().optional(),
 });
 
 // Enum exports (for runtime use)
