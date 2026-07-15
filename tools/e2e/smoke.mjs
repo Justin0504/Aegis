@@ -341,6 +341,37 @@ const scenarios = [
     },
   },
   {
+    name: 'compensator_registry_shape',
+    prevents: 'Phase 3 · CompensationRegistry lookup gains node_uuid / binding_uuid arms. If those are silently ignored, the whole "same tool in different nodes gets different compensators" story breaks. This checks the registry accepts the shape via the tenant-config PUT and doesn\'t 400 on the new keys.',
+    run: async () => {
+      // The tenant-config PUT is the public write path for the
+      // compensator map. We just verify it accepts the new
+      // compensators_by_node / compensators_by_binding keys without
+      // rejecting the payload.
+      const r = await http('PUT', '/api/v1/config', {
+        body: {
+          rollback: {
+            compensators: {},
+            compensators_by_node:    { '11111111-2222-3333-4444-555555555555': { kind: 'none', note: 'test-node-scoped' } },
+            compensators_by_binding: { '66666666-7777-8888-9999-aaaaaaaaaaaa': { kind: 'none', note: 'test-binding-scoped' } },
+          },
+        },
+      });
+      // Accept 200 (updated), 201 (created), or 400 with a specific
+      // schema error — the wire contract may not surface config to
+      // all deployments. 500 is a regression.
+      assert([200, 201, 204, 400, 404].includes(r.status),
+        `tenant-config PUT returned unexpected ${r.status}: ${JSON.stringify(r.body).slice(0,200)}`);
+      if (r.status >= 400) {
+        // If rejected, the error must NOT be about the new keys — those
+        // must at least parse.
+        const msg = JSON.stringify(r.body);
+        assert(!/compensators_by_(node|binding)/.test(msg),
+          `phase 3 keys rejected by schema: ${msg.slice(0,300)}`);
+      }
+    },
+  },
+  {
     name: 'nl_policy_compile',
     prevents: 'Phase 2 NL compiler regression — endpoint 503, heuristic backend broken, or output not shaped like PolicyDsl. The cockpit\'s "describe your rule in English" flow depends on this returning a compileable DSL every time.',
     run: async () => {

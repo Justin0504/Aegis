@@ -61,7 +61,7 @@ function setup() {
       tool_call TEXT, observation TEXT,
       integrity_hash TEXT NOT NULL,
       previous_hash TEXT,
-      environment TEXT, version TEXT
+      environment TEXT, version TEXT, workflow_node_id TEXT, workflow_binding_id TEXT
     );
     CREATE TABLE admin_audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -159,6 +159,10 @@ interface TraceRow {
   integrity_hash: string;
   rolled_back_at: string | null;
   reversibility_class: ReversibilityClass | null;
+  // Phase 3 · workflow anchors, populated by SDKs on Phase 1.3+.
+  // Nullable — legacy rows keep working via the tool-name fallback.
+  workflow_node_id: string | null;
+  workflow_binding_id: string | null;
 }
 
 export class RollbackService {
@@ -347,7 +351,17 @@ export class RollbackService {
       };
     }
 
-    const lookup = this.registry.lookup(opts.orgId, toolName);
+    // Phase 3 · node/binding-scoped compensators. If the trace was
+    // captured with workflow anchors (Phase 1.3+ SDKs), pass them to
+    // the registry so a binding_uuid or node_uuid override can win
+    // over the tool_name fallback. `matchedBy` on the lookup result
+    // records which axis fired so we can surface it in the audit row
+    // and cockpit — helps operators reason about "why did THIS
+    // compensator run, not the other one?"
+    const lookup = this.registry.lookup(opts.orgId, toolName, {
+      node_uuid:    trace.workflow_node_id    ?? undefined,
+      binding_uuid: trace.workflow_binding_id ?? undefined,
+    });
     const compensator = lookup.compensator;
     if (cls.class === 'compensable' && !compensator) {
       this.closeSagaAfterEarlyExit(opts._sagaId, opts.orgId, 'FAILED', sagaId);
@@ -818,7 +832,8 @@ export class RollbackService {
   private getTrace(traceId: string): TraceRow | null {
     return this.db.prepare(
       `SELECT trace_id, agent_id, timestamp, tool_call, observation,
-              integrity_hash, rolled_back_at, reversibility_class
+              integrity_hash, rolled_back_at, reversibility_class,
+              workflow_node_id, workflow_binding_id
          FROM traces WHERE trace_id = ?`,
     ).get(traceId) as TraceRow | null;
   }

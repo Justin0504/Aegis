@@ -95,8 +95,25 @@ export const HIGH_COST_MAGNITUDES: ReadonlyArray<CostEstimate['magnitude']> =
 export type CompensatorDecl = CompensatorWebhook | CompensatorInline | CompensatorNone;
 
 export interface CompensationConfig {
-  /** Map of tool_name → compensator declaration. */
+  /** Legacy map of tool_name → compensator declaration. Still the
+   *  fallback lookup path; node/binding-scoped entries below take
+   *  precedence when they match. */
   compensators: Record<string, CompensatorDecl>;
+  /**
+   * Phase 3 · node/binding-scoped compensators. Keys are UUIDs from
+   * the workflow graph — either `binding.uuid` (most specific: this
+   * exact tool call inside this exact node) or `node.uuid` (all
+   * tool calls inside this node). When both match, the binding-level
+   * entry wins.
+   *
+   * Value shape is identical to the tool-scoped map, so an operator
+   * can lift an existing `compensators['stripe_refund']` webhook to
+   * a `compensators_by_binding[<binding_uuid>]` entry without
+   * changing anything else. The full precedence order is documented
+   * in `lookup()` below.
+   */
+  compensators_by_binding?: Record<string, CompensatorDecl>;
+  compensators_by_node?:    Record<string, CompensatorDecl>;
 }
 
 export interface CompensationLookupResult {
@@ -104,6 +121,10 @@ export interface CompensationLookupResult {
   compensator: CompensatorDecl | null;
   /** True if the tool is registered but explicitly `kind:'none'`. */
   explicitlyUnrollable: boolean;
+  /** Which lookup path resolved the compensator. Surfaced on the
+   *  audit / saga row so operators can trace WHY a specific
+   *  compensator was chosen for a specific rollback. */
+  matchedBy?: 'binding_uuid' | 'node_uuid' | 'tool_name';
 }
 
 /**
@@ -124,16 +145,66 @@ export class CompensationRegistry {
       return;
     }
     this.byTenant.set(orgId, config);
-    this.logger.debug({ orgId, count: Object.keys(config.compensators ?? {}).length }, 'compensation config loaded');
+    const toolCount    = Object.keys(config.compensators ?? {}).length;
+    const bindingCount = Object.keys(config.compensators_by_binding ?? {}).length;
+    const nodeCount    = Object.keys(config.compensators_by_node ?? {}).length;
+    this.logger.debug({ orgId, toolCount, bindingCount, nodeCount }, 'compensation config loaded');
   }
 
-  /** Look up the compensator for a (tenant, tool) pair. */
-  lookup(orgId: string, toolName: string): CompensationLookupResult {
+  /**
+   * Look up the compensator for a trace. Precedence:
+   *
+   *   1. binding_uuid — tightest match. "This exact tool call inside
+   *      this exact workflow node." Same tool_name across two nodes
+   *      can have different compensators.
+   *   2. node_uuid — all tool calls fired by this node share this
+   *      compensator. Useful for "everything inside my payments node
+   *      rolls back via this Stripe webhook."
+   *   3. tool_name — legacy fallback. Existing tenant configs keep
+   *      working unchanged; new configs can migrate one binding at
+   *      a time.
+   *
+   * `matchedBy` on the returned result tells the caller which axis
+   * fired — surfaced on the saga step for auditability.
+   */
+  lookup(
+    orgId: string,
+    toolName: string,
+    workflow?: { node_uuid?: string; binding_uuid?: string },
+  ): CompensationLookupResult {
     const cfg = this.byTenant.get(orgId);
-    const compensator = cfg?.compensators?.[toolName] ?? null;
+    if (!cfg) {
+      return { compensator: null, explicitlyUnrollable: false };
+    }
+
+    // 1. Binding-scoped (most specific).
+    const bindingId = workflow?.binding_uuid;
+    if (bindingId && cfg.compensators_by_binding?.[bindingId]) {
+      const c = cfg.compensators_by_binding[bindingId];
+      return {
+        compensator: c,
+        explicitlyUnrollable: c.kind === 'none',
+        matchedBy: 'binding_uuid',
+      };
+    }
+
+    // 2. Node-scoped (all bindings in a node).
+    const nodeId = workflow?.node_uuid;
+    if (nodeId && cfg.compensators_by_node?.[nodeId]) {
+      const c = cfg.compensators_by_node[nodeId];
+      return {
+        compensator: c,
+        explicitlyUnrollable: c.kind === 'none',
+        matchedBy: 'node_uuid',
+      };
+    }
+
+    // 3. Tool-scoped (legacy).
+    const compensator = cfg.compensators?.[toolName] ?? null;
     return {
       compensator,
       explicitlyUnrollable: !!compensator && compensator.kind === 'none',
+      matchedBy: compensator ? 'tool_name' : undefined,
     };
   }
 
