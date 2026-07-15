@@ -190,6 +190,19 @@ const EU_AI_ACT: ComplianceControl[] = [
     },
   },
   {
+    framework: 'eu-ai-act', id: 'Art.14',
+    title: 'Human oversight',
+    summary: 'Blocking mode + pending_checks + kill-switch + approvals table together implement designed-in human oversight: high-risk tool calls hold for human decision, decisions are auditable, and any authorised operator can globally suspend an agent.',
+    evidenceSpec: {
+      auditActions: [
+        'proxy.llm_call',   // blocked decisions land here with pending state
+        'user.update',      // agent status changes (suspend/resume)
+        'apikey.revoke',    // kill-switch on the calling channel
+      ],
+      artifacts: ['transparency-root', 'audit-row-count'],
+    },
+  },
+  {
     framework: 'eu-ai-act', id: 'Art.15',
     title: 'Accuracy, robustness and cybersecurity',
     summary: 'Detector chain + agent identity gate + tool-scope enforcement maintain robustness against prompt injection, tool misuse, privilege escalation, and credential exposure.',
