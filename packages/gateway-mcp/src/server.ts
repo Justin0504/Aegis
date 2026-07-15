@@ -55,6 +55,7 @@ import { TenantConfigService } from './services/tenant-config';
 import { TenantConfigAPI } from './api/tenant-config';
 import { DslPolicyService } from './services/policy-dsl';
 import { PolicyDslAPI } from './api/policy-dsl';
+import { NlPolicyCompilerService } from './services/nl-policy-compiler';
 import { AlignmentAPI } from './api/alignment';
 import { CodeShieldAPI } from './api/code-shield';
 import { IntegrityAPI } from './api/integrity';
@@ -680,7 +681,11 @@ async function main() {
   app.use('/api/v1/config', requireAuth, new TenantConfigAPI(tenantConfig, logger).router);
 
   // Per-tenant DSL (self-service)
-  app.use('/api/v1/dsl', requireAuth, new PolicyDslAPI(tenantConfig, dslPolicy, logger).router);
+  // Phase 2 · NL policy compiler. LLM adapter is injected here when
+  // an API key is wired; heuristic backend is always available.
+  const nlCompiler = new NlPolicyCompilerService(logger);
+  app.use('/api/v1/dsl', requireAuth,
+    new PolicyDslAPI(tenantConfig, dslPolicy, logger, nlCompiler).router);
 
   // AEGIS Agent Threat Ontology + per-deployment coverage map.
   // Customers use /coverage to answer "what does AEGIS detect today?"

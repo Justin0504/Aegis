@@ -21,6 +21,8 @@ import { DslPolicyService } from '../services/policy-dsl';
 import { BUILTIN_DSL_EXAMPLES } from '../policies/dsl/builtin-examples';
 import { DslCompileError } from '../policies/dsl/ast';
 import { DslContext } from '../policies/dsl/evaluator';
+import { NlPolicyCompilerService } from '../services/nl-policy-compiler';
+import type { WorkflowGraph } from '../services/workflow/types';
 
 const DryRunRequestSchema = z.object({
   dsl: PolicyDslSchema,
@@ -56,6 +58,7 @@ export class PolicyDslAPI {
     private tenantConfig: TenantConfigService,
     private dsl: DslPolicyService,
     private logger: Logger,
+    private nl?: NlPolicyCompilerService,
   ) {
     this.router = Router();
     this.setupRoutes();
@@ -64,6 +67,44 @@ export class PolicyDslAPI {
   private setupRoutes() {
     this.router.get('/examples', (_req: Request, res: Response) => {
       res.json({ examples: BUILTIN_DSL_EXAMPLES });
+    });
+
+    // POST /compile-nl — Phase 2 · natural-language → workflow-aware DSL.
+    //
+    // Body: { description, workflow?, name?, backend? }
+    // Returns: { compiled, references, explanation, backend, warnings }
+    //
+    // The endpoint does NOT persist. Callers (cockpit / CLI) get the
+    // compiled DSL back, show the operator, and then PUT /dsl to save.
+    // This split lets the operator sanity-check the LLM's output —
+    // "does this rule actually target the send_email node?" — before
+    // it goes live.
+    this.router.post('/compile-nl', async (req: Request, res: Response) => {
+      if (!this.nl) {
+        return res.status(503).json({ error: 'nl compiler not configured on this gateway' });
+      }
+      const schema = z.object({
+        description: z.string().min(1).max(2000),
+        workflow: z.any().optional(),   // WorkflowGraph — validated downstream via UUID references
+        name: z.string().min(1).max(80).regex(/^[A-Za-z0-9._-]+$/).optional(),
+        backend: z.enum(['llm', 'heuristic']).optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'invalid compile-nl request', details: parsed.error.issues });
+      }
+      try {
+        const out = await this.nl.compile({
+          description: parsed.data.description,
+          workflow:    parsed.data.workflow as WorkflowGraph | undefined,
+          name:        parsed.data.name,
+          backend:     parsed.data.backend,
+        });
+        res.json(out);
+      } catch (err) {
+        this.logger.warn({ err: (err as Error).message }, 'nl-policy compile failed');
+        res.status(400).json({ error: (err as Error).message });
+      }
     });
 
     this.router.post('/dry-run', (req: Request, res: Response) => {

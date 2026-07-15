@@ -64,6 +64,19 @@ export interface DslContext {
   };
   agent?: { id?: string; [k: string]: unknown };
   tenant?: { id?: string; deploymentMode?: string; [k: string]: unknown };
+  /**
+   * Phase 1.3 workflow-anchored context. Populated when the SDK sent
+   * `workflow_node_id` / `workflow_binding_id` on the intercepted
+   * call. Enables Phase 2 NL policies to say
+   *   when workflow.node_id == "<uuid>" and ...
+   * rather than string-matching `tool.name`. Absent when the caller
+   * has no workflow scope — legacy calls continue to work.
+   */
+  workflow?: {
+    node_id?: string;
+    binding_id?: string;
+    [k: string]: unknown;
+  };
 }
 
 export interface MatchResult {

@@ -341,6 +341,23 @@ const scenarios = [
     },
   },
   {
+    name: 'nl_policy_compile',
+    prevents: 'Phase 2 NL compiler regression — endpoint 503, heuristic backend broken, or output not shaped like PolicyDsl. The cockpit\'s "describe your rule in English" flow depends on this returning a compileable DSL every time.',
+    run: async () => {
+      const r = await http('POST', '/api/v1/dsl/compile-nl', {
+        body: {
+          description: 'Block send_email calls',
+          backend: 'heuristic',
+        },
+      });
+      assertEq(r.status, 200, `compile status (body: ${JSON.stringify(r.body)})`);
+      assertEq(r.body.backend, 'heuristic', 'backend echo');
+      assert(Array.isArray(r.body.compiled?.rules) && r.body.compiled.rules.length >= 1,
+        `expected compiled.rules[], got: ${JSON.stringify(r.body.compiled).slice(0,200)}`);
+      assertEq(r.body.compiled.rules[0].then.decision, 'block', 'decision from heuristic');
+    },
+  },
+  {
     name: 'workflow_anchor_round_trip',
     prevents: 'Phase 1.3 regression — SDK sets workflow_node_id / workflow_binding_id, gateway drops them silently. Downstream L3 (NL policy DSL) and L5 (node-scoped compensators) would then have no anchor to resolve against.',
     run: async () => {
