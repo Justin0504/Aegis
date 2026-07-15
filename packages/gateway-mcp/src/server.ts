@@ -56,6 +56,7 @@ import { TenantConfigAPI } from './api/tenant-config';
 import { DslPolicyService } from './services/policy-dsl';
 import { PolicyDslAPI } from './api/policy-dsl';
 import { NlPolicyCompilerService } from './services/nl-policy-compiler';
+import { pickLlmClient } from './services/llm-clients';
 import { AlignmentAPI } from './api/alignment';
 import { CodeShieldAPI } from './api/code-shield';
 import { IntegrityAPI } from './api/integrity';
@@ -681,9 +682,13 @@ async function main() {
   app.use('/api/v1/config', requireAuth, new TenantConfigAPI(tenantConfig, logger).router);
 
   // Per-tenant DSL (self-service)
-  // Phase 2 · NL policy compiler. LLM adapter is injected here when
-  // an API key is wired; heuristic backend is always available.
-  const nlCompiler = new NlPolicyCompilerService(logger);
+  // Phase 2 · NL policy compiler. LLM adapter is env-selected here:
+  //   · AEGIS_LOCAL_LLM_URL   → Ollama/vLLM/LM Studio (always allowed)
+  //   · ANTHROPIC/OPENAI key  → cloud, ONLY if AEGIS_OFFLINE unset
+  //   · neither               → heuristic-only fallback
+  // See services/llm-clients.ts for the env contract.
+  const nlLlm = pickLlmClient(process.env, logger);
+  const nlCompiler = new NlPolicyCompilerService(logger, nlLlm);
   app.use('/api/v1/dsl', requireAuth,
     new PolicyDslAPI(tenantConfig, dslPolicy, logger, nlCompiler).router);
 
