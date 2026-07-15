@@ -1,17 +1,26 @@
 /**
- * LLM Egress Proxy handler — runs detector chain over every LLM exchange
- * that passes through. Provider-neutral: the adapter is responsible for
- * shape; the handler is responsible for security policy.
+ * LLM Egress Proxy handler — runs detector chain + per-tenant DSL over
+ * every LLM exchange that passes through. Provider-neutral: the adapter
+ * is responsible for shape; the handler is responsible for security
+ * policy.
  *
- * v1 decision model (per pending tool_call):
- *   strictest signal across all detectors:
- *     critical  → block this tool call (response is mangled)
- *     warn      → log + audit, but pass through
- *     info      → log only
+ * Decision model (per pending tool_call), strictest wins:
+ *   detector:  critical  → block this tool call (response is mangled)
+ *              warn      → log + audit, pass through
+ *              info      → log only
+ *   DSL:       block     → block (same treatment as detector critical)
+ *              pending   → block in proxy path (inline HTTP cannot hold
+ *                          for human approval); audit tags the decision
+ *                          as `dsl_pending_treated_as_block` so operators
+ *                          reviewing the trail see WHY it was blocked
+ *                          — not silently upgraded.
+ *              allow     → no override
  *
- * v1.1 will fold in the DSL evaluator + AJV policy engine for parity with
- * `/api/v1/check`. The Signal contract is shared, so swapping the decision
- * function is the only change needed.
+ * The DSL context mirrors the /api/v1/check payload so a rule written
+ * once fires the same on both surfaces. Workflow anchors (Phase 1.3)
+ * are read from `X-AEGIS-Workflow-Node-Id` / `-Binding-Id` headers so
+ * SDK callers using `workflow_scope()` get node-scoped policy targeting
+ * without changing the API surface.
  */
 
 import { Request, Response } from 'express';
@@ -27,6 +36,8 @@ import { AgentRegistryService } from '../services/agent-registry';
 import { AgentIdCardService } from '../services/agent-id-card';
 import { CrossAgentCorrelatorService } from '../services/cross-agent-correlator';
 import { TaintTrackerService } from '../services/taint-tracker';
+import { DslPolicyService } from '../services/policy-dsl';
+import type { MatchResult } from '../policies/dsl/evaluator';
 import {
   NeutralToolCall,
   ProxyAdapter,
@@ -61,6 +72,12 @@ export interface ProxyHandlerDeps {
    *  call's signals get recorded so subsequent outbound calls within
    *  the taint window trigger the T5001 exfil signal. */
   taintTracker?: TaintTrackerService;
+  /** Optional — per-tenant DSL evaluator. When provided, every pending
+   *  tool call is evaluated against the tenant DSL AFTER the detector
+   *  chain runs, and the strictest decision wins. Same evaluator +
+   *  context shape as `/api/v1/check` so a single policy fires on both
+   *  paths. Missing dslPolicy = detector-only decisions (v1 behavior). */
+  dslPolicy?: DslPolicyService;
 }
 
 interface AuthOk {
@@ -213,6 +230,13 @@ export class ProxyHandler {
     }
     const upstreamMs = Date.now() - t0;
 
+    // Phase 4a · workflow anchors from headers. SDK `workflow_scope()`
+    // sets these; when both sides participate the DSL sees a
+    // node-scoped context and rules like `workflow.node_id == "<uuid>"`
+    // fire. Legacy callers omit the headers and DSL falls back to
+    // tool-name matching (unchanged v1 behavior).
+    const workflowAnchor = extractWorkflowAnchor(headers);
+
     // Run detectors over every pending tool call from the response. Tool
     // calls in the REQUEST history already executed in earlier turns —
     // they're audit material, not blockable. Earlier-turn tool RESULTS
@@ -221,7 +245,12 @@ export class ProxyHandler {
     const pending = adapter.extractPendingToolCalls(upstreamJson);
     const toolResultContent = adapter.extractToolResultContent(req.body);
     const evaluations = await this.evaluatePending(
-      { agentId: ctx.agentId, sessionId: ctx.sessionId, toolResultContent },
+      {
+        agentId: ctx.agentId,
+        sessionId: ctx.sessionId,
+        toolResultContent,
+        workflow: workflowAnchor,
+      },
       auth.orgId,
       pending,
     );
@@ -302,6 +331,16 @@ export class ProxyHandler {
           blocked: directive.blockedToolCallIds,
         },
         signals: evaluations.flatMap(e => e.signals.map(toAuditSignal)),
+        dsl: evaluations
+          .filter(e => e.dsl)
+          .map(e => ({
+            tool_call_id: e.toolCall.id,
+            decision:     e.dsl!.decision,
+            rule_name:    e.dsl!.ruleName,
+            reason:       e.dsl!.reason,
+            treated_as:   e.dslTreatedAs,
+          })),
+        workflow: workflowAnchor ?? undefined,
       },
     });
 
@@ -317,11 +356,16 @@ export class ProxyHandler {
   };
 
   private async evaluatePending(
-    ctx: { agentId: string; sessionId?: string; toolResultContent?: string[] },
+    ctx: {
+      agentId: string;
+      sessionId?: string;
+      toolResultContent?: string[];
+      workflow?: { node_id?: string; binding_id?: string };
+    },
     orgId: string,
     pending: NeutralToolCall[],
-  ): Promise<Array<{ toolCall: NeutralToolCall; signals: Signal[]; decision: 'allow' | 'block'; reason?: string }>> {
-    const out = [];
+  ): Promise<Array<ProxyEvaluation>> {
+    const out: ProxyEvaluation[] = [];
     for (const tc of pending) {
       const signals = await this.deps.detectors.evaluateAll({
         tool: { name: tc.name, args: tc.arguments },
@@ -336,13 +380,54 @@ export class ProxyHandler {
         (acc, s) => (acc == null || SEVERITY_RANK[s.severity] > SEVERITY_RANK[acc.severity]) ? s : acc,
         null,
       );
-      const decision: 'allow' | 'block' = worst && worst.severity === 'critical' ? 'block' : 'allow';
-      out.push({
-        toolCall: tc,
-        signals,
-        decision,
-        reason: worst?.message,
-      });
+
+      // Detector-side decision (v1 behavior).
+      let decision: 'allow' | 'block' = worst && worst.severity === 'critical' ? 'block' : 'allow';
+      let reason: string | undefined = worst?.message;
+
+      // ── DSL evaluation (fail-safe: can only tighten, never loosen) ──
+      // Same shape as check.ts:313 so a single rule fires on both
+      // surfaces. Detector-produced classifier/anomaly aren't computed
+      // in the egress path (no ML pipeline in-line yet), so those
+      // context branches stay empty — the DSL correctly returns
+      // no-match when a rule requires them.
+      let dslMatch: MatchResult | null = null;
+      let dslTreatedAs: 'block' | 'allow' | undefined;
+      if (this.deps.dslPolicy) {
+        try {
+          dslMatch = this.deps.dslPolicy.evaluate(orgId, {
+            tool: { name: tc.name, args: tc.arguments },
+            agent: { id: ctx.agentId },
+            tenant: { id: orgId },
+            workflow: ctx.workflow?.node_id || ctx.workflow?.binding_id
+              ? { node_id: ctx.workflow.node_id, binding_id: ctx.workflow.binding_id }
+              : undefined,
+          });
+        } catch (err) {
+          this.deps.logger.error(
+            { orgId, err: (err as Error).message },
+            'DSL evaluate() threw in proxy — treating as no-match',
+          );
+        }
+        if (dslMatch) {
+          if (dslMatch.decision === 'block') {
+            decision = 'block';
+            reason = `DSL:${dslMatch.ruleName}${dslMatch.reason ? ` (${dslMatch.reason})` : ''}`;
+            dslTreatedAs = 'block';
+          } else if (dslMatch.decision === 'pending') {
+            // Proxy is inline HTTP — no place to hold for human approval.
+            // Fail-safe: pending → block, but audit the exact reason so
+            // operators reviewing the trail see WHY we didn't wait.
+            decision = 'block';
+            reason = `DSL:${dslMatch.ruleName} (pending-treated-as-block: ${dslMatch.reason ?? 'human review required'})`;
+            dslTreatedAs = 'block';
+          } else {
+            dslTreatedAs = 'allow';
+          }
+        }
+      }
+
+      out.push({ toolCall: tc, signals, decision, reason, dsl: dslMatch, dslTreatedAs });
     }
     return out;
   }
@@ -414,6 +499,47 @@ function redactArgs(tc: NeutralToolCall): { id: string; name: string; arg_keys: 
     name: tc.name,
     arg_keys: Object.keys(tc.arguments ?? {}),
   };
+}
+
+/**
+ * Extract Phase 1.3 workflow anchors from proxy headers. SDK
+ * `workflow_scope()` sets `X-AEGIS-Workflow-Node-Id` /
+ * `-Binding-Id`; when absent, we return undefined so the DSL
+ * evaluator sees no workflow context (legacy behavior).
+ *
+ * Anchors are validated as UUIDs (v5, per Phase 1.1) — a malformed
+ * header is silently dropped rather than mis-attributed, so a
+ * client bug can't get its call routed to another node's policy.
+ */
+function extractWorkflowAnchor(headers: Record<string, string>): {
+  node_id?: string; binding_id?: string;
+} | undefined {
+  const node    = headers['x-aegis-workflow-node-id'];
+  const binding = headers['x-aegis-workflow-binding-id'];
+  const nodeOk    = node    && UUID_RE.test(node)    ? node    : undefined;
+  const bindingOk = binding && UUID_RE.test(binding) ? binding : undefined;
+  if (!nodeOk && !bindingOk) return undefined;
+  return { node_id: nodeOk, binding_id: bindingOk };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface ProxyEvaluation {
+  toolCall: NeutralToolCall;
+  signals: Signal[];
+  decision: 'allow' | 'block';
+  reason?: string;
+  /** DSL evaluator's raw match, if any. Absent when no DSL configured
+   *  or no rule matched. Retained separately from `decision` so audit
+   *  can see when the DSL fired but detector was already blocking
+   *  (both signals attributed) and when the DSL is the sole reason
+   *  for a block. */
+  dsl?: MatchResult | null;
+  /** How the proxy translated the DSL decision. `pending` → `block`
+   *  is the load-bearing case: the audit row keeps the original DSL
+   *  decision AND this translation so operators can distinguish
+   *  "DSL said block" from "DSL said pending but we can't hold". */
+  dslTreatedAs?: 'block' | 'allow';
 }
 
 function toAuditSignal(s: Signal): { detector: string; severity: Severity; category: string; message: string } {

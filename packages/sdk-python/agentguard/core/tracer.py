@@ -41,6 +41,10 @@ class TraceContext:
         parent_delegation_id: Optional[str] = None,
         workflow_node_id: Optional[str] = None,
         workflow_binding_id: Optional[str] = None,
+        parent_agent_id: Optional[str] = None,
+        delegation_reason: Optional[str] = None,
+        capability_grant: Optional[Dict[str, Any]] = None,
+        a2a_envelope_hash: Optional[str] = None,
     ):
         self.trace_id = trace_id
         self.parent_trace_id = parent_trace_id
@@ -54,6 +58,13 @@ class TraceContext:
         # these ids instead of matching on tool_name strings.
         self.workflow_node_id = workflow_node_id
         self.workflow_binding_id = workflow_binding_id
+        # Phase 4b A2A envelope — populated from the a2a_scope stack.
+        # Purely observability in v1: gateway persists but does not
+        # gate on these. Phase 5 will add active enforcement.
+        self.parent_agent_id = parent_agent_id
+        self.delegation_reason = delegation_reason
+        self.capability_grant = capability_grant
+        self.a2a_envelope_hash = a2a_envelope_hash
         self.sequence_number = sequence_number
         self.start_time = time.time()
         self.captured_stdout: Optional[str] = None
@@ -87,6 +98,91 @@ class DelegationScope:
         stack = getattr(self._guard, "_delegation_stack", [])
         if stack and stack[-1] == self._id:
             stack.pop()
+
+
+class A2AScope:
+    """Phase 4b · context-manager returned by AgentGuard.a2a_scope().
+
+    Every trace opened inside the ``with`` block carries the A2A
+    envelope: which parent agent delegated to this child, why, and
+    what capabilities were granted. Purely observability in v1 —
+    surfaces on ``/traces/:id/delegation`` and the cockpit
+    delegation-waterfall, but does NOT gate execution.
+
+    The envelope hash is SHA-256 over the canonical JSON of
+    ``{parent, child, reason, capabilities}`` — no timestamps, so
+    the same conceptual handoff produces the same hash for dedup.
+
+    Example (inside a child agent's startup)::
+
+        with guard.a2a_scope(
+            parent_agent_id="11111111-...",
+            reason="escalate refund case to billing specialist",
+            capabilities={"tools": ["stripe_refund"], "budget_usd": 100},
+        ):
+            billing_agent.run(case_id="C-42")
+    """
+
+    def __init__(
+        self,
+        guard: "AgentGuard",
+        parent_agent_id: str,
+        reason: Optional[str] = None,
+        capabilities: Optional[Dict[str, Any]] = None,
+    ):
+        self._guard = guard
+        self._parent = parent_agent_id
+        self._reason = reason
+        self._caps = capabilities or {}
+        self._hash = compute_a2a_envelope_hash(
+            parent_agent_id=parent_agent_id,
+            child_agent_id=str(guard.config.agent_id),
+            reason=reason,
+            capabilities=self._caps,
+        )
+
+    @property
+    def envelope_hash(self) -> str:
+        """The SHA-256 envelope hash — same value gateway will persist."""
+        return self._hash
+
+    def __enter__(self) -> "A2AScope":
+        stack = getattr(self._guard, "_a2a_stack", None)
+        if stack is None:
+            self._guard._a2a_stack = []  # type: ignore[attr-defined]
+            stack = self._guard._a2a_stack
+        stack.append((self._parent, self._reason, self._caps, self._hash))
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        stack = getattr(self._guard, "_a2a_stack", [])
+        if stack and stack[-1][3] == self._hash:
+            stack.pop()
+
+
+def compute_a2a_envelope_hash(
+    parent_agent_id: str,
+    child_agent_id: str,
+    reason: Optional[str],
+    capabilities: Dict[str, Any],
+) -> str:
+    """SHA-256 hex over the canonical A2A envelope.
+
+    Canonical form uses ``json.dumps(..., sort_keys=True,
+    separators=(',',':'))`` on the ordered dict so gateway and SDK
+    produce identical hashes for identical envelopes across Python
+    versions and reorderings of ``capabilities``.
+    """
+    import hashlib as _hashlib
+    import json as _json
+    envelope = {
+        "parent": parent_agent_id,
+        "child":  child_agent_id,
+        "reason": reason or "",
+        "capabilities": capabilities,
+    }
+    canonical = _json.dumps(envelope, sort_keys=True, separators=(",", ":"))
+    return _hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class WorkflowScope:
@@ -145,6 +241,12 @@ class AgentGuard:
         # every trace opened while the stack is non-empty inherits the
         # top pair.
         self._workflow_stack: List[tuple] = []
+        # Stack of active A2A envelopes (Phase 4b). Tuples of shape
+        # (parent_agent_id, reason, capabilities_dict, envelope_hash).
+        # Every trace opened while the stack is non-empty inherits the
+        # top envelope onto the outbound trace payload — observability
+        # only in v1.
+        self._a2a_stack: List[tuple] = []
 
         # Normalise agent_id to UUID once — reused for every trace
         try:
@@ -277,6 +379,31 @@ class AgentGuard:
         """
         return WorkflowScope(self, node_id, binding_id)
 
+    def a2a_scope(
+        self,
+        parent_agent_id: str,
+        reason: Optional[str] = None,
+        capabilities: Optional[Dict[str, Any]] = None,
+    ) -> "A2AScope":
+        """Attach an A2A observability envelope to every trace inside.
+
+        Populates ``parent_agent_id``, ``delegation_reason``,
+        ``capability_grant``, and ``a2a_envelope_hash`` on emitted
+        traces so the gateway can render the delegation waterfall
+        with the WHY + WHAT of each handoff. Observability only in
+        v1 — no runtime block; Phase 5 will add active enforcement.
+
+        Example::
+
+            with guard.a2a_scope(
+                parent_agent_id=parent.agent_id,
+                reason="refund flow escalation",
+                capabilities={"tools":["stripe_refund"], "budget_usd":100},
+            ):
+                billing.process(case_id)
+        """
+        return A2AScope(self, parent_agent_id, reason, capabilities)
+
     @contextmanager
     def _create_trace_context(self):
         """Create a new trace context."""
@@ -301,6 +428,17 @@ class AgentGuard:
         if self._workflow_stack:
             current_node, current_binding = self._workflow_stack[-1]
 
+        # A2A envelope propagation (Phase 4b). Same top-of-stack-wins
+        # semantics. When the child agent sits inside a2a_scope(),
+        # its emitted traces carry the envelope so the gateway can
+        # reconstruct WHO delegated + WHY + WHAT authority.
+        parent_agent_id: Optional[str] = None
+        delegation_reason: Optional[str] = None
+        capability_grant: Optional[Dict[str, Any]] = None
+        a2a_hash: Optional[str] = None
+        if self._a2a_stack:
+            parent_agent_id, delegation_reason, capability_grant, a2a_hash = self._a2a_stack[-1]
+
         ctx = TraceContext(
             trace_id=uuid4(),
             parent_trace_id=parent_id,
@@ -309,6 +447,10 @@ class AgentGuard:
             parent_delegation_id=parent_delegation,
             workflow_node_id=current_node,
             workflow_binding_id=current_binding,
+            parent_agent_id=parent_agent_id,
+            delegation_reason=delegation_reason,
+            capability_grant=capability_grant,
+            a2a_envelope_hash=a2a_hash,
         )
         self._sequence_counter += 1
 
@@ -489,6 +631,12 @@ class AgentGuard:
             parent_delegation_id=ctx.parent_delegation_id,
             workflow_node_id=ctx.workflow_node_id,
             workflow_binding_id=ctx.workflow_binding_id,
+            # Phase 4b A2A envelope — top of the a2a_scope stack at
+            # trace-open time. All optional; legacy callers keep working.
+            parent_agent_id=ctx.parent_agent_id,
+            delegation_reason=ctx.delegation_reason,
+            capability_grant=ctx.capability_grant,
+            a2a_envelope_hash=ctx.a2a_envelope_hash,
             sequence_number=ctx.sequence_number,
             input_context=input_context,
             thought_chain=thought_chain,

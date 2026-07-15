@@ -393,12 +393,26 @@ export class TraceAPI {
                   risk_level_v AS risk_level,
                   approval_status, cost_usd,
                   workflow_node_id, workflow_binding_id,
+                  parent_agent_id, delegation_reason,
+                  capability_grant, a2a_envelope_hash,
                   json_extract(observation, '$.duration_ms') AS duration_ms
              FROM traces
              WHERE delegation_id = ?
                AND COALESCE(org_id, 'default') = ?
              ORDER BY timestamp ASC, sequence_number ASC`,
-        ).all(focus.delegation_id, orgId);
+        ).all(focus.delegation_id, orgId) as any[];
+
+        // capability_grant is stored as a JSON string; parse for the
+        // client so the wire response is a nested object, matching
+        // the shape SDKs sent on insert. Malformed rows return null
+        // rather than a JSON string to avoid downstream schema
+        // confusion.
+        for (const row of rows) {
+          if (row.capability_grant) {
+            try { row.capability_grant = JSON.parse(row.capability_grant); }
+            catch { row.capability_grant = null; }
+          }
+        }
 
         res.json({ delegation_id: focus.delegation_id, traces: rows });
       } catch (e) {
@@ -708,6 +722,23 @@ export class TraceAPI {
       typeof (trace as any).workflow_binding_id === 'string' && (trace as any).workflow_binding_id
         ? String((trace as any).workflow_binding_id) : null;
 
+    // Phase 4b A2A envelope. Same defensive-cast pattern as workflow
+    // anchors above — SDK-populated fields plumbed through, malformed
+    // values coerced to null rather than failing the ingest.
+    const parentAgentId =
+      typeof (trace as any).parent_agent_id === 'string' && (trace as any).parent_agent_id
+        ? String((trace as any).parent_agent_id) : null;
+    const delegationReason =
+      typeof (trace as any).delegation_reason === 'string' && (trace as any).delegation_reason
+        ? String((trace as any).delegation_reason) : null;
+    const capabilityGrant =
+      (trace as any).capability_grant && typeof (trace as any).capability_grant === 'object'
+        ? JSON.stringify((trace as any).capability_grant) : null;
+    const a2aEnvelopeHash =
+      typeof (trace as any).a2a_envelope_hash === 'string' &&
+      /^[0-9a-f]{64}$/.test((trace as any).a2a_envelope_hash)
+        ? String((trace as any).a2a_envelope_hash) : null;
+
     this.db.prepare(`
       INSERT INTO traces (
         trace_id, parent_trace_id, agent_id, timestamp, sequence_number,
@@ -718,7 +749,8 @@ export class TraceAPI {
         model, input_tokens, output_tokens, cost_usd,
         session_id, pii_detected, content_hash,
         delegation_id, parent_delegation_id, org_id,
-        workflow_node_id, workflow_binding_id
+        workflow_node_id, workflow_binding_id,
+        parent_agent_id, delegation_reason, capability_grant, a2a_envelope_hash
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
@@ -728,7 +760,8 @@ export class TraceAPI {
         ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?,
-        ?, ?
+        ?, ?,
+        ?, ?, ?, ?
       )
     `).run(
       String(trace.trace_id),
@@ -761,6 +794,10 @@ export class TraceAPI {
       orgId,
       workflowNodeId,
       workflowBindingId,
+      parentAgentId,
+      delegationReason,
+      capabilityGrant,
+      a2aEnvelopeHash,
     );
 
     // Emit OTEL span async, non-blocking

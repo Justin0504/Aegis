@@ -84,6 +84,15 @@ class AgentActionTrace(BaseModel):
     workflow_node_id: Optional[str] = None
     workflow_binding_id: Optional[str] = None
 
+    # Phase 4b A2A observability envelope. Populated by A2AScope.
+    # `capability_grant` is a JSON-serializable dict of what the
+    # parent authorised the child to do (tools, budgets, expiries).
+    # Purely observability in v1; gateway persists but does not gate.
+    parent_agent_id: Optional[str] = None
+    delegation_reason: Optional[str] = None
+    capability_grant: Optional[Dict[str, Any]] = None
+    a2a_envelope_hash: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     sequence_number: int = Field(ge=0)
@@ -146,6 +155,13 @@ class CreateTraceRequest(BaseModel):
     # active" (fully backward compatible with pre-Phase-1.3 traces).
     workflow_node_id: Optional[str] = None
     workflow_binding_id: Optional[str] = None
+
+    # Phase 4b A2A envelope — populated by A2AScope on the child agent
+    # when its startup runs inside `with parent.a2a_scope(...)`.
+    parent_agent_id: Optional[str] = None
+    delegation_reason: Optional[str] = None
+    capability_grant: Optional[Dict[str, Any]] = None
+    a2a_envelope_hash: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
     agent_id: UUID
     timestamp: datetime = Field(default_factory=datetime.utcnow)

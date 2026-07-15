@@ -768,6 +768,7 @@ async function main() {
     agentIdCards,
     crossAgent,
     taintTracker,
+    dslPolicy,
   });
   // NOTE: no `requireAuth` here — the proxy authenticates via X-AEGIS-Key
   // inside the handler since `Authorization` is reserved for the upstream

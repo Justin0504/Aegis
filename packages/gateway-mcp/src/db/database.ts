@@ -289,6 +289,36 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // fired node X in the last 24 h" as a hot query and needs to
     // avoid a table scan once trace volume grows.
     `CREATE INDEX IF NOT EXISTS idx_traces_workflow_node ON traces (workflow_node_id, timestamp DESC) WHERE workflow_node_id IS NOT NULL`,
+    // Phase 4b · A2A observability envelope. `parent_trace_id` +
+    // `delegation_id` already link the trace graph structurally; these
+    // columns carry the SEMANTIC envelope — WHY the parent delegated
+    // and WHAT authority they granted. Without them, forensic queries
+    // ("did the parent authorise this refund tool call?") fall back on
+    // guessing from the parent's system prompt.
+    //
+    //   parent_agent_id     — parent's agent UUID (child.agent_id is
+    //                         already the child's; storing parent
+    //                         explicitly avoids a parent_trace_id
+    //                         JOIN on every A2A audit query).
+    //   delegation_reason   — free-text reason ("escalate refund case
+    //                         to billing-specialist"). Not scored, not
+    //                         enforced — pure observability.
+    //   capability_grant    — JSON envelope of what the parent granted
+    //                         the child: {"tools":["stripe_refund"],
+    //                         "budget_usd":100,"expires_at":"..."}.
+    //   a2a_envelope_hash   — SHA-256 hex over the canonical envelope
+    //                         (parent+child+reason+capabilities). Ties
+    //                         the child's trace to a specific handoff
+    //                         event; two identical handoffs collide,
+    //                         which is desirable for dedup.
+    `ALTER TABLE traces ADD COLUMN parent_agent_id TEXT`,
+    `ALTER TABLE traces ADD COLUMN delegation_reason TEXT`,
+    `ALTER TABLE traces ADD COLUMN capability_grant TEXT`,
+    `ALTER TABLE traces ADD COLUMN a2a_envelope_hash TEXT`,
+    // Partial index on the envelope hash so "all traces under handoff X"
+    // is O(log n). Partial because most traces have no envelope and we
+    // don't want them in the index.
+    `CREATE INDEX IF NOT EXISTS idx_traces_a2a_envelope ON traces (a2a_envelope_hash) WHERE a2a_envelope_hash IS NOT NULL`,
     // Composite indexes leading with the extracted field + timestamp DESC.
     // Matches the DSL compiler's ORDER BY traces.timestamp DESC — the
     // planner walks the index in reverse without a TEMP B-TREE sort.

@@ -63,14 +63,23 @@ HTTP_TOOL_ENDPOINTS: Dict[str, str] = {
 }
 
 
-def _build_identity_headers(cfg) -> Dict[str, str]:
+def _build_identity_headers(cfg, guard=None) -> Dict[str, str]:
     """
     Header set that pins agent identity on every gateway call.
 
-      x-api-key             — tenant key (config or env)
-      x-aegis-agent-id      — this SDK instance's agent UUID
-      x-aegis-agent-secret  — when the agent is registered with a secret
-      x-aegis-session-id    — optional cross-call correlation
+      x-api-key                        — tenant key (config or env)
+      x-aegis-agent-id                 — this SDK instance's agent UUID
+      x-aegis-agent-secret             — when the agent is registered with a secret
+      x-aegis-session-id               — optional cross-call correlation
+      x-aegis-workflow-node-id         — Phase 1.3 workflow anchor (if guard
+                                         has an active workflow_scope())
+      x-aegis-workflow-binding-id      — Phase 1.3 workflow anchor (ditto)
+
+    `guard` is optional to preserve the pre-Phase-1.3 callsite contract.
+    When present, we read the top of its workflow stack so DSL rules
+    written against `workflow.node_id` fire on the corresponding
+    `/check` and `/llm-proxy/*` calls without the user threading state
+    manually.
     """
     headers: Dict[str, str] = {"Content-Type": "application/json"}
     api_key = (
@@ -116,6 +125,24 @@ def _build_identity_headers(cfg) -> Dict[str, str]:
     )
     if source_commit:
         headers["x-aegis-source-commit"] = source_commit
+
+    # Phase 1.3 / 4a — workflow anchors on the innermost active scope.
+    # Read defensively: guard is optional, the stack is optional, and
+    # stack entries are (node_id, binding_id) tuples where either may
+    # be None. A bad shape must not break the header build.
+    if guard is not None:
+        try:
+            stack = getattr(guard, "_workflow_stack", None) or []
+            if stack:
+                node_id, binding_id = stack[-1]
+                if node_id:
+                    headers["x-aegis-workflow-node-id"] = str(node_id)
+                if binding_id:
+                    headers["x-aegis-workflow-binding-id"] = str(binding_id)
+        except Exception:
+            # Header attachment is best-effort — never fail a gateway
+            # call because workflow context couldn't be read.
+            pass
     return headers
 
 if TYPE_CHECKING:
@@ -263,7 +290,7 @@ class AutoInstrument:
             req = urllib.request.Request(
                 f"{gateway_url}/api/v1/check",
                 data=self._build_check_payload(tool_name, arguments),
-                headers=_build_identity_headers(cfg),
+                headers=_build_identity_headers(cfg, self._guard),
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
@@ -320,7 +347,7 @@ class AutoInstrument:
             try:
                 req = urllib.request.Request(
                     f"{gateway_url}/api/v1/check/{check_id}/decision",
-                    headers=_build_identity_headers(self._guard.config),
+                    headers=_build_identity_headers(self._guard.config, self._guard),
                     method="GET",
                 )
                 with urllib.request.urlopen(req, timeout=5) as resp:
@@ -374,7 +401,7 @@ class AutoInstrument:
                 req = urllib.request.Request(
                     f"{gateway_url}/api/v1/check",
                     data=payload,
-                    headers=_build_identity_headers(cfg),
+                    headers=_build_identity_headers(cfg, self._guard),
                     method="POST",
                 )
                 with urllib.request.urlopen(req, timeout=timeout_s) as resp:
@@ -431,7 +458,7 @@ class AutoInstrument:
                 def _do_poll():
                     req = urllib.request.Request(
                         f"{gateway_url}/api/v1/check/{check_id}/decision",
-                        headers=_build_identity_headers(self._guard.config),
+                        headers=_build_identity_headers(self._guard.config, self._guard),
                         method="GET",
                     )
                     with urllib.request.urlopen(req, timeout=5) as resp:

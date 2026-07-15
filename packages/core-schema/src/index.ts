@@ -112,6 +112,28 @@ export const AgentActionTraceSchema = z.object({
   //     one-off scripts) don't have to synthesize a fake node id
   workflow_node_id:    z.string().uuid().nullable().optional(),
   workflow_binding_id: z.string().uuid().nullable().optional(),
+
+  // ── A2A observability envelope (Phase 4b) ────────────────────────
+  // When a parent agent delegates to a child agent, the child's first
+  // trace under that delegation carries the envelope: WHO delegated
+  // (parent_agent_id), WHY (delegation_reason), and WHAT authority
+  // was granted (capability_grant JSON). Structural links (parent_
+  // trace_id, delegation_id) already exist and are unchanged.
+  //
+  // `a2a_envelope_hash` is SHA-256 hex over the canonical envelope
+  // and ties a specific child trace back to a specific handoff event.
+  // Two identical handoffs collide on hash — that is desirable for
+  // dedup (same parent/child/reason/capabilities executed twice is
+  // observationally the same event, and we surface it once in the
+  // audit UI).
+  //
+  // Purely observability in v1 — no runtime gate on delegation.
+  // Phase 5 will layer active enforcement on top by evaluating the
+  // envelope through the DSL before the child registers.
+  parent_agent_id:    z.string().nullable().optional(),
+  delegation_reason:  z.string().max(1000).nullable().optional(),
+  capability_grant:   z.record(z.unknown()).nullable().optional(),
+  a2a_envelope_hash:  z.string().regex(/^[0-9a-f]{64}$/).nullable().optional(),
 });
 
 // Enum exports (for runtime use)
