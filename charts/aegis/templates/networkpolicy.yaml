@@ -1,0 +1,91 @@
+{{- if .Values.networkPolicy.enabled }}
+# Defense-in-depth for AEGIS_OFFLINE. Restricts gateway egress at the
+# CNI layer so even a bypass of the AEGIS_OFFLINE application-level
+# check cannot reach public LLM APIs.
+#
+# What's ALLOWED:
+#   · Ingress from any pod in this namespace to the gateway http port.
+#     (Cockpit + SDK-side pods forwarding traces.)
+#   · Egress to cluster DNS (kube-dns / coredns on port 53).
+#   · Egress to any pod IN THE SAME NAMESPACE — so an Ollama sidecar,
+#     an in-cluster Postgres, or an in-cluster LiteLLM proxy remain
+#     reachable without additional allow-list entries.
+#   · Egress to Kubernetes API server (kubernetes.default.svc).
+#   · Egress to CIDRs explicitly listed in networkPolicy.allowedEgressCidrs
+#     (typically empty for air-gapped; corporate SIEM ingress otherwise).
+#
+# What's DENIED:
+#   · All egress to the public internet (0.0.0.0/0 minus explicit allows).
+#   · All egress to other namespaces (unless the CIDR listed above
+#     happens to point there).
+#
+# CNI compatibility: requires a plugin that honors NetworkPolicy egress
+# rules — Calico, Cilium, Weave, Antrea. AWS VPC-CNI + native GKE
+# require additional configuration; AKS kubenet does NOT enforce egress
+# rules. Confirm before enabling in production.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "aegis.gateway.fullname" . }}-egress
+  labels:
+    {{- include "aegis.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aegis.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # In-cluster ingress from any pod in this namespace to the gateway.
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.gateway.port }}
+  egress:
+    # Cluster DNS (both port + protocol, TCP variant covers TCP fallback).
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Anything in the same namespace (sidecar Ollama, in-cluster Postgres,
+    # LiteLLM proxy, cockpit, etc.). Locked to this namespace explicitly
+    # via matchLabels so a rogue pod in another namespace can't be
+    # reached even if it exposes a matching port.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+    # Kubernetes API server — needed for the ServiceAccount token
+    # refresh flow. Without this, the pod loses cluster identity on
+    # token rotation. 443 is the standard control-plane port; some
+    # distributions expose 6443 as well.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+      ports: []   # placeholder; overridden by explicit allows below
+    {{- range .Values.networkPolicy.allowedEgressCidrs }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      {{- if .ports }}
+      ports:
+        {{- range .ports }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}

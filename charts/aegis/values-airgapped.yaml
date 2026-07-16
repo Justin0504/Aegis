@@ -1,0 +1,65 @@
+# AEGIS · pre-configured air-gapped overlay.
+#
+# Usage:
+#   # 1. Push AEGIS images into your private registry
+#   #    (see docs/ONPREM.md § "Air-gapped image mirroring").
+#   # 2. helm install aegis charts/aegis \
+#   #      -f charts/aegis/values-airgapped.yaml \
+#   #      --set gateway.image.repository=registry.internal.corp/aegis-gateway \
+#   #      --set cockpit.image.repository=registry.internal.corp/aegis-cockpit \
+#   #      --set gateway.image.tag=1.2.5 --set cockpit.image.tag=1.2.5
+#   # 3. Adjust localLlm.url + model to match your Ollama/vLLM service.
+#
+# What this overlay does that the default values.yaml does NOT:
+#   · Turns on AEGIS_OFFLINE (severs AEGIS-internal cloud LLM calls)
+#   · Wires an in-cluster Ollama service as the NL policy compiler LLM
+#   · Turns on NetworkPolicy (CNI-layer egress lockdown)
+#   · Bumps to 2 replicas + enables PDB (min available: 1)
+#   · Pins imagePullPolicy=IfNotPresent so mirrored images aren't re-pulled
+#   · Requires managed Postgres via gateway.database.dbUrl (SQLite is
+#     unsafe with replicas > 1). SET IT before installing.
+
+gateway:
+  replicas: 2
+  image:
+    pullPolicy: IfNotPresent
+  offline: true
+  localLlm:
+    enabled: true
+    url: http://ollama.aegis.svc.cluster.local:11434/v1
+    model: llama3.1
+    timeoutMs: 20000
+  database:
+    dbUrl: ""    # REQUIRED for replicas > 1. Example:
+                 # postgres://aegis:PASSWORD@postgres.aegis.svc.cluster.local:5432/aegis
+    persistence:
+      enabled: false     # not needed when using managed Postgres
+
+cockpit:
+  replicas: 2
+  image:
+    pullPolicy: IfNotPresent
+
+networkPolicy:
+  enabled: true
+  allowedEgressCidrs: []    # nothing outbound to internet in air-gapped mode
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+autoscaling:
+  enabled: false    # air-gapped: predictable capacity, no bursty scaling
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true

@@ -65,6 +65,29 @@ spec:
                   name: {{ include "aegis.fullname" . }}-config
                   key: GATEWAY_API_KEY
             {{- end }}
+            {{- if .Values.gateway.offline }}
+            # Hard block on AEGIS-internal outbound to public LLM APIs.
+            # Complements NetworkPolicy at the k8s layer (defense-in-depth).
+            - name: AEGIS_OFFLINE
+              value: "1"
+            {{- end }}
+            {{- if .Values.gateway.localLlm.enabled }}
+            - name: AEGIS_LOCAL_LLM_URL
+              value: "{{ .Values.gateway.localLlm.url }}"
+            - name: AEGIS_LOCAL_LLM_MODEL
+              value: "{{ .Values.gateway.localLlm.model }}"
+            {{- if .Values.gateway.localLlm.key }}
+            - name: AEGIS_LOCAL_LLM_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aegis.fullname" . }}-config
+                  key: AEGIS_LOCAL_LLM_KEY
+            {{- end }}
+            {{- if .Values.gateway.localLlm.timeoutMs }}
+            - name: AEGIS_LOCAL_LLM_TIMEOUT_MS
+              value: "{{ .Values.gateway.localLlm.timeoutMs }}"
+            {{- end }}
+            {{- end }}
             {{- range $k, $v := .Values.gateway.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}

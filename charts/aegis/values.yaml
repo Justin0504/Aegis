@@ -45,6 +45,37 @@ gateway:
 
   env: {}                    # extra env vars
 
+  # Air-gapped / BFSI hardening. When enabled:
+  #   · AEGIS_OFFLINE=1 is set on the gateway container, which refuses
+  #     any AEGIS-internal outbound to public LLM APIs (Anthropic /
+  #     OpenAI). Customer-driven LLM proxy traffic (BYOK) is unaffected
+  #     — that's the CUSTOMER's egress, not AEGIS's.
+  #   · The NetworkPolicy in templates/networkpolicy.yaml (when
+  #     networkPolicy.enabled=true) additionally denies all egress
+  #     from the gateway pod EXCEPT to explicitly allow-listed
+  #     destinations (cluster DNS, the local LLM endpoint, Postgres,
+  #     transparency log sink). This is defense-in-depth: even if
+  #     the AEGIS_OFFLINE code path is bypassed, k8s network policy
+  #     stops the connection at the CNI layer.
+  offline: false
+
+  # Local LLM adapter for the NL policy compiler. Required when
+  # `offline: true` — otherwise the compiler falls back to its
+  # heuristic backend (still functional but weaker on complex
+  # natural-language descriptions).
+  #
+  # Points at an OpenAI-compat /v1 endpoint. In-cluster common
+  # choices:
+  #   Ollama sidecar:  http://127.0.0.1:11434/v1
+  #   vLLM service:    http://vllm.aegis.svc.cluster.local:8000/v1
+  #   LiteLLM proxy:   http://litellm.aegis.svc.cluster.local:4000/v1
+  localLlm:
+    enabled: false
+    url:   ""    # OpenAI-compat /v1 base URL
+    model: ""    # model id as the local server registered it
+    key:   ""    # optional bearer token if the local server requires auth
+    timeoutMs: 16000
+
 # ── Cockpit (Next.js dashboard) ────────────────────────────────────────────
 cockpit:
   enabled: true
@@ -105,3 +136,42 @@ securityContext:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# ── Horizontal Pod Autoscaler ──────────────────────────────────────────────
+# Recommended for any deployment running > 1 tenant. Disabled by default
+# because the gateway is stateful-adjacent (SQLite mode holds a file lock);
+# only turn on when using managed Postgres via gateway.database.dbUrl.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ── Pod Disruption Budget ──────────────────────────────────────────────────
+# When replicas > 1, prevents cluster maintenance from taking down every
+# gateway pod simultaneously. minAvailable defaults to replicas - 1.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ── Network Policy ─────────────────────────────────────────────────────────
+# k8s NetworkPolicy for defense-in-depth around AEGIS_OFFLINE. When
+# enabled, egress from the gateway is restricted to allow-listed
+# destinations. Requires a CNI plugin that supports NetworkPolicy
+# (Calico / Cilium / Weave / Antrea). AWS VPC-CNI, GKE Dataplane V1,
+# and AKS kubenet do NOT support NetworkPolicy — check first.
+networkPolicy:
+  enabled: false
+  # CIDRs the gateway is allowed to reach outbound. Cluster-internal
+  # traffic (DNS, kube-api, in-cluster services) is always allowed
+  # via ipBlock rules below.
+  #
+  # Air-gapped baseline: leave this empty. All egress must go through
+  # in-cluster services (localLlm, Postgres, etc.).
+  #
+  # Non-air-gapped with offline mode: add ONLY the specific egress
+  # destinations you deliberately want (e.g., a monitoring endpoint).
+  allowedEgressCidrs: []
+    # - cidr: 203.0.113.0/24     # e.g., corporate SIEM ingress
+    #   ports: [443]
