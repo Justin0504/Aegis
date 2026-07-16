@@ -29,6 +29,8 @@ const navigation = [
   { name: 'Memory',      href: '/memory',     icon: Brain           },
   { name: 'Audit Log',   href: '/audit-log',  icon: ClipboardList   },
   { name: 'Compliance',  href: '/compliance', icon: FileCheck2      },
+  { name: 'EU AI Act',   href: '/compliance/eu-ai-act', icon: FileCheck2 },
+  { name: 'Policy Packs',href: '/dsl/packs',  icon: Shield          },
   { name: 'Settings',    href: '/settings',   icon: Settings        },
 ]
 

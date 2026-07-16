@@ -18,7 +18,10 @@
 import { PolicyDslSchema } from '@agentguard/core-schema';
 import { listPacks, getPack, mergePack, type PolicyPackName } from '../policies/dsl-packs';
 
-const ALL_PACKS: PolicyPackName[] = ['bfsi-glba', 'bfsi-pci-dss', 'bfsi-sox'];
+const ALL_PACKS: PolicyPackName[] = [
+  'bfsi-glba', 'bfsi-pci-dss', 'bfsi-sox',
+  'bfsi-dora', 'healthcare-hipaa', 'gov-fedramp',
+];
 
 describe('DSL packs · registry', () => {
   test('listPacks returns exactly the declared packs', () => {
@@ -43,13 +46,23 @@ describe('DSL packs · registry', () => {
   });
 
   test('every rule carries a framework tag matching the pack slug', () => {
+    // Slug used in tags — the FRAMEWORK part of the pack id, not the
+    // industry prefix. e.g. bfsi-glba → 'glba', healthcare-hipaa → 'hipaa',
+    // gov-fedramp → 'fedramp'.
+    const TAG_BY_PACK: Record<PolicyPackName, string> = {
+      'bfsi-glba':        'glba',
+      'bfsi-pci-dss':     'pci',
+      'bfsi-sox':         'sox',
+      'bfsi-dora':        'dora',
+      'healthcare-hipaa': 'hipaa',
+      'gov-fedramp':      'fedramp',
+    };
     for (const packName of ALL_PACKS) {
       const pack = getPack(packName)!;
-      // Extract the framework prefix from the slug: 'bfsi-glba' → 'glba'.
-      const slug = packName.replace(/^bfsi-/, '').replace('-dss', '');
+      const tag = TAG_BY_PACK[packName];
       for (const rule of pack.dsl.rules) {
         expect(rule.then.tags).toBeDefined();
-        expect(rule.then.tags!.some((t) => t === slug)).toBe(true);
+        expect(rule.then.tags!.some((t) => t === tag)).toBe(true);
       }
     }
   });

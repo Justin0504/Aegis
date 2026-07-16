@@ -8,10 +8,13 @@
  * DSL rules block, meant to be merged into whichever base template
  * (financial, healthcare, standard, …) the operator has chosen.
  *
- * Regulation coverage in v1:
- *   · bfsi-glba     — Gramm-Leach-Bliley Safeguards Rule
- *   · bfsi-pci-dss  — Payment Card Industry Data Security Standard
- *   · bfsi-sox      — Sarbanes-Oxley financial-reporting controls
+ * Regulation coverage:
+ *   · bfsi-glba        — Gramm-Leach-Bliley Safeguards Rule (US finance)
+ *   · bfsi-pci-dss     — Payment Card Industry Data Security Standard
+ *   · bfsi-sox         — Sarbanes-Oxley financial-reporting controls
+ *   · bfsi-dora        — EU Digital Operational Resilience Act
+ *   · healthcare-hipaa — HIPAA Security + Privacy Rules
+ *   · gov-fedramp      — FedRAMP Moderate (NIST SP 800-53 Rev 5)
  *
  * Each pack:
  *   - is a valid PolicyDsl document (`version: 1`, up to 100 rules)
@@ -31,6 +34,9 @@ import { PolicyDsl, PolicyDslSchema } from '@agentguard/core-schema';
 import { bfsiGlbaPack } from './bfsi-glba';
 import { bfsiPciDssPack } from './bfsi-pci-dss';
 import { bfsiSoxPack } from './bfsi-sox';
+import { doraPack } from './dora';
+import { hipaaPack } from './hipaa';
+import { fedrampPack } from './fedramp';
 
 export interface PolicyPackMeta {
   name: PolicyPackName;
@@ -40,16 +46,25 @@ export interface PolicyPackMeta {
   dsl: PolicyDsl;
 }
 
-export type PolicyPackName = 'bfsi-glba' | 'bfsi-pci-dss' | 'bfsi-sox';
+export type PolicyPackName =
+  | 'bfsi-glba'
+  | 'bfsi-pci-dss'
+  | 'bfsi-sox'
+  | 'bfsi-dora'
+  | 'healthcare-hipaa'
+  | 'gov-fedramp';
 
 const RAW: Record<PolicyPackName, {
   description: string;
   citation: string;
   dsl: PolicyDsl;
 }> = {
-  'bfsi-glba':    bfsiGlbaPack,
-  'bfsi-pci-dss': bfsiPciDssPack,
-  'bfsi-sox':     bfsiSoxPack,
+  'bfsi-glba':        bfsiGlbaPack,
+  'bfsi-pci-dss':     bfsiPciDssPack,
+  'bfsi-sox':         bfsiSoxPack,
+  'bfsi-dora':        doraPack,
+  'healthcare-hipaa': hipaaPack,
+  'gov-fedramp':      fedrampPack,
 };
 
 // Fail-fast validation at module load. If a pack ever grows a bad
