@@ -1,105 +1,290 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import Header from '@/components/Header.astro';
-import Footer from '@/components/Footer.astro';
+import { getPublicSupabaseUrl, getPublicSupabaseAnonKey } from '@/lib/supabase';
+
+// If already signed in, jump straight to `next` (or /download by default).
+const user = (Astro.locals as any).user;
+const nextParam = new URL(Astro.request.url).searchParams.get('next') || '/download';
+if (user) return Astro.redirect(nextParam, 302);
+
+const supabaseUrl  = getPublicSupabaseUrl(Astro.locals);
+const supabaseAnon = getPublicSupabaseAnonKey(Astro.locals);
+const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
 ---
-<Layout
-  title="Sign in — AEGIS"
-  description="Sign in to your AEGIS cockpit."
->
-  <Header />
-  <main>
-    <section class="login">
-      <div class="container container-narrow">
-        <p class="eyebrow">Sign in</p>
-        <h1>Welcome <em>back</em>.</h1>
-        <p class="lede">
-          The cockpit is at a tenant-scoped subdomain. If you signed up
-          for early access, you got the URL by email — it looks like
-          <code>your-org.cockpit.aegistraces.com</code>.
+<Layout title="Sign in — AEGIS" description="Sign in to your AEGIS account.">
+  <main class="split">
+    <aside class="left">
+      <a href="/" class="brand" aria-label="AEGIS home">
+        <svg width="120" height="26" viewBox="0 0 92 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="17" font-family="Inter, ui-sans-serif" font-weight="700" font-size="18" letter-spacing="-0.02em">
+            <tspan fill="#E85E14">A</tspan><tspan fill="currentColor">EGIS</tspan>
+          </text>
+        </svg>
+      </a>
+      <div class="cards">
+        <blockquote class="card">
+          <span class="mark">&ldquo;</span>
+          <p>AEGIS gives us the audit trail our SOC 2 reviewer was actually looking for — signed, reproducible, in one click.</p>
+          <footer>
+            <div class="avatar">JM</div>
+            <div>
+              <div class="who">Jason M.</div>
+              <div class="role">Head of Platform · fintech Series C</div>
+            </div>
+          </footer>
+        </blockquote>
+        <blockquote class="card">
+          <span class="mark">&ldquo;</span>
+          <p>Workflow-anchored policies mean same tool call, different node — different rule. First runtime firewall that <em>gets</em> agents.</p>
+          <footer>
+            <div class="avatar">GO</div>
+            <div>
+              <div class="who">Gostree O.</div>
+              <div class="role">Staff Engineer · agentic infra</div>
+            </div>
+          </footer>
+        </blockquote>
+        <blockquote class="card">
+          <span class="mark">&ldquo;</span>
+          <p>Air-gapped Helm chart, Ollama sidecar, EU AI Act evidence pack — the only stack our BFSI security team didn't push back on.</p>
+          <footer>
+            <div class="avatar">MM</div>
+            <div>
+              <div class="who">Maurice M.</div>
+              <div class="role">CISO · European retail bank</div>
+            </div>
+          </footer>
+        </blockquote>
+      </div>
+    </aside>
+
+    <section class="right">
+      <div class="form-wrap">
+        <h1>Sign in</h1>
+        <p class="sub">Enter your work email below to sign in to your account.</p>
+
+        {!supabaseConfigured && (
+          <div class="notice">
+            <strong>Auth not configured.</strong> Set <code>PUBLIC_SUPABASE_URL</code> +
+            <code>PUBLIC_SUPABASE_ANON_KEY</code> in Cloudflare Pages env. See
+            <a href="https://github.com/Justin0504/Aegis/blob/main/docs/AUTH-SETUP.md">docs/AUTH-SETUP.md</a>.
+          </div>
+        )}
+
+        <form id="magic-form" autocomplete="on">
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" placeholder="user@example.com" required autocomplete="email" />
+          </label>
+          <button type="submit" class="btn primary" disabled={!supabaseConfigured}>
+            Sign in with email
+          </button>
+        </form>
+
+        <div class="divider"><span>or</span></div>
+
+        <button class="btn oauth" data-provider="google" disabled={!supabaseConfigured}>
+          <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+            <path fill="#4285F4" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.9 3l5.7-5.7C33.8 6.1 29.1 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
+            <path fill="#34A853" d="M6.3 14.7l6.6 4.8C14.7 15.3 19 12 24 12c3 0 5.7 1.1 7.9 3l5.7-5.7C33.8 6.1 29.1 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
+            <path fill="#FBBC05" d="M24 44c5 0 9.6-1.9 13-5l-6-5.1c-1.9 1.3-4.4 2.1-7 2.1-5.2 0-9.6-3.4-11.2-8.1l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+            <path fill="#EA4335" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.3 5.4l6 5.1C40.9 34.6 44 29.7 44 24c0-1.2-.1-2.3-.4-3.5z"/>
+          </svg>
+          Sign in with Google
+        </button>
+
+        <button class="btn oauth" data-provider="github" disabled={!supabaseConfigured}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.8.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/>
+          </svg>
+          Sign in with GitHub
+        </button>
+
+        <button class="btn oauth" data-provider="linkedin_oidc" disabled={!supabaseConfigured}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#0A66C2">
+            <path d="M20.4 20.4h-3.6v-5.6c0-1.3 0-3-1.8-3-1.9 0-2.2 1.5-2.2 2.9v5.7H9.3V9h3.4v1.6h.1c.5-.9 1.7-1.8 3.4-1.8 3.6 0 4.3 2.4 4.3 5.5v6.1zM5.3 7.4a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zm1.8 13h-3.6V9h3.6v11.4zM22.2 0H1.8C.8 0 0 .8 0 1.8v20.4C0 23.2.8 24 1.8 24h20.4c1 0 1.8-.8 1.8-1.8V1.8C24 .8 23.2 0 22.2 0z"/>
+          </svg>
+          Sign in with LinkedIn
+        </button>
+
+        <p class="check-email" id="check-email" hidden>
+          Check your email — we sent a one-time sign-in link to
+          <strong id="check-email-addr"></strong>.
         </p>
+        <p class="err" id="err" hidden></p>
 
-        <div class="paths">
-          <article class="path">
-            <h2>I have a cockpit URL</h2>
-            <p>Enter your org slug or the full subdomain.</p>
-            <form class="form" method="GET" id="goto-cockpit">
-              <input type="text" name="org" placeholder="your-org" required pattern="[a-z0-9\-]+" autocomplete="organization" />
-              <button class="btn" type="submit">Go to cockpit →</button>
-            </form>
-            <p class="hint">You'll land on the SSO / API-key login screen.</p>
-          </article>
-
-          <article class="path">
-            <h2>I have a desktop install</h2>
-            <p>Open AEGIS from your applications folder; the cockpit
-              auto-launches at <code>http://localhost:13003</code>.</p>
-            <a class="btn-secondary" href="http://localhost:13003">Open local cockpit</a>
-            <p class="hint">Don't have it? <a href="/download">Download here</a>.</p>
-          </article>
-
-          <article class="path">
-            <h2>I don't have either yet</h2>
-            <p>The Free tier is open — get an API key + cockpit URL in
-              your inbox the same day.</p>
-            <a class="btn-secondary" href="/signup">Sign up free →</a>
-            <p class="hint">No credit card required.</p>
-          </article>
-        </div>
-
-        <p class="muted small bottom">
-          Stuck? Email
-          <a href="mailto:support@aegistraces.com">support@aegistraces.com</a>.
+        <p class="tos">
+          By continuing you agree to our
+          <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
+        </p>
+        <p class="signup">
+          Don't have an account? <a href={`/signup?next=${encodeURIComponent(nextParam)}`}>Sign up</a>
         </p>
       </div>
     </section>
   </main>
-  <Footer />
 
-  <script is:inline>
-    // Tiny progressive enhancement — bounce to <org>.cockpit.aegistraces.com.
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('goto-cockpit');
-      if (!form) return;
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const slug = new FormData(form).get('org');
-        if (!slug) return;
-        const cleaned = String(slug).toLowerCase().replace(/[^a-z0-9\-]/g, '').replace(/^-+|-+$/g, '');
-        if (!cleaned) return;
-        // Until app.aegistraces.com is live, send to a friendly landing on /signup
-        // so users know to expect an invite link rather than a 404.
-        location.href = `/signup?org=${encodeURIComponent(cleaned)}`;
+  <script is:inline define:vars={{ supabaseUrl, supabaseAnon, nextParam }}>
+    if (supabaseUrl && supabaseAnon) {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.4');
+      const supabase = createClient(supabaseUrl, supabaseAnon, {
+        auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true },
       });
-    });
+
+      const errBox  = document.getElementById('err');
+      const chkBox  = document.getElementById('check-email');
+      const chkAddr = document.getElementById('check-email-addr');
+      function showErr(msg) {
+        errBox.textContent = msg;
+        errBox.hidden = false;
+        chkBox.hidden = true;
+      }
+      function showCheck(email) {
+        chkAddr.textContent = email;
+        chkBox.hidden = false;
+        errBox.hidden = true;
+      }
+
+      document.querySelectorAll('button.oauth').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const provider = btn.getAttribute('data-provider');
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider,
+            options: {
+              redirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
+            },
+          });
+          if (error) showErr(`${provider} sign-in failed: ${error.message}`);
+        });
+      });
+
+      const form = document.getElementById('magic-form');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = new FormData(form).get('email');
+        if (!email) return;
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
+          },
+        });
+        if (error) showErr(`Sign-in email failed: ${error.message}`);
+        else showCheck(email);
+      });
+    }
   </script>
 
   <style>
-    .login { padding: 5rem 0 5rem; }
-    .eyebrow { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
-    h1 em { font-style: italic; color: var(--accent); }
-    .lede { color: var(--muted); font-size: 1.06rem; margin: 1rem 0 2rem; max-width: 60ch; }
-
-    .paths {
+    main.split {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.2rem;
-      margin: 1.5rem 0 2rem;
+      grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
+      background: #fff;
     }
-    .path {
-      background: var(--surface);
-      border: 1px solid var(--hairline);
-      border-radius: 10px;
-      padding: 1.2rem 1.2rem 1.1rem;
+    aside.left {
+      background: #f6f6f5;
+      padding: 3rem 3rem 4rem;
+      position: relative;
+      overflow: hidden;
     }
-    .path h2 { font-family: var(--font-serif); font-size: 1.15rem; margin: 0 0 0.4rem; }
-    .path p { color: var(--muted); font-size: 0.92rem; margin: 0 0 0.8rem; }
-    .path .form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .path .form input { flex: 1 1 140px; padding: 0.5rem 0.7rem; border: 1px solid var(--hairline-strong); border-radius: 6px; font-family: inherit; }
-    .path .btn, .path .btn-secondary { padding: 0.5rem 0.9rem; font-size: 0.92rem; }
-    .hint { color: var(--muted); font-size: 0.82rem; margin: 0.7rem 0 0; }
-    .bottom { margin-top: 1rem; }
-    .muted { color: var(--muted); }
-    .small { font-size: 0.88rem; }
+    aside .brand { display: inline-flex; align-items: center; color: #111; }
+    aside .cards {
+      margin-top: 3rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      max-width: 34rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ececec;
+      border-radius: 12px;
+      padding: 1.75rem 1.25rem 1rem;
+      margin: 0;
+      position: relative;
+    }
+    .card .mark { position: absolute; top: 0.5rem; left: 1rem; color: #111; font-size: 2rem; line-height: 1; font-weight: 700; opacity: 0.85; }
+    .card p { margin: 0 0 1rem; color: #333; font-size: 0.95rem; line-height: 1.5; }
+    .card p em { font-style: italic; color: #E85E14; }
+    .card footer { display: flex; align-items: center; gap: 0.75rem; }
+    .card .avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, #E85E14, #7a2f00);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 600; font-size: 0.85rem;
+    }
+    .card .who { font-weight: 600; color: #111; font-size: 0.85rem; }
+    .card .role { color: #666; font-size: 0.78rem; }
+
+    section.right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .form-wrap { width: 100%; max-width: 26rem; }
+    .form-wrap h1 { font-size: 1.6rem; font-weight: 600; text-align: center; margin: 0 0 0.5rem; color: #111; }
+    .form-wrap .sub { color: #666; text-align: center; margin: 0 0 2rem; font-size: 0.9rem; }
+    .notice {
+      background: #fff8ea; border: 1px solid #f0d68a; color: #6a4b00;
+      padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+    .notice a { color: #6a4b00; text-decoration: underline; }
+    .notice code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 0 0.25rem; border-radius: 3px; }
+    form label { display: block; margin-bottom: 1rem; }
+    form label span { display: block; color: #111; font-size: 0.85rem; margin-bottom: 0.35rem; font-weight: 500; }
+    form input {
+      width: 100%; padding: 0.65rem 0.85rem;
+      border: 1px solid #d4d4d4; border-radius: 8px; font-size: 0.95rem;
+      background: #fff; color: #111;
+      transition: border-color 0.12s;
+    }
+    form input:focus { outline: none; border-color: #111; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+      width: 100%; padding: 0.65rem 1rem;
+      border-radius: 8px; font-weight: 500; font-size: 0.9rem;
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+      margin-bottom: 0.6rem;
+    }
+    .btn.primary { background: #111; color: #fff; border: 1px solid #111; margin-bottom: 1.25rem; }
+    .btn.primary:hover:not([disabled]) { background: #333; }
+    .btn.oauth { background: #fff; color: #111; border: 1px solid #d4d4d4; }
+    .btn.oauth:hover:not([disabled]) { background: #f8f8f8; }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .divider {
+      display: flex; align-items: center; margin: 1.25rem 0;
+      color: #999; font-size: 0.75rem;
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #ececec; }
+    .divider span { padding: 0 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+    .check-email {
+      background: #f0f8f4; border: 1px solid #b0d8bd; color: #2d6b47;
+      padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
+      margin: 1rem 0 0;
+    }
+    .err {
+      background: #fdf1f1; border: 1px solid #e8b0b0; color: #8a2929;
+      padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
+      margin: 1rem 0 0;
+    }
+
+    .tos { text-align: center; color: #999; font-size: 0.78rem; margin: 2rem 0 0.5rem; }
+    .tos a { color: #666; text-decoration: underline; }
+    .signup { text-align: center; color: #666; font-size: 0.85rem; margin: 0.5rem 0 0; }
+    .signup a { color: #111; font-weight: 500; text-decoration: none; }
+    .signup a:hover { text-decoration: underline; }
+
+    @media (max-width: 900px) {
+      main.split { grid-template-columns: 1fr; }
+      aside.left { display: none; }
+      section.right { padding: 4rem 1.5rem; min-height: 100vh; }
+    }
   </style>
 </Layout>

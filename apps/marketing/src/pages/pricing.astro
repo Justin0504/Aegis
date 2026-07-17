@@ -12,7 +12,7 @@ const tiers = [
     price: '$0',
     period: 'forever',
     blurb: 'For solo developers and OSS projects. Self-host, or use our hosted cloud — same gateway either way.',
-    cta:   { label: 'Start free', href: 'https://app.aegistraces.com/signup' },
+    cta:   { label: 'Start free', href: '/signup?next=/download' },
     featured: false,
     quotas: [
       '1 organization, 5 agents',
@@ -34,7 +34,7 @@ const tiers = [
     period: '/month',
     annualPrice: '$190 / yr (save 17%)',
     blurb: 'For startups and small product teams ready to gate production agents.',
-    cta:   { label: 'Upgrade to Pro', href: 'https://app.aegistraces.com/billing?plan=pro' },
+    cta:   { label: 'Upgrade to Pro', href: '#', plan: 'pro' },
     featured: true,
     quotas: [
       '5 organizations, 100 agents',
@@ -58,7 +58,7 @@ const tiers = [
     period: '/month',
     annualPrice: '$990 / yr (save 17%)',
     blurb: 'For mid-market teams ready to bring AEGIS into compliance reviews.',
-    cta:   { label: 'Upgrade to Team', href: 'https://app.aegistraces.com/billing?plan=team' },
+    cta:   { label: 'Upgrade to Team', href: '#', plan: 'enterprise' },
     featured: false,
     quotas: [
       'Unlimited orgs / agents',
@@ -293,7 +293,11 @@ const faqLd = {
               <ul class="features">
                 {t.features.map(f => <li>{f}</li>)}
               </ul>
-              <a class={t.featured ? 'btn' : 'btn-secondary'} href={t.cta.href}>{t.cta.label}</a>
+              {(t.cta as any).plan
+                ? <button class={`checkout-btn ${t.featured ? 'btn' : 'btn-secondary'}`}
+                          data-plan={(t.cta as any).plan}>{t.cta.label}</button>
+                : <a class={t.featured ? 'btn' : 'btn-secondary'} href={t.cta.href}>{t.cta.label}</a>
+              }
             </article>
           ))}
         </div>
@@ -357,6 +361,42 @@ const faqLd = {
 
   <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
   <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+
+  <script is:inline>
+    // Checkout buttons — POST to /api/checkout and follow the returned
+    // Stripe Checkout URL. If the user isn't signed in the middleware
+    // has already sent them to /login?next=/pricing, so at this point
+    // we can assume a session exists. On 401 (session expired between
+    // page load and click) we bounce them back to /login.
+    document.querySelectorAll('button.checkout-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const plan = btn.getAttribute('data-plan');
+        const original = btn.textContent;
+        btn.setAttribute('disabled', 'true');
+        btn.textContent = 'Opening checkout…';
+        try {
+          const res = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ plan }),
+          });
+          if (res.status === 401) {
+            location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+            return;
+          }
+          const body = await res.json();
+          if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+          if (body.url) location.href = body.url;
+          else throw new Error('no checkout url returned');
+        } catch (err) {
+          alert(`Checkout failed: ${err.message}`);
+          btn.removeAttribute('disabled');
+          btn.textContent = original;
+        }
+      });
+    });
+  </script>
 
   <Footer />
 

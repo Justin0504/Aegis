@@ -5,10 +5,17 @@
 // app.aegistraces.com). Public-marketing only: landing, pricing, security,
 // blog, signup CTA.
 import { defineConfig } from 'astro/config';
+import cloudflare from '@astrojs/cloudflare';
 import rehypeAnnotate from './rehype-annotate.mjs';
 
 export default defineConfig({
   site: 'https://aegistraces.com',
+  // SSR is required for auth callback + Stripe webhook + session middleware.
+  // Static pages remain fully cacheable at the edge; only API routes and
+  // session-gated pages hit the Worker. Cloudflare Pages runs the same
+  // deploy target, so wrangler.toml stays valid.
+  output: 'server',
+  adapter: cloudflare({ mode: 'directory' }),
   build: { format: 'directory' },
   prefetch: { prefetchAll: false, defaultStrategy: 'hover' },
   markdown: {

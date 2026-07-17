@@ -11,6 +11,10 @@
     "deploy":  "astro build && CI=false TERM=xterm-256color wrangler pages deploy dist --project-name=aegis-marketing --commit-dirty=true"
   },
   "dependencies": {
-    "astro": "^4.16.0"
+    "@astrojs/cloudflare": "^11.0.0",
+    "@supabase/ssr": "^0.5.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "astro": "^4.16.0",
+    "stripe": "^17.0.0"
   }
 }

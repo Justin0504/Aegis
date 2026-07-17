@@ -3,6 +3,25 @@ import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 
+// Middleware has already redirected non-authenticated requests to
+// /login?next=/download, so `user` is guaranteed present here.
+const user = (Astro.locals as any).user!;
+const supabase = (Astro.locals as any).supabase;
+
+// Fetch the caller's active license keys (if any). Free-tier users
+// see the download but no key; paid users see the key(s) + plan.
+let licenseKeys: Array<{ key: string; plan: string; status: string; expires_at: string | null }> = [];
+if (supabase) {
+  const { data } = await supabase
+    .from('license_keys')
+    .select('key, plan, status, expires_at')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('issued_at', { ascending: false });
+  licenseKeys = data ?? [];
+}
+const justPurchased = new URL(Astro.request.url).searchParams.get('checkout') === 'success';
+
 // Pinned release tag. When v0.2 ships, bump both this and the URLs.
 const LATEST = 'v0.1.0';
 const REPO   = 'https://github.com/Justin0504/Aegis';
@@ -79,8 +98,48 @@ const platforms = [
           Latest release: <strong>{LATEST}</strong> · MIT licensed ·
           <a href={REPO} target="_blank" rel="noopener">View source</a>
         </p>
+
+        <div class="account-strip">
+          Signed in as <strong>{user.email ?? user.id}</strong> ·
+          <a href="/api/auth/signout">Sign out</a>
+        </div>
       </div>
     </section>
+
+    {justPurchased && (
+      <section class="license-block">
+        <div class="container container-narrow">
+          <div class="license-banner">
+            <div class="lb-title">Payment received — thank you.</div>
+            <div class="lb-body">Your license is issued below. Copy it into the AEGIS app under
+              <code>Settings → License</code>, or set the <code>AEGIS_LICENSE_KEY</code> env var
+              in your Helm values.</div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {licenseKeys.length > 0 && (
+      <section class="license-block">
+        <div class="container container-narrow">
+          <h2 class="lk-heading">Your license keys</h2>
+          <p class="lk-sub">Keep these secret. Anyone with the key can activate a paid deployment.</p>
+          {licenseKeys.map((lk) => (
+            <div class="lk-row">
+              <div class="lk-meta">
+                <span class="lk-plan">{lk.plan.toUpperCase()}</span>
+                <span class="lk-status">{lk.status}</span>
+                {lk.expires_at && <span class="lk-exp">expires {new Date(lk.expires_at).toISOString().slice(0, 10)}</span>}
+              </div>
+              <div class="lk-key">
+                <code>{lk.key}</code>
+                <button class="lk-copy" type="button" data-copy={lk.key}>Copy</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
 
     <section class="grid-wrap">
       <div class="container">
@@ -147,8 +206,65 @@ docker compose -f docker/compose.yml up -d
   </main>
   <Footer />
 
+  <script is:inline>
+    document.querySelectorAll('button.lk-copy').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const key = btn.getAttribute('data-copy');
+        if (!key) return;
+        try {
+          await navigator.clipboard.writeText(key);
+          const orig = btn.textContent;
+          btn.textContent = 'Copied ✓';
+          setTimeout(() => { btn.textContent = orig; }, 1200);
+        } catch { /* clipboard blocked — silently no-op */ }
+      });
+    });
+  </script>
+
   <style>
     .head { padding: 5rem 0 2rem; }
+    .account-strip {
+      margin-top: 1.5rem; font-size: 0.85rem; color: var(--muted);
+      padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .account-strip a { color: var(--muted); text-decoration: underline; }
+    .license-block { padding: 1.5rem 0; }
+    .license-banner {
+      background: hsl(150 30% 95%);
+      border: 1px solid hsl(150 30% 75%);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .lb-title { font-weight: 600; color: hsl(150 40% 25%); margin-bottom: 0.25rem; }
+    .lb-body { font-size: 0.9rem; color: hsl(150 30% 30%); }
+    .lb-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(0,0,0,0.05); padding: 0 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+    .lk-heading { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.25rem; }
+    .lk-sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 1rem; }
+    .lk-row {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.8rem 1rem; margin-bottom: 0.75rem;
+    }
+    .lk-meta {
+      display: flex; gap: 0.75rem; font-size: 0.75rem;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .lk-plan { color: var(--accent, #E85E14); font-weight: 600; }
+    .lk-status { color: hsl(150 30% 40%); }
+    .lk-key { display: flex; gap: 0.5rem; align-items: center; }
+    .lk-key code {
+      flex: 1; padding: 0.5rem 0.75rem; background: hsl(0 0% 96%);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem; word-break: break-all;
+    }
+    .lk-copy {
+      padding: 0.4rem 0.8rem; border: 1px solid var(--border);
+      background: #fff; border-radius: 6px; font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .lk-copy:hover { background: #f8f8f8; }
     .eyebrow { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
     h1 em { font-style: italic; color: var(--accent); }
     .lede { font-size: 1.1rem; color: var(--muted); margin: 1rem 0 0; max-width: 60ch; }
