@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Shield, ShieldAlert, Link2 } from 'lucide-react'
 import { gw } from '@/lib/gateway'
 import { USE_MOCK, mockTotalActions, mockPendingChecks, mockViolations, mockAgents } from '@/lib/mock-traces'
+import { readLicense, type LicenseState } from '@/components/settings/license-panel'
 
 const BORDER  = 'hsl(var(--border))'
 const TEXT    = 'hsl(var(--foreground))'
@@ -31,6 +32,16 @@ export function StatusBar() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [reachable, setReachable] = useState(true)
   const [integrity, setIntegrity] = useState<IntegritySummary | null>(null)
+  const [license, setLicense] = useState<LicenseState | null>(null)
+
+  // Re-read license from localStorage on mount + whenever the settings
+  // panel dispatches an update event. Cheap enough to just re-read.
+  useEffect(() => {
+    setLicense(readLicense())
+    const handler = () => setLicense(readLicense())
+    window.addEventListener('aegis-license-change', handler)
+    return () => window.removeEventListener('aegis-license-change', handler)
+  }, [])
 
   useEffect(() => {
     if (USE_MOCK) {
@@ -176,6 +187,17 @@ export function StatusBar() {
       )}
 
       <span className="opacity-50 ml-auto hidden sm:inline">·</span>
+      <a href="/settings" className="hidden sm:inline-flex items-center gap-1 text-xs"
+         title={license?.valid ? `Signed in as ${license.email ?? 'unknown'}` : 'Activate a license on aegistraces.com'}
+         style={{
+           padding: '2px 8px', borderRadius: 4,
+           background: license?.valid ? 'hsl(150 30% 92%)' : 'hsl(0 0% 94%)',
+           color: license?.valid ? OK : MUTED,
+           textDecoration: 'none',
+         }}>
+        {license?.valid ? `${license.plan?.toUpperCase()} · ${license.email ?? '—'}` : 'Free tier'}
+      </a>
+      <span className="opacity-50 hidden sm:inline">·</span>
       <span className="hidden sm:inline" style={{ color: MUTED, opacity: 0.7 }}>
         live · refresh 10s
       </span>

@@ -123,7 +123,12 @@ const platforms = [
       <section class="license-block">
         <div class="container container-narrow">
           <h2 class="lk-heading">Your license keys</h2>
-          <p class="lk-sub">Keep these secret. Anyone with the key can activate a paid deployment.</p>
+          <p class="lk-sub">
+            Paste this into AEGIS Desktop → <strong>Settings → License</strong> → Validate.
+            Same key also works as <code>AEGIS_LICENSE_KEY</code> in your Helm values or
+            <code>docker compose</code> env. Keep it secret — anyone with the key can
+            unlock the paid tier under your account.
+          </p>
           {licenseKeys.map((lk) => (
             <div class="lk-row">
               <div class="lk-meta">
