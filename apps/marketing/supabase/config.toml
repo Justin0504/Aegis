@@ -284,6 +284,19 @@ redirect_uri = ""
 skip_nonce_check = false
 email_optional = false
 
+# ─── Google OAuth ────────────────────────────────────────────────────
+# App registered under Google Cloud project aegis-503522; callback URL
+# https://hrodbnitzzvldriceycx.supabase.co/auth/v1/callback.
+# Consent screen is External + still in Testing phase — only listed
+# test users can sign in until the app is published + verified.
+[auth.external.google]
+enabled = true
+client_id = "118452582937-8g3muvvlbmibmqhkmqsch2hu1c4sl6th.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+skip_nonce_check = false
+email_optional = false
+
 [auth.external.apple]
 enabled = false
 client_id = ""
