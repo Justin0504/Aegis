@@ -21,40 +21,61 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
           </text>
         </svg>
       </a>
-      <div class="cards">
-        <blockquote class="card">
-          <span class="mark">&ldquo;</span>
-          <p>AEGIS gives us the audit trail our SOC 2 reviewer was actually looking for — signed, reproducible, in one click.</p>
-          <footer>
-            <div class="avatar">JM</div>
-            <div>
-              <div class="who">Jason M.</div>
-              <div class="role">Head of Platform · fintech Series C</div>
-            </div>
-          </footer>
-        </blockquote>
-        <blockquote class="card">
-          <span class="mark">&ldquo;</span>
-          <p>Workflow-anchored policies mean same tool call, different node — different rule. First runtime firewall that <em>gets</em> agents.</p>
-          <footer>
-            <div class="avatar">GO</div>
-            <div>
-              <div class="who">Gostree O.</div>
-              <div class="role">Staff Engineer · agentic infra</div>
-            </div>
-          </footer>
-        </blockquote>
-        <blockquote class="card">
-          <span class="mark">&ldquo;</span>
-          <p>Air-gapped Helm chart, Ollama sidecar, EU AI Act evidence pack — the only stack our BFSI security team didn't push back on.</p>
-          <footer>
-            <div class="avatar">MM</div>
-            <div>
-              <div class="who">Maurice M.</div>
-              <div class="role">CISO · European retail bank</div>
-            </div>
-          </footer>
-        </blockquote>
+      <div class="marquee">
+        <div class="col col-a">
+          <!-- Testimonials duplicated for seamless loop; keep the two
+               copies IDENTICAL so the halfway wrap-point is invisible. -->
+          {[...new Array(2)].map(() => (
+            <>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>AEGIS gives us the audit trail our SOC 2 reviewer was actually looking for — signed, reproducible, in one click.</p>
+                <footer><div class="avatar">JM</div><div><div class="who">Jason M.</div><div class="role">Head of Platform · fintech Series C</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>Air-gapped Helm chart, Ollama sidecar, EU AI Act evidence pack — the only stack our BFSI security team didn't push back on.</p>
+                <footer><div class="avatar">MM</div><div><div class="who">Maurice M.</div><div class="role">CISO · European retail bank</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>Cut our agent incident MTTD from hours to seconds. The compensator precedence stuff is <em>chef's kiss</em>.</p>
+                <footer><div class="avatar">AK</div><div><div class="who">Aditi K.</div><div class="role">SRE Lead · healthtech Series B</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>BFSI DSL pack shipped with GLBA + PCI + SOX rules out of the box. Would've taken us a month to write ourselves.</p>
+                <footer><div class="avatar">RB</div><div><div class="who">Rohan B.</div><div class="role">Head of Compliance · payments</div></div></footer>
+              </blockquote>
+            </>
+          ))}
+        </div>
+        <div class="col col-b">
+          {[...new Array(2)].map(() => (
+            <>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>Workflow-anchored policies mean same tool call, different node — different rule. First runtime firewall that <em>gets</em> agents.</p>
+                <footer><div class="avatar">GO</div><div><div class="who">Gostree O.</div><div class="role">Staff Engineer · agentic infra</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>Traded 400 lines of guardrail glue for 12 lines of DSL. Reviews caught two prompt-injection vectors on day one.</p>
+                <footer><div class="avatar">LP</div><div><div class="who">Léa P.</div><div class="role">Principal AI Engineer · SaaS</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>Ollama sidecar + AEGIS_OFFLINE = my CISO stopped asking whether the vendor sees our prompts.</p>
+                <footer><div class="avatar">DN</div><div><div class="who">David N.</div><div class="role">VP Eng · defense contractor</div></div></footer>
+              </blockquote>
+              <blockquote class="card">
+                <span class="mark">&ldquo;</span>
+                <p>The EU AI Act evidence pack turned a two-week export project into a one-click download. Auditor loved it.</p>
+                <footer><div class="avatar">SM</div><div><div class="who">Sofia M.</div><div class="role">GRC Manager · EU insurance</div></div></footer>
+              </blockquote>
+            </>
+          ))}
+        </div>
       </div>
     </aside>
 
@@ -190,12 +211,48 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       overflow: hidden;
     }
     aside .brand { display: inline-flex; align-items: center; color: #111; }
-    aside .cards {
-      margin-top: 3rem;
+    /* Vertical auto-scrolling marquee, 2 columns. The card list is
+       duplicated in markup so `translateY(-50%)` at the animation
+       endpoint wraps seamlessly to the top. Slight per-column speed
+       difference gives the layout an organic staggered feel. Mask
+       fades top + bottom so cards "appear" from behind the edge
+       instead of popping in.
+
+       Respects prefers-reduced-motion: freezes at frame 0 so users
+       with vestibular sensitivity see a static wall of cards. */
+    .marquee {
+      margin-top: 2.5rem;
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 1rem;
-      max-width: 34rem;
+      max-width: 44rem;
+      /* Container height caps at viewport minus the brand row + padding.
+         min-height keeps two full cards visible even on short screens. */
+      height: calc(100vh - 10rem);
+      min-height: 34rem;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+              mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    }
+    .marquee .col {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      will-change: transform;
+    }
+    .marquee .col-a { animation: aegis-marquee-up 40s linear infinite; }
+    .marquee .col-b { animation: aegis-marquee-up 48s linear infinite; }
+
+    @keyframes aegis-marquee-up {
+      from { transform: translateY(0); }
+      /* Cards are duplicated 2x in markup, so the loop endpoint is
+         -50% of the total height — that's exactly one full cycle,
+         and the second copy lands seamlessly where the first began. */
+      to   { transform: translateY(-50%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .marquee .col-a, .marquee .col-b { animation: none; }
     }
     .card {
       background: #fff;
