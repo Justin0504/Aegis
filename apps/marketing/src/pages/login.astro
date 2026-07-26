@@ -22,8 +22,8 @@ const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
   <main class="split">
     <aside class="left">
       <a href="/" class="brand" aria-label="AEGIS home">
-        <span aria-hidden="true" style="font-size: 1.15rem; margin-right: 0.4rem; opacity: 0.85;">⌬</span>
-        <span style="font-family: var(--font-sans); font-weight: 700; font-size: 1.15rem; letter-spacing: 0.02em; color: var(--text);">AEGIS</span>
+        <span class="mark" aria-hidden="true">⌬</span>
+        <span class="brand-name">AEGIS</span>
       </a>
       <div class="marquee">
         <!-- Testimonials duplicated for seamless loop; identical copies
@@ -226,7 +226,21 @@ const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
       overflow: hidden;
       border-right: 1px solid var(--hairline);
     }
-    aside .brand { display: inline-flex; align-items: center; color: var(--text); }
+    /* Match the Header component's brand styling exactly so the
+       login-page top-left logo reads as the SAME wordmark used site-
+       wide (serif, 400 weight, hairline letter-spacing). */
+    aside .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      text-decoration: none;
+      color: var(--text);
+      font-family: var(--font-serif);
+      font-size: 1.4rem;
+      letter-spacing: -0.01em;
+    }
+    aside .brand-name { font-weight: 400; }
+    aside .brand .mark { font-size: 1.6rem; line-height: 1; }
     /* Vertical auto-scrolling marquee, 2 columns. The card list is
        duplicated in markup so `translateY(-50%)` at the animation
        endpoint wraps seamlessly to the top. Slight per-column speed
