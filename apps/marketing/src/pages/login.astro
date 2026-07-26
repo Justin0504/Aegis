@@ -1,6 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import { getPublicSupabaseUrl, getPublicSupabaseAnonKey } from '@/lib/supabase';
+import { TESTIMONIALS } from '@/data/testimonials';
 
 // If already signed in, jump straight to `next` (or /download by default).
 const user = (Astro.locals as any).user;
@@ -10,6 +11,12 @@ if (user) return Astro.redirect(nextParam, 302);
 const supabaseUrl  = getPublicSupabaseUrl(Astro.locals);
 const supabaseAnon = getPublicSupabaseAnonKey(Astro.locals);
 const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
+
+// Split testimonials into 2 columns for the vertical marquee. Odd
+// indices go right, even go left — gives visual balance without
+// having to hand-tune which quote lives in which column.
+const colA = TESTIMONIALS.filter((_, i) => i % 2 === 0);
+const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
 ---
 <Layout title="Sign in — AEGIS" description="Sign in to your AEGIS account.">
   <main class="split">
@@ -19,58 +26,35 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
         <span style="font-family: var(--font-sans); font-weight: 700; font-size: 1.15rem; letter-spacing: 0.02em; color: var(--text);">AEGIS</span>
       </a>
       <div class="marquee">
+        <!-- Testimonials duplicated for seamless loop; identical copies
+             so the halfway wrap-point is invisible. Data comes from
+             src/data/testimonials.ts — same source as the homepage. -->
         <div class="col col-a">
-          <!-- Testimonials duplicated for seamless loop; keep the two
-               copies IDENTICAL so the halfway wrap-point is invisible. -->
-          {[...new Array(2)].map(() => (
-            <>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>AEGIS gives us the audit trail our SOC 2 reviewer was actually looking for — signed, reproducible, in one click.</p>
-                <footer><div class="avatar">JM</div><div><div class="who">Jason M.</div><div class="role">Head of Platform · fintech Series C</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>Air-gapped Helm chart, Ollama sidecar, EU AI Act evidence pack — the only stack our BFSI security team didn't push back on.</p>
-                <footer><div class="avatar">MM</div><div><div class="who">Maurice M.</div><div class="role">CISO · European retail bank</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>Cut our agent incident MTTD from hours to seconds. The compensator precedence stuff is <em>chef's kiss</em>.</p>
-                <footer><div class="avatar">AK</div><div><div class="who">Aditi K.</div><div class="role">SRE Lead · healthtech Series B</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>BFSI DSL pack shipped with GLBA + PCI + SOX rules out of the box. Would've taken us a month to write ourselves.</p>
-                <footer><div class="avatar">RB</div><div><div class="who">Rohan B.</div><div class="role">Head of Compliance · payments</div></div></footer>
-              </blockquote>
-            </>
+          {[...colA, ...colA].map((t) => (
+            <article class="card">
+              <blockquote class="tm-quote" set:html={t.quote.replaceAll('@AEGIS', '<span class="tm-mention">@AEGIS</span>')} />
+              <footer>
+                <img class="avatar" src={t.photo} alt={t.name} loading="lazy" width="44" height="44" />
+                <div>
+                  <div class="who">{t.name} <span class="handle">{t.handle}</span></div>
+                  <div class="role">{t.title}</div>
+                </div>
+              </footer>
+            </article>
           ))}
         </div>
         <div class="col col-b">
-          {[...new Array(2)].map(() => (
-            <>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>Workflow-anchored policies mean same tool call, different node — different rule. First runtime firewall that <em>gets</em> agents.</p>
-                <footer><div class="avatar">GO</div><div><div class="who">Gostree O.</div><div class="role">Staff Engineer · agentic infra</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>Traded 400 lines of guardrail glue for 12 lines of DSL. Reviews caught two prompt-injection vectors on day one.</p>
-                <footer><div class="avatar">LP</div><div><div class="who">Léa P.</div><div class="role">Principal AI Engineer · SaaS</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>Ollama sidecar + AEGIS_OFFLINE = my CISO stopped asking whether the vendor sees our prompts.</p>
-                <footer><div class="avatar">DN</div><div><div class="who">David N.</div><div class="role">VP Eng · defense contractor</div></div></footer>
-              </blockquote>
-              <blockquote class="card">
-                <span class="mark">&ldquo;</span>
-                <p>The EU AI Act evidence pack turned a two-week export project into a one-click download. Auditor loved it.</p>
-                <footer><div class="avatar">SM</div><div><div class="who">Sofia M.</div><div class="role">GRC Manager · EU insurance</div></div></footer>
-              </blockquote>
-            </>
+          {[...colB, ...colB].map((t) => (
+            <article class="card">
+              <blockquote class="tm-quote" set:html={t.quote.replaceAll('@AEGIS', '<span class="tm-mention">@AEGIS</span>')} />
+              <footer>
+                <img class="avatar" src={t.photo} alt={t.name} loading="lazy" width="44" height="44" />
+                <div>
+                  <div class="who">{t.name} <span class="handle">{t.handle}</span></div>
+                  <div class="role">{t.title}</div>
+                </div>
+              </footer>
+            </article>
           ))}
         </div>
       </div>
@@ -286,26 +270,84 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
     @media (prefers-reduced-motion: reduce) {
       .marquee .col-a, .marquee .col-b { animation: none; }
     }
+    /* Card matches the homepage "From the field" style — real photo
+       avatar top-left of the footer, name + handle + title, quote as
+       the body. Same tokens as Testimonials.astro so the two surfaces
+       feel like one product. */
     .card {
       background: var(--surface);
       border: 1px solid var(--hairline);
-      border-radius: 12px;
-      padding: 1.75rem 1.25rem 1rem;
+      border-radius: 14px;
+      padding: 1.25rem 1.25rem 1rem;
       margin: 0;
-      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
     }
-    .card .mark { position: absolute; top: 0.5rem; left: 1rem; color: var(--text); font-size: 2rem; line-height: 1; font-weight: 700; opacity: 0.7; }
-    .card p { margin: 0 0 1rem; color: var(--text); font-size: 0.95rem; line-height: 1.5; }
-    .card p em { font-style: italic; color: var(--accent-warn); font-family: var(--font-serif); font-weight: 500; }
-    .card footer { display: flex; align-items: center; gap: 0.75rem; }
+    .card .tm-quote {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      /* Left-aligned mark-like feel without the giant curly glyph —
+         a subtle italic serif accent keeps the composed magazine feel
+         of the homepage cards. */
+    }
+    .card .tm-quote::before {
+      content: '\201C';
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 0;
+      margin-right: 0.15rem;
+      color: var(--muted);
+    }
+    .card .tm-quote::after {
+      content: '\201D';
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 0;
+      margin-left: 0.15rem;
+      color: var(--muted);
+    }
+    .card .tm-mention {
+      font-weight: 600;
+      color: var(--accent-warn);
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+    }
+    .card footer {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-top: 1px solid var(--hairline);
+      padding-top: 0.85rem;
+    }
     .card .avatar {
       width: 40px; height: 40px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent-warn), #6a4a1a);
-      display: inline-flex; align-items: center; justify-content: center;
-      color: var(--bg); font-weight: 600; font-size: 0.85rem;
+      object-fit: cover;
+      background: var(--surface-2);
+      flex-shrink: 0;
+      /* Subtle warm ring matches the homepage cards. */
+      box-shadow: 0 0 0 1px var(--hairline);
     }
-    .card .who { font-weight: 600; color: var(--text); font-size: 0.85rem; }
-    .card .role { color: var(--muted); font-size: 0.78rem; }
+    .card .who {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .card .handle {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+    }
+    .card .role { color: var(--muted); font-size: 0.78rem; margin-top: 0.1rem; }
 
     section.right {
       display: flex;
