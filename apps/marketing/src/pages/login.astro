@@ -15,11 +15,8 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
   <main class="split">
     <aside class="left">
       <a href="/" class="brand" aria-label="AEGIS home">
-        <svg width="120" height="26" viewBox="0 0 92 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <text x="0" y="17" font-family="Inter, ui-sans-serif" font-weight="700" font-size="18" letter-spacing="-0.02em">
-            <tspan fill="#E85E14">A</tspan><tspan fill="currentColor">EGIS</tspan>
-          </text>
-        </svg>
+        <span aria-hidden="true" style="font-size: 1.15rem; margin-right: 0.4rem; opacity: 0.85;">⌬</span>
+        <span style="font-family: var(--font-sans); font-weight: 700; font-size: 1.15rem; letter-spacing: 0.02em; color: var(--text);">AEGIS</span>
       </a>
       <div class="marquee">
         <div class="col col-a">
@@ -146,7 +143,13 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
   </main>
 
   <script is:inline define:vars={{ supabaseUrl, supabaseAnon, nextParam }}>
-    if (supabaseUrl && supabaseAnon) {
+    // Astro's `define:vars` wraps this whole block in a plain (non-async)
+    // IIFE, which means `await` at top level is a hard SyntaxError and
+    // silently breaks the ENTIRE script — buttons look dead. Wrap the
+    // async work in its own function so the top level stays sync.
+    (async () => {
+      if (!supabaseUrl || !supabaseAnon) return;
+
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.4');
       const supabase = createClient(supabaseUrl, supabaseAnon, {
         auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true },
@@ -155,28 +158,32 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       const errBox  = document.getElementById('err');
       const chkBox  = document.getElementById('check-email');
       const chkAddr = document.getElementById('check-email-addr');
-      function showErr(msg) {
+      const showErr = (msg) => {
         errBox.textContent = msg;
         errBox.hidden = false;
         chkBox.hidden = true;
-      }
-      function showCheck(email) {
+      };
+      const showCheck = (email) => {
         chkAddr.textContent = email;
         chkBox.hidden = false;
         errBox.hidden = true;
-      }
+      };
 
       document.querySelectorAll('button.oauth').forEach((btn) => {
         btn.addEventListener('click', async (e) => {
           e.preventDefault();
           const provider = btn.getAttribute('data-provider');
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider,
-            options: {
-              redirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
-            },
-          });
-          if (error) showErr(`${provider} sign-in failed: ${error.message}`);
+          try {
+            const { error } = await supabase.auth.signInWithOAuth({
+              provider,
+              options: {
+                redirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
+              },
+            });
+            if (error) showErr(`${provider} sign-in failed: ${error.message}`);
+          } catch (err) {
+            showErr(`${provider} sign-in threw: ${err.message}`);
+          }
         });
       });
 
@@ -185,32 +192,57 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
         e.preventDefault();
         const email = new FormData(form).get('email');
         if (!email) return;
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
-          },
-        });
-        if (error) showErr(`Sign-in email failed: ${error.message}`);
-        else showCheck(email);
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              emailRedirectTo: `${location.origin}/api/auth/callback?next=${encodeURIComponent(nextParam)}`,
+            },
+          });
+          if (error) showErr(`Sign-in email failed: ${error.message}`);
+          else showCheck(email);
+        } catch (err) {
+          showErr(`Sign-in email threw: ${err.message}`);
+        }
       });
-    }
+    })().catch((err) => {
+      // Last-resort logger — any startup failure surfaces in the browser
+      // console rather than dying silently.
+      console.error('[aegis-login] init failed:', err);
+    });
   </script>
 
   <style>
+    /* ── Palette ─────────────────────────────────────────────────────
+       Uses AEGIS-site tokens from Layout.astro so this page stays
+       visually continuous with the rest of aegistraces.com. No hard
+       hex codes below unless the token doesn't cover the case (e.g.,
+       the mask gradient must be `#000` for `mask-image`).
+
+       --bg          #eae3d2   warm cream — right form panel matches site body
+       --surface     #f2edd8   lighter warm — form inputs, primary button hover
+       --surface-2   #ece6cf   slightly darker warm — left testimonial panel
+       --text        #0a0a0a   near-black text
+       --muted       #5c5a50   warm gray-brown for secondary text
+       --hairline    rgba(10,10,10,.10)     subtle borders
+       --hairline-strong rgba(10,10,10,.22) form input borders
+       --accent      #0a0a0a   primary button bg (site's convention)
+       --accent-warn #b07d2e   warm gold — testimonial emphasis + avatar tint */
+
     main.split {
       display: grid;
       grid-template-columns: 1fr 1fr;
       min-height: 100vh;
-      background: #fff;
+      background: var(--bg);
     }
     aside.left {
-      background: #f6f6f5;
+      background: var(--surface-2);
       padding: 3rem 3rem 4rem;
       position: relative;
       overflow: hidden;
+      border-right: 1px solid var(--hairline);
     }
-    aside .brand { display: inline-flex; align-items: center; color: #111; }
+    aside .brand { display: inline-flex; align-items: center; color: var(--text); }
     /* Vertical auto-scrolling marquee, 2 columns. The card list is
        duplicated in markup so `translateY(-50%)` at the animation
        endpoint wraps seamlessly to the top. Slight per-column speed
@@ -255,51 +287,66 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       .marquee .col-a, .marquee .col-b { animation: none; }
     }
     .card {
-      background: #fff;
-      border: 1px solid #ececec;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
       border-radius: 12px;
       padding: 1.75rem 1.25rem 1rem;
       margin: 0;
       position: relative;
     }
-    .card .mark { position: absolute; top: 0.5rem; left: 1rem; color: #111; font-size: 2rem; line-height: 1; font-weight: 700; opacity: 0.85; }
-    .card p { margin: 0 0 1rem; color: #333; font-size: 0.95rem; line-height: 1.5; }
-    .card p em { font-style: italic; color: #E85E14; }
+    .card .mark { position: absolute; top: 0.5rem; left: 1rem; color: var(--text); font-size: 2rem; line-height: 1; font-weight: 700; opacity: 0.7; }
+    .card p { margin: 0 0 1rem; color: var(--text); font-size: 0.95rem; line-height: 1.5; }
+    .card p em { font-style: italic; color: var(--accent-warn); font-family: var(--font-serif); font-weight: 500; }
     .card footer { display: flex; align-items: center; gap: 0.75rem; }
     .card .avatar {
       width: 40px; height: 40px; border-radius: 50%;
-      background: linear-gradient(135deg, #E85E14, #7a2f00);
+      background: linear-gradient(135deg, var(--accent-warn), #6a4a1a);
       display: inline-flex; align-items: center; justify-content: center;
-      color: #fff; font-weight: 600; font-size: 0.85rem;
+      color: var(--bg); font-weight: 600; font-size: 0.85rem;
     }
-    .card .who { font-weight: 600; color: #111; font-size: 0.85rem; }
-    .card .role { color: #666; font-size: 0.78rem; }
+    .card .who { font-weight: 600; color: var(--text); font-size: 0.85rem; }
+    .card .role { color: var(--muted); font-size: 0.78rem; }
 
     section.right {
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 3rem 2rem;
+      background: var(--bg);
     }
     .form-wrap { width: 100%; max-width: 26rem; }
-    .form-wrap h1 { font-size: 1.6rem; font-weight: 600; text-align: center; margin: 0 0 0.5rem; color: #111; }
-    .form-wrap .sub { color: #666; text-align: center; margin: 0 0 2rem; font-size: 0.9rem; }
+    .form-wrap h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      text-align: center;
+      margin: 0 0 0.5rem;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .form-wrap .sub { color: var(--muted); text-align: center; margin: 0 0 2rem; font-size: 0.9rem; }
     .notice {
-      background: #fff8ea; border: 1px solid #f0d68a; color: #6a4b00;
+      background: color-mix(in oklab, var(--accent-warn) 15%, var(--surface));
+      border: 1px solid color-mix(in oklab, var(--accent-warn) 45%, transparent);
+      color: color-mix(in oklab, var(--accent-warn) 80%, var(--text));
       padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
       margin-bottom: 1.5rem;
     }
-    .notice a { color: #6a4b00; text-decoration: underline; }
-    .notice code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; background: rgba(0,0,0,0.05); padding: 0 0.25rem; border-radius: 3px; }
+    .notice a { color: inherit; text-decoration: underline; }
+    .notice code { font-family: var(--font-mono); font-size: 0.8rem; background: rgba(10,10,10,0.06); padding: 0 0.25rem; border-radius: 3px; }
     form label { display: block; margin-bottom: 1rem; }
-    form label span { display: block; color: #111; font-size: 0.85rem; margin-bottom: 0.35rem; font-weight: 500; }
+    form label span { display: block; color: var(--text); font-size: 0.85rem; margin-bottom: 0.35rem; font-weight: 500; }
     form input {
       width: 100%; padding: 0.65rem 0.85rem;
-      border: 1px solid #d4d4d4; border-radius: 8px; font-size: 0.95rem;
-      background: #fff; color: #111;
-      transition: border-color 0.12s;
+      border: 1px solid var(--hairline-strong); border-radius: 8px; font-size: 0.95rem;
+      background: var(--surface); color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.12s, box-shadow 0.12s;
     }
-    form input:focus { outline: none; border-color: #111; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+    form input:focus {
+      outline: none; border-color: var(--text);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--text) 8%, transparent);
+    }
 
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
@@ -307,35 +354,50 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       border-radius: 8px; font-weight: 500; font-size: 0.9rem;
       cursor: pointer; transition: background 0.12s, border-color 0.12s;
       margin-bottom: 0.6rem;
+      font-family: inherit;
     }
-    .btn.primary { background: #111; color: #fff; border: 1px solid #111; margin-bottom: 1.25rem; }
-    .btn.primary:hover:not([disabled]) { background: #333; }
-    .btn.oauth { background: #fff; color: #111; border: 1px solid #d4d4d4; }
-    .btn.oauth:hover:not([disabled]) { background: #f8f8f8; }
-    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary {
+      background: var(--accent); color: var(--bg);
+      border: 1px solid var(--accent); margin-bottom: 1.25rem;
+    }
+    .btn.primary:hover:not([disabled]) {
+      background: transparent; color: var(--accent);
+    }
+    .btn.oauth {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--hairline-strong);
+    }
+    .btn.oauth:hover:not([disabled]) {
+      background: var(--surface-2); border-color: var(--accent);
+    }
+    .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 
     .divider {
       display: flex; align-items: center; margin: 1.25rem 0;
-      color: #999; font-size: 0.75rem;
+      color: var(--muted); font-size: 0.75rem;
     }
-    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #ececec; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--hairline); }
     .divider span { padding: 0 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
 
     .check-email {
-      background: #f0f8f4; border: 1px solid #b0d8bd; color: #2d6b47;
+      background: color-mix(in oklab, var(--accent-positive) 12%, var(--surface));
+      border: 1px solid color-mix(in oklab, var(--accent-positive) 45%, transparent);
+      color: var(--accent-positive);
       padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
       margin: 1rem 0 0;
     }
     .err {
-      background: #fdf1f1; border: 1px solid #e8b0b0; color: #8a2929;
+      background: color-mix(in oklab, var(--accent-error) 12%, var(--surface));
+      border: 1px solid color-mix(in oklab, var(--accent-error) 45%, transparent);
+      color: var(--accent-error);
       padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem;
       margin: 1rem 0 0;
     }
 
-    .tos { text-align: center; color: #999; font-size: 0.78rem; margin: 2rem 0 0.5rem; }
-    .tos a { color: #666; text-decoration: underline; }
-    .signup { text-align: center; color: #666; font-size: 0.85rem; margin: 0.5rem 0 0; }
-    .signup a { color: #111; font-weight: 500; text-decoration: none; }
+    .tos { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 2rem 0 0.5rem; }
+    .tos a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+    .signup { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 0; }
+    .signup a { color: var(--text); font-weight: 500; text-decoration: none; }
     .signup a:hover { text-decoration: underline; }
 
     @media (max-width: 900px) {
