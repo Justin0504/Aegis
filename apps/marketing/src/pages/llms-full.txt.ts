@@ -45,7 +45,7 @@ export const GET: APIRoute = async () => {
     `Site: ${SITE}`,
     `Repository: https://github.com/Justin0504/Aegis`,
     `License: MIT (code) · CC-BY-4.0 (docs + blog)`,
-    `Contact: aojieyuan04@gmail.com`,
+    `Contact: hello@aegistraces.com`,
     '',
     `Article count: ${posts.length}`,
     `Last built: ${new Date().toISOString()}`,

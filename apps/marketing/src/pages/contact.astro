@@ -69,7 +69,7 @@ import Footer from '@/components/Footer.astro';
           </label>
 
           <button type="submit" class="send">Send message</button>
-          <p class="hint">Submitting opens your mail client with the message addressed to <code>aojieyuan04@gmail.com</code>. We reply within one business day.</p>
+          <p class="hint">Sends via your mail client to <code>hello@aegistraces.com</code>. We reply within one business day.</p>
         </form>
       </div>
     </section>
@@ -91,7 +91,7 @@ import Footer from '@/components/Footer.astro';
               <h3>Email Support</h3>
             </div>
             <p class="other-addr">
-              <a href="mailto:aojieyuan04@gmail.com">aojieyuan04@gmail.com</a>
+              <a href="mailto:hello@aegistraces.com">hello@aegistraces.com</a>
             </p>
           </article>
 
@@ -152,7 +152,7 @@ import Footer from '@/components/Footer.astro';
           company ? 'Company: ' + company : null,
         ].filter(Boolean);
 
-        const url = 'mailto:aojieyuan04@gmail.com'
+        const url = 'mailto:hello@aegistraces.com'
           + '?subject=' + encodeURIComponent('[Contact] ' + subject)
           + '&body=' + encodeURIComponent(bodyLines.join('\n'));
 
