@@ -1,0 +1,216 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// Add a real case study by creating a new .astro file under
+// this directory (see _template.astro for the shape) and adding
+// one row to STUDIES below. `status: 'draft'` cases render on
+// the index as ghosted "coming soon" cards so we don't have to
+// build the page ahead of the interview being cleaned up.
+type Status = 'live' | 'draft';
+interface CaseStudy {
+  slug: string;
+  status: Status;
+  logo?: string;        // path in /public/logos
+  company: string;
+  vertical: string;
+  role: string;          // customer role that spoke to us
+  headline: string;      // one-line quote / hook
+  metric?: string;       // eye-catching number ("cut audit prep 6mo → 2w")
+}
+
+const STUDIES: CaseStudy[] = [
+  // Anchor slot — first named endorser. Prof Yue Zhao (USC) already
+  // gave AEGIS a public quote on the homepage marquee; formalizing
+  // into a full case study once we have 20 minutes of his time to
+  // structure the story.
+  {
+    slug:     'yue-zhao-usc',
+    status:   'draft',
+    company:  'USC · Prof. Yue Zhao Lab',
+    vertical: 'Academic · AI Risk Audit',
+    role:     'Assistant Professor',
+    headline: 'The runtime control layer the agent ecosystem has been missing.',
+    metric:   'Reproducible cryptographic audit for every experiment',
+  },
+  {
+    slug:     'placeholder-bfsi',
+    status:   'draft',
+    company:  '(BFSI design partner — under NDA)',
+    vertical: 'Financial services · air-gapped',
+    role:     'CISO',
+    headline: 'The only stack our security team didn\'t push back on.',
+    metric:   'On-prem deploy · zero external egress',
+  },
+  {
+    slug:     'placeholder-healthcare',
+    status:   'draft',
+    company:  '(Healthcare design partner — under NDA)',
+    vertical: 'Healthcare SaaS · HIPAA',
+    role:     'Head of AI',
+    headline: 'Six-month HIPAA review compressed to two weeks.',
+    metric:   'Signed evidence pack · auditor signed off without follow-up',
+  },
+];
+
+const live  = STUDIES.filter((s) => s.status === 'live');
+const draft = STUDIES.filter((s) => s.status === 'draft');
+---
+
+<Layout
+  title="Case studies — AEGIS"
+  description="How real teams deploy AEGIS in production. BFSI, healthcare, academic — cryptographic audit + workflow-anchored policy in the wild."
+>
+  <Header />
+  <main>
+    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <section class="cs-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Case studies</p>
+        <h1>Deployed. Audited. In production.</h1>
+        <p class="lede">
+          Every case study on this page is co-written with the team
+          who ships AEGIS. We reference the specific gateway version,
+          the deployment topology, and the compliance artifact the
+          buyer actually handed to their auditor.
+        </p>
+      </div>
+    </section>
+
+    {live.length > 0 && (
+      <section class="cs-grid-wrap">
+        <div class="container">
+          <div class="cs-grid">
+            {live.map((s) => (
+              <a class="cs-card" href={`/case-studies/${s.slug}`}>
+                <div class="cs-head">
+                  {s.logo && <img class="cs-logo" src={s.logo} alt={s.company} loading="lazy" />}
+                  <div class="cs-meta">
+                    <div class="cs-company">{s.company}</div>
+                    <div class="cs-vertical">{s.vertical}</div>
+                  </div>
+                </div>
+                <blockquote class="cs-headline">"{s.headline}"</blockquote>
+                {s.metric && <div class="cs-metric">{s.metric}</div>}
+                <div class="cs-role">— {s.role}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section class="cs-draft-wrap">
+      <div class="container">
+        <h2 class="section-h">In the pipeline</h2>
+        <p class="section-sub">
+          Interviews scheduled or in progress. If you're in a similar
+          shape and interested in reference-customer discount,
+          <a href="mailto:hello@aegistraces.com?subject=Case%20study%20interest">reach out</a>.
+        </p>
+        <div class="cs-grid">
+          {draft.map((s) => (
+            <div class="cs-card draft">
+              <div class="cs-head">
+                <div class="cs-meta">
+                  <div class="cs-company">{s.company}</div>
+                  <div class="cs-vertical">{s.vertical}</div>
+                </div>
+                <span class="cs-tag">Coming soon</span>
+              </div>
+              <blockquote class="cs-headline">"{s.headline}"</blockquote>
+              {s.metric && <div class="cs-metric">{s.metric}</div>}
+              <div class="cs-role">— {s.role}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-cta">
+      <div class="container container-narrow">
+        <h2>Deploying AEGIS at your org?</h2>
+        <p>
+          We'll trade a 30-minute interview + reference letter for a
+          reference-customer discount and a co-authored write-up. Fair
+          exchange — the case study helps you (recruitment,
+          credibility) and helps us (proof for the next buyer).
+        </p>
+        <a href="mailto:hello@aegistraces.com?subject=Case%20study%20interest" class="btn">
+          Start a conversation →
+        </a>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <style>
+    .eyebrow {
+      font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); font-weight: 600; margin: 0 0 0.6rem;
+    }
+    .cs-hero { padding: 4.5rem 0 3rem; }
+    .cs-hero h1 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: clamp(2rem, 4.2vw, 3.2rem);
+      letter-spacing: -0.01em; line-height: 1.15;
+      margin: 0 0 1.2rem;
+    }
+    .cs-hero .lede { font-size: 1.15rem; color: var(--muted); max-width: 42rem; margin: 0; line-height: 1.55; }
+
+    section.cs-grid-wrap, section.cs-draft-wrap, section.cs-cta { padding: 3rem 0; }
+    section.cs-draft-wrap { background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+    .section-h { font-family: var(--font-serif); font-weight: 400; font-size: 1.75rem; letter-spacing: -0.01em; margin: 0 0 0.5rem; }
+    .section-sub { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.75rem; max-width: 42rem; }
+    .section-sub a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+
+    .cs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .cs-card {
+      display: flex; flex-direction: column; gap: 0.8rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 1.25rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.12s, transform 0.12s;
+    }
+    .cs-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .cs-card.draft { opacity: 0.75; }
+    .cs-card.draft:hover { transform: none; border-color: var(--hairline); }
+
+    .cs-head { display: flex; align-items: center; gap: 0.75rem; justify-content: space-between; }
+    .cs-meta { min-width: 0; }
+    .cs-logo { width: 44px; height: 44px; object-fit: contain; }
+    .cs-company { font-weight: 600; font-size: 0.95rem; color: var(--text); }
+    .cs-vertical { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+    .cs-tag {
+      font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.2rem 0.5rem;
+      border: 1px dashed var(--hairline-strong);
+      border-radius: 999px;
+    }
+    .cs-headline {
+      margin: 0;
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.1rem; letter-spacing: -0.005em; line-height: 1.4;
+      color: var(--text);
+    }
+    .cs-metric {
+      font-size: 0.85rem;
+      color: color-mix(in oklab, var(--accent-warn) 90%, var(--text));
+      font-family: var(--font-mono);
+    }
+    .cs-role { color: var(--muted); font-size: 0.82rem; margin-top: auto; }
+
+    section.cs-cta { text-align: center; }
+    section.cs-cta h2 { font-family: var(--font-serif); font-weight: 400; font-size: 2rem; letter-spacing: -0.01em; margin: 0 0 0.5rem; }
+    section.cs-cta p { color: var(--muted); max-width: 42rem; margin: 0 auto 1.5rem; line-height: 1.55; }
+  </style>
+</Layout>

@@ -1,0 +1,95 @@
+---
+/**
+ * Case-study template. Copy this file to `<slug>.astro` (drop the
+ * leading underscore) and fill in the frontmatter + sections below.
+ *
+ * Astro treats files starting with `_` as private (not routed), so
+ * this file will NEVER render as a page. Safe to leave in repo as
+ * the canonical shape for future case studies.
+ */
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// ── Fill me in ─────────────────────────────────────────────────
+const STUDY = {
+  company:     'Company Name',
+  logo:        '/logos/company.svg',   // optional
+  vertical:    'Vertical · Sub-vertical',
+  role:        'Head of Platform',
+  quoteHero:   'The one-line quote for the top of the page.',
+  metricHero:  '90-day audit prep from six months to two weeks',
+  deployment: {
+    gatewayVersion: 'v1.2.5',
+    topology:       'Self-hosted Kubernetes · air-gapped',
+    scale:          '20+ agents · 100k tool calls / day',
+    since:          '2026-03',
+  },
+};
+---
+
+<Layout
+  title={`${STUDY.company} — AEGIS case study`}
+  description={STUDY.quoteHero}
+>
+  <Header />
+  <main>
+    <section class="hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Case study · {STUDY.vertical}</p>
+        <h1>{STUDY.company}</h1>
+        <blockquote class="quote">"{STUDY.quoteHero}"</blockquote>
+        <p class="metric">{STUDY.metricHero}</p>
+      </div>
+    </section>
+
+    <section class="deploy">
+      <div class="container container-narrow">
+        <h2>Deployment</h2>
+        <dl>
+          <dt>Gateway version</dt><dd>{STUDY.deployment.gatewayVersion}</dd>
+          <dt>Topology</dt><dd>{STUDY.deployment.topology}</dd>
+          <dt>Scale</dt><dd>{STUDY.deployment.scale}</dd>
+          <dt>In production since</dt><dd>{STUDY.deployment.since}</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="body">
+      <div class="container container-narrow">
+        <h2>The problem</h2>
+        <p>[1-2 paragraphs on what the team was trying to solve.]</p>
+
+        <h2>Why AEGIS</h2>
+        <p>[1-2 paragraphs on what tipped them from other options.]</p>
+
+        <h2>What they shipped</h2>
+        <p>[Specific policies, pack usage, evidence-pack cadence, rollback events.]</p>
+
+        <h2>Outcome</h2>
+        <p>[Concrete numbers: audit prep time, incidents caught, MTTD, etc.]</p>
+
+        <h2>What's next</h2>
+        <p>[Roadmap items the customer is asking for, or expansions in progress.]</p>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <style>
+    .eyebrow { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 0.6rem; }
+    .hero { padding: 4.5rem 0 3rem; }
+    .hero h1 { font-family: var(--font-serif); font-weight: 400; font-size: clamp(2rem, 4.2vw, 3.2rem); letter-spacing: -0.01em; margin: 0 0 1.2rem; }
+    .quote { margin: 0 0 0.75rem; font-family: var(--font-serif); font-size: 1.4rem; color: var(--text); font-style: italic; }
+    .metric { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); font-family: var(--font-mono); font-size: 0.95rem; margin: 0; }
+    section.deploy { padding: 2rem 0; background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+    section.deploy h2 { font-family: var(--font-serif); font-weight: 400; font-size: 1.4rem; margin: 0 0 1rem; }
+    section.deploy dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1.5rem; margin: 0; font-size: 0.9rem; }
+    section.deploy dt { color: var(--muted); }
+    section.deploy dd { color: var(--text); margin: 0; }
+    section.body { padding: 3rem 0; }
+    section.body h2 { font-family: var(--font-serif); font-weight: 400; font-size: 1.5rem; margin: 2rem 0 0.75rem; }
+    section.body p { color: var(--text); line-height: 1.7; font-size: 1rem; margin: 0 0 1rem; }
+  </style>
+</Layout>

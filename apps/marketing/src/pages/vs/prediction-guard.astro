@@ -1,0 +1,238 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// Prediction Guard = closest overlap: also positions as
+// "sovereign AI control plane" with EU AI Act-aligned policies.
+// The differentiators are architectural (runtime firewall + Merkle
+// audit + compensator) and packaging (open-source, DSL, workflow
+// anchoring). Also both offer air-gapped.
+const CAPS = [
+  { row: 'Runtime intercept (block / pending)',   aegis: 'yes',       pg: 'yes',   note: 'Both gate tool + LLM calls before execution.', depth: 'core' },
+  { row: 'Cryptographic audit chain (Merkle)',    aegis: 'yes',       pg: 'no',    note: 'AEGIS ships Ed25519-signed transparency log. Prediction Guard logs policy decisions but not to a hash-chained tamper-evident structure.', depth: 'core' },
+  { row: 'Workflow-anchored policies',            aegis: 'yes',       pg: 'no',    note: 'binding_uuid > node_uuid > tool_name precedence in AEGIS. Prediction Guard scopes policies at the model / endpoint level, not the workflow node.', depth: 'core' },
+  { row: 'Compensator + rollback',                aegis: 'yes',       pg: 'no',    note: 'AEGIS ships a saga engine with binding-scoped compensators. PG stops at block; no undo primitive.', depth: 'core' },
+  { row: 'EU AI Act evidence pack',               aegis: 'yes',       pg: 'partial', note: 'Both position for EU AI Act. AEGIS ships article-by-article signed JSON export; PG offers policy alignment mapping but not a one-click evidence artifact.', depth: 'core' },
+  { row: 'Preset compliance DSL packs',           aegis: '6 packs',   pg: 'partial', note: 'AEGIS ships GLBA/PCI/SOX/DORA/HIPAA/FedRAMP as one-command imports with regulation citations. PG ships policy templates but fewer regulation-cited packs.', depth: 'core' },
+  { row: 'Air-gapped deploy',                     aegis: 'yes',       pg: 'yes',   note: 'Both offer self-host and air-gapped. AEGIS additionally enforces at CNI layer via NetworkPolicy in the shipped Helm chart.', depth: 'core' },
+  { row: 'Open source',                           aegis: 'MIT (core)', pg: 'closed', note: 'AEGIS core is Apache/MIT. Prediction Guard is closed-source with a commercial license.', depth: 'core' },
+
+  { row: 'Local LLM adapter (Ollama / vLLM)',     aegis: 'yes',       pg: 'partial', note: 'Both support self-hosted models. AEGIS ships OpenAI-compat adapter for any /v1 endpoint.', depth: 'detail' },
+  { row: 'NL-to-DSL compiler',                    aegis: 'yes (workflow-aware)', pg: 'yes', note: 'AEGIS resolves to specific workflow node UUIDs; PG has an NL policy authoring path.', depth: 'detail' },
+  { row: 'Cockpit / operator UI',                 aegis: 'shipped (Next.js)', pg: 'shipped', note: 'Both have hosted admin UIs. AEGIS Cockpit is self-hostable open source.', depth: 'detail' },
+  { row: 'Pricing surface',                       aegis: 'MIT + hosted', pg: 'annual license', note: 'AEGIS free-forever core + paid Cloud. PG is commercial-only with per-seat annual license.', depth: 'detail' },
+];
+const CORE   = CAPS.filter((c) => c.depth === 'core');
+const DETAIL = CAPS.filter((c) => c.depth === 'detail');
+---
+
+<Layout
+  title="AEGIS vs Prediction Guard — Sovereign AI control plane comparison"
+  description="How AEGIS compares to Prediction Guard. Open-source Merkle audit + workflow-anchored policies + compensator rollback + 6 regulation-cited DSL packs vs commercial sovereign AI control plane."
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="vs-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Head to head · updated 2026-07</p>
+        <h1>AEGIS <span class="vs-word">vs</span> Prediction Guard</h1>
+        <p class="lede">
+          Both position as sovereign AI control planes. Both do
+          runtime enforcement. The difference is architecture (Merkle
+          audit + workflow anchoring + compensator rollback) and
+          license posture (open-source vs commercial).
+        </p>
+        <p class="lede small">
+          Written by the AEGIS team. Read
+          <a href="https://predictionguard.com" target="_blank" rel="noopener">Prediction Guard's docs</a>
+          and decide for yourself.
+        </p>
+      </div>
+    </section>
+
+    <section class="vs-tldr">
+      <div class="container">
+        <h2>The 8 things buyers ask about first</h2>
+        <div class="matrix">
+          <div class="mrow head">
+            <div>Capability</div>
+            <div>AEGIS</div>
+            <div>Prediction Guard</div>
+          </div>
+          {CORE.map((c) => (
+            <div class="mrow">
+              <div class="cap">
+                <div class="cap-row">{c.row}</div>
+                <div class="cap-note">{c.note}</div>
+              </div>
+              <div class={`v v-${c.aegis === 'no' ? 'no' : c.aegis === 'partial' ? 'partial' : 'yes'}`}>{c.aegis}</div>
+              <div class={`v v-${c.pg === 'no' ? 'no' : c.pg === 'partial' ? 'partial' : c.pg === 'closed' ? 'no' : 'yes'}`}>{c.pg}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="vs-deep">
+      <div class="container container-narrow">
+        <h2 class="section-h">Where the two products diverge</h2>
+
+        <article class="diff">
+          <span class="diff-num">01</span>
+          <h3>Open source vs commercial license</h3>
+          <p>
+            AEGIS core is fully MIT/Apache — clone the repo, run the
+            gateway, read every policy decision line yourself. Paid
+            Cloud is optional. Prediction Guard is commercial-only;
+            you pay for a license before you can run it, and you can't
+            inspect the enforcement logic in production. Bespoke
+            deployments in regulated environments increasingly need
+            "we can read the source" as a hard checkbox.
+          </p>
+        </article>
+
+        <article class="diff">
+          <span class="diff-num">02</span>
+          <h3>Merkle-chained audit vs plain-log audit</h3>
+          <p>
+            Both write policy-decision logs. AEGIS additionally
+            hashes each entry into a per-agent chain and Ed25519-signs
+            the transparency-log root. If a bad actor with DB write
+            access wants to rewrite history, they need the signing
+            key too — Prediction Guard's approach records decisions
+            but does not currently commit to a chain that would
+            surface tampering. For SOC 2 Type II + auditor-signed-off
+            evidence, the chain matters.
+          </p>
+        </article>
+
+        <article class="diff">
+          <span class="diff-num">03</span>
+          <h3>Workflow anchoring + rollback</h3>
+          <p>
+            AEGIS's rules bind to specific workflow node UUIDs
+            (<code>binding_uuid → node_uuid → tool_name</code>
+            precedence). Prediction Guard's policies attach at the
+            model/endpoint level — same rule fires uniformly across
+            every use of that endpoint. Same-tool-different-node
+            differentiation isn't a primitive. AEGIS also ships a
+            saga engine with binding-scoped compensators; PG stops
+            at "block."
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="vs-detail">
+      <div class="container">
+        <h2 class="section-h">Full capability matrix</h2>
+        <div class="matrix">
+          <div class="mrow head">
+            <div>Capability</div>
+            <div>AEGIS</div>
+            <div>Prediction Guard</div>
+          </div>
+          {[...CORE, ...DETAIL].map((c) => (
+            <div class="mrow">
+              <div class="cap">
+                <div class="cap-row">{c.row}</div>
+                <div class="cap-note">{c.note}</div>
+              </div>
+              <div class={`v v-${c.aegis === 'no' ? 'no' : c.aegis === 'partial' ? 'partial' : 'yes'}`}>{c.aegis}</div>
+              <div class={`v v-${c.pg === 'no' ? 'no' : c.pg === 'partial' ? 'partial' : c.pg === 'closed' ? 'no' : 'yes'}`}>{c.pg}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="vs-picks">
+      <div class="container">
+        <h2 class="section-h">Honest picking guide</h2>
+        <div class="picks-grid">
+          <article class="pick pick-msft">
+            <h3>Pick Prediction Guard when</h3>
+            <ul>
+              <li>You want a <strong>fully managed</strong> control plane and are fine trading source visibility for turnkey ops.</li>
+              <li>Your buyer wants a <strong>single vendor SLA</strong> without a self-host escape hatch.</li>
+              <li>You don't need a Merkle-chained audit or workflow-anchored policies.</li>
+            </ul>
+          </article>
+          <article class="pick pick-aegis">
+            <h3>Pick AEGIS when</h3>
+            <ul>
+              <li>You need a <strong>signed, offline-verifiable evidence pack</strong> for regulated audits.</li>
+              <li>You want to <strong>read the source</strong> — either yourself or for the security team's review.</li>
+              <li>You need <strong>workflow-anchored policies</strong> or <strong>rollback</strong>, neither of which PG ships today.</li>
+              <li>You want <strong>free-forever core</strong> with paid Cloud as optional.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="vs-cta">
+      <div class="container container-narrow">
+        <h2>Try the AEGIS playground.</h2>
+        <p>Compile an English rule and evaluate a tool call — no signup, all client-side.</p>
+        <div class="cta-row">
+          <a href="/demo" class="btn">Open playground →</a>
+          <a href="/pricing" class="btn-secondary">Pricing</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <style>
+    .eyebrow { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 0.6rem; }
+    .vs-hero { padding: 4.5rem 0 3rem; }
+    .vs-hero h1 { font-family: var(--font-serif); font-size: clamp(2rem, 4.2vw, 3.2rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.15; margin: 0 0 1.2rem; }
+    .vs-hero .vs-word { font-style: italic; color: var(--muted); font-weight: 400; }
+    .vs-hero .lede { font-size: 1.15rem; color: var(--muted); max-width: 42rem; margin: 0.4rem 0 0.5rem; line-height: 1.5; }
+    .vs-hero .lede em { font-style: italic; color: var(--text); }
+    .vs-hero .lede.small { font-size: 0.9rem; }
+    .vs-hero .lede a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+
+    section.vs-tldr, section.vs-deep, section.vs-detail, section.vs-picks, section.vs-cta { padding: 3rem 0; }
+    section.vs-tldr, section.vs-detail { background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+    .section-h, section.vs-tldr h2 { font-family: var(--font-serif); font-weight: 400; font-size: 1.75rem; letter-spacing: -0.01em; margin: 0 0 1.75rem; }
+
+    .matrix { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+    .mrow { display: grid; grid-template-columns: 2.4fr 1fr 1fr; gap: 0; align-items: start; border-bottom: 1px solid var(--hairline); }
+    .mrow:last-child { border-bottom: none; }
+    .mrow.head { background: var(--bg); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
+    .mrow.head > div { padding: 0.8rem 1rem; }
+    .mrow:not(.head) > div { padding: 0.9rem 1rem; }
+    .cap-row { font-weight: 500; color: var(--text); font-size: 0.95rem; margin-bottom: 0.2rem; }
+    .cap-note { color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+    .v { display: flex; align-items: flex-start; font-size: 0.85rem; font-weight: 500; border-left: 1px solid var(--hairline); }
+    .v-yes { color: var(--accent-positive); } .v-yes::before { content: '✓  '; font-weight: 700; margin-right: 0.15rem; }
+    .v-no  { color: var(--accent-error); opacity: 0.9; } .v-no::before { content: '✗  '; font-weight: 700; margin-right: 0.15rem; }
+    .v-partial { color: var(--accent-warn); } .v-partial::before { content: '◐  '; font-weight: 700; margin-right: 0.15rem; }
+    @media (max-width: 780px) { .mrow { grid-template-columns: 1fr; } .v { border-left: none; border-top: 1px solid var(--hairline); } }
+
+    .diff { position: relative; padding: 1.5rem 1.5rem 1.75rem 4.5rem; margin-bottom: 1.25rem; background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; }
+    .diff-num { position: absolute; top: 1.5rem; left: 1.5rem; font-family: var(--font-serif); font-size: 1.6rem; color: var(--accent-warn); }
+    .diff h3 { font-family: var(--font-serif); font-weight: 400; font-size: 1.35rem; margin: 0 0 0.75rem; }
+    .diff p { color: var(--text); font-size: 0.95rem; line-height: 1.6; margin: 0 0 0.75rem; }
+    .diff p code { font-family: var(--font-mono); background: var(--surface-2); padding: 0 0.3rem; border-radius: 3px; font-size: 0.85em; }
+
+    .picks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 780px) { .picks-grid { grid-template-columns: 1fr; } }
+    .pick { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 1.5rem; }
+    .pick h3 { font-family: var(--font-serif); font-weight: 400; font-size: 1.2rem; margin: 0 0 1rem; }
+    .pick-aegis { border-color: color-mix(in oklab, var(--accent-warn) 45%, var(--hairline)); }
+    .pick-aegis h3 { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); }
+    .pick ul { color: var(--text); font-size: 0.9rem; line-height: 1.6; padding-left: 1.15rem; margin: 0; }
+    .pick ul li { margin-bottom: 0.5rem; }
+    .pick ul li strong { font-weight: 600; }
+
+    section.vs-cta { text-align: center; background: var(--surface-2); border-top: 1px solid var(--hairline); }
+    section.vs-cta h2 { font-family: var(--font-serif); font-weight: 400; font-size: 2rem; margin: 0 0 0.5rem; }
+    section.vs-cta p { color: var(--muted); margin: 0 0 1.5rem; }
+    .cta-row { display: inline-flex; gap: 0.75rem; }
+  </style>
+</Layout>

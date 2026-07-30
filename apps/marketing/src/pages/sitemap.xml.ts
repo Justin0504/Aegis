@@ -26,6 +26,15 @@ const pages = [
   { path: '/docs/ontology',          priority: '0.7', changefreq: 'monthly' },
   { path: '/docs/compliance',        priority: '0.7', changefreq: 'monthly' },
   { path: '/security',               priority: '0.8', changefreq: 'monthly' },
+  // Compliance + regulation-specific landing. /eu-ai-act is
+  // date-sensitive (Aug 2 2026 deadline) → weekly changefreq
+  // keeps Googlebot re-crawling around the deadline.
+  { path: '/eu-ai-act',              priority: '0.9', changefreq: 'weekly'  },
+  { path: '/case-studies',           priority: '0.8', changefreq: 'weekly'  },
+  // Competitor "AEGIS vs X" landings — high-intent long-tail.
+  { path: '/vs/microsoft-agt',       priority: '0.8', changefreq: 'monthly' },
+  { path: '/vs/langfuse',            priority: '0.8', changefreq: 'monthly' },
+  { path: '/vs/prediction-guard',    priority: '0.8', changefreq: 'monthly' },
   { path: '/status',                 priority: '0.6', changefreq: 'daily'   },
   { path: '/privacy',                priority: '0.4', changefreq: 'yearly'  },
   { path: '/terms',                  priority: '0.4', changefreq: 'yearly'  },
