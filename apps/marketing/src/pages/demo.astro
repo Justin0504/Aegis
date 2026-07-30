@@ -4,6 +4,7 @@ import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import DecisionLog from '@/components/DecisionLog.astro';
 import Icon from '@/components/Icon.astro';
+import InteractiveDemo from '@/components/InteractiveDemo.astro';
 
 // 4 vertical packs (mirrors what the gateway ships at /api/v1/policies/packs)
 const PACKS = [
@@ -261,6 +262,9 @@ const PACKS = [
         </div>
       </div>
     </section>
+
+    <!-- ── INTERACTIVE SANDBOX (client-side, no gateway needed) ──── -->
+    <InteractiveDemo />
 
     <!-- ── STEP 4: VERTICAL PACKS ──────────────────────────────────── -->
     <section class="step alt" id="step-4">

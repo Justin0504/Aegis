@@ -1,0 +1,461 @@
+---
+/**
+ * Interactive AEGIS sandbox. Client-only, no backend dependency.
+ *
+ *   1. Operator types (or picks) an English rule.
+ *   2. Client-side heuristic compiler emits a real PolicyDsl JSON.
+ *   3. Operator types (or picks) a tool call in JSON.
+ *   4. Client-side evaluator walks the DSL, returns a decision.
+ *
+ * The heuristic compiler covers ~6 rule shapes that map to the
+ * patterns the actual gateway compiles (see policies/dsl-packs/*.ts).
+ * The evaluator is a JS port of the same walker used server-side
+ * (see policies/dsl/evaluator.ts) — same semantics, same order.
+ */
+
+// Preset data lives up here as Astro consts so the JSON blobs inside
+// data-tc attributes don't get parsed as JSX expressions. Astro treats
+// bare `{` in template text/attributes as expression starts — moving
+// the JSON into a string and interpolating it via `{preset.tc}` is the
+// clean escape hatch.
+const NL_PRESETS = [
+  { label: 'Refund guard',   nl: 'Block stripe_refund tool calls over $10,000.' },
+  { label: 'External email', nl: 'Require approval for any send_email to an external domain.' },
+  { label: 'PAN in args',    nl: 'Block any tool call whose arguments contain a raw credit card number.' },
+  { label: 'Prod shell',     nl: 'Require approval for shell tool calls when the environment is production.' },
+];
+const TC_PRESETS = [
+  { label: '$150 refund',    tc: '{"tool":{"name":"stripe_refund","args":{"amount":15000,"currency":"usd"}}}' },
+  { label: '$5 refund',      tc: '{"tool":{"name":"stripe_refund","args":{"amount":500,"currency":"usd"}}}'   },
+  { label: 'External email', tc: '{"tool":{"name":"send_email","args":{"to":"external@corp.example","body":"..."}}}' },
+  { label: 'Log with card',  tc: '{"tool":{"name":"log_event","args":{"message":"card 4242 4242 4242 4242 charged"}}}' },
+];
+// Default NL + DSL placeholder text — plain strings, no braces
+// interpreted by the Astro parser.
+const DEFAULT_NL = 'Block stripe_refund tool calls over $10,000.';
+const DEFAULT_TC = '{"tool":{"name":"stripe_refund","args":{"amount":15000,"currency":"usd"}}}';
+const DEFAULT_DSL_PLACEHOLDER =
+`{
+  "version": 1,
+  "rules": [
+    <click Compile to generate>
+  ]
+}`;
+---
+
+<section class="idemo" aria-label="Interactive policy playground">
+  <div class="container">
+    <div class="idemo-header">
+      <span class="idemo-eyebrow">Try it yourself</span>
+      <h2>Compile an English rule, then test a real tool call.</h2>
+      <p class="idemo-sub">
+        Runs in your browser — no signup, no gateway. Same rule shape
+        + same walker as the production compiler.
+      </p>
+    </div>
+
+    <div class="idemo-grid">
+      <!-- ── Column 1 · NL policy input ────────────────────────── -->
+      <div class="idemo-col">
+        <div class="idemo-step">Step 1 · Describe the policy</div>
+        <div class="idemo-presets" role="group" aria-label="Example rules">
+          {NL_PRESETS.map((p) => (
+            <button type="button" class="preset" data-nl={p.nl}>{p.label}</button>
+          ))}
+        </div>
+        <textarea id="nl-input" spellcheck="false"
+          placeholder="Type a rule in plain English, or click a preset above.">{DEFAULT_NL}</textarea>
+        <button type="button" id="compile-btn" class="idemo-primary">Compile →</button>
+      </div>
+
+      <!-- ── Column 2 · Compiled DSL ─────────────────────────────── -->
+      <div class="idemo-col">
+        <div class="idemo-step">Step 2 · Compiled DSL</div>
+        <pre id="dsl-out" class="idemo-code" aria-live="polite"><code>{DEFAULT_DSL_PLACEHOLDER}</code></pre>
+        <div class="idemo-meta" id="dsl-meta"></div>
+      </div>
+
+      <!-- ── Column 3 · Test tool call ───────────────────────────── -->
+      <div class="idemo-col">
+        <div class="idemo-step">Step 3 · Test a tool call</div>
+        <div class="idemo-presets" role="group" aria-label="Example tool calls">
+          {TC_PRESETS.map((p) => (
+            <button type="button" class="preset" data-tc={p.tc}>{p.label}</button>
+          ))}
+        </div>
+        <textarea id="tc-input" spellcheck="false"
+          placeholder='tool call JSON — { "tool": { "name": "...", "args": {...} } }'>{DEFAULT_TC}</textarea>
+        <button type="button" id="test-btn" class="idemo-primary">Test →</button>
+        <div id="decision" class="idemo-decision" aria-live="polite" hidden>
+          <span class="idemo-decision-chip"></span>
+          <div class="idemo-decision-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="idemo-footnote">
+      Heuristic compiler here matches ~6 rule shapes for demo speed.
+      In production the gateway uses an LLM (Claude / GPT / Ollama)
+      for arbitrary English, and the same walker enforces the compiled
+      DSL. Both are open-source — audit the compiler at
+      <a href="https://github.com/Justin0504/Aegis/blob/main/packages/gateway-mcp/src/services/nl-policy-compiler.ts" target="_blank" rel="noopener">nl-policy-compiler.ts</a>
+      and the evaluator at
+      <a href="https://github.com/Justin0504/Aegis/blob/main/packages/gateway-mcp/src/policies/dsl/evaluator.ts" target="_blank" rel="noopener">evaluator.ts</a>.
+    </p>
+  </div>
+</section>
+
+<script is:inline>
+  // ── Heuristic NL → PolicyDsl compiler ─────────────────────────
+  // Handles the patterns the /demo presets cover, plus fuzzy
+  // fallbacks. Semantics match the production compiler at
+  // packages/gateway-mcp/src/services/nl-policy-compiler.ts — same
+  // decision names (allow / pending / block), same JSON schema shape.
+  function compileNL(text) {
+    const src = text.trim();
+    if (!src) return { dsl: { version: 1, rules: [] }, note: 'empty input' };
+    const lower = src.toLowerCase();
+
+    const rules = [];
+    let note = '';
+
+    // Verb → decision
+    const decision =
+      /\brequire\b.*approval|\bpending\b|\bhuman review\b/.test(lower) ? 'pending' :
+      /\bblock\b|\bdeny\b|\bforbid\b|\breject\b|\bprevent\b/.test(lower)  ? 'block'   :
+      /\ballow\b|\bpermit\b/.test(lower)                                   ? 'allow'   :
+      'block'; // sensible default
+
+    // Extract tool name (snake_case_word optionally followed by "tool")
+    const toolMatch = src.match(/\b([a-z][a-z0-9_]{2,40})(?=\s+(?:tool|calls|call)\b|\b)/i);
+    // Threshold: "over $10,000" | "greater than 5000" | "> 1000"
+    const amtMatch = src.match(/(?:over|greater than|more than|>=?)\s*\$?([\d,]+)/i);
+    const amount   = amtMatch ? Number(amtMatch[1].replace(/,/g, '')) : null;
+    // Environment
+    const envMatch = src.match(/\b(production|staging|prod)\b/i);
+    // "external domain"
+    const external = /\bexternal\b.*\bdomain\b|\bexternal\b.*\bemail\b/i.test(src);
+    // "credit card" / "PAN" / "card number"
+    const pan      = /\bcredit card\b|\bcard number\b|\braw pan\b|\bPAN\b/.test(src);
+
+    if (pan) {
+      // 13–19 digit run in any arg-ish string. Mirrors the pci-block-
+      // pan-in-tool-args pack rule.
+      rules.push({
+        name: 'block-pan-in-args',
+        when: {
+          any: [
+            { 'tool.args.message': { matches: '\\d{13,19}' } },
+            { 'tool.args.body':    { matches: '\\d{13,19}' } },
+            { 'tool.args.text':    { matches: '\\d{13,19}' } },
+          ],
+        },
+        then: { decision: 'block', reason: 'PCI DSS Req. 3.4 — unmasked PAN forbidden' },
+      });
+      note = 'Matched pattern: PAN detection';
+    } else if (external) {
+      rules.push({
+        name: 'pending-external-email',
+        when: {
+          all: [
+            { 'tool.name': 'send_email' },
+            { 'tool.args.to': { matches: '@(?!yourcorp\\.com)' } },
+          ],
+        },
+        then: { decision: decision === 'block' ? 'block' : 'pending', reason: 'external domain — human review' },
+      });
+      note = 'Matched pattern: external email routing';
+    } else if (toolMatch && amount != null) {
+      rules.push({
+        name: `${decision}-${toolMatch[1]}-over-${amount}`,
+        when: {
+          all: [
+            { 'tool.name': toolMatch[1] },
+            { 'tool.args.amount': { '>': amount } },
+          ],
+        },
+        then: { decision, reason: `${toolMatch[1]} over ${amount} requires ${decision}` },
+      });
+      note = 'Matched pattern: tool + threshold';
+    } else if (toolMatch && envMatch) {
+      rules.push({
+        name: `${decision}-${toolMatch[1]}-in-${envMatch[1].toLowerCase()}`,
+        when: {
+          all: [
+            { 'tool.name': { matches: `^${toolMatch[1]}` } },
+            { 'tenant.deploymentMode': envMatch[1].toLowerCase().startsWith('prod') ? 'production' : envMatch[1].toLowerCase() },
+          ],
+        },
+        then: { decision, reason: `${toolMatch[1]} in ${envMatch[1]} — ${decision}` },
+      });
+      note = 'Matched pattern: tool + environment';
+    } else if (toolMatch) {
+      rules.push({
+        name: `${decision}-${toolMatch[1]}`,
+        when: { 'tool.name': toolMatch[1] },
+        then: { decision, reason: `${decision} all ${toolMatch[1]} calls` },
+      });
+      note = 'Matched pattern: tool-only';
+    } else {
+      rules.push({
+        name: 'catchall',
+        when: {},
+        then: { decision, reason: 'no specific pattern matched — this is a catch-all' },
+      });
+      note = 'No specific pattern — fell through to catchall';
+    }
+
+    return { dsl: { version: 1, rules }, note };
+  }
+
+  // ── DSL evaluator (JS port of packages/gateway-mcp/src/policies/dsl/evaluator.ts) ─
+  function evalDsl(dsl, ctx) {
+    for (const rule of dsl.rules || []) {
+      if (matches(rule.when, ctx)) {
+        return {
+          decision: rule.then.decision,
+          reason:   rule.then.reason,
+          ruleName: rule.name,
+        };
+      }
+    }
+    return null;
+  }
+  function matches(cond, ctx) {
+    if (cond == null) return true;
+    if ('all' in cond) return cond.all.every((c) => matches(c, ctx));
+    if ('any' in cond) return cond.any.some ((c) => matches(c, ctx));
+    if ('not' in cond) return !matches(cond.not, ctx);
+    // Otherwise: field-check record — every key must match
+    for (const [path, cmp] of Object.entries(cond)) {
+      const v = readPath(ctx, path);
+      if (!evalCmp(v, cmp)) return false;
+    }
+    return true;
+  }
+  function evalCmp(value, cmp) {
+    if (cmp === null || typeof cmp !== 'object') return value === cmp;   // primitive equality shorthand
+    if ('=='  in cmp) return value === cmp['=='];
+    if ('!='  in cmp) return value !== cmp['!='];
+    if ('>'   in cmp) return typeof value === 'number' && value >  cmp['>'];
+    if ('<'   in cmp) return typeof value === 'number' && value <  cmp['<'];
+    if ('>='  in cmp) return typeof value === 'number' && value >= cmp['>='];
+    if ('<='  in cmp) return typeof value === 'number' && value <= cmp['<='];
+    if ('in'  in cmp) return cmp['in'].includes(value);
+    if ('matches' in cmp) {
+      try { return typeof value === 'string' && new RegExp(cmp.matches).test(value); }
+      catch { return false; }
+    }
+    return false;
+  }
+  function readPath(obj, path) {
+    let cur = obj;
+    for (const seg of path.split('.')) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[seg];
+    }
+    return cur;
+  }
+
+  // ── UI wiring ─────────────────────────────────────────────────
+  const nlInput  = document.getElementById('nl-input');
+  const tcInput  = document.getElementById('tc-input');
+  const dslOut   = document.getElementById('dsl-out').querySelector('code');
+  const dslMeta  = document.getElementById('dsl-meta');
+  const decBox   = document.getElementById('decision');
+  const decChip  = decBox.querySelector('.idemo-decision-chip');
+  const decBody  = decBox.querySelector('.idemo-decision-body');
+
+  document.querySelectorAll('button.preset[data-nl]').forEach((b) => {
+    b.addEventListener('click', () => { nlInput.value = b.getAttribute('data-nl'); compile(); });
+  });
+  document.querySelectorAll('button.preset[data-tc]').forEach((b) => {
+    b.addEventListener('click', () => { tcInput.value = b.getAttribute('data-tc'); testCall(); });
+  });
+  document.getElementById('compile-btn').addEventListener('click', compile);
+  document.getElementById('test-btn').addEventListener('click', testCall);
+
+  let currentDsl = null;
+
+  function compile() {
+    const { dsl, note } = compileNL(nlInput.value);
+    currentDsl = dsl;
+    dslOut.textContent = JSON.stringify(dsl, null, 2);
+    dslMeta.textContent = note;
+    decBox.hidden = true; // stale
+  }
+  function testCall() {
+    if (!currentDsl) compile();
+    let ctx;
+    try { ctx = JSON.parse(tcInput.value); }
+    catch (err) {
+      showDecision('error', 'Invalid JSON — check your tool-call syntax', String(err.message));
+      return;
+    }
+    const res = evalDsl(currentDsl, ctx);
+    if (!res) {
+      showDecision('allow', 'ALLOWED (no rule matched — default allow)', '');
+    } else {
+      showDecision(res.decision, res.decision.toUpperCase(),
+        `Matched rule "${res.ruleName}"${res.reason ? ` — ${res.reason}` : ''}`);
+    }
+  }
+  function showDecision(kind, label, detail) {
+    decBox.hidden = false;
+    decChip.textContent = label;
+    decChip.dataset.kind = kind;
+    decBody.textContent = detail;
+  }
+
+  // Auto-compile on page load so column 2 is populated before any click.
+  compile();
+</script>
+
+<style>
+  .idemo {
+    padding: 5rem 0 4rem;
+    background: var(--surface-2);
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .idemo-header { max-width: 42rem; margin: 0 0 2.5rem; }
+  .idemo-eyebrow {
+    display: inline-block;
+    font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+  .idemo h2 {
+    font-family: var(--font-serif); font-size: 2.1rem; font-weight: 400;
+    letter-spacing: -0.01em; margin: 0 0 0.75rem;
+  }
+  .idemo-sub { color: var(--muted); font-size: 1rem; margin: 0; }
+
+  .idemo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 1.25rem;
+  }
+  @media (max-width: 1080px) {
+    .idemo-grid { grid-template-columns: 1fr; }
+  }
+  .idemo-col {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 0.75rem;
+  }
+  .idemo-step {
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .idemo-presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .preset {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.7rem;
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .preset:hover { background: var(--surface-2); border-color: var(--accent); }
+
+  #nl-input, #tc-input {
+    width: 100%;
+    min-height: 6rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  #tc-input { font-size: 0.78rem; }
+  #nl-input:focus, #tc-input:focus {
+    outline: none; border-color: var(--text);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--text) 8%, transparent);
+  }
+
+  .idemo-primary {
+    align-self: flex-start;
+    padding: 0.55rem 1.2rem;
+    background: var(--accent); color: var(--bg);
+    border: 1px solid var(--accent); border-radius: 8px;
+    font-weight: 500; font-family: inherit; font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .idemo-primary:hover { background: transparent; color: var(--accent); }
+
+  .idemo-code {
+    margin: 0;
+    padding: 0.9rem;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text);
+    overflow-x: auto;
+    max-height: 26rem;
+    min-height: 12rem;
+  }
+  .idemo-code code { white-space: pre; }
+  .idemo-meta {
+    font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono);
+    min-height: 1.2em;
+  }
+
+  .idemo-decision {
+    display: flex; flex-direction: column; gap: 0.4rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+  }
+  .idemo-decision-chip {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 700;
+    border-radius: 4px;
+  }
+  .idemo-decision-chip[data-kind="allow"] {
+    background: color-mix(in oklab, var(--accent-positive) 15%, var(--surface));
+    color: var(--accent-positive);
+  }
+  .idemo-decision-chip[data-kind="pending"] {
+    background: color-mix(in oklab, var(--accent-warn) 20%, var(--surface));
+    color: color-mix(in oklab, var(--accent-warn) 90%, var(--text));
+  }
+  .idemo-decision-chip[data-kind="block"] {
+    background: color-mix(in oklab, var(--accent-error) 15%, var(--surface));
+    color: var(--accent-error);
+  }
+  .idemo-decision-chip[data-kind="error"] {
+    background: color-mix(in oklab, var(--accent-error) 20%, var(--surface));
+    color: var(--accent-error);
+  }
+  .idemo-decision-body {
+    font-size: 0.82rem; color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .idemo-footnote {
+    margin: 2.5rem 0 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 46rem;
+  }
+  .idemo-footnote a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+</style>
