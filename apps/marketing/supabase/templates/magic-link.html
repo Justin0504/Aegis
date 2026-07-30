@@ -1,0 +1,14 @@
+<!-- AEGIS · Magic-link sign-in email
+     Uses {{ .TokenHash }} instead of {{ .ConfirmationURL }} so the
+     verification happens on our server (no PKCE code_verifier
+     required in the clicker's browser). Any browser can open the
+     link — mobile after starting on desktop is the common case. -->
+<h2>Your sign-in link</h2>
+<p>Click the link below to sign in to AEGIS. It expires shortly and can only be used once.</p>
+<p>
+  <a href="{{ .SiteURL }}/api/auth/callback?token_hash={{ .TokenHash }}&type=magiclink&next=/download"
+     style="display:inline-block;padding:10px 18px;background:#0a0a0a;color:#eae3d2;text-decoration:none;border-radius:6px;font-family:system-ui,sans-serif;">
+    Sign in
+  </a>
+</p>
+<p style="color:#5c5a50;font-size:13px;">If you didn't request this, ignore this email.</p>

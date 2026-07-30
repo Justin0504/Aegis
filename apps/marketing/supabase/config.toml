@@ -205,6 +205,16 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Magic-link email. Uses {{ .TokenHash }} instead of the default
+# {{ .ConfirmationURL }} so verification happens on our server
+# (/api/auth/callback) — no PKCE code_verifier required in the
+# clicker's browser. Fixes the "clicked email on phone, got
+# bounced to /login" bug caused by localStorage isolation across
+# browsers/devices.
+[auth.email.template.magic_link]
+subject = "Your AEGIS sign-in link"
+content_path = "./supabase/templates/magic-link.html"
+
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
 enable_signup = false
