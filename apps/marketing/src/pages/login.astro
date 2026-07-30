@@ -159,10 +159,14 @@ const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
     (async () => {
       if (!supabaseUrl || !supabaseAnon) return;
 
-      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.4');
-      const supabase = createClient(supabaseUrl, supabaseAnon, {
-        auth: { flowType: 'pkce', autoRefreshToken: true, persistSession: true },
-      });
+      // Use @supabase/ssr's createBrowserClient so PKCE code_verifier
+      // is stored in COOKIES (not localStorage). Vanilla supabase-js
+      // stores in localStorage → server-side callback can't read it
+      // → exchangeCodeForSession always fails silently on OAuth
+      // redirect. createBrowserClient shares cookie storage with the
+      // server client so the round-trip works.
+      const { createBrowserClient } = await import('https://esm.sh/@supabase/ssr@0.5.0');
+      const supabase = createBrowserClient(supabaseUrl, supabaseAnon);
 
       const errBox  = document.getElementById('err');
       const chkBox  = document.getElementById('check-email');
