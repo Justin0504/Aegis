@@ -4,6 +4,6 @@
 // the same code path. This file just redirects to /login with an
 // intent hint so headers can vary the H1 later if we want to.
 const url = new URL(Astro.request.url);
-const next = url.searchParams.get('next') ?? '/download';
+const next = url.searchParams.get('next') ?? '/account';
 return Astro.redirect(`/login?next=${encodeURIComponent(next)}&intent=signup`, 302);
 ---

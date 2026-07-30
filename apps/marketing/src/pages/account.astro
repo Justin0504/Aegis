@@ -1,0 +1,233 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// Middleware guarantees `user` is populated for /account routes,
+// but check anyway as defense-in-depth.
+const user = (Astro.locals as any).user;
+if (!user) return Astro.redirect('/login?next=/account', 302);
+
+const supabase = (Astro.locals as any).supabase;
+
+// Fetch active license keys — same query as /download previously ran,
+// now here (the natural home for account-scoped info).
+let licenseKeys: Array<{ key: string; plan: string; status: string; expires_at: string | null; issued_at: string | null }> = [];
+if (supabase) {
+  const { data } = await supabase
+    .from('license_keys')
+    .select('key, plan, status, expires_at, issued_at')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('issued_at', { ascending: false });
+  licenseKeys = data ?? [];
+}
+
+// Active subscription for the billing panel.
+let subscription: { id: string; price_id: string | null; status: string; current_period_end: string | null } | null = null;
+if (supabase) {
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('id, price_id, status, current_period_end')
+    .eq('user_id', user.id)
+    .in('status', ['active', 'trialing', 'past_due'])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  subscription = data as any;
+}
+
+const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Account';
+---
+
+<Layout
+  title="Account — AEGIS"
+  description="Your AEGIS account: license keys, subscription, downloads."
+>
+  <Header />
+  <main>
+    <section class="acct-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Account</p>
+        <h1>Welcome back, {displayName.split(/[\s@]/)[0]}.</h1>
+        <p class="lede">Manage your license, subscription, and downloads.</p>
+      </div>
+    </section>
+
+    <section class="acct-body">
+      <div class="container container-narrow">
+        <!-- ── Profile card ─────────────────────────────────── -->
+        <div class="card">
+          <div class="card-h">Profile</div>
+          <dl class="kv">
+            <dt>Email</dt><dd>{user.email ?? '—'}</dd>
+            <dt>Name</dt><dd>{user.user_metadata?.full_name || user.user_metadata?.name || '—'}</dd>
+            <dt>User ID</dt><dd class="mono">{user.id}</dd>
+          </dl>
+        </div>
+
+        <!-- ── Subscription ─────────────────────────────────── -->
+        <div class="card">
+          <div class="card-h">Subscription</div>
+          {subscription ? (
+            <>
+              <dl class="kv">
+                <dt>Status</dt><dd><span class={`chip chip-${subscription.status}`}>{subscription.status}</span></dd>
+                <dt>Plan</dt><dd class="mono">{subscription.price_id ?? '—'}</dd>
+                <dt>Renews / ends</dt>
+                <dd>{subscription.current_period_end ? new Date(subscription.current_period_end).toISOString().slice(0,10) : '—'}</dd>
+              </dl>
+              <div class="card-actions">
+                <a href="/pricing" class="btn-secondary small">Change plan</a>
+              </div>
+            </>
+          ) : (
+            <>
+              <p class="empty">You're on the Free tier. Upgrade for higher limits, SSO, and priority support.</p>
+              <div class="card-actions">
+                <a href="/pricing" class="btn small">Upgrade →</a>
+              </div>
+            </>
+          )}
+        </div>
+
+        <!-- ── License keys ─────────────────────────────────── -->
+        <div class="card">
+          <div class="card-h">License keys</div>
+          {licenseKeys.length === 0 ? (
+            <p class="empty">No active license keys yet. They appear here after a successful checkout on <a href="/pricing">Pricing</a>.</p>
+          ) : (
+            <>
+              <p class="sub">Paste into AEGIS Desktop → <strong>Settings → License</strong> → Validate. Also works as <code>AEGIS_LICENSE_KEY</code> in Helm / Docker.</p>
+              {licenseKeys.map((lk) => (
+                <div class="lk-row">
+                  <div class="lk-meta">
+                    <span class="chip chip-plan">{lk.plan.toUpperCase()}</span>
+                    <span class="chip chip-active">{lk.status}</span>
+                    {lk.expires_at && <span class="lk-exp">expires {new Date(lk.expires_at).toISOString().slice(0,10)}</span>}
+                  </div>
+                  <div class="lk-key">
+                    <code>{lk.key}</code>
+                    <button class="lk-copy small btn-secondary" type="button" data-copy={lk.key}>Copy</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        <!-- ── Downloads shortcut ───────────────────────────── -->
+        <div class="card">
+          <div class="card-h">Downloads</div>
+          <p class="sub">One file per platform. No Docker, no npm install.</p>
+          <div class="card-actions">
+            <a href="/download" class="btn-secondary small">Go to downloads →</a>
+          </div>
+        </div>
+
+        <!-- ── Danger zone ──────────────────────────────────── -->
+        <div class="card card-danger">
+          <div class="card-h">Sign out</div>
+          <p class="sub">Sign out of this browser. Your license keys stay valid.</p>
+          <div class="card-actions">
+            <a href="/api/auth/signout" class="btn-secondary small danger">Sign out</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script is:inline>
+    document.querySelectorAll('button.lk-copy').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const key = btn.getAttribute('data-copy');
+        if (!key) return;
+        try {
+          await navigator.clipboard.writeText(key);
+          const orig = btn.textContent;
+          btn.textContent = 'Copied ✓';
+          setTimeout(() => { btn.textContent = orig; }, 1200);
+        } catch { /* clipboard blocked */ }
+      });
+    });
+  </script>
+
+  <style>
+    .eyebrow { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 0.6rem; }
+    .acct-hero { padding: 3.5rem 0 2rem; }
+    .acct-hero h1 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      letter-spacing: -0.01em; margin: 0 0 0.5rem;
+    }
+    .acct-hero .lede { color: var(--muted); font-size: 1rem; margin: 0; }
+
+    .acct-body { padding: 1rem 0 4rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card-h {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.25rem; letter-spacing: -0.005em;
+      margin: 0 0 1rem;
+    }
+    .kv {
+      display: grid; grid-template-columns: max-content 1fr;
+      gap: 0.55rem 1.5rem; margin: 0; font-size: 0.92rem;
+    }
+    .kv dt { color: var(--muted); font-size: 0.85rem; }
+    .kv dd { margin: 0; color: var(--text); }
+    .kv dd.mono { font-family: var(--font-mono); font-size: 0.85rem; }
+
+    .empty { color: var(--muted); margin: 0 0 1rem; font-size: 0.92rem; }
+    .empty a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+    .sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 1rem; }
+    .sub strong { color: var(--text); font-weight: 600; }
+    .sub code { font-family: var(--font-mono); background: var(--surface-2); padding: 0 0.3rem; border-radius: 3px; font-size: 0.82em; }
+
+    .chip {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+      font-weight: 600; border-radius: 4px;
+    }
+    .chip-active   { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
+    .chip-trialing { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
+    .chip-past_due { color: hsl(36 45% 30%);  background: hsl(36 45% 92%); }
+    .chip-canceled { color: var(--accent-error); background: color-mix(in oklab, var(--accent-error) 15%, var(--surface)); }
+    .chip-plan     { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); background: color-mix(in oklab, var(--accent-warn) 15%, var(--surface)); }
+
+    .lk-row {
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.6rem;
+      background: var(--bg);
+    }
+    .lk-meta { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .lk-exp { font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); }
+    .lk-key { display: flex; gap: 0.5rem; align-items: center; }
+    .lk-key code {
+      flex: 1;
+      padding: 0.4rem 0.6rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem; word-break: break-all;
+    }
+
+    .card-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .btn.small, .btn-secondary.small {
+      padding: 0.4rem 0.9rem; font-size: 0.85rem;
+    }
+    .btn-secondary.danger { color: var(--accent-error); border-color: color-mix(in oklab, var(--accent-error) 45%, var(--hairline)); }
+    .btn-secondary.danger:hover { border-color: var(--accent-error); background: color-mix(in oklab, var(--accent-error) 10%, var(--surface)); }
+    .card-danger { border-color: color-mix(in oklab, var(--accent-error) 30%, var(--hairline)); }
+  </style>
+</Layout>

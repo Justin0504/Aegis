@@ -3,10 +3,13 @@ import Layout from '@/layouts/Layout.astro';
 import { getPublicSupabaseUrl, getPublicSupabaseAnonKey } from '@/lib/supabase';
 import { TESTIMONIALS } from '@/data/testimonials';
 
-// If already signed in, jump straight to `next` (or /download by default).
+// If already signed in, jump straight to `next` (or /account by default).
+// /account is the real post-login home — profile + license keys +
+// subscription + sign-out. /download is public and no longer the
+// default landing.
 const user = (Astro.locals as any).user;
 const url = new URL(Astro.request.url);
-const nextParam = url.searchParams.get('next') || '/download';
+const nextParam = url.searchParams.get('next') || '/account';
 if (user) return Astro.redirect(nextParam, 302);
 
 // One page serves both intents. Supabase's signInWithOtp +

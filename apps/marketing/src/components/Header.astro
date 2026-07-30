@@ -3,6 +3,29 @@ interface Props {
   current?: 'home' | 'pricing' | 'docs' | 'security' | 'blog' | 'demo' | 'contact';
 }
 const { current } = Astro.props;
+
+// Middleware populates locals.user on every SSR request (see
+// middleware.ts). Undefined here = anonymous visitor → show
+// Sign in + Start free CTAs. Present = logged-in user → show
+// avatar chip that opens a dropdown to /account + sign-out.
+const user = (Astro.locals as any).user as {
+  id: string;
+  email?: string;
+  user_metadata?: { avatar_url?: string; full_name?: string; name?: string };
+} | null | undefined;
+
+/** Two-char initials from name or email. Used when the OAuth
+ *  provider didn't return an avatar_url (or for magic-link users). */
+function initials(u: NonNullable<typeof user>): string {
+  const name = u.user_metadata?.full_name || u.user_metadata?.name || u.email || '?';
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0]?.slice(0, 2) || '?').toUpperCase();
+}
+const avatarUrl = user?.user_metadata?.avatar_url;
+const displayName = user
+  ? (user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Account')
+  : '';
 ---
 <header class="site-header">
   <div class="container header-inner">
@@ -20,8 +43,36 @@ const { current } = Astro.props;
       <a href="https://github.com/Justin0504/Aegis" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <div class="cta">
-      <a href="/login" class="btn-secondary">Sign in</a>
-      <a href="/signup" class="btn">Start free</a>
+      {user ? (
+        <div class="user-chip" data-user-chip>
+          <button class="user-chip-btn" aria-haspopup="true" aria-expanded="false" data-user-chip-toggle>
+            {avatarUrl
+              ? <img class="user-avatar" src={avatarUrl} alt="" loading="lazy" width="28" height="28" />
+              : <span class="user-avatar user-avatar-initials">{initials(user)}</span>
+            }
+            <span class="user-name">{displayName}</span>
+            <svg class="user-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4l3 3 3-3"/></svg>
+          </button>
+          <div class="user-menu" hidden data-user-chip-menu>
+            <div class="user-menu-header">
+              <div class="user-menu-name">{displayName}</div>
+              {user.email && user.email !== displayName && (
+                <div class="user-menu-email">{user.email}</div>
+              )}
+            </div>
+            <a href="/account" class="user-menu-item">Account</a>
+            <a href="/download" class="user-menu-item">Downloads</a>
+            <a href="/pricing" class="user-menu-item">Billing</a>
+            <hr />
+            <a href="/api/auth/signout" class="user-menu-item user-menu-signout">Sign out</a>
+          </div>
+        </div>
+      ) : (
+        <>
+          <a href="/login" class="btn-secondary">Sign in</a>
+          <a href="/signup" class="btn">Start free</a>
+        </>
+      )}
     </div>
   </div>
   <style>
@@ -112,5 +163,103 @@ const { current } = Astro.props;
       .primary { order: 3; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 1rem; }
       .cta { margin-left: 0; }
     }
+
+    /* ── User chip (logged-in state) ───────────────────────── */
+    .user-chip { position: relative; }
+    .user-chip-btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.3rem 0.75rem 0.3rem 0.35rem;
+      background: transparent;
+      border: 1px solid var(--hairline-strong);
+      border-radius: 999px;
+      color: var(--text); font-family: inherit; font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .user-chip-btn:hover { background: var(--surface); border-color: var(--accent); }
+    .user-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .user-avatar-initials {
+      background: linear-gradient(135deg, var(--accent-warn), #6a4a1a);
+      color: var(--bg);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.7rem; letter-spacing: 0.02em;
+    }
+    .user-name {
+      max-width: 12rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: var(--font-sans);
+    }
+    .user-chevron { flex-shrink: 0; opacity: 0.65; margin-left: 0.1rem; }
+    .user-chip-btn[aria-expanded="true"] .user-chevron { transform: rotate(180deg); }
+
+    .user-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.4rem);
+      min-width: 14rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline-strong);
+      border-radius: 10px;
+      padding: 0.35rem;
+      box-shadow: 0 8px 30px rgba(10, 10, 10, 0.10);
+      z-index: 100;
+    }
+    .user-menu[hidden] { display: none; }
+    .user-menu-header {
+      padding: 0.6rem 0.75rem 0.5rem;
+      border-bottom: 1px solid var(--hairline);
+      margin-bottom: 0.35rem;
+    }
+    .user-menu-name { font-weight: 600; font-size: 0.85rem; color: var(--text); }
+    .user-menu-email {
+      font-size: 0.75rem; color: var(--muted);
+      font-family: var(--font-mono);
+      margin-top: 0.15rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .user-menu-item {
+      display: block;
+      padding: 0.5rem 0.75rem;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.85rem;
+      border-radius: 6px;
+    }
+    .user-menu-item:hover { background: var(--surface-2); }
+    .user-menu-signout { color: var(--accent-error); }
+    .user-menu hr {
+      border: none; border-top: 1px solid var(--hairline);
+      margin: 0.35rem 0;
+    }
+    @media (max-width: 760px) {
+      .user-name { max-width: 8rem; }
+    }
   </style>
+
+  <script is:inline>
+    // User-chip dropdown: toggle on click, close on outside-click,
+    // close on Escape. Vanilla JS, no framework — Header ships on
+    // every page so the payload has to be tiny.
+    document.querySelectorAll('[data-user-chip]').forEach((chip) => {
+      const btn  = chip.querySelector('[data-user-chip-toggle]');
+      const menu = chip.querySelector('[data-user-chip-menu]');
+      if (!btn || !menu) return;
+      const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+      const open  = () => { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); };
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.hidden ? open() : close();
+      });
+      document.addEventListener('click', (e) => {
+        if (!chip.contains(e.target)) close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+      });
+    });
+  </script>
 </header>

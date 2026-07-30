@@ -3,23 +3,10 @@ import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 
-// Middleware has already redirected non-authenticated requests to
-// /login?next=/download, so `user` is guaranteed present here.
-const user = (Astro.locals as any).user!;
-const supabase = (Astro.locals as any).supabase;
-
-// Fetch the caller's active license keys (if any). Free-tier users
-// see the download but no key; paid users see the key(s) + plan.
-let licenseKeys: Array<{ key: string; plan: string; status: string; expires_at: string | null }> = [];
-if (supabase) {
-  const { data } = await supabase
-    .from('license_keys')
-    .select('key, plan, status, expires_at')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('issued_at', { ascending: false });
-  licenseKeys = data ?? [];
-}
+// /download is a PUBLIC page — MIT OSS binaries, anyone can grab.
+// User identity + license keys live on /account (see Header dropdown
+// when logged in). Kept the ?checkout=success banner so buyers
+// returning from Stripe still see a confirmation.
 const justPurchased = new URL(Astro.request.url).searchParams.get('checkout') === 'success';
 
 // Pinned release tag. When v0.2 ships, bump both this and the URLs.
@@ -98,11 +85,6 @@ const platforms = [
           Latest release: <strong>{LATEST}</strong> · MIT licensed ·
           <a href={REPO} target="_blank" rel="noopener">View source</a>
         </p>
-
-        <div class="account-strip">
-          Signed in as <strong>{user.email ?? user.id}</strong> ·
-          <a href="/api/auth/signout">Sign out</a>
-        </div>
       </div>
     </section>
 
@@ -111,37 +93,13 @@ const platforms = [
         <div class="container container-narrow">
           <div class="license-banner">
             <div class="lb-title">Payment received — thank you.</div>
-            <div class="lb-body">Your license is issued below. Copy it into the AEGIS app under
-              <code>Settings → License</code>, or set the <code>AEGIS_LICENSE_KEY</code> env var
-              in your Helm values.</div>
-          </div>
-        </div>
-      </section>
-    )}
-
-    {licenseKeys.length > 0 && (
-      <section class="license-block">
-        <div class="container container-narrow">
-          <h2 class="lk-heading">Your license keys</h2>
-          <p class="lk-sub">
-            Paste this into AEGIS Desktop → <strong>Settings → License</strong> → Validate.
-            Same key also works as <code>AEGIS_LICENSE_KEY</code> in your Helm values or
-            <code>docker compose</code> env. Keep it secret — anyone with the key can
-            unlock the paid tier under your account.
-          </p>
-          {licenseKeys.map((lk) => (
-            <div class="lk-row">
-              <div class="lk-meta">
-                <span class="lk-plan">{lk.plan.toUpperCase()}</span>
-                <span class="lk-status">{lk.status}</span>
-                {lk.expires_at && <span class="lk-exp">expires {new Date(lk.expires_at).toISOString().slice(0, 10)}</span>}
-              </div>
-              <div class="lk-key">
-                <code>{lk.key}</code>
-                <button class="lk-copy" type="button" data-copy={lk.key}>Copy</button>
-              </div>
+            <div class="lb-body">
+              Your license key is on
+              <a href="/account">your account page</a> — paste it into
+              AEGIS Desktop → <code>Settings → License</code>, or set as
+              <code>AEGIS_LICENSE_KEY</code> in Helm / Docker.
             </div>
-          ))}
+          </div>
         </div>
       </section>
     )}
@@ -211,30 +169,10 @@ docker compose -f docker/compose.yml up -d
   </main>
   <Footer />
 
-  <script is:inline>
-    document.querySelectorAll('button.lk-copy').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const key = btn.getAttribute('data-copy');
-        if (!key) return;
-        try {
-          await navigator.clipboard.writeText(key);
-          const orig = btn.textContent;
-          btn.textContent = 'Copied ✓';
-          setTimeout(() => { btn.textContent = orig; }, 1200);
-        } catch { /* clipboard blocked — silently no-op */ }
-      });
-    });
-  </script>
-
   <style>
     .head { padding: 5rem 0 2rem; }
-    .account-strip {
-      margin-top: 1.5rem; font-size: 0.85rem; color: var(--muted);
-      padding: 0.5rem 0.75rem; border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-    .account-strip a { color: var(--muted); text-decoration: underline; }
     .license-block { padding: 1.5rem 0; }
+    .lb-body a { color: hsl(150 40% 25%); text-decoration: underline; font-weight: 500; }
     .license-banner {
       background: hsl(150 30% 95%);
       border: 1px solid hsl(150 30% 75%);

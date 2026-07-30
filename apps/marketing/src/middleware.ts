@@ -17,7 +17,13 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getServerSupabase } from './lib/supabase';
 
-const PROTECTED_PREFIXES = ['/download', '/account'];
+// /account is the sole logged-in-only page — personal home + license
+// keys + billing + sign-out. /download stays PUBLIC because the
+// desktop bundles are MIT open source and gating them adds friction
+// without security benefit. License keys are shown on /account, not
+// /download, so anon visitors can still grab the binary but can't
+// see anyone's license.
+const PROTECTED_PREFIXES = ['/account'];
 
 function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
