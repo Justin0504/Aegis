@@ -1,0 +1,568 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// Row shape for the capability matrix. `note` is a one-liner shown
+// on hover / in the detail column; `depth` = 'core' rows show up in
+// the TL;DR summary at the top, `depth: 'detail'` rows only appear
+// in the full table.
+const CAPS = [
+  {
+    row:   'Workflow-anchored policies',
+    aegis: 'yes',
+    msft:  'no',
+    note:  'Same tool_name in two workflow nodes can carry different rules. AEGIS uses a compile-time UUID (binding_uuid > node_uuid > tool_name) as the policy anchor.',
+    depth: 'core',
+  },
+  {
+    row:   'Cryptographic audit chain (Merkle log)',
+    aegis: 'yes',
+    msft:  'partial',
+    note:  'AEGIS ships an Ed25519-signed transparency log with per-agent hash chain + optional witness cosignature (Team tier). Microsoft AGT logs decisions but does not currently ship a signed, third-party-verifiable chain.',
+    depth: 'core',
+  },
+  {
+    row:   'EU AI Act Article 12–15 evidence pack',
+    aegis: 'yes',
+    msft:  'no',
+    note:  'One-click export of a signed JSON pack, article-by-article, ready to hand to an auditor. High-risk-system obligations take effect 2026-08-02.',
+    depth: 'core',
+  },
+  {
+    row:   'Compensator + rollback infrastructure',
+    aegis: 'yes',
+    msft:  'no',
+    note:  'AEGIS ships a saga engine with binding-scoped compensators, precedence chain, and audited rollback events. AGT stops at "block the call"; there is no undo path.',
+    depth: 'core',
+  },
+  {
+    row:   'Air-gapped deployment (offline mode)',
+    aegis: 'yes',
+    msft:  'partial',
+    note:  'AEGIS_OFFLINE severs cloud LLM calls at the app layer; NetworkPolicy in the shipped Helm chart enforces it at the CNI layer. AGT can run in a private VNet but does not have an equivalent kill-switch on its own outbound.',
+    depth: 'core',
+  },
+  {
+    row:   'Regulation-cited preset DSL packs',
+    aegis: '6 packs',
+    msft:  '0',
+    note:  'AEGIS ships GLBA, PCI DSS 4.0, SOX, DORA, HIPAA, and FedRAMP Moderate as one-command policy imports, every rule cited to the specific clause.',
+    depth: 'core',
+  },
+  {
+    row:   'Runtime enforcement latency',
+    aegis: 'sub-ms (DSL walker)',
+    msft:  'sub-ms',
+    note:  'Both use deterministic in-process walkers. Neither adds meaningful latency to the tool-call path.',
+    depth: 'core',
+  },
+  {
+    row:   'Natural-language policy compiler',
+    aegis: 'yes (workflow-aware)',
+    msft:  'partial',
+    note:  'AEGIS compiles English to a workflow-anchored DSL rule referencing the specific node UUID. AGT has an NL-to-policy path but does not resolve to workflow-graph identifiers.',
+    depth: 'core',
+  },
+
+  // ── Detail rows ──
+  {
+    row:   'A2A (agent-to-agent) observability envelope',
+    aegis: 'yes',
+    msft:  'no',
+    note:  'Every child-agent trace carries parent_agent_id, delegation_reason, capability_grant, and a SHA-256 envelope hash. Foundation for Phase-5 runtime A2A gates.',
+    depth: 'detail',
+  },
+  {
+    row:   'Local LLM adapter for NL compiler',
+    aegis: 'Ollama / vLLM / LM Studio',
+    msft:  'Azure OpenAI only',
+    note:  'AEGIS ships a Workers-friendly OpenAI-compat adapter. Point at any localhost:11434 endpoint and the NL compiler runs offline.',
+    depth: 'detail',
+  },
+  {
+    row:   'License model',
+    aegis: 'MIT (core) + paid Cloud',
+    msft:  'MIT',
+    note:  'AEGIS core is fully MIT; hosted service and enterprise SLAs are paid. AGT is MIT-only with no hosted offering — you run it yourself or nothing.',
+    depth: 'detail',
+  },
+  {
+    row:   'Native integration surface',
+    aegis: 'MCP, Anthropic, OpenAI, Bedrock, LangChain, CrewAI, Claude Agent SDK',
+    msft:  'Copilot Studio, Semantic Kernel, Azure AI Foundry',
+    note:  'AEGIS instruments open-standard SDKs (7 frameworks). AGT is deeply integrated with the Microsoft agent stack.',
+    depth: 'detail',
+  },
+  {
+    row:   'Cockpit / operator UI',
+    aegis: 'shipped (Next.js)',
+    msft:  'shipped (Azure Portal)',
+    note:  'AEGIS Cockpit is self-hosted; AGT lives inside Azure Portal / M365 admin.',
+    depth: 'detail',
+  },
+  {
+    row:   'Threat ontology coverage',
+    aegis: 'AAT ontology (9 tactics)',
+    msft:  'OWASP LLM Top 10',
+    note:  'AEGIS ships its own Agent Attack Taxonomy alongside OWASP mapping. AGT anchors on OWASP + Microsoft-internal signals.',
+    depth: 'detail',
+  },
+];
+
+const CORE = CAPS.filter((c) => c.depth === 'core');
+const DETAIL = CAPS.filter((c) => c.depth === 'detail');
+
+// Structured data for competitive-comparison rich results.
+const productLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'AEGIS',
+  description: 'Runtime safety, cryptographic audit, and compliance evidence for AI agents.',
+  brand: { '@type': 'Organization', name: 'AEGIS' },
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    availability: 'https://schema.org/InStock',
+  },
+};
+---
+
+<Layout
+  title="AEGIS vs Microsoft Agent Governance Toolkit — Feature Comparison"
+  description="How AEGIS compares to Microsoft's Agent Governance Toolkit — workflow-anchored policies, EU AI Act evidence pack, compensator rollback, air-gapped deploys, 6 regulation-cited DSL packs."
+>
+  <Header />
+  <main>
+    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <section class="vs-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Head to head · updated 2026-07</p>
+        <h1>AEGIS <span class="vs-word">vs</span> Microsoft Agent Governance Toolkit</h1>
+        <p class="lede">
+          Both are open-source. Both intercept AI agent tool calls at
+          runtime. The difference is what they do <em>after</em> a
+          decision fires — and how well they hold up when a
+          regulator asks to see the paper trail.
+        </p>
+        <p class="lede small">
+          This page is written by the AEGIS team — we've done our best
+          to represent Microsoft AGT fairly, but read their
+          <a href="https://github.com/microsoft/agent-governance-toolkit" target="_blank" rel="noopener">official repo</a>
+          and decide for yourself.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── TL;DR capability matrix ─────────────────────────── -->
+    <section class="vs-tldr">
+      <div class="container">
+        <h2>The 8 things buyers ask about first</h2>
+        <div class="matrix">
+          <div class="mrow head">
+            <div>Capability</div>
+            <div>AEGIS</div>
+            <div>Microsoft AGT</div>
+          </div>
+          {CORE.map((c) => (
+            <div class="mrow">
+              <div class="cap">
+                <div class="cap-row">{c.row}</div>
+                <div class="cap-note">{c.note}</div>
+              </div>
+              <div class={`v v-${c.aegis === 'no' ? 'no' : c.aegis === 'partial' ? 'partial' : 'yes'}`}>
+                {c.aegis}
+              </div>
+              <div class={`v v-${c.msft === 'no' ? 'no' : c.msft === 'partial' ? 'partial' : 'yes'}`}>
+                {c.msft}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Deep dive · 4 differentiators ───────────────────── -->
+    <section class="vs-deep">
+      <div class="container container-narrow">
+        <h2 class="section-h">Where the two products diverge</h2>
+
+        <article class="diff">
+          <span class="diff-num">01</span>
+          <h3>Workflow-anchored policies</h3>
+          <p>
+            AGT rules match on <code>tool_name</code>. AEGIS rules match
+            on the specific <strong>workflow node UUID</strong> that
+            produced the tool call. This matters the moment your
+            <code>send_email</code> tool is called from three different
+            agents inside the same workflow — with AGT you get one
+            rule that either fires everywhere or nowhere. With AEGIS you
+            get "block <code>send_email</code> when the caller is the
+            <code>marketing-agent</code> node but pending when it's the
+            <code>support-agent</code> node," compile-time referenced.
+          </p>
+          <pre class="ex"><code>version: 1
+rules:
+  - name: block-external-email-from-marketing
+    when:
+      all:
+        - tool.name: send_email
+        - workflow.node_id: "a3b1…9f7c"   # marketing-agent.send_email
+    then:
+      decision: block
+      reason: "marketing agent may not initiate external email"</code></pre>
+        </article>
+
+        <article class="diff">
+          <span class="diff-num">02</span>
+          <h3>EU AI Act Article 12–15 evidence pack</h3>
+          <p>
+            The EU AI Act's high-risk-system record-keeping,
+            transparency, human-oversight, and robustness obligations
+            take effect <strong>2026-08-02</strong>. AEGIS ships a
+            one-command signed JSON export — article by article, with
+            gap analysis — that an auditor can verify offline against
+            the gateway's public key. AGT logs the same underlying
+            events but does not currently bundle them into a
+            regulator-facing artifact. If you're on the EU high-risk
+            list and it's July, this is the biggest gap you'll hit.
+          </p>
+          <p class="cta-line">
+            → <a href="/compliance/eu-ai-act">See the evidence-pack UI</a>
+          </p>
+        </article>
+
+        <article class="diff">
+          <span class="diff-num">03</span>
+          <h3>Compensator + rollback — not just "block"</h3>
+          <p>
+            AGT is a firewall. When it blocks a call, the flow stops.
+            AEGIS ships a full <strong>saga engine</strong>: every tool
+            binding can register a compensator (webhook, inline SQL,
+            explicit <code>none</code>), and precedence flows
+            <code>binding_uuid → node_uuid → tool_name</code>. If a
+            <code>stripe_refund</code> hit prod and shouldn't have, the
+            operator clicks Rollback in the cockpit and AEGIS runs the
+            reverse action, records the rollback event, and updates
+            the audit chain. There is no equivalent primitive in AGT.
+          </p>
+        </article>
+
+        <article class="diff">
+          <span class="diff-num">04</span>
+          <h3>Real air-gapped deploy — app + CNI</h3>
+          <p>
+            AGT can be pinned to a private VNet — but its own NL
+            policy compiler still needs an Azure OpenAI endpoint that
+            the VNet must reach. AEGIS ships two locks:
+          </p>
+          <ul>
+            <li>
+              <strong>App layer</strong>: <code>AEGIS_OFFLINE=1</code>
+              causes the gateway itself to refuse any outbound call to
+              a public LLM API. The NL compiler falls back to a local
+              Ollama / vLLM adapter (or the heuristic backend).
+            </li>
+            <li>
+              <strong>CNI layer</strong>: the shipped Helm chart
+              includes a NetworkPolicy that denies all egress from the
+              gateway pod except cluster DNS + same-namespace services.
+              Even if the app-layer check were bypassed, packets die
+              at the kernel.
+            </li>
+          </ul>
+          <p class="cta-line">
+            → <a href="/docs/onprem">On-prem &amp; air-gapped deployment guide</a>
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Detail matrix (collapsible) ─────────────────────── -->
+    <section class="vs-detail">
+      <div class="container">
+        <h2 class="section-h">Full capability matrix</h2>
+        <div class="matrix">
+          <div class="mrow head">
+            <div>Capability</div>
+            <div>AEGIS</div>
+            <div>Microsoft AGT</div>
+          </div>
+          {[...CORE, ...DETAIL].map((c) => (
+            <div class="mrow">
+              <div class="cap">
+                <div class="cap-row">{c.row}</div>
+                <div class="cap-note">{c.note}</div>
+              </div>
+              <div class={`v v-${c.aegis === 'no' ? 'no' : c.aegis === 'partial' ? 'partial' : 'yes'}`}>
+                {c.aegis}
+              </div>
+              <div class={`v v-${c.msft === 'no' ? 'no' : c.msft === 'partial' ? 'partial' : 'yes'}`}>
+                {c.msft}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ── When to pick which ──────────────────────────────── -->
+    <section class="vs-picks">
+      <div class="container">
+        <h2 class="section-h">Honest picking guide</h2>
+        <div class="picks-grid">
+          <article class="pick pick-msft">
+            <h3>Pick Microsoft AGT when</h3>
+            <ul>
+              <li>Your agents live inside <strong>Copilot Studio</strong>, Semantic Kernel, or Azure AI Foundry and you want native admin surfaces.</li>
+              <li>Your org already runs on Entra ID and you don't want a second identity plane.</li>
+              <li>You need a policy engine but <strong>no rollback or forensic evidence layer</strong>.</li>
+              <li>You have a Microsoft ELA and support is already paid for.</li>
+            </ul>
+          </article>
+
+          <article class="pick pick-aegis">
+            <h3>Pick AEGIS when</h3>
+            <ul>
+              <li>You need a <strong>signed evidence pack</strong> to hand a SOC 2, HIPAA, PCI, or EU AI Act auditor.</li>
+              <li>Your agents span multiple frameworks (MCP, Anthropic, OpenAI, LangChain, CrewAI) — one gateway for all.</li>
+              <li>You need <strong>rollback</strong>, not just blocking (financial ops, PII handling, code deploys).</li>
+              <li>You want <strong>true air-gapped</strong> deploy with app-layer + CNI-layer guarantees.</li>
+              <li>You need policies that reference the specific <strong>workflow node</strong>, not just the tool name.</li>
+              <li>You want to <strong>self-host</strong> without an Azure subscription.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Migration path ──────────────────────────────────── -->
+    <section class="vs-migrate">
+      <div class="container container-narrow">
+        <h2 class="section-h">Already on Microsoft AGT? Migrate in an afternoon</h2>
+        <ol class="migrate">
+          <li>
+            <strong>Export your AGT policy YAML</strong> from the Azure
+            Portal → Governance → Policies. AEGIS accepts the same
+            <code>allow / pending / block</code> vocabulary; run
+            <code>agentguard policy import ./agt.yaml</code> and the
+            CLI emits a translated AEGIS DSL bundle.
+          </li>
+          <li>
+            <strong>Point one non-critical agent at AEGIS</strong> via
+            <code>AEGIS_GATEWAY_URL</code>. Traces flow to both AGT and
+            AEGIS for a two-week overlap so you can diff decisions
+            side by side.
+          </li>
+          <li>
+            <strong>Cut over the remaining agents</strong> one workflow
+            at a time. Compensators can be no-ops during the cut-over;
+            enable them agent-by-agent once decisions are stable.
+          </li>
+          <li>
+            <strong>Retire AGT</strong> when your evidence-pack
+            snapshot on AEGIS covers the review window your auditor
+            asks about (typically 90 days).
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ── CTA strip ───────────────────────────────────────── -->
+    <section class="vs-cta">
+      <div class="container container-narrow">
+        <h2>Compile your first rule in the browser.</h2>
+        <p>
+          No signup, no gateway to spin up — the compiler + evaluator
+          both run client-side on the demo page.
+        </p>
+        <div class="cta-row">
+          <a href="/demo" class="btn">Try the playground →</a>
+          <a href="/pricing" class="btn-secondary">See pricing</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
+  <Footer />
+
+  <style>
+    .eyebrow {
+      font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); font-weight: 600; margin: 0 0 0.6rem;
+    }
+    .vs-hero { padding: 4.5rem 0 3rem; }
+    .vs-hero h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(2rem, 4.2vw, 3.2rem);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      margin: 0 0 1.2rem;
+    }
+    .vs-hero .vs-word { font-style: italic; color: var(--muted); font-weight: 400; }
+    .vs-hero .lede { font-size: 1.15rem; color: var(--muted); max-width: 42rem; margin: 0.4rem 0 0.5rem; line-height: 1.5; }
+    .vs-hero .lede em { font-style: italic; color: var(--text); }
+    .vs-hero .lede.small { font-size: 0.9rem; }
+    .vs-hero .lede a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+
+    section.vs-tldr, section.vs-deep, section.vs-detail, section.vs-picks,
+    section.vs-migrate, section.vs-cta {
+      padding: 3rem 0;
+    }
+    .section-h {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.75rem; letter-spacing: -0.01em;
+      margin: 0 0 1.75rem;
+    }
+    section.vs-tldr h2 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.75rem; letter-spacing: -0.01em;
+      margin: 0 0 1.75rem;
+    }
+    section.vs-tldr, section.vs-detail { background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+
+    /* ── Matrix ────────────────────────────────────────── */
+    .matrix {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .mrow {
+      display: grid;
+      grid-template-columns: 2.4fr 1fr 1fr;
+      gap: 0;
+      align-items: start;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .mrow:last-child { border-bottom: none; }
+    .mrow.head {
+      background: var(--bg);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .mrow.head > div { padding: 0.8rem 1rem; }
+    .mrow:not(.head) > div { padding: 0.9rem 1rem; }
+    .cap-row { font-weight: 500; color: var(--text); font-size: 0.95rem; margin-bottom: 0.2rem; }
+    .cap-note { color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
+    .v {
+      display: flex; align-items: flex-start;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-left: 1px solid var(--hairline);
+    }
+    .v-yes { color: var(--accent-positive); }
+    .v-yes::before { content: '✓  '; font-weight: 700; margin-right: 0.15rem; }
+    .v-no  { color: var(--accent-error); opacity: 0.9; }
+    .v-no::before { content: '✗  '; font-weight: 700; margin-right: 0.15rem; }
+    .v-partial { color: var(--accent-warn); }
+    .v-partial::before { content: '◐  '; font-weight: 700; margin-right: 0.15rem; }
+    @media (max-width: 780px) {
+      .mrow { grid-template-columns: 1fr; }
+      .v { border-left: none; border-top: 1px solid var(--hairline); padding-top: 0.4rem !important; }
+    }
+
+    /* ── Deep-dive articles ────────────────────────────── */
+    .diff {
+      position: relative;
+      padding: 1.5rem 1.5rem 1.75rem 4.5rem;
+      margin-bottom: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+    }
+    .diff-num {
+      position: absolute; top: 1.5rem; left: 1.5rem;
+      font-family: var(--font-serif);
+      font-size: 1.6rem; font-weight: 400;
+      color: var(--accent-warn);
+    }
+    .diff h3 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.35rem; letter-spacing: -0.005em;
+      margin: 0 0 0.75rem;
+    }
+    .diff p { color: var(--text); font-size: 0.95rem; line-height: 1.6; margin: 0 0 0.75rem; }
+    .diff ul { color: var(--text); font-size: 0.95rem; line-height: 1.6; padding-left: 1.25rem; }
+    .diff ul li { margin-bottom: 0.4rem; }
+    .diff code { font-family: var(--font-mono); background: var(--surface-2); padding: 0 0.3rem; border-radius: 3px; font-size: 0.85em; }
+    .diff .ex {
+      margin: 0.75rem 0 0;
+      padding: 0.85rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
+    .cta-line {
+      margin-top: 0.5rem !important;
+      font-size: 0.9rem !important;
+    }
+    .cta-line a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+
+    /* ── Picks side-by-side ────────────────────────────── */
+    .picks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 780px) { .picks-grid { grid-template-columns: 1fr; } }
+    .pick {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .pick h3 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.2rem; margin: 0 0 1rem;
+    }
+    .pick-aegis { border-color: color-mix(in oklab, var(--accent-warn) 45%, var(--hairline)); }
+    .pick-aegis h3 { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); }
+    .pick ul { color: var(--text); font-size: 0.9rem; line-height: 1.6; padding-left: 1.15rem; margin: 0; }
+    .pick ul li { margin-bottom: 0.5rem; }
+    .pick ul li strong { font-weight: 600; }
+
+    /* ── Migration ordered list ────────────────────────── */
+    .migrate {
+      counter-reset: mstep;
+      list-style: none;
+      padding: 0; margin: 0;
+    }
+    .migrate li {
+      position: relative;
+      padding: 1rem 1rem 1rem 3.25rem;
+      margin-bottom: 0.6rem;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      counter-increment: mstep;
+    }
+    .migrate li::before {
+      content: counter(mstep);
+      position: absolute; left: 1rem; top: 1rem;
+      width: 1.75rem; height: 1.75rem; border-radius: 50%;
+      background: var(--accent); color: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.85rem;
+    }
+    .migrate li code { font-family: var(--font-mono); background: var(--surface-2); padding: 0 0.3rem; border-radius: 3px; font-size: 0.85em; }
+
+    /* ── CTA strip ─────────────────────────────────────── */
+    section.vs-cta { text-align: center; background: var(--surface-2); border-top: 1px solid var(--hairline); }
+    section.vs-cta h2 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 2rem; letter-spacing: -0.01em;
+      margin: 0 0 0.5rem;
+    }
+    section.vs-cta p { color: var(--muted); margin: 0 0 1.5rem; }
+    .cta-row { display: inline-flex; gap: 0.75rem; }
+  </style>
+</Layout>
