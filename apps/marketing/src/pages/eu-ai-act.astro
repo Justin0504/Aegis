@@ -1,0 +1,436 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+// Article rows for the coverage grid. `deadline` is the specific
+// date in Regulation (EU) 2024/1689 that clause takes effect;
+// `aegisFor` is a one-line description of what ships in the box.
+const ARTICLES = [
+  {
+    id:       'Art.12',
+    title:    'Record-keeping (logging)',
+    plain:    'The high-risk system must automatically log events relevant to identifying, monitoring, and investigating risk incidents.',
+    aegisFor: 'Every tool call becomes an append-only audit row with an Ed25519 signature over the Merkle chain. Signed evidence pack lists row count, first/last timestamps, and the transparency-log root hash.',
+    linkText: 'See Art. 12 evidence',
+  },
+  {
+    id:       'Art.13',
+    title:    'Transparency and provision of information',
+    plain:    'Systems must be designed so deployers can interpret the output and use it appropriately — instructions for use, characteristics, capabilities, limitations must be disclosed.',
+    aegisFor: 'Registered-agents view + policy DSL rules-in-force + static policy count all embedded in the evidence pack. Deployers can hand the JSON to auditors as the "what runs where, under what rules" declaration.',
+    linkText: 'See Art. 13 evidence',
+  },
+  {
+    id:       'Art.14',
+    title:    'Human oversight',
+    plain:    'Natural persons must be able to oversee the system, understand its outputs, intervene, and interrupt operation via a stop button.',
+    aegisFor: 'Blocking-mode approval queue + kill-switch API + agent status transitions (active → suspended). Evidence pack counts approvals decisions + kill-switch events + suspensions in the reporting window; fires a gap if the oversight loop was never exercised.',
+    linkText: 'See Art. 14 evidence',
+  },
+  {
+    id:       'Art.15',
+    title:    'Accuracy, robustness and cybersecurity',
+    plain:    'Systems must achieve an appropriate level of accuracy, robustness, and cybersecurity — and perform consistently in those respects throughout their lifecycle.',
+    aegisFor: 'Detector chain + integrity sweep across every agent trace-chain + policy violations tally + rollback events. Evidence pack fires a gap if any agent has a broken chain (tamper suspected).',
+    linkText: 'See Art. 15 evidence',
+  },
+];
+
+// Countdown: Aug 2, 2026 in UTC. Rendered at build time in the hero.
+const DEADLINE_ISO = '2026-08-02T00:00:00Z';
+
+// Shell examples — kept as strings + interpolated with set:html so
+// the literal `{...}` JSON blobs don't get parsed as JSX expressions
+// (same trap as the /demo playground presets).
+const CURL_EXAMPLE = [
+  `<span class="cmd-p">$</span> curl -H "X-AEGIS-Key: $KEY" \\`,
+  `    "https://aegistraces.com/api/v1/evidence-pack/eu-ai-act/export?window_days=90" \\`,
+  `    -o aegis-eu-ai-act-$(date +%F).json`,
+  ``,
+  `<span class="cmd-p">$</span> curl -H "X-AEGIS-Key: $KEY" \\`,
+  `    https://aegistraces.com/api/v1/evidence-pack/public-key`,
+  `<span class="cmd-o">{"key_id":"…","public_key_pem":"-----BEGIN PUBLIC KEY-----\\n…"}</span>`,
+  ``,
+  `<span class="cmd-c"># Verify offline with any Ed25519 tool</span>`,
+].join('\n');
+
+const productLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'AEGIS EU AI Act Evidence Pack',
+  description: 'Signed, article-by-article evidence pack for EU AI Act Article 12-15 compliance. One-click JSON export, verifiable offline against the gateway public key.',
+  brand: { '@type': 'Organization', name: 'AEGIS' },
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    availability: 'https://schema.org/InStock',
+    url: 'https://aegistraces.com/pricing',
+  },
+};
+---
+
+<Layout
+  title="EU AI Act compliance for AI agent systems — AEGIS"
+  description="Regulation (EU) 2024/1689 high-risk-system obligations take effect 2026-08-02. AEGIS ships a signed, article-by-article Article 12-15 evidence pack — one-click JSON, offline-verifiable."
+>
+  <Header />
+  <main>
+    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <section class="eu-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Regulation (EU) 2024/1689</p>
+        <h1>EU AI Act compliance for <em>AI agent</em> systems.</h1>
+        <p class="lede">
+          High-risk-system obligations under Articles 12–15 take effect
+          <strong>August 2, 2026</strong>. AEGIS ships a signed,
+          article-by-article evidence pack — one-click JSON that an
+          auditor can verify offline against the gateway's public key.
+        </p>
+        <div class="cta-row">
+          <a href="/demo" class="btn">See the evidence pack →</a>
+          <a href="/pricing" class="btn-secondary">Pricing</a>
+        </div>
+
+        <div class="countdown" aria-live="polite" data-deadline={DEADLINE_ISO}>
+          <span class="cd-label">High-risk obligations enforceable in</span>
+          <span class="cd-value" id="cd-value">…</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── What's in scope ──────────────────────────────────── -->
+    <section class="eu-scope">
+      <div class="container container-narrow">
+        <h2>Are you in scope?</h2>
+        <p class="lede-plain">
+          The EU AI Act classifies an AI system as <strong>high-risk</strong>
+          when it falls in Annex III — including systems used in
+          employment decisions, essential services (credit, insurance,
+          benefits), critical infrastructure, law enforcement, education
+          admissions, and migration/border control. Agentic systems
+          operating in those verticals inherit the classification.
+        </p>
+        <p class="lede-plain">
+          If you're in scope, the compliance obligations for Articles
+          12–15 must be operational by <strong>August 2, 2026</strong>.
+          Missing them isn't just a regulatory risk — the Act allows
+          fines of up to <strong>€35 million or 7 % of worldwide annual
+          turnover</strong>, whichever is higher.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Article-by-article coverage ──────────────────────── -->
+    <section class="eu-articles">
+      <div class="container">
+        <h2 class="section-h">Article-by-article coverage</h2>
+
+        <div class="art-grid">
+          {ARTICLES.map((a) => (
+            <article class="art">
+              <div class="art-head">
+                <span class="art-id">{a.id}</span>
+                <h3>{a.title}</h3>
+              </div>
+              <p class="art-plain">
+                <span class="art-label">What the Act says</span>
+                {a.plain}
+              </p>
+              <p class="art-aegis">
+                <span class="art-label">How AEGIS satisfies it</span>
+                {a.aegisFor}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Evidence pack demo strip ─────────────────────────── -->
+    <section class="eu-evidence">
+      <div class="container container-narrow">
+        <p class="eyebrow">Evidence pack, at a glance</p>
+        <h2 class="section-h">One command. One signed JSON. Auditor-ready.</h2>
+        <p class="lede-plain">
+          The evidence-pack endpoint bundles all four articles into a
+          single Ed25519-signed JSON document. Every article carries an
+          <code>evidence</code> object with the specific numbers your
+          auditor asks about + a <code>gaps</code> list flagging what's
+          missing.
+        </p>
+
+        <pre class="cmd"><code set:html={CURL_EXAMPLE}></code></pre>
+
+        <p class="lede-plain small">
+          Under the hood: <code>EuAiActEvidenceService.build(orgId)</code>
+          walks four DB queries (audit-log window, transparency-log root,
+          agents + DSL rules, approvals + kill-switch events, integrity
+          sweep). Each article's <code>compliant</code> flag flips to
+          <code>true</code> only when the minimum-evidence floor is met.
+          Overall pack <code>compliant</code> is a strict AND across all four
+          — no partial-credit shortcut.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── What's NOT covered (honesty) ─────────────────────── -->
+    <section class="eu-honesty">
+      <div class="container container-narrow">
+        <h2 class="section-h">What AEGIS <em>does not</em> cover</h2>
+        <p class="lede-plain">
+          Articles 12–15 are the record-keeping and operational
+          controls we can actually observe at the tool-call layer.
+          They are not the entire high-risk system compliance surface:
+        </p>
+        <ul class="not-covered">
+          <li>
+            <strong>Art. 9 · Risk management</strong> — an ongoing,
+            documented risk-management process. AEGIS's audit output
+            feeds into it; the process itself is your org's.
+          </li>
+          <li>
+            <strong>Art. 10 · Data governance</strong> — training-data
+            lineage, bias assessment, provenance controls. Belongs
+            with your MLOps pipeline, not the runtime firewall.
+          </li>
+          <li>
+            <strong>Art. 11 · Technical documentation</strong> — the
+            Annex IV documentation pack. AEGIS supplies concrete
+            operational evidence that would be attached to Annex IV
+            sections 2 (a-c) and 3, but the document itself is a
+            deliverable your compliance team owns.
+          </li>
+          <li>
+            <strong>Art. 16 · Post-market monitoring</strong> —
+            partially covered. The rolling audit log + integrity sweep
+            supply the monitoring signal; the process for reviewing +
+            reporting is on you.
+          </li>
+        </ul>
+        <p class="lede-plain small">
+          If someone tells you a single tool "covers the entire EU AI
+          Act," they haven't read Chapter III Section 3. AEGIS covers
+          the four articles that live at the runtime layer — properly,
+          with cryptographic evidence — and integrates with whatever
+          you use for the rest.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── CTA ──────────────────────────────────────────────── -->
+    <section class="eu-cta">
+      <div class="container container-narrow">
+        <h2>See a real evidence pack in the browser.</h2>
+        <p>
+          The <a href="/demo">demo page</a> runs the compiler + evaluator
+          client-side; the <a href="/pricing">cloud tier</a> exports the
+          signed pack against your own live audit log.
+        </p>
+        <div class="cta-row">
+          <a href="/demo" class="btn">Try the demo →</a>
+          <a href="mailto:hello@aegistraces.com?subject=EU%20AI%20Act%20evidence%20pack" class="btn-secondary">Talk to us</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
+
+  <script is:inline>
+    // Countdown to Aug 2 2026. Updates every 60 s. If the deadline
+    // has passed, flips to "in effect since <date>" so the copy
+    // gracefully ages out.
+    (function () {
+      const el       = document.getElementById('cd-value');
+      const deadline = document.querySelector('.countdown').getAttribute('data-deadline');
+      const target   = new Date(deadline).getTime();
+
+      function fmt(ms) {
+        const s  = Math.floor(ms / 1000);
+        const d  = Math.floor(s / 86400);
+        const h  = Math.floor((s % 86400) / 3600);
+        const m  = Math.floor((s %  3600) /   60);
+        return `${d}d ${h}h ${m}m`;
+      }
+      function tick() {
+        const delta = target - Date.now();
+        if (delta <= 0) {
+          document.querySelector('.cd-label').textContent =
+            'High-risk obligations in effect since';
+          el.textContent = new Date(target).toISOString().slice(0, 10);
+          return;
+        }
+        el.textContent = fmt(delta);
+      }
+      tick();
+      setInterval(tick, 60_000);
+    })();
+  </script>
+
+  <Footer />
+
+  <style>
+    .eyebrow {
+      font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); font-weight: 600; margin: 0 0 0.6rem;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────── */
+    .eu-hero { padding: 4.5rem 0 3rem; }
+    .eu-hero h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(2rem, 4.2vw, 3.2rem);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      margin: 0 0 1.2rem;
+    }
+    .eu-hero h1 em { font-style: italic; color: var(--accent-warn); }
+    .eu-hero .lede {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 42rem;
+      margin: 0 0 1.75rem;
+      line-height: 1.5;
+    }
+    .eu-hero .lede strong { color: var(--text); font-weight: 600; }
+    .cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+
+    /* Countdown chip. Sits below the CTA row; feels like the same
+       ticker BFSI ops teams already stare at. */
+    .countdown {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.7rem;
+      margin-top: 2rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid color-mix(in oklab, var(--accent-warn) 45%, var(--hairline));
+      background: color-mix(in oklab, var(--accent-warn) 12%, var(--surface));
+      border-radius: 999px;
+    }
+    .cd-label { font-size: 0.82rem; color: color-mix(in oklab, var(--accent-warn) 80%, var(--text)); }
+    .cd-value { font-family: var(--font-mono); font-weight: 700; color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); }
+
+    /* ── Section shells ───────────────────────────────────── */
+    section.eu-scope, section.eu-articles, section.eu-evidence,
+    section.eu-honesty, section.eu-cta {
+      padding: 3rem 0;
+    }
+    section.eu-articles, section.eu-cta {
+      background: var(--surface-2);
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .section-h {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.75rem; letter-spacing: -0.01em;
+      margin: 0 0 1.5rem;
+    }
+    .section-h em { font-style: italic; color: var(--accent-warn); }
+    .lede-plain {
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.65;
+      margin: 0 0 1rem;
+    }
+    .lede-plain.small { font-size: 0.9rem; color: var(--muted); }
+    .lede-plain strong { color: var(--text); font-weight: 600; }
+    .lede-plain code, section.eu-evidence code {
+      font-family: var(--font-mono);
+      background: var(--surface-2);
+      padding: 0 0.3rem; border-radius: 3px;
+      font-size: 0.85em;
+    }
+    section.eu-scope h2 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.75rem; letter-spacing: -0.01em;
+      margin: 0 0 1.5rem;
+    }
+
+    /* ── Article grid ─────────────────────────────────────── */
+    .art-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 780px) { .art-grid { grid-template-columns: 1fr; } }
+    .art {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .art-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1rem; }
+    .art-id {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--accent-warn);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      background: color-mix(in oklab, var(--accent-warn) 15%, var(--surface));
+    }
+    .art h3 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 1.15rem; letter-spacing: -0.005em;
+      margin: 0;
+    }
+    .art-plain, .art-aegis {
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: var(--text);
+      margin: 0 0 0.85rem;
+    }
+    .art-aegis { color: var(--text); }
+    .art-label {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    /* ── Command example ──────────────────────────────────── */
+    .cmd {
+      margin: 1rem 0 1.5rem;
+      padding: 1rem 1.25rem;
+      background: var(--bg);
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--text);
+      overflow-x: auto;
+    }
+    .cmd-p { color: var(--muted); user-select: none; }
+    .cmd-o { color: var(--muted); }
+    .cmd-c { color: color-mix(in oklab, var(--accent-warn) 80%, var(--text)); font-style: italic; }
+
+    /* ── Honesty section ──────────────────────────────────── */
+    .not-covered {
+      padding-left: 1.25rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+    .not-covered li { margin-bottom: 0.6rem; }
+    .not-covered strong { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); font-weight: 600; }
+
+    /* ── CTA strip ────────────────────────────────────────── */
+    section.eu-cta { text-align: center; }
+    section.eu-cta h2 {
+      font-family: var(--font-serif); font-weight: 400;
+      font-size: 2rem; letter-spacing: -0.01em;
+      margin: 0 0 0.5rem;
+    }
+    section.eu-cta p { color: var(--muted); margin: 0 0 1.5rem; }
+    section.eu-cta .cta-row { justify-content: center; }
+    section.eu-cta a { color: var(--text); }
+    section.eu-cta p a { text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+  </style>
+</Layout>
