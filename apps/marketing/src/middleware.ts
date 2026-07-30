@@ -29,7 +29,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   // Supabase is opt-in per env; if not configured, skip auth entirely
   // so a fresh clone can still `npm run dev` for design work.
   try {
-    const supabase = getServerSupabase(locals, cookies);
+    const supabase = getServerSupabase(locals, cookies, ctx.request);
     const { data: { user } } = await supabase.auth.getUser();
     (locals as any).user = user ?? null;
     (locals as any).supabase = supabase;

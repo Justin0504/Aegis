@@ -15,13 +15,13 @@ import { getServerSupabase } from '@/lib/supabase';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ url, cookies, locals, redirect }) => {
+export const GET: APIRoute = async ({ url, cookies, locals, redirect, request }) => {
   const code       = url.searchParams.get('code');
   const tokenHash  = url.searchParams.get('token_hash');
   const type       = url.searchParams.get('type');
   const next       = url.searchParams.get('next') || '/download';
 
-  const supabase = getServerSupabase(locals, cookies);
+  const supabase = getServerSupabase(locals, cookies, request);
 
   try {
     if (code) {

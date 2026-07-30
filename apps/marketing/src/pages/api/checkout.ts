@@ -23,7 +23,7 @@ import { getStripe, planForPrice, priceForPlan } from '@/lib/stripe';
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies, locals, url }) => {
-  const supabase = getServerSupabase(locals, cookies);
+  const supabase = getServerSupabase(locals, cookies, request);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return new Response(JSON.stringify({ error: 'sign in required' }), {

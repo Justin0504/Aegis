@@ -38,30 +38,32 @@ export function getPublicSupabaseAnonKey(locals: App.Locals): string {
 
 /**
  * Server-side Supabase client. Wire this into every SSR page or API
- * route that needs to know who the user is. Reads/writes cookies via
- * Astro's typed cookies helper so session refresh is transparent.
+ * route that needs to know who the user is. Reads cookies from the
+ * incoming request header, writes them via Astro's typed cookies API
+ * (which builds Set-Cookie on the outgoing response).
+ *
+ * The `request` param is REQUIRED — without the raw Cookie header we
+ * can't read the current session state. Earlier version used
+ * `cookies.headers().toString()` which is a Headers object stringify,
+ * NOT the cookie value → verifyOtp / getUser silently returned no
+ * session after set. That was the "email link bounces back to /login"
+ * bug fixed in this commit.
  */
 export function getServerSupabase(
   locals: App.Locals,
   cookies: AstroCookies,
+  request: Request,
 ) {
   const url = getPublicSupabaseUrl(locals);
   const anon = getPublicSupabaseAnonKey(locals);
   if (!url || !anon) {
     throw new Error('Supabase env not configured (PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY). See docs/AUTH-SETUP.md.');
   }
+  const cookieHeader = request.headers.get('cookie') ?? '';
   return createServerClient(url, anon, {
     cookies: {
       getAll() {
-        return cookies.headers()
-          .toString()
-          .split(';')
-          .map((c) => c.trim())
-          .filter(Boolean)
-          .map((c) => {
-            const [name, ...rest] = c.split('=');
-            return { name, value: decodeURIComponent(rest.join('=')) };
-          });
+        return parseCookieHeader(cookieHeader);
       },
       setAll(list) {
         for (const { name, value, options } of list) {
@@ -76,6 +78,24 @@ export function getServerSupabase(
       },
     },
   });
+}
+
+/** Parse a raw `Cookie:` header into the shape @supabase/ssr expects. */
+function parseCookieHeader(header: string): Array<{ name: string; value: string }> {
+  if (!header) return [];
+  return header.split(';')
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => {
+      const idx = c.indexOf('=');
+      if (idx < 0) return { name: c, value: '' };
+      const name = c.slice(0, idx).trim();
+      const raw  = c.slice(idx + 1);
+      let value: string;
+      try { value = decodeURIComponent(raw); }
+      catch { value = raw; }
+      return { name, value };
+    });
 }
 
 /**
