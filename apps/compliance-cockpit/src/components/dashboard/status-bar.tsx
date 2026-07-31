@@ -5,6 +5,7 @@ import { Shield, ShieldAlert, Link2 } from 'lucide-react'
 import { gw } from '@/lib/gateway'
 import { USE_MOCK, mockTotalActions, mockPendingChecks, mockViolations, mockAgents } from '@/lib/mock-traces'
 import { readLicense, type LicenseState } from '@/components/settings/license-panel'
+import { UsageMeter } from '@/components/dashboard/usage-meter'
 
 const BORDER  = 'hsl(var(--border))'
 const TEXT    = 'hsl(var(--foreground))'
@@ -186,7 +187,9 @@ export function StatusBar() {
         </>
       )}
 
-      <span className="opacity-50 ml-auto hidden sm:inline">·</span>
+      <span className="opacity-50 ml-auto hidden md:inline">·</span>
+      <span className="hidden md:inline-flex"><UsageMeter variant="strip" /></span>
+      <span className="opacity-50 hidden sm:inline">·</span>
       <a href="/settings" className="hidden sm:inline-flex items-center gap-1 text-xs"
          title={license?.valid ? `Signed in as ${license.email ?? 'unknown'}` : 'Activate a license on aegistraces.com'}
          style={{

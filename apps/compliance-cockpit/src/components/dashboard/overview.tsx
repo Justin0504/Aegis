@@ -17,6 +17,7 @@ import { Search, X, ArrowRight, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { RecentTraces } from './recent-traces'
 import { UpsellBanner } from './upsell-banner'
+import { UsageMeter } from './usage-meter'
 import { AgentActivity } from './agent-activity'
 import { AnomalyPanel } from './anomaly-panel'
 import { CostPanel } from './cost-panel'
@@ -319,6 +320,8 @@ export function DashboardOverview() {
       </div>
 
       <UpsellBanner />
+
+      <UsageMeter />
 
       {/* Pending checks alert banner */}
       {(stats?.pendingChecks ?? 0) > 0 && (
