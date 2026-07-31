@@ -54,7 +54,7 @@ AEGIS explicitly implements design decisions from published work:
 
 ## Contact
 
-Design partners: partners@aegistraces.com — Security disclosures: security@aegistraces.com — Press: press@aegistraces.com — General: aojieyuan04@gmail.com
+Design partners: partners@aegistraces.com — Security disclosures: aojieyuan04@gmail.com — Press: press@aegistraces.com — General: aojieyuan04@gmail.com
 
 ## About this file
 
