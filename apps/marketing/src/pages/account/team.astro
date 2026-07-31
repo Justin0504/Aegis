@@ -1,0 +1,292 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const user = (Astro.locals as any).user;
+if (!user) return Astro.redirect('/login?next=/account/team', 302);
+
+const supabase = (Astro.locals as any).supabase;
+
+// Resolve the user's primary org (first owner/admin membership).
+// Multi-org support = pick from a switcher later; v1 assumes
+// operator has one org they administer.
+let orgId: string | null = null;
+let orgName: string | null = null;
+let myRole: 'owner' | 'admin' | 'member' | 'viewer' | null = null;
+
+if (supabase) {
+  const { data: memberships } = await supabase
+    .from('organization_members')
+    .select('org_id, role, organizations(name)')
+    .eq('user_id', user.id)
+    .order('role', { ascending: true });  // owner sorts before member alphabetically
+
+  if (memberships && memberships.length > 0) {
+    // Prefer owner/admin membership over member/viewer.
+    const priority = memberships.find((m: any) =>
+      m.role === 'owner' || m.role === 'admin',
+    ) ?? memberships[0];
+    orgId   = priority.org_id;
+    orgName = (priority.organizations as any)?.name ?? 'Your organization';
+    myRole  = priority.role;
+  }
+}
+
+const canInvite = myRole === 'owner' || myRole === 'admin';
+
+// Fetch current members + pending invites.
+let members: Array<{ user_id: string; role: string; joined_at: string; email?: string; full_name?: string }> = [];
+let invites: Array<{ id: string; email: string; role: string; created_at: string }> = [];
+
+if (supabase && orgId) {
+  const { data: memberRows } = await supabase
+    .from('organization_members')
+    .select('user_id, role, joined_at')
+    .eq('org_id', orgId)
+    .order('joined_at', { ascending: true });
+  members = memberRows ?? [];
+
+  const { data: inviteRows } = await supabase
+    .from('organization_invites')
+    .select('id, email, role, created_at')
+    .eq('org_id', orgId)
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false });
+  invites = inviteRows ?? [];
+
+  // Enrich members with email/name from auth.users. Requires
+  // service-role via server helper — reading through the API
+  // route keeps the RLS-scoped supabase clean.
+  if (members.length > 0) {
+    const ids = members.map((m) => m.user_id);
+    // Use SQL RPC or direct query with service role. For now, we
+    // best-effort join via the auth admin API if available.
+    // If not, member list shows just IDs — good enough for v1.
+  }
+}
+---
+
+<Layout
+  title="Team — AEGIS"
+  description="Manage your AEGIS organization: invite teammates, assign roles, remove access."
+>
+  <Header />
+  <main>
+    <section class="hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Account · Team</p>
+        <h1>{orgName ?? 'Team'}</h1>
+        <p class="lede">Manage members and pending invitations for your organization.</p>
+        <p class="nav-back">← <a href="/account">Back to account</a></p>
+      </div>
+    </section>
+
+    <section class="body">
+      <div class="container container-narrow">
+        {!canInvite && orgId && (
+          <div class="card notice">
+            You're a <strong>{myRole}</strong> in this org. Only owners and admins can invite or remove teammates. Contact your org owner if you need access.
+          </div>
+        )}
+
+        {canInvite && (
+          <div class="card">
+            <h2>Invite a teammate</h2>
+            <p class="sub">They'll receive an email with a one-time sign-in link. Their license access starts the moment they click it.</p>
+            <form id="invite-form" class="invite-form">
+              <input type="email" name="email" placeholder="teammate@corp.com" required autocomplete="email" />
+              <select name="role">
+                <option value="member">Member — configure policies, read traces, approve</option>
+                <option value="admin">Admin — everything, plus invite / remove teammates</option>
+                <option value="viewer">Viewer — read-only</option>
+              </select>
+              <input type="hidden" name="org_id" value={orgId} />
+              <button type="submit" class="btn primary">Send invite</button>
+            </form>
+            <p id="invite-msg" class="msg" hidden></p>
+          </div>
+        )}
+
+        <div class="card">
+          <h2>Members ({members.length})</h2>
+          {members.length === 0 ? (
+            <p class="empty">No members yet.</p>
+          ) : (
+            <ul class="list">
+              {members.map((m) => (
+                <li class="member">
+                  <div class="who">
+                    <div class="who-name">{m.email ?? m.user_id.slice(0, 8) + '…'}</div>
+                    <div class="who-meta">
+                      <span class={`chip chip-${m.role}`}>{m.role}</span>
+                      <span class="joined">joined {new Date(m.joined_at).toISOString().slice(0, 10)}</span>
+                    </div>
+                  </div>
+                  {myRole === 'owner' && m.user_id !== user.id && (
+                    <button class="btn secondary small remove-btn"
+                            data-user-id={m.user_id} data-org-id={orgId}>
+                      Remove
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {invites.length > 0 && (
+          <div class="card">
+            <h2>Pending invitations ({invites.length})</h2>
+            <ul class="list">
+              {invites.map((inv) => (
+                <li class="member">
+                  <div class="who">
+                    <div class="who-name">{inv.email}</div>
+                    <div class="who-meta">
+                      <span class={`chip chip-${inv.role}`}>{inv.role}</span>
+                      <span class="joined">invited {new Date(inv.created_at).toISOString().slice(0, 10)}</span>
+                    </div>
+                  </div>
+                  <button class="btn secondary small revoke-btn" data-invite-id={inv.id}>Revoke</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </section>
+  </main>
+
+  <script is:inline>
+    const inviteForm = document.getElementById('invite-form');
+    const msgBox = document.getElementById('invite-msg');
+    function showMsg(text, ok) {
+      msgBox.textContent = text;
+      msgBox.hidden = false;
+      msgBox.dataset.ok = ok ? '1' : '0';
+    }
+    if (inviteForm) {
+      inviteForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(inviteForm);
+        const payload = {
+          email:  fd.get('email'),
+          role:   fd.get('role'),
+          org_id: fd.get('org_id'),
+        };
+        showMsg('Sending…', true);
+        const res = await fetch('/api/team/invite', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          showMsg(body.error ?? `HTTP ${res.status}`, false);
+          return;
+        }
+        showMsg(
+          body.immediate
+            ? `Added ${body.sent_to} to the org (they already had an account).`
+            : `Invite email sent to ${body.sent_to}. They'll appear here once they accept.`,
+          true,
+        );
+        inviteForm.reset();
+        setTimeout(() => window.location.reload(), 1500);
+      });
+    }
+
+    document.querySelectorAll('.remove-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const orgId  = btn.getAttribute('data-org-id');
+        if (!confirm('Remove this member from the org?')) return;
+        const res = await fetch('/api/team/remove', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ org_id: orgId, user_id: userId }),
+        });
+        if (res.ok) window.location.reload();
+        else {
+          const body = await res.json();
+          alert('Remove failed: ' + (body.error ?? res.status));
+        }
+      });
+    });
+
+    document.querySelectorAll('.revoke-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-invite-id');
+        if (!confirm('Revoke this pending invitation?')) return;
+        const res = await fetch(`/api/team/invite?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else alert('Revoke failed');
+      });
+    });
+  </script>
+
+  <Footer />
+
+  <style>
+    .eyebrow { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 0.5rem; }
+    .hero { padding: 3.5rem 0 1.5rem; }
+    .hero h1 { font-family: var(--font-serif); font-size: 2rem; font-weight: 400; margin: 0 0 0.5rem; }
+    .hero .lede { color: var(--muted); font-size: 1rem; margin: 0 0 1rem; }
+    .nav-back { font-size: 0.85rem; margin: 0; }
+    .nav-back a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline-strong); }
+
+    .body { padding: 1rem 0 4rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-family: var(--font-serif); font-weight: 400; font-size: 1.2rem; margin: 0 0 0.5rem; }
+    .card .sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 1rem; }
+    .card.notice { background: color-mix(in oklab, var(--accent-warn) 15%, var(--surface)); border-color: color-mix(in oklab, var(--accent-warn) 45%, transparent); font-size: 0.9rem; }
+
+    .invite-form { display: grid; grid-template-columns: 1fr 260px auto; gap: 0.6rem; align-items: stretch; }
+    @media (max-width: 700px) { .invite-form { grid-template-columns: 1fr; } }
+    .invite-form input[type="email"], .invite-form select {
+      padding: 0.6rem 0.8rem;
+      border: 1px solid var(--hairline-strong);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .invite-form select { font-size: 0.8rem; }
+
+    .btn.primary { background: var(--accent); color: var(--bg); border: 1px solid var(--accent); padding: 0.6rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; }
+    .btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--hairline-strong); padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+    .btn.secondary:hover { border-color: var(--accent); }
+    .btn.small { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+    .msg { font-size: 0.85rem; margin: 0.75rem 0 0; padding: 0.5rem 0.75rem; border-radius: 6px; }
+    .msg[data-ok="1"] { background: color-mix(in oklab, var(--accent-positive) 12%, var(--surface)); color: var(--accent-positive); }
+    .msg[data-ok="0"] { background: color-mix(in oklab, var(--accent-error) 12%, var(--surface)); color: var(--accent-error); }
+
+    .list { list-style: none; padding: 0; margin: 0; }
+    .member {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--hairline);
+      gap: 1rem;
+    }
+    .member:last-child { border-bottom: none; }
+    .who-name { font-weight: 500; color: var(--text); font-size: 0.9rem; margin-bottom: 0.15rem; }
+    .who-meta { display: flex; gap: 0.5rem; align-items: center; font-size: 0.78rem; color: var(--muted); }
+    .joined { font-family: var(--font-mono); }
+    .empty { color: var(--muted); font-size: 0.85rem; margin: 0; }
+
+    .chip { padding: 0.1rem 0.5rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-radius: 4px; }
+    .chip-owner  { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); background: color-mix(in oklab, var(--accent-warn) 20%, var(--surface)); }
+    .chip-admin  { color: hsl(220 45% 32%); background: hsl(220 45% 92%); }
+    .chip-member { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
+    .chip-viewer { color: var(--muted); background: hsl(0 0% 94%); }
+  </style>
+</Layout>
