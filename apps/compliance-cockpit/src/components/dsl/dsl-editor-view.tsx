@@ -99,6 +99,75 @@ export function DslEditorView() {
   const [dryRunCtx, setDryRunCtx] = useState<string>(SAMPLE_CONTEXT)
   const [dryRunResult, setDryRunResult] = useState<unknown>(null)
 
+  // ── NL → DSL compile (Sparkles button) ───────────────────────────
+  // Backend endpoint exists at POST /api/v1/dsl/compile-nl since
+  // Phase 2; this UI just wires the flow. When no LLM adapter is
+  // configured on the gateway, the server falls back to a heuristic
+  // pattern-matcher — the UI shows which backend fired so the
+  // operator knows whether they got the "good" or "cheap" version.
+  const [nlModalOpen, setNlModalOpen] = useState(false)
+  const [nlText, setNlText]           = useState('')
+  const [nlCompiling, setNlCompiling] = useState(false)
+  const [nlResult, setNlResult]       = useState<null | {
+    compiled: any
+    references?: { node_uuids?: string[]; binding_uuids?: string[] }
+    explanation?: string
+    backend?: 'llm' | 'heuristic'
+    warnings?: string[]
+  }>(null)
+
+  async function handleCompileNL() {
+    if (!nlText.trim()) return
+    setNlCompiling(true)
+    setNlResult(null)
+    try {
+      const res = await gw('dsl/compile-nl', {
+        method: 'POST',
+        body: JSON.stringify({ description: nlText.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        // 503 = compiler not configured on this gateway. Explain
+        // the fix in-place instead of showing a raw HTTP error.
+        if (res.status === 503) {
+          throw new Error(
+            'NL compiler not configured on this gateway. Set AEGIS_LOCAL_LLM_URL (Ollama/vLLM) or ANTHROPIC_API_KEY / OPENAI_API_KEY, then restart the gateway.',
+          )
+        }
+        throw new Error(data?.error ?? `HTTP ${res.status}`)
+      }
+      setNlResult(data)
+    } catch (e) {
+      toast.error('Compile failed: ' + (e as Error).message)
+    } finally {
+      setNlCompiling(false)
+    }
+  }
+
+  function acceptCompiled() {
+    if (!nlResult?.compiled) return
+    // Merge new rules into the current document (don't replace) so
+    // operator can build up a policy incrementally.
+    const currentParsed = tryParseDsl(editorText)
+    const current: any = currentParsed.ok ? currentParsed.value : { version: 1, rules: [] }
+    const newRules = nlResult.compiled.rules ?? []
+    const existingNames = new Set((current.rules ?? []).map((r: any) => r.name))
+    const additions = newRules.filter((r: any) => !existingNames.has(r.name))
+    const merged = {
+      version: 1,
+      rules: [...(current.rules ?? []), ...additions],
+    }
+    setEditorText(JSON.stringify(merged, null, 2))
+    setNlModalOpen(false)
+    setNlText('')
+    setNlResult(null)
+    toast.success(
+      additions.length === newRules.length
+        ? `Added ${additions.length} rule${additions.length === 1 ? '' : 's'} — review and click Save`
+        : `Added ${additions.length} new rule(s); ${newRules.length - additions.length} skipped (name collision — your existing rule wins)`,
+    )
+  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -264,6 +333,15 @@ export function DslEditorView() {
             ))}
           </select>
           <button
+            onClick={() => setNlModalOpen(true)}
+            disabled={saving}
+            className="text-sm px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 disabled:opacity-40"
+            style={{ background: 'hsl(36 45% 90%)', color: 'hsl(36 45% 25%)', border: '1px solid hsl(36 45% 65%)' }}
+            title="Describe a rule in plain English — AEGIS compiles it to DSL"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Describe with AI
+          </button>
+          <button
             onClick={handleDelete}
             disabled={!savedDsl || saving}
             className="text-sm px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 disabled:opacity-40"
@@ -411,6 +489,112 @@ export function DslEditorView() {
           </div>
         </div>
       </div>
+
+      {/* ── NL → DSL compile modal ─────────────────────────────── */}
+      {nlModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+             style={{ background: 'rgba(10, 10, 10, 0.4)' }}
+             onClick={() => setNlModalOpen(false)}>
+          <div className="rounded-xl border shadow-lg max-w-2xl w-full max-h-[85vh] overflow-auto"
+               style={{ background: PANEL, borderColor: BORDER }}
+               onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
+              <div className="inline-flex items-center gap-2 font-semibold" style={{ color: TEXT }}>
+                <Sparkles className="h-4 w-4" style={{ color: 'hsl(36 45% 40%)' }} />
+                Describe a rule in plain English
+              </div>
+              <button onClick={() => setNlModalOpen(false)}
+                className="text-sm px-2 py-1 rounded"
+                style={{ color: MUTED }}>✕</button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: TEXT }}>
+                  What should this rule do?
+                </label>
+                <textarea
+                  value={nlText}
+                  onChange={(e) => setNlText(e.target.value)}
+                  placeholder="Example: Block stripe_refund tool calls over $10,000 unless it's the billing agent's node."
+                  rows={4}
+                  className="w-full p-2.5 text-sm rounded border font-mono"
+                  style={{ background: 'hsl(var(--background))', borderColor: BORDER, color: TEXT }}
+                  autoFocus
+                />
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {[
+                    'Block stripe_refund tool calls over $10,000.',
+                    'Require approval for any send_email to an external domain.',
+                    'Block any tool call whose arguments contain a raw credit card number.',
+                    'Require approval for shell tool calls in production.',
+                  ].map((preset) => (
+                    <button key={preset} onClick={() => setNlText(preset)}
+                      className="text-xs px-2 py-1 rounded border"
+                      style={{ borderColor: BORDER, color: MUTED }}>
+                      {preset.length > 45 ? preset.slice(0, 42) + '…' : preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={handleCompileNL}
+                  disabled={!nlText.trim() || nlCompiling}
+                  className="text-sm px-3 py-1.5 rounded font-medium inline-flex items-center gap-1.5 disabled:opacity-40"
+                  style={{ background: ACCENT, color: 'white' }}>
+                  {nlCompiling
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Compiling…</>
+                    : <><Sparkles className="h-3.5 w-3.5" /> Compile</>}
+                </button>
+                {nlResult?.backend && (
+                  <span className="text-xs px-2 py-0.5 rounded"
+                    style={{
+                      background: nlResult.backend === 'llm' ? 'hsl(150 30% 92%)' : 'hsl(36 45% 92%)',
+                      color:      nlResult.backend === 'llm' ? 'hsl(150 30% 32%)' : 'hsl(36 45% 32%)',
+                    }}>
+                    {nlResult.backend === 'llm' ? '✓ LLM compiled' : '↳ heuristic (no LLM configured)'}
+                  </span>
+                )}
+              </div>
+
+              {nlResult?.compiled && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium" style={{ color: TEXT }}>
+                    Compiled DSL preview ({nlResult.compiled.rules?.length ?? 0} rule{nlResult.compiled.rules?.length === 1 ? '' : 's'})
+                  </div>
+                  <pre className="text-xs p-3 rounded border overflow-auto max-h-64"
+                    style={{ background: 'hsl(var(--background))', borderColor: BORDER, color: TEXT, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                    <code>{JSON.stringify(nlResult.compiled, null, 2)}</code>
+                  </pre>
+                  {nlResult.explanation && (
+                    <div className="text-xs p-2 rounded" style={{ background: 'hsl(var(--background))', color: MUTED }}>
+                      <span style={{ color: TEXT, fontWeight: 500 }}>Explanation:</span> {nlResult.explanation}
+                    </div>
+                  )}
+                  {nlResult.warnings && nlResult.warnings.length > 0 && (
+                    <ul className="text-xs space-y-0.5" style={{ color: 'hsl(36 45% 40%)' }}>
+                      {nlResult.warnings.map((w, i) => <li key={i}>⚠ {w}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{ borderColor: BORDER }}>
+              <button onClick={() => setNlModalOpen(false)}
+                className="text-sm px-3 py-1.5 rounded border"
+                style={{ borderColor: BORDER, color: MUTED }}>Cancel</button>
+              <button onClick={acceptCompiled}
+                disabled={!nlResult?.compiled}
+                className="text-sm px-3 py-1.5 rounded font-medium disabled:opacity-40"
+                style={{ background: GREEN, color: 'white' }}>
+                Add to policy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
