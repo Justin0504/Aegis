@@ -37,6 +37,7 @@ import { bfsiSoxPack } from './bfsi-sox';
 import { doraPack } from './dora';
 import { hipaaPack } from './hipaa';
 import { fedrampPack } from './fedramp';
+import { fintechAgentPaymentsPack } from './fintech-agent-payments';
 
 export interface PolicyPackMeta {
   name: PolicyPackName;
@@ -52,7 +53,8 @@ export type PolicyPackName =
   | 'bfsi-sox'
   | 'bfsi-dora'
   | 'healthcare-hipaa'
-  | 'gov-fedramp';
+  | 'gov-fedramp'
+  | 'fintech-agent-payments';
 
 const RAW: Record<PolicyPackName, {
   description: string;
@@ -65,6 +67,7 @@ const RAW: Record<PolicyPackName, {
   'bfsi-dora':        doraPack,
   'healthcare-hipaa': hipaaPack,
   'gov-fedramp':      fedrampPack,
+  'fintech-agent-payments': fintechAgentPaymentsPack,
 };
 
 // Fail-fast validation at module load. If a pack ever grows a bad
