@@ -7,6 +7,7 @@ import {
   Calendar, ChevronDown, ChevronRight, ShieldAlert,
 } from 'lucide-react'
 import { gw } from '@/lib/gateway'
+import { TierGate } from '@/components/pro-features/tier-gate'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -103,6 +104,11 @@ export function EuAiActView() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      <TierGate
+        requires="team"
+        feature="EU AI Act evidence pack"
+        description="Signed, article-by-article JSON export for Article 12-15 record-keeping, transparency, human oversight, and robustness controls. Auditor-ready. Available on Team tier and above."
+      >
       <div className="mb-6">
         <h1 className="text-xl font-semibold" style={{ color: TEXT }}>
           EU AI Act · Article 12-15 Evidence Pack
@@ -265,6 +271,7 @@ export function EuAiActView() {
           No pack loaded. Click Refresh to fetch the latest.
         </div>
       )}
+      </TierGate>
     </div>
   )
 }

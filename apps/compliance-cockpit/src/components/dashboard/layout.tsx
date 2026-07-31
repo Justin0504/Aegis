@@ -11,13 +11,18 @@ import {
   ScanLine, Menu, X, Wrench, ChevronDown, Brain, Undo2,
 } from 'lucide-react'
 import { useTraceStream } from '@/hooks/useTraceStream'
+import { useLicenseTier, hasTier } from '@/hooks/useLicenseTier'
 import { BlockAlertToast } from '@/components/ui/block-alert-toast'
 import { StatusBar } from '@/components/dashboard/status-bar'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { AccountWidget } from '@/components/dashboard/account-widget'
 
 // Primary nav — what an ops / compliance user uses 90% of the time.
-const navigation = [
+// `tier` — the minimum paid tier that unlocks this nav item. Free
+// users see the item with a small badge; clicking still navigates,
+// but the target page renders a TierGate upsell instead of the
+// feature. Absent = available to Free tier.
+const navigation: Array<{ name: string; href: string; icon: any; tier?: 'pro' | 'team' | 'enterprise' }> = [
   { name: 'Overview',    href: '/',           icon: LayoutDashboard },
   { name: 'Activity',    href: '/traces',     icon: FileText        },
   { name: 'Approvals',   href: '/approvals',  icon: CheckCircle     },
@@ -25,11 +30,11 @@ const navigation = [
   { name: 'Violations',  href: '/violations', icon: AlertTriangle   },
   { name: 'Agents',      href: '/agents',     icon: UserRound       },
   { name: 'Policies',    href: '/policies',   icon: Shield          },
-  { name: 'Coverage',    href: '/coverage',   icon: Layers          },
-  { name: 'Memory',      href: '/memory',     icon: Brain           },
+  { name: 'Coverage',    href: '/coverage',   icon: Layers                                     , tier: 'team' },
+  { name: 'Memory',      href: '/memory',     icon: Brain                                      , tier: 'pro'  },
   { name: 'Audit Log',   href: '/audit-log',  icon: ClipboardList   },
   { name: 'Compliance',  href: '/compliance', icon: FileCheck2      },
-  { name: 'EU AI Act',   href: '/compliance/eu-ai-act', icon: FileCheck2 },
+  { name: 'EU AI Act',   href: '/compliance/eu-ai-act', icon: FileCheck2                       , tier: 'team' },
   { name: 'Policy Packs',href: '/dsl/packs',  icon: Shield          },
   { name: 'Settings',    href: '/settings',   icon: Settings        },
 ]
@@ -75,12 +80,28 @@ function AegisLogo() {
   )
 }
 
-type NavItem = { name: string; href: string; icon: typeof LayoutDashboard }
+type NavItem = { name: string; href: string; icon: typeof LayoutDashboard; tier?: 'pro' | 'team' | 'enterprise' }
+
+function TierBadge({ tier }: { tier: 'pro' | 'team' | 'enterprise' }) {
+  const style = {
+    pro:        { bg: 'hsl(36 45% 90%)', fg: 'hsl(36 45% 30%)' },
+    team:       { bg: 'hsl(220 45% 92%)', fg: 'hsl(220 45% 32%)' },
+    enterprise: { bg: 'hsl(280 30% 92%)', fg: 'hsl(280 30% 32%)' },
+  }[tier]
+  return (
+    <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+          style={{ background: style.bg, color: style.fg, letterSpacing: '0.08em' }}>
+      {tier}
+    </span>
+  )
+}
 
 function NavLink({ item, pathname, onLinkClick, depth = 0 }: {
   item: NavItem; pathname: string; onLinkClick?: () => void; depth?: number
 }) {
   const isActive = pathname === item.href
+  const { tier: currentTier } = useLicenseTier()
+  const isLocked = item.tier && !hasTier(currentTier, item.tier)
   return (
     <Link
       href={item.href}
@@ -99,9 +120,10 @@ function NavLink({ item, pathname, onLinkClick, depth = 0 }: {
     >
       <item.icon
         className="h-4 w-4 flex-shrink-0"
-        style={{ color: isActive ? TEXT : MUTED, opacity: isActive ? 1 : 0.7 }}
+        style={{ color: isActive ? TEXT : MUTED, opacity: isActive ? 1 : (isLocked ? 0.5 : 0.7) }}
       />
-      {item.name}
+      <span style={{ opacity: isLocked ? 0.7 : 1 }}>{item.name}</span>
+      {isLocked && item.tier && <TierBadge tier={item.tier} />}
     </Link>
   )
 }

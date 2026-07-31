@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Search, X, ArrowRight, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { RecentTraces } from './recent-traces'
+import { UpsellBanner } from './upsell-banner'
 import { AgentActivity } from './agent-activity'
 import { AnomalyPanel } from './anomaly-panel'
 import { CostPanel } from './cost-panel'
@@ -316,6 +317,8 @@ export function DashboardOverview() {
           <GlobalSearch />
         </div>
       </div>
+
+      <UpsellBanner />
 
       {/* Pending checks alert banner */}
       {(stats?.pendingChecks ?? 0) > 0 && (
