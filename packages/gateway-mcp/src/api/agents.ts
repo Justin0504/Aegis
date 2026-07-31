@@ -207,6 +207,35 @@ export class AgentsAPI {
       res.json({ items });
     });
 
+    // License-tier limit snapshot. Powers the Cockpit banner
+    // ("45 / 50 agents · 2 in audit-only · Upgrade to Team →").
+    this.router.get('/limits', (req: Request, res: Response) => {
+      const orgId = orgIdOf(req);
+      res.json(this.registry.getLimits(orgId));
+    });
+
+    // Manual audit-only toggle. Owner-initiated after upgrading tier
+    // (flip overflow agents back to enforced) or on-demand demotion.
+    // Body: { audit_only: boolean }
+    this.router.patch('/:id/audit-only', (req: Request, res: Response) => {
+      const orgId = orgIdOf(req);
+      const auditOnly = req.body?.audit_only;
+      if (typeof auditOnly !== 'boolean') {
+        return res.status(400).json({ error: 'body.audit_only must be a boolean' });
+      }
+      const updated = this.registry.setAuditOnly({ orgId, agentId: req.params.id, auditOnly });
+      if (!updated) return res.status(404).json({ error: 'agent not found' });
+      this.audit.log({
+        org_id: orgId,
+        action: 'user.update',
+        resource_type: 'agent',
+        resource_id: req.params.id,
+        details: { audit_only: auditOnly },
+        ip_address: req.ip,
+      });
+      res.json({ agent: updated });
+    });
+
     // Register a new agent. Body conforms to AgentRegistrationRequest. If
     // `id` is provided and a row already exists (e.g. unregistered first-
     // sighting record), this PROMOTES it to active in-place.

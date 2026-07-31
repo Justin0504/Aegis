@@ -146,6 +146,23 @@ export class CheckAPI {
             : undefined;
           this.agentRegistry.touch({ orgId, agentId: body.agent_id, provenance });
 
+          // Audit-only bypass: agents that got flagged when the org
+          // exceeded its license-tier cap still trace, but never block.
+          // Short-circuit here so policy / anomaly / DSL never escalate.
+          const _agentRow = this.agentRegistry.get(body.agent_id);
+          if (_agentRow?.audit_only) {
+            const latencyMs = Date.now() - start;
+            return res.json({
+              decision: 'allow',
+              reason:   'agent in audit-only mode (org exceeded license-tier cap)',
+              check_id: randomUUID(),
+              risk_level: 'LOW',
+              category:  'audit-only-bypass',
+              latency_ms: latencyMs,
+              audit_only: true,
+            });
+          }
+
           // Capability attestation gate — refuses a tool call whose name
           // isn't in the agent's declared_tools list. Opt-in: agents with
           // no declared_tools set skip this check entirely, so existing

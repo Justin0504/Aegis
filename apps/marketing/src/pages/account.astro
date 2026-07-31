@@ -38,6 +38,30 @@ if (supabase) {
 }
 
 const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Account';
+
+// Multi-org switcher: list every org the user belongs to. Only
+// rendered when the count is ≥ 2 (everyone has at least their
+// personal org from the auto-create trigger). Current-org selection
+// is stored in cookie `aegis_current_org`; API routes default to
+// it, or fall back to the caller's owner/admin membership.
+let memberships: Array<{ org_id: string; role: string; org_name: string; org_slug: string }> = [];
+let currentOrgId: string | null = null;
+if (supabase) {
+  const { data } = await supabase
+    .from('organization_members')
+    .select('org_id, role, organizations(name, slug)')
+    .eq('user_id', user.id);
+  memberships = (data ?? []).map((m: any) => ({
+    org_id: m.org_id,
+    role: m.role,
+    org_name: m.organizations?.name ?? '(unnamed org)',
+    org_slug: m.organizations?.slug ?? '',
+  }));
+  currentOrgId = Astro.cookies.get('aegis_current_org')?.value
+    ?? memberships.find(m => m.role === 'owner' || m.role === 'admin')?.org_id
+    ?? memberships[0]?.org_id
+    ?? null;
+}
 ---
 
 <Layout
@@ -125,6 +149,31 @@ const displayName = user.user_metadata?.full_name || user.user_metadata?.name ||
           </div>
         </div>
 
+        {memberships.length >= 2 && (
+          <div class="card">
+            <div class="card-h">Organizations ({memberships.length})</div>
+            <p class="sub">You belong to more than one org. Switching updates which org's license, team, and billing you see.</p>
+            <ul class="org-list">
+              {memberships.map((m) => (
+                <li class={`org-row ${m.org_id === currentOrgId ? 'org-current' : ''}`}>
+                  <div class="org-info">
+                    <div class="org-name">{m.org_name}</div>
+                    <div class="org-meta">
+                      <span class={`chip chip-${m.role}`}>{m.role}</span>
+                      <span class="org-slug mono">{m.org_slug}</span>
+                    </div>
+                  </div>
+                  {m.org_id === currentOrgId ? (
+                    <span class="org-current-tag">Current</span>
+                  ) : (
+                    <button class="btn small switch-btn" data-org-id={m.org_id}>Switch</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <!-- ── Downloads shortcut ───────────────────────────── -->
         <div class="card">
           <div class="card-h">Downloads</div>
@@ -158,6 +207,25 @@ const displayName = user.user_metadata?.full_name || user.user_metadata?.name ||
           btn.textContent = 'Copied ✓';
           setTimeout(() => { btn.textContent = orig; }, 1200);
         } catch { /* clipboard blocked */ }
+      });
+    });
+
+    document.querySelectorAll('button.switch-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const orgId = btn.getAttribute('data-org-id');
+        if (!orgId) return;
+        btn.textContent = 'Switching…';
+        const res = await fetch('/api/auth/switch-org', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ org_id: orgId }),
+        });
+        if (res.ok) window.location.reload();
+        else {
+          const body = await res.json().catch(() => ({}));
+          alert('Switch failed: ' + (body.error ?? res.status));
+          btn.textContent = 'Switch';
+        }
       });
     });
   </script>
@@ -208,6 +276,23 @@ const displayName = user.user_metadata?.full_name || user.user_metadata?.name ||
     .chip-active   { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
     .chip-trialing { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
     .chip-past_due { color: hsl(36 45% 30%);  background: hsl(36 45% 92%); }
+    .chip-owner    { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); background: color-mix(in oklab, var(--accent-warn) 20%, var(--surface)); }
+    .chip-admin    { color: hsl(220 45% 32%); background: hsl(220 45% 92%); }
+    .chip-member   { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
+    .chip-viewer   { color: var(--muted); background: hsl(0 0% 94%); }
+
+    .org-list { list-style: none; padding: 0; margin: 0; }
+    .org-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--hairline); gap: 1rem;
+    }
+    .org-row:last-child { border-bottom: none; }
+    .org-name { font-weight: 500; font-size: 0.92rem; color: var(--text); }
+    .org-meta { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.15rem; font-size: 0.78rem; color: var(--muted); }
+    .org-slug { font-family: var(--font-mono); font-size: 0.75rem; }
+    .org-current { background: color-mix(in oklab, var(--accent) 5%, transparent); margin: 0 -1.5rem; padding-left: 1.5rem; padding-right: 1.5rem; }
+    .org-current-tag { font-size: 0.72rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
     .chip-canceled { color: var(--accent-error); background: color-mix(in oklab, var(--accent-error) 15%, var(--surface)); }
     .chip-plan     { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); background: color-mix(in oklab, var(--accent-warn) 15%, var(--surface)); }
 

@@ -25,6 +25,7 @@ import {
   AgentUpdateRequest,
   RegisteredAgent,
 } from '@agentguard/core-schema';
+import { agentLimitForTier, config } from '../config';
 
 export interface AgentFirstSightingEvent {
   orgId: string;
@@ -66,6 +67,7 @@ function rowToAgent(row: any): RegisteredAgent {
     has_public_key: !!row.public_key_pem,
     capabilities: safeParseJson<any>(row.capabilities),
     provenance: safeParseJson<any>(row.provenance),
+    audit_only: !!row.audit_only,
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_seen_at: row.last_seen_at ?? undefined,
@@ -184,7 +186,99 @@ export class AgentRegistryService {
       );
     }
 
+    // Tier-limit overflow: if this org is now over the license cap for
+    // enforced agents, flag THIS agent as audit_only. Earlier agents
+    // keep enforcement — the new one traces but never blocks. Skip for
+    // re-registrations of already-audit-only rows (idempotent).
+    this.applyTierOverflow(opts.orgId, id);
+
     return { agent: this.get(id)!, secret };
+  }
+
+  /**
+   * Auto-flag the given agent `audit_only=1` when its org is over the
+   * license-tier cap on enforced (non-audit-only) agents. Called after
+   * every register() / first-sighting touch(). Idempotent: never
+   * *clears* audit_only (upgrades or manual toggles do that).
+   *
+   * The overflow check is inclusive of the current row: if the row is
+   * already audit_only, we leave it. If the count of enforced agents
+   * (including this one) is over the cap, flip it to audit_only.
+   */
+  private applyTierOverflow(orgId: string, agentId: string): void {
+    const limit = agentLimitForTier(config.license.tier);
+    if (!isFinite(limit)) return;  // enterprise / unlimited — no overflow possible
+    try {
+      const enforcedCount = (this.db.prepare(
+        `SELECT COUNT(*) AS n FROM agents
+          WHERE org_id = ?
+            AND status IN ('active', 'unregistered')
+            AND audit_only = 0`,
+      ).get(orgId) as { n: number }).n;
+      if (enforcedCount > limit) {
+        const row = this.getRow(agentId);
+        if (row && !row.audit_only) {
+          this.db.prepare(
+            `UPDATE agents SET audit_only = 1, updated_at = datetime('now') WHERE id = ?`,
+          ).run(agentId);
+          this.logger.warn(
+            { orgId, agentId, enforcedCount, limit, tier: config.license.tier },
+            'agent auto-flagged audit_only — tier cap reached',
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.warn({ err: (err as Error).message, orgId, agentId }, 'applyTierOverflow failed');
+    }
+  }
+
+  /**
+   * License-tier limit snapshot for an org. Powers the Cockpit banner
+   * ("45 / 50 agents · 2 in audit-only · Upgrade to Team →") and the
+   * ops CLI. Returns finite Infinity as `null` in the wire format.
+   */
+  getLimits(orgId: string): {
+    tier: 'community' | 'pro' | 'enterprise';
+    limit: number | null;
+    enforced_count: number;
+    audit_only_count: number;
+    total_count: number;
+    over_limit: boolean;
+  } {
+    const tier = config.license.tier;
+    const limit = agentLimitForTier(tier);
+    const enforced_count = (this.db.prepare(
+      `SELECT COUNT(*) AS n FROM agents
+        WHERE org_id = ?
+          AND status IN ('active', 'unregistered')
+          AND audit_only = 0`,
+    ).get(orgId) as { n: number }).n;
+    const audit_only_count = (this.db.prepare(
+      `SELECT COUNT(*) AS n FROM agents
+        WHERE org_id = ?
+          AND status IN ('active', 'unregistered')
+          AND audit_only = 1`,
+    ).get(orgId) as { n: number }).n;
+    return {
+      tier,
+      limit: isFinite(limit) ? limit : null,
+      enforced_count,
+      audit_only_count,
+      total_count: enforced_count + audit_only_count,
+      over_limit: isFinite(limit) && enforced_count + audit_only_count > limit,
+    };
+  }
+
+  /** Manual toggle. Owner-initiated: e.g. after upgrading a tier, flip
+   *  overflow agents back to enforced, or downgrade a specific agent
+   *  to audit-only without deregistering it. */
+  setAuditOnly(opts: { orgId: string; agentId: string; auditOnly: boolean }): RegisteredAgent | null {
+    const existing = this.getRow(opts.agentId);
+    if (!existing || existing.org_id !== opts.orgId) return null;
+    this.db.prepare(
+      `UPDATE agents SET audit_only = ?, updated_at = datetime('now') WHERE id = ?`,
+    ).run(opts.auditOnly ? 1 : 0, opts.agentId);
+    return this.get(opts.agentId);
   }
 
   /** Called from the hot path on every agent sighting. Idempotent.
@@ -225,6 +319,7 @@ export class AgentRegistryService {
          VALUES (?, ?, 'unregistered', datetime('now'), ?)`,
       ).run(opts.agentId, opts.orgId, prov);
       if (result.changes > 0) {
+        this.applyTierOverflow(opts.orgId, opts.agentId);
         // Emit first-sighting event on the in-process bus. Wrapped in a
         // setImmediate so a slow subscriber can never starve the hot
         // path. Errors inside listeners are swallowed.
@@ -290,6 +385,17 @@ export class AgentRegistryService {
     }
     if (agent.status === 'deprecated') {
       return { agent, blocked: true, blockReason: 'agent deprecated', attributionStrength: 'weak' };
+    }
+
+    // Tier-overflow: agents beyond the license cap always allow. The
+    // trace still lands (this branch runs AFTER touch()), but the gate
+    // never blocks. Downstream policy/anomaly checks should honour
+    // agent.audit_only similarly — done in policy-engine.ts.
+    if (agent.audit_only) {
+      return {
+        agent, blocked: false, attributionStrength: 'weak',
+        blockReason: undefined,
+      };
     }
 
     // Workflow-attestation check — only enforced when the row has a

@@ -268,6 +268,14 @@ export function initializeEnterpriseSchema(db: Database.Database): void {
     // the row actually having a hash.
     `ALTER TABLE agents ADD COLUMN workflow_hash TEXT`,
     `CREATE INDEX IF NOT EXISTS idx_agents_workflow_hash ON agents(workflow_hash) WHERE workflow_hash IS NOT NULL`,
+    // Tier-limit overflow: when an org's active-agent count exceeds
+    // its license tier cap, newly-registered agents get marked
+    // audit_only=1. authorize() then never blocks them — the gate
+    // still traces every call, but decisions default to allow. Lets
+    // the operator "see everything" without paying for enforcement
+    // on the overflow. Cleared explicitly by upgrade or manual toggle.
+    `ALTER TABLE agents ADD COLUMN audit_only INTEGER NOT NULL DEFAULT 0`,
+    `CREATE INDEX IF NOT EXISTS idx_agents_audit_only ON agents(org_id, audit_only) WHERE audit_only = 1`,
   ];
 
   for (const sql of orgMigrations) {

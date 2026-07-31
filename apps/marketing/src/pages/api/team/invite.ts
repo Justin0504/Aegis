@@ -32,6 +32,14 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
   try { body = await request.json(); }
   catch { return json({ error: 'invalid JSON body' }, 400); }
 
+  // Multi-org users: prefer the org they've explicitly switched to
+  // (aegis_current_org cookie set by /api/auth/switch-org). Body-
+  // supplied org_id still wins if present.
+  if (!body.org_id) {
+    const cookieOrgId = cookies.get('aegis_current_org')?.value;
+    if (cookieOrgId) body.org_id = cookieOrgId;
+  }
+
   const email = (body.email ?? '').trim().toLowerCase();
   const role  = (body.role  ?? 'member').toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {

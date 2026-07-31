@@ -145,6 +145,12 @@ export interface RegisteredAgent {
   has_public_key: boolean;
   capabilities?: AgentCapabilities;
   provenance?: AgentProvenance;
+  /** True when the agent was auto-flagged because the org already
+   *  exceeded its license-tier agent cap at registration time. The
+   *  gateway keeps tracing this agent but never blocks its calls —
+   *  the operator sees behaviour without paying for enforcement on
+   *  the overflow. Cleared on upgrade or manual toggle. */
+  audit_only?: boolean;
   created_at: string;
   updated_at: string;
   last_seen_at?: string;

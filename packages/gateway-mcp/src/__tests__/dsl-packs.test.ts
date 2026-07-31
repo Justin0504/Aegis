@@ -54,8 +54,9 @@ describe('DSL packs · registry', () => {
       'bfsi-pci-dss':     'pci',
       'bfsi-sox':         'sox',
       'bfsi-dora':        'dora',
-      'healthcare-hipaa': 'hipaa',
-      'gov-fedramp':      'fedramp',
+      'healthcare-hipaa':        'hipaa',
+      'gov-fedramp':             'fedramp',
+      'fintech-agent-payments':  'agent-payments',
     };
     for (const packName of ALL_PACKS) {
       const pack = getPack(packName)!;

@@ -172,6 +172,25 @@ export const config = {
   },
 } as const;
 
+/**
+ * Max **enforced** agents per license tier. Agents past the cap still
+ * get registered — they're just flagged `audit_only` so the gateway
+ * traces them without ever blocking. Prevents "we can't ship because
+ * you'll block prod" while giving the buyer a concrete upgrade signal.
+ *   community → 5   (single dev / prototype)
+ *   pro       → 50  (small team)
+ *   enterprise → unlimited
+ */
+export const AGENT_ENFORCEMENT_LIMITS: Record<'community' | 'pro' | 'enterprise', number> = {
+  community: 5,
+  pro: 50,
+  enterprise: Number.POSITIVE_INFINITY,
+};
+
+export function agentLimitForTier(tier: 'community' | 'pro' | 'enterprise'): number {
+  return AGENT_ENFORCEMENT_LIMITS[tier];
+}
+
 /** Feature availability by license tier */
 export const FEATURE_GATES: Record<string, ('community' | 'pro' | 'enterprise')[]> = {
   'traces':           ['community', 'pro', 'enterprise'],

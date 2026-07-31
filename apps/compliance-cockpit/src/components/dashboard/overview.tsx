@@ -17,6 +17,8 @@ import { Search, X, ArrowRight, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { RecentTraces } from './recent-traces'
 import { UpsellBanner } from './upsell-banner'
+import { AgentLimitBanner } from './agent-limit-banner'
+import { AlertRulesPanel } from './alert-rules-panel'
 import { UsageMeter } from './usage-meter'
 import { AgentActivity } from './agent-activity'
 import { AnomalyPanel } from './anomaly-panel'
@@ -321,6 +323,8 @@ export function DashboardOverview() {
 
       <UpsellBanner />
 
+      <AgentLimitBanner />
+
       <UsageMeter />
 
       {/* Pending checks alert banner */}
@@ -355,6 +359,7 @@ export function DashboardOverview() {
         <TabsList>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
         </TabsList>
@@ -392,6 +397,9 @@ export function DashboardOverview() {
               <AnomalyPanel />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="alerts" className="space-y-4">
+          <AlertRulesPanel />
         </TabsContent>
         <TabsContent value="costs" className="space-y-4">
           <Card>
