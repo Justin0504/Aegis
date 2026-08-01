@@ -20,6 +20,7 @@ import { Bell, ArrowRight } from 'lucide-react'
 import { gw } from '@/lib/gateway'
 import { AlertRules } from '@/components/settings/alert-rules'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 interface Violation {
   id: string
@@ -45,7 +46,7 @@ function RecentFires() {
   })
 
   if (isLoading) {
-    return <div className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading recent fires…</div>
+    return <SkeletonRows count={4} rowHeight={40} />
   }
   if (!violations || violations.length === 0) {
     return (

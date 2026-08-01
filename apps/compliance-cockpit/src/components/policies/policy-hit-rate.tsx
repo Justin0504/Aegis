@@ -17,6 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { gw } from '@/lib/gateway'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SkeletonRows } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
 import { AlertOctagon, Clock } from 'lucide-react'
 
@@ -64,7 +65,7 @@ export function PolicyHitRate() {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Loading…</p>
+          <SkeletonRows count={4} rowHeight={40} />
         ) : rules.length === 0 ? (
           <div className="py-8 text-center text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>
             No rule has fired yet.

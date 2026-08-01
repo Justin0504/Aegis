@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Layers, Clock, AlertCircle, ChevronRight, CheckCircle } from 'lucide-react'
 import { traceSummary } from '@/lib/trace-summary'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 const TOOL_VERBS: Record<string, string> = {
   web_search: 'Search', read_file: 'Read', write_file: 'Write', delete_file: 'Delete',
@@ -66,9 +67,9 @@ function SessionTraces({ sessionId }: { sessionId: string }) {
     },
   })
 
-  if (isLoading) return <div className="py-2 text-[11px]" style={{ color: MUTED }}>Loading...</div>
+  if (isLoading) return <div className="py-2"><SkeletonRows count={3} rowHeight={24} /></div>
   const traces: any[] = data ?? []
-  if (traces.length === 0) return <div className="py-2 text-[11px]" style={{ color: MUTED }}>No traces found</div>
+  if (traces.length === 0) return <div className="py-2 text-[11px]" style={{ color: MUTED }}>No traces in this session yet.</div>
 
   return (
     <div className="space-y-1 pt-2">

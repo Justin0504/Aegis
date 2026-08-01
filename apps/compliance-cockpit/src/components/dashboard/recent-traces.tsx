@@ -5,6 +5,7 @@ import { formatDate, getStatusColor } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { traceSummary } from '@/lib/trace-summary'
 import { USE_MOCK, mockTraces } from '@/lib/mock-traces'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 export function RecentTraces() {
   const { data: liveTraces, isLoading } = useQuery({
@@ -20,7 +21,7 @@ export function RecentTraces() {
   const traces = USE_MOCK ? { traces: mockTraces().slice(0, 5) } : liveTraces
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading traces...</div>
+    return <SkeletonRows count={5} rowHeight={36} />
   }
 
   return (

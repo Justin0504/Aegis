@@ -12,6 +12,7 @@ import { useState, ReactNode } from 'react'
 import { AnomalyExplanationPanel } from './anomaly-explanation-panel'
 import { ToolIcon } from '@/lib/tool-icons'
 import { BrandIcon, brandForHostOrModel } from '@/components/ui/brand-icon'
+import { SkeletonRows, SkeletonText } from '@/components/ui/skeleton'
 import { DelegationWaterfall } from './delegation-waterfall'
 
 const BORDER = 'hsl(var(--border))'
@@ -353,9 +354,13 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground">Loading trace details...</p>
+      <Card className="h-[calc(100vh-200px)] overflow-hidden flex flex-col">
+        <CardContent className="p-6 space-y-4">
+          <SkeletonText width={38} height={22} />
+          <SkeletonText width={22} height={12} />
+          <div className="pt-4 space-y-2">
+            <SkeletonRows count={3} rowHeight={64} />
+          </div>
         </CardContent>
       </Card>
     )
