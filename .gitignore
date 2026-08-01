@@ -18,6 +18,9 @@ build
 dist
 *.tsbuildinfo
 
+# Rust / Cargo build artifacts (anywhere in the tree)
+target/
+
 # Python
 __pycache__
 *.py[cod]
