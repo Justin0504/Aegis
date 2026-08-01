@@ -99,6 +99,21 @@ const BRANDS: Record<string, BrandDef> = {
   postgres:       { slug: 'postgresql',     domain: 'postgresql.org' },
   redis:          { slug: 'redis',          domain: 'redis.io' },
   mongodb:        { slug: 'mongodb',        domain: 'mongodb.com' },
+
+  // ── Email / messaging services (surfaced via tool-icons) ───────
+  gmail:          { slug: 'gmail',          domain: 'gmail.com' },
+  outlook:        { slug: 'microsoftoutlook', domain: 'outlook.com' },
+  icloud:         { slug: 'icloud',         domain: 'icloud.com' },
+  proton:         { slug: 'protonmail',     domain: 'proton.me' },
+  twilio:         { slug: 'twilio',         domain: 'twilio.com' },
+  sendgrid:       { slug: null,             domain: 'sendgrid.com' },
+  hubspot:        { slug: 'hubspot',        domain: 'hubspot.com' },
+
+  // ── Search engines ─────────────────────────────────────────────
+  bing:           { slug: null,             domain: 'bing.com' },
+  duckduckgo:     { slug: 'duckduckgo',     domain: 'duckduckgo.com' },
+  perplexity:     { slug: 'perplexity',     domain: 'perplexity.ai' },
+  brave:          { slug: 'brave',          domain: 'brave.com' },
 }
 
 interface Props {

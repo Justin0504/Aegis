@@ -78,6 +78,33 @@ function JsonValue({ value, depth = 0 }: { value: any; depth?: number }) {
     return <span className="text-xs font-mono" style={{ color: NUM_COLOR }}>{value}</span>
   }
   if (typeof value === 'string') {
+    // URL strings: prefix with the real favicon so operators can eye-
+    // ball the destination without parsing the domain. Same
+    // BrandIcon component that powers the LLM chip / proxy wizard;
+    // when Simple Icons doesn't cover the host it falls back to
+    // icon.horse, then to a placeholder dot. Never breaks the row.
+    const urlMatch = value.match(/^https?:\/\/([^\/\s]+)/i)
+    if (urlMatch) {
+      const host = urlMatch[1]
+      return (
+        <span className="text-xs inline-flex items-center gap-1.5" style={{ color: STR_COLOR }}>
+          <BrandIcon brand={host} size={13} title={host} />
+          <span className="font-mono break-all">
+            {value.length > 200 && !expanded ? `${value.slice(0, 200)}...` : value}
+          </span>
+          {value.length > 200 && (
+            <button
+              onClick={e => { e.stopPropagation(); setExpanded(!expanded) }}
+              className="underline"
+              style={{ color: NUM_COLOR }}
+            >
+              {expanded ? 'less' : 'more'}
+            </button>
+          )}
+        </span>
+      )
+    }
+
     // Long strings get truncated with expand
     if (value.length > 200) {
       return (

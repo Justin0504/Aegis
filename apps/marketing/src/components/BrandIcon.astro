@@ -1,0 +1,103 @@
+---
+/**
+ * BrandIcon.astro — real, colored brand icons for the marketing site.
+ *
+ * Server-rendered <img> that tries the Simple Icons CDN first and
+ * falls back to icon.horse via an inline onerror handler. Same two-
+ * tier fetch ladder as the Cockpit's <BrandIcon>, but without any
+ * client-side React (Astro islands are expensive; this is just an
+ * <img>).
+ *
+ * Usage:
+ *   <BrandIcon brand="anthropic" size={20} />
+ *   <BrandIcon brand="openai" size={16} label="OpenAI" />
+ *
+ * The BRANDS map lives here + in the Cockpit's brand-icon.tsx.
+ * Duplicated on purpose: the marketing site can't easily import
+ * from the React workspace, and Astro islands would add bundle
+ * weight for zero visual gain.
+ */
+
+interface Props {
+  /** Brand key or arbitrary slug — see BRANDS. */
+  brand: string;
+  /** px. Defaults to 18 for the brand-strip row. */
+  size?: number;
+  /** Accessible label + tooltip. Defaults to titlecased brand. */
+  label?: string;
+  /** Extra CSS class. */
+  class?: string;
+}
+
+const { brand, size = 18, label, class: className } = Astro.props;
+
+// Canonical map. Slug may be null when the brand isn't in Simple
+// Icons — in that case we go straight to icon.horse.
+const BRANDS: Record<string, { slug: string | null; domain: string; name: string }> = {
+  // LLM providers
+  anthropic:   { slug: 'anthropic',      domain: 'anthropic.com',  name: 'Anthropic'   },
+  openai:      { slug: null,             domain: 'openai.com',     name: 'OpenAI'      },
+  gemini:      { slug: 'googlegemini',   domain: 'gemini.google.com', name: 'Gemini'   },
+  google:      { slug: 'google',         domain: 'google.com',     name: 'Google'      },
+  mistral:     { slug: 'mistralai',      domain: 'mistral.ai',     name: 'Mistral'     },
+  huggingface: { slug: 'huggingface',    domain: 'huggingface.co', name: 'Hugging Face'},
+  langchain:   { slug: 'langchain',      domain: 'langchain.com',  name: 'LangChain'   },
+
+  // Payments / fintech
+  stripe:      { slug: 'stripe',         domain: 'stripe.com',      name: 'Stripe'     },
+  visa:        { slug: 'visa',           domain: 'visa.com',        name: 'Visa'       },
+  mastercard:  { slug: 'mastercard',     domain: 'mastercard.com',  name: 'Mastercard' },
+  brex:        { slug: 'brex',           domain: 'brex.com',        name: 'Brex'       },
+  plaid:       { slug: 'plaid',          domain: 'plaid.com',       name: 'Plaid'      },
+  circle:      { slug: 'circle',         domain: 'circle.com',      name: 'Circle'     },
+  coinbase:    { slug: 'coinbase',       domain: 'coinbase.com',    name: 'Coinbase'   },
+  ethereum:    { slug: 'ethereum',       domain: 'ethereum.org',    name: 'Ethereum'   },
+  solana:      { slug: 'solana',         domain: 'solana.com',      name: 'Solana'     },
+
+  // Cloud / infra
+  aws:         { slug: 'amazonaws',      domain: 'aws.amazon.com',        name: 'AWS'      },
+  microsoft:   { slug: 'microsoftazure', domain: 'azure.microsoft.com',   name: 'Microsoft'},
+  oracle:      { slug: 'oracle',         domain: 'oracle.com',            name: 'Oracle'   },
+  apple:       { slug: 'apple',          domain: 'apple.com',             name: 'Apple'    },
+  cloudflare:  { slug: 'cloudflare',     domain: 'cloudflare.com',        name: 'Cloudflare'},
+  vercel:      { slug: 'vercel',         domain: 'vercel.com',            name: 'Vercel'   },
+
+  // Dev tools
+  github:      { slug: 'github',         domain: 'github.com',      name: 'GitHub'   },
+  slack:       { slug: 'slack',          domain: 'slack.com',       name: 'Slack'    },
+  notion:      { slug: 'notion',         domain: 'notion.so',       name: 'Notion'   },
+  supabase:    { slug: 'supabase',       domain: 'supabase.com',    name: 'Supabase' },
+  docker:      { slug: 'docker',         domain: 'docker.com',      name: 'Docker'   },
+};
+
+const key = brand.toLowerCase().trim();
+const def = BRANDS[key] ?? {
+  slug: null,
+  domain: brand.includes('.') ? brand : `${brand}.com`,
+  name: brand,
+};
+const displayName = label ?? def.name;
+
+const primarySrc = def.slug
+  ? `https://cdn.simpleicons.org/${encodeURIComponent(def.slug)}/${encodeURIComponent(def.slug)}`
+  : `https://icon.horse/icon/${encodeURIComponent(def.domain)}`;
+const fallbackSrc = `https://icon.horse/icon/${encodeURIComponent(def.domain)}`;
+// Only bother with onerror when the two URLs differ (otherwise we
+// have nothing better to try — the placeholder is the img alt text).
+const onerror = def.slug
+  ? `if (this.src !== '${fallbackSrc}') { this.src = '${fallbackSrc}'; } else { this.style.opacity = '0.3'; }`
+  : `this.style.opacity = '0.3'`;
+---
+
+<img
+  src={primarySrc}
+  alt={displayName}
+  title={displayName}
+  width={size}
+  height={size}
+  loading="lazy"
+  decoding="async"
+  onerror={onerror}
+  class={className}
+  style="display:inline-block;vertical-align:middle;border-radius:2px;"
+/>
