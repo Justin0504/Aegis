@@ -89,7 +89,9 @@ impl Attributor {
         { return macos_owner(peer.port()).map(pretty_name); }
         #[cfg(target_os = "linux")]
         { return linux_owner(peer).map(pretty_name); }
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(target_os = "windows")]
+        { return windows_owner(peer.port()).map(pretty_name); }
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         { let _ = peer; None }
     }
 }
@@ -175,6 +177,108 @@ fn macos_owner(local_port: u16) -> Option<String> {
         }
     }
     None
+}
+
+// ── Windows: GetExtendedTcpTable + QueryFullProcessImageNameW ──────────
+//
+// Two-step lookup:
+//   1. GetExtendedTcpTable(TCP_TABLE_OWNER_PID_ALL) yields a table
+//      whose rows carry (localAddr, localPort, remoteAddr, remotePort,
+//      state, owningPid) for every TCP socket on the machine.
+//   2. For the matching row we OpenProcess + QueryFullProcessImageNameW
+//      to get the image file name; the caller then trims via
+//      pretty_name().
+//
+// Loopback-only guard already applied by the caller. Both steps are
+// user-scoped (no elevation required for sockets in the current user's
+// session).
+
+#[cfg(target_os = "windows")]
+fn windows_owner(local_port: u16) -> Option<String> {
+    use std::mem::size_of;
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::NetworkManagement::IpHelper::{
+        GetExtendedTcpTable, MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL,
+    };
+    use windows::Win32::Networking::WinSock::AF_INET;
+    use windows::Win32::System::ProcessStatus::GetProcessImageFileNameW;
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    unsafe {
+        // Pass NULL + 0 first to learn the required buffer size, then
+        // allocate and pass again. Standard Win32 dance.
+        let mut size: u32 = 0;
+        let _ = GetExtendedTcpTable(
+            None,
+            &mut size,
+            false,
+            AF_INET.0 as u32,
+            TCP_TABLE_OWNER_PID_ALL,
+            0,
+        );
+        if size == 0 {
+            return None;
+        }
+        let mut buf: Vec<u8> = vec![0; size as usize];
+        let rc = GetExtendedTcpTable(
+            Some(buf.as_mut_ptr() as *mut _),
+            &mut size,
+            false,
+            AF_INET.0 as u32,
+            TCP_TABLE_OWNER_PID_ALL,
+            0,
+        );
+        if rc != 0 {
+            return None;
+        }
+
+        // Reinterpret buf as MIB_TCPTABLE_OWNER_PID (dwNumEntries + row[0]).
+        let table_ptr = buf.as_ptr() as *const MIB_TCPTABLE_OWNER_PID;
+        let n = (*table_ptr).dwNumEntries as usize;
+        let rows_ptr = (*table_ptr).table.as_ptr();
+
+        // Look for a row where the local port matches AND state is
+        // ESTABLISHED (5). The port is stored in network byte order,
+        // shifted into the low 16 bits.
+        const MIB_TCP_STATE_ESTAB: u32 = 5;
+        let want_be = (local_port as u32).swap_bytes() >> 16;
+        for i in 0..n {
+            let row: &MIB_TCPROW_OWNER_PID = &*rows_ptr.add(i);
+            let row_port = row.dwLocalPort & 0xffff;  // low 16 bits, BE
+            if row_port != want_be {
+                continue;
+            }
+            if row.dwState != MIB_TCP_STATE_ESTAB {
+                continue;
+            }
+
+            let pid = row.dwOwningPid;
+            let handle_result = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            let Ok(handle) = handle_result else { return None };
+            if handle.is_invalid() {
+                return None;
+            }
+
+            let mut wbuf: [u16; 1024] = [0; 1024];
+            let len = GetProcessImageFileNameW(handle, &mut wbuf);
+            let _ = CloseHandle(handle);
+            if len == 0 {
+                return None;
+            }
+            let full = String::from_utf16_lossy(&wbuf[..len as usize]);
+            // pretty_name later trims argv[0] to a basename; hand it the
+            // full NT path (\Device\HarddiskVolumeN\...\claude-code.exe)
+            // and let the shared code do that trimming.
+            return Some(full);
+        }
+        None
+    }
+
+    // Silence unused warning on this branch when the size_of import
+    // isn't touched (defensive — the compiler is inconsistent about
+    // this across editions).
+    #[allow(dead_code)]
+    fn _touch_imports() { let _ = size_of::<u8>(); }
 }
 
 // ── Linux: /proc/net/tcp + /proc/*/fd/* ────────────────────────────────
