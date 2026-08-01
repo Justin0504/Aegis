@@ -11,6 +11,7 @@
 mod repo_tools;
 mod scanner;
 mod sidecars;
+mod system_proxy;
 #[cfg(not(debug_assertions))]
 use sidecars::{Sidecars, COCKPIT_URL};
 #[cfg(debug_assertions)]
@@ -210,6 +211,11 @@ pub fn run() {
             repo_tools::aegis_runtime_check,
             repo_tools::aegis_scan_repo,
             repo_tools::aegis_inject_repo,
+            system_proxy::system_proxy_enable,
+            system_proxy::system_proxy_disable,
+            system_proxy::system_proxy_status,
+            system_proxy::install_proxy_ca,
+            system_proxy::uninstall_proxy_ca,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
