@@ -651,16 +651,21 @@ export class TraceAPI {
   });
 
   private extractTokenUsage(raw: any): { model: string | null; inputTokens: number; outputTokens: number } {
-    // SDK embeds token data in observation.metadata.token_usage
+    // SDK embeds token data in observation.metadata.token_usage.
+    // Transparent proxy embeds it in a top-level `llm: {...}` field
+    // (populated by the LLM-aware body parser in aegis-proxy). Prefer
+    // whichever surfaces first; either channel is authoritative.
     let meta: any = {};
     try {
       const obs = typeof raw.observation === 'string' ? JSON.parse(raw.observation) : raw.observation;
       meta = obs?.metadata?.token_usage ?? obs?.metadata ?? {};
     } catch { /* */ }
 
-    const model = meta.model ?? raw.model ?? null;
-    const inputTokens  = Number(meta.input_tokens  ?? meta.prompt_tokens    ?? 0);
-    const outputTokens = Number(meta.output_tokens ?? meta.completion_tokens ?? 0);
+    const llm = raw.llm ?? {};
+
+    const model = meta.model ?? raw.model ?? llm.model ?? null;
+    const inputTokens  = Number(meta.input_tokens  ?? meta.prompt_tokens     ?? llm.input_tokens  ?? 0);
+    const outputTokens = Number(meta.output_tokens ?? meta.completion_tokens ?? llm.output_tokens ?? 0);
     return { model, inputTokens, outputTokens };
   }
 

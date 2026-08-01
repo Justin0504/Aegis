@@ -166,6 +166,64 @@ function fmtDuration(ms: any): string {
   return ms < 1 ? '<1ms' : `${Math.round(ms)}ms`
 }
 
+/**
+ * First-class rendering for the `llm` block populated by the
+ * transparent proxy's Anthropic/OpenAI/Gemini/Mistral body parser.
+ * Falls back to the extracted `model`/`input_tokens`/`output_tokens`
+ * columns when only those exist (SDK traces).
+ *
+ * Kept intentionally understated — a single card, no chart, no
+ * marketing copy. Users see a chip in the traces list; the detail
+ * view is where they read exact counts.
+ */
+function LlmSummaryCard({ trace }: { trace: any }) {
+  const llm = trace.llm ?? {}
+  const model = llm.model ?? trace.model ?? null
+  const provider = llm.provider ?? null
+  const inTok = llm.input_tokens ?? trace.input_tokens ?? null
+  const outTok = llm.output_tokens ?? trace.output_tokens ?? null
+  const cost = typeof trace.cost_usd === 'number' && trace.cost_usd > 0 ? trace.cost_usd : null
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+        LLM call
+      </h3>
+      <div className="rounded-lg border p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <Field label="Provider" value={provider ?? '—'} mono={!!provider} />
+          <Field label="Model" value={model ?? '—'} mono={!!model} />
+          <Field label="In / Out tokens" value={
+            (inTok != null || outTok != null)
+              ? `${(inTok ?? 0).toLocaleString()} / ${(outTok ?? 0).toLocaleString()}`
+              : '—'
+          } />
+          <Field label="Cost" value={cost != null ? `$${cost.toFixed(cost < 0.01 ? 4 : 2)}` : '—'} />
+        </div>
+        {(llm.messages != null || llm.max_tokens != null || llm.stream != null) && (
+          <div className="grid grid-cols-3 gap-3 text-xs mt-3 pt-3 border-t"
+               style={{ borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}>
+            <Field label="Msg count" value={llm.messages != null ? String(llm.messages) : '—'} tight />
+            <Field label="max_tokens" value={llm.max_tokens != null ? String(llm.max_tokens) : '—'} tight mono />
+            <Field label="Streaming" value={llm.stream === true ? 'yes' : llm.stream === false ? 'no' : '—'} tight />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, value, mono, tight }: { label: string; value: string; mono?: boolean; tight?: boolean }) {
+  return (
+    <div>
+      <div className={`${tight ? 'text-[10px]' : 'text-xs'} uppercase tracking-wide`}
+           style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</div>
+      <div className={`${tight ? 'text-xs' : 'text-sm'} ${mono ? 'font-mono' : ''} truncate`}
+           style={{ color: 'hsl(var(--foreground))' }}>{value}</div>
+    </div>
+  )
+}
+
 function SmartDataView({ data, label }: { data: any; label?: string }) {
   const [mode, setMode] = useState<'readable' | 'raw'>('readable')
 
@@ -331,6 +389,13 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
             </div>
           </div>
         </div>
+
+        {/* LLM enrichment (from transparent proxy or SDK). Only
+            renders when trace carries an `llm` block OR the extracted
+            model column is set — so non-LLM traces stay clean. */}
+        {(trace.llm || trace.model) && (
+          <LlmSummaryCard trace={trace} />
+        )}
 
         {/* What it tried — auto-summary, JSON behind a toggle */}
         <CollapsibleSection

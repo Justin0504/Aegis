@@ -270,14 +270,34 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
                   />
                 </div>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  {/* L1 — agent (friendly) */}
-                  <button
-                    className="text-[11px] font-semibold hover:underline truncate block text-left"
-                    style={{ color: 'hsl(220 30% 30%)' }}
-                    onClick={e => { e.stopPropagation(); onSelectAgent(trace.agent_id) }}
-                  >
-                    <Highlight text={agentLabel} query={search} />
-                  </button>
+                  {/* L1 — agent (friendly) + optional LLM chip */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      className="text-[11px] font-semibold hover:underline truncate text-left"
+                      style={{ color: 'hsl(220 30% 30%)' }}
+                      onClick={e => { e.stopPropagation(); onSelectAgent(trace.agent_id) }}
+                    >
+                      <Highlight text={agentLabel} query={search} />
+                    </button>
+                    {trace.model && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded font-mono flex-shrink-0"
+                        style={{ background: 'hsl(220 30% 94%)', color: 'hsl(220 30% 32%)' }}
+                        title={
+                          trace.input_tokens || trace.output_tokens
+                            ? `${trace.input_tokens ?? 0} in / ${trace.output_tokens ?? 0} out`
+                            : undefined
+                        }
+                      >
+                        {trace.model}
+                        {(trace.input_tokens || trace.output_tokens) ? (
+                          <span className="ml-1" style={{ color: 'hsl(220 20% 45%)' }}>
+                            · {((Number(trace.input_tokens) || 0) + (Number(trace.output_tokens) || 0)).toLocaleString()}tok
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
+                  </div>
                   {/* L2 — what it did, plain English */}
                   <p className="text-sm leading-snug truncate" style={{ color: TEXT }}>
                     <Highlight text={summary} query={search} />
