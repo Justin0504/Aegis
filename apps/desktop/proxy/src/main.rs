@@ -19,10 +19,13 @@ use hudsucker::{certificate_authority::RcgenAuthority, Proxy};
 use std::sync::Arc;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
+mod attribution;
 mod ca;
 mod config;
 mod handler;
+mod llm;
 
+use crate::attribution::Attributor;
 use crate::ca::{load_or_init, CaPaths};
 use crate::config::{config_path, ProxyConfig};
 use crate::handler::Handler;
@@ -60,6 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .no_proxy() // don't loop through ourselves
             .build()?,
         pending: Arc::new(dashmap::DashMap::new()),
+        attributor: Attributor::new(cfg.agent_id.clone()),
     };
 
     let bind_addr: std::net::SocketAddr = cfg.bind.parse()?;

@@ -46,7 +46,30 @@ pub struct ProxyConfig {
     /// now a single global label makes the "which agent?" question
     /// answerable at all.
     pub agent_id: String,
+
+    /// When true, every intercepted request is submitted to the
+    /// gateway's /api/v1/check endpoint BEFORE being forwarded
+    /// upstream. `decision: block` → the proxy returns 403 to the
+    /// calling agent, upstream never sees the call. `decision:
+    /// pending` → the proxy holds the request up to
+    /// `enforce_pending_timeout_secs` seconds, polling for the
+    /// human decision.
+    ///
+    /// Default false. Off means the proxy is observability-only —
+    /// safe default for first-time users who don't want their
+    /// agents to suddenly start failing.
+    #[serde(default)]
+    pub enforce: bool,
+
+    /// Max seconds to hold a `pending` request before failing open
+    /// (allow with a warning). Only meaningful when `enforce: true`.
+    /// 60s = typical human-review SLA; longer risks agent time-
+    /// outs propagating back to the user.
+    #[serde(default = "default_pending_timeout")]
+    pub enforce_pending_timeout_secs: u64,
 }
+
+fn default_pending_timeout() -> u64 { 60 }
 
 impl Default for ProxyConfig {
     fn default() -> Self {
@@ -56,6 +79,8 @@ impl Default for ProxyConfig {
                 .unwrap_or_else(|_| DEFAULT_GATEWAY.to_string()),
             allowlist: DEFAULT_ALLOWLIST.iter().map(|s| s.to_string()).collect(),
             agent_id: "no-code-proxy".to_string(),
+            enforce: false,
+            enforce_pending_timeout_secs: 60,
         }
     }
 }

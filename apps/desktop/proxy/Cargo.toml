@@ -36,6 +36,12 @@ bytes = "1"
 dashmap = "6"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 
+# Process introspection — used by attribution.rs to resolve PIDs
+# discovered via SO_PEERCRED/LOCAL_PEERCRED to their command line
+# (so a request from PID 4321 gets attributed to "claude-code" or
+# "python3 refund_bot.py" instead of the generic "no-code-proxy").
+sysinfo = { version = "0.32", default-features = false, features = ["system"] }
+
 # Structured logging — printed to stdout, picked up by Tauri sidecar
 # runner which pipes to app-log-directory files.
 tracing = "0.1"

@@ -9,19 +9,21 @@
 //! so downstream Cockpit code doesn't have to branch on source.
 
 use hudsucker::{
-    hyper::{Request, Response},
+    hyper::{Request, Response, StatusCode},
     Body, HttpContext, HttpHandler, RequestOrResponse,
 };
 use http_body_util::{BodyExt, Full};
 use hudsucker::hyper::body::Bytes;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use crate::attribution::Attributor;
 use crate::config::ProxyConfig;
+use crate::llm::{enrich_request, enrich_response, LlmEnrichment};
 
 const MAX_BODY_PREVIEW: usize = 8 * 1024;
 
@@ -39,15 +41,23 @@ pub struct Handler {
     /// PROXY.md, tracked for a v0.4 fix using the `:stream-id`
     /// pseudo-header once hudsucker exposes it.
     pub pending: Arc<dashmap::DashMap<SocketAddr, VecDeque<Pending>>>,
+    /// Resolves the local process behind a peer address so traces
+    /// can be attributed to the actual agent (claude-code, cursor,
+    /// custom-python) instead of the generic proxy label.
+    pub attributor: Attributor,
 }
 
 pub struct Pending {
     pub trace_id: String,
+    pub agent_id: String,
     pub method: String,
     pub url: String,
     pub host: String,
+    pub path: String,
     pub started_at: Instant,
     pub req_body_preview: String,
+    pub req_body_bytes: Bytes,
+    pub llm: Option<LlmEnrichment>,
 }
 
 #[derive(Serialize)]
@@ -58,6 +68,8 @@ struct TraceEnvelope<'a> {
     response_summary: ResponseSummary,
     source: &'static str,
     ts: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    llm: Option<&'a LlmEnrichment>,
 }
 
 #[derive(Serialize)]
@@ -125,14 +137,45 @@ impl Handler {
         };
         let preview = preview_of(&bytes);
 
+        // Resolve the actual agent behind this connection. Cached
+        // per peer; falls back to the config-level agent_id.
+        let agent_id = self.attributor.resolve(client_addr);
+
+        // ── Policy enforcement (opt-in) ─────────────────────────────
+        // Before touching the pending queue, run the request past the
+        // gateway's /api/v1/check. On block → return 403 to caller,
+        // never forward. On pending → poll up to the configured
+        // timeout, fail-open if it lapses. On allow → fall through
+        // to normal forward+trace path.
+        //
+        // Fail-open semantics on ANY gateway error: enforcement is
+        // best-effort; we would rather leak observability than break
+        // the user's agent traffic. Every failure is logged at WARN.
+        if self.config.enforce {
+            match self.enforce_check(&agent_id, &method, &host, &url, &preview).await {
+                CheckOutcome::Allow => {}
+                CheckOutcome::Block(reason) => {
+                    tracing::info!(target: "aegis-proxy", %host, %method, %agent_id, reason, "policy BLOCK");
+                    return synthetic_403(&reason).into();
+                }
+            }
+        }
+
+        let path = uri.path().to_string();
+        let llm = enrich_request(&host, &path, &bytes);
+
         let trace_id = uuid::Uuid::new_v4().to_string();
         let pending = Pending {
             trace_id,
+            agent_id,
             method: method.clone(),
             url: url.clone(),
             host,
+            path,
             started_at: Instant::now(),
             req_body_preview: preview,
+            req_body_bytes: bytes.clone(),
+            llm,
         };
         // Push to the tail of the per-connection queue.
         self.pending
@@ -142,6 +185,114 @@ impl Handler {
 
         let new_req = Request::from_parts(parts, body_from_bytes(bytes));
         new_req.into()
+    }
+
+    /// Submit the intercepted request to the gateway for a policy
+    /// decision. Returns Allow (proceed) or Block (return 403).
+    /// Pending is polled internally; timeout = fail-open (Allow).
+    async fn enforce_check(
+        &self,
+        agent_id: &str,
+        method: &str,
+        host: &str,
+        url: &str,
+        body_preview: &str,
+    ) -> CheckOutcome {
+        #[derive(Serialize)]
+        struct CheckReq<'a> {
+            agent_id: &'a str,
+            tool_name: String,
+            arguments: serde_json::Value,
+            blocking: bool,
+        }
+        #[derive(Deserialize)]
+        struct CheckRes {
+            decision: String,
+            reason: Option<String>,
+            check_id: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct DecisionRes {
+            decision: String,
+            reason: Option<String>,
+        }
+
+        let req_body = CheckReq {
+            agent_id,
+            // Namespace the tool so DSL rules can match on `http.POST`
+            // (all methods) or `http.POST anthropic.com` (specific host).
+            tool_name: format!("http.{} {}", method, host),
+            arguments: serde_json::json!({
+                "url": url,
+                "host": host,
+                "method": method,
+                "body_preview": body_preview,
+            }),
+            blocking: true,
+        };
+        let check_url = format!("{}/api/v1/check", self.config.gateway_url);
+
+        let initial = match self
+            .http
+            .post(&check_url)
+            .json(&req_body)
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(err) => {
+                tracing::warn!(
+                    target: "aegis-proxy",
+                    error = %err,
+                    "gateway /check unreachable — fail-open (Allow)",
+                );
+                return CheckOutcome::Allow;
+            }
+        };
+        let parsed: CheckRes = match initial.json().await {
+            Ok(p) => p,
+            Err(err) => {
+                tracing::warn!(target: "aegis-proxy", error = %err, "malformed /check response — fail-open");
+                return CheckOutcome::Allow;
+            }
+        };
+
+        match parsed.decision.as_str() {
+            "allow" => CheckOutcome::Allow,
+            "block" => CheckOutcome::Block(parsed.reason.unwrap_or_else(|| "policy block".into())),
+            "pending" => {
+                let Some(check_id) = parsed.check_id else {
+                    tracing::warn!(target: "aegis-proxy", "pending without check_id — fail-open");
+                    return CheckOutcome::Allow;
+                };
+                let poll_url = format!("{}/api/v1/check/{}/decision", self.config.gateway_url, check_id);
+                let deadline = Instant::now() + Duration::from_secs(self.config.enforce_pending_timeout_secs);
+
+                while Instant::now() < deadline {
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    let Ok(res) = self.http.get(&poll_url).timeout(Duration::from_secs(3)).send().await else {
+                        continue;
+                    };
+                    let Ok(d) = res.json::<DecisionRes>().await else { continue; };
+                    match d.decision.as_str() {
+                        "allow" => return CheckOutcome::Allow,
+                        "block" => return CheckOutcome::Block(d.reason.unwrap_or_else(|| "policy block".into())),
+                        _ => continue,
+                    }
+                }
+                tracing::warn!(
+                    target: "aegis-proxy",
+                    timeout_s = self.config.enforce_pending_timeout_secs,
+                    "pending decision timed out — fail-open",
+                );
+                CheckOutcome::Allow
+            }
+            other => {
+                tracing::warn!(target: "aegis-proxy", decision = other, "unknown /check decision — fail-open");
+                CheckOutcome::Allow
+            }
+        }
     }
 
     async fn on_response(&self, client_addr: SocketAddr, res: Response<Body>) -> Response<Body> {
@@ -167,15 +318,24 @@ impl Handler {
             }
         }
 
-        if let Some(pending) = matched {
+        if let Some(mut pending) = matched {
             {
                 let elapsed_ms = pending.started_at.elapsed().as_millis();
                 let status = parts.status.as_u16();
                 let resp_preview = preview_of(&bytes);
 
+                // Merge response-side LLM signals into the enrichment
+                // we built from the request. Non-LLM hosts skip this
+                // inside enrich_response.
+                if let Some(mut llm) = pending.llm.take() {
+                    enrich_response(&pending.host, &pending.path, &bytes, &mut llm);
+                    pending.llm = Some(llm);
+                }
+                let _ = pending.req_body_bytes; // suppress unused-field warning
+
                 let envelope = TraceEnvelope {
                     trace_id: &pending.trace_id,
-                    agent_id: &self.config.agent_id,
+                    agent_id: &pending.agent_id,
                     tool_call: ToolCall {
                         tool_name: format!("http.{}", pending.method),
                         arguments: ToolArgs {
@@ -192,6 +352,7 @@ impl Handler {
                     },
                     source: "system-proxy",
                     ts: chrono::Utc::now().to_rfc3339(),
+                    llm: pending.llm.as_ref(),
                 };
 
                 let url = format!("{}/api/v1/traces", self.config.gateway_url);
@@ -219,6 +380,33 @@ fn body_from_bytes(bytes: Bytes) -> Body {
     // Body doesn't impl From<Bytes>; go via a Full<Bytes> stream.
     use futures::stream;
     Body::from_stream(stream::once(async move { Ok::<_, std::io::Error>(bytes) }))
+}
+
+enum CheckOutcome {
+    Allow,
+    Block(String),
+}
+
+/// Build a synthetic 403 response for a blocked request. Body is JSON
+/// so LLM-agent HTTP clients that parse errors get a structured signal
+/// instead of a wall of text.
+fn synthetic_403(reason: &str) -> Response<Body> {
+    let body = serde_json::json!({
+        "error": {
+            "type": "aegis_policy_block",
+            "message": reason,
+            "guardrail": "aegis-proxy",
+        }
+    })
+    .to_string();
+    let bytes = Bytes::from(body);
+    Response::builder()
+        .status(StatusCode::FORBIDDEN)
+        .header("content-type", "application/json")
+        .header("x-aegis-block", "1")
+        .header("x-aegis-block-reason", reason)
+        .body(body_from_bytes(bytes))
+        .expect("valid response")
 }
 
 fn preview_of(bytes: &[u8]) -> String {

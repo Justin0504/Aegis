@@ -4,7 +4,25 @@ The "no-code integration" path: user installs AEGIS, grants OS admin
 once, and every HTTPS call any agent makes on that machine flows
 through AEGIS's gateway — no SDK, no source-code change.
 
-Status: **Phase 2a + 2b shipped (v0.3), Phase 2c next.**
+Status: **Phase 2a/2b/2c shipped (v0.3); Phase 3 in flight (policy enforcement, attribution scaffold, LLM enrichment).**
+
+Phase 3 additions (this commit):
+- `enforce` config flag (default false): when true, every intercepted
+  request is submitted to the gateway's `/api/v1/check` BEFORE
+  forwarding. Block → synthetic 403 with `x-aegis-block` headers;
+  pending → poll up to `enforce_pending_timeout_secs` (default 60s)
+  then fail-open; allow → forward normally. Fail-open on any gateway
+  error (never break user traffic).
+- `attribution` module: cached Attributor per peer address, replacing
+  the flat global `agent_id`. Platform TCP-owner resolver (SO_PEERCRED
+  / lsof / GetExtendedTcpTable) is stubbed with the plumbing in
+  place — trace payload already carries the per-connection agent_id,
+  so activating the resolver is a drop-in.
+- `llm` module: LLM-aware body enrichment for Anthropic / OpenAI /
+  Gemini / Mistral. Extracts `model`, `messages` count, `max_tokens`,
+  `stream`, and (from response) `input_tokens` / `output_tokens`.
+  Attached to trace envelope as an `llm` field. 5 unit tests.
+
 
 | Piece | State | File |
 |---|---|---|
