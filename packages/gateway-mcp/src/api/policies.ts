@@ -60,18 +60,25 @@ export class PolicyAPI {
         const now = Date.now();
         const cutoff24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
         const cutoff7d  = new Date(now -  7 * 24 * 60 * 60 * 1000).toISOString();
+        // All three catch mechanisms now flow through this table:
+        //   · DSL rule matches            → dsl_block / dsl_pending
+        //   · Risk-level auto-blocks      → risk_block
+        //   · Behavioural anomaly signals → anomaly_block / anomaly_escalate
+        // The `kind` column reads the first "_" segment of violation_type
+        // so the UI can group / filter without querying twice.
         const rows = this.db.prepare(`
           SELECT
             policy_id        AS rule_name,
+            SUBSTR(violation_type, 1, INSTR(violation_type || '_', '_') - 1) AS kind,
             COUNT(*)         AS total,
             SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS h24,
             SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS d7,
-            SUM(CASE WHEN violation_type = 'dsl_block'   THEN 1 ELSE 0 END) AS blocks,
-            SUM(CASE WHEN violation_type = 'dsl_pending' THEN 1 ELSE 0 END) AS pendings,
+            SUM(CASE WHEN violation_type LIKE '%_block'    THEN 1 ELSE 0 END) AS blocks,
+            SUM(CASE WHEN violation_type LIKE '%_pending' OR violation_type LIKE '%_escalate' THEN 1 ELSE 0 END) AS pendings,
             MAX(created_at)  AS last_fired
           FROM violations
-          WHERE violation_type IN ('dsl_block', 'dsl_pending')
-          GROUP BY policy_id
+          WHERE violation_type IN ('dsl_block','dsl_pending','risk_block','anomaly_block','anomaly_escalate')
+          GROUP BY policy_id, kind
           ORDER BY total DESC, last_fired DESC
         `).all(cutoff24h, cutoff7d);
         res.json({ rules: rows });

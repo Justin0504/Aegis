@@ -22,12 +22,19 @@ import { AlertOctagon, Clock } from 'lucide-react'
 
 interface Row {
   rule_name: string
+  kind: 'dsl' | 'risk' | 'anomaly'
   total: number
   h24: number
   d7: number
   blocks: number
   pendings: number
   last_fired: string | null
+}
+
+const KIND_STYLE: Record<Row['kind'], { label: string; bg: string; fg: string }> = {
+  dsl:     { label: 'DSL',     bg: 'hsl(220 40% 92%)', fg: 'hsl(220 40% 30%)' },
+  risk:    { label: 'RISK',    bg: 'hsl(36 55% 90%)',  fg: 'hsl(36 55% 26%)'  },
+  anomaly: { label: 'ANOMALY', bg: 'hsl(280 30% 92%)', fg: 'hsl(280 30% 32%)' },
 }
 
 export function PolicyHitRate() {
@@ -71,6 +78,7 @@ export function PolicyHitRate() {
               <thead>
                 <tr className="text-xs uppercase tracking-wider" style={{ color: 'hsl(var(--muted-foreground))' }}>
                   <th className="text-left py-2 font-medium">Rule</th>
+                  <th className="text-left py-2 font-medium">Type</th>
                   <th className="text-right py-2 font-medium">24h</th>
                   <th className="text-right py-2 font-medium">7d</th>
                   <th className="text-right py-2 font-medium">All time</th>
@@ -79,11 +87,19 @@ export function PolicyHitRate() {
                 </tr>
               </thead>
               <tbody>
-                {rules.map((r) => (
-                  <tr key={r.rule_name} className="border-t"
+                {rules.map((r) => {
+                  const kindStyle = KIND_STYLE[r.kind] ?? KIND_STYLE.dsl
+                  return (
+                  <tr key={`${r.rule_name}-${r.kind}`} className="border-t"
                       style={{ borderColor: 'hsl(var(--border))' }}>
                     <td className="py-2 pr-4">
                       <code className="text-xs font-mono">{r.rule_name}</code>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className="text-[10px] font-semibold tracking-wider px-1.5 py-0.5 rounded"
+                            style={{ background: kindStyle.bg, color: kindStyle.fg }}>
+                        {kindStyle.label}
+                      </span>
                     </td>
                     <td className="text-right tabular-nums font-medium">{r.h24}</td>
                     <td className="text-right tabular-nums">{r.d7}</td>
@@ -100,7 +116,8 @@ export function PolicyHitRate() {
                       {r.last_fired ? formatDistanceToNow(new Date(r.last_fired), { addSuffix: true }) : '—'}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

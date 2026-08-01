@@ -361,33 +361,80 @@ export class CheckAPI {
         const dslBlocks = dslMatch?.decision === 'block'
         const dslPending = dslMatch?.decision === 'pending'
 
-        // Persist a violations row for every DSL block/pending so the
-        // /policies/hit-rate endpoint can aggregate over time. Fire-
-        // and-forget: an insert failure must never break the check
-        // response.
-        if (dslMatch && (dslBlocks || dslPending)) {
+        // Persist a violations row for every rule/heuristic/anomaly
+        // that catches this call, so /policies/hit-rate can aggregate
+        // across ALL three enforcement layers (not just DSL). Fire-
+        // and-forget: any insert failure must never break the check
+        // response — the hit-rate stats will just undercount that row.
+        const violationsInsert = this.db.prepare(
+          `INSERT INTO violations (agent_id, policy_id, trace_id, violation_type, details)
+           VALUES (?, ?, ?, ?, ?)`,
+        );
+        const recordViolation = (
+          policyId: string,
+          violationType: string,
+          details: Record<string, unknown>,
+        ) => {
           try {
-            this.db.prepare(
-              `INSERT INTO violations (agent_id, policy_id, trace_id, violation_type, details)
-               VALUES (?, ?, ?, ?, ?)`,
-            ).run(
-              body.agent_id,
-              dslMatch.ruleName,     // rule name doubles as policy_id — unique across packs
-              checkId,               // trace_id ← check_id link; SDK later posts a trace with same id
-              dslBlocks ? 'dsl_block' : 'dsl_pending',
-              JSON.stringify({
-                reason: dslMatch.reason,
-                tags: dslMatch.tags ?? [],
-                tool: body.tool_name,
-                category: classification.category,
-              }),
+            violationsInsert.run(
+              body.agent_id, policyId, checkId, violationType, JSON.stringify(details),
             );
           } catch (err) {
             this.logger.warn(
-              { err: (err as Error).message, rule: dslMatch.ruleName },
+              { err: (err as Error).message, policy_id: policyId, violation_type: violationType },
               'violations insert failed — hit-rate stats will undercount',
             );
           }
+        };
+
+        if (dslMatch && (dslBlocks || dslPending)) {
+          recordViolation(
+            dslMatch.ruleName,     // rule name doubles as policy_id — unique across packs
+            dslBlocks ? 'dsl_block' : 'dsl_pending',
+            {
+              reason: dslMatch.reason,
+              tags: dslMatch.tags ?? [],
+              tool: body.tool_name,
+              category: classification.category,
+            },
+          );
+        }
+
+        // Built-in risk-level catches. These fire BEFORE any custom
+        // DSL — the classifier + policy engine's own verdict — and
+        // they were previously invisible to the hit-rate table.
+        // Recorded with a namespaced policy_id (`risk:HIGH`) so
+        // buyers can see the exact taxonomy at a glance.
+        if (BLOCKING_RISK_LEVELS.has(validation.risk_level) && !validation.passed) {
+          recordViolation(
+            `risk:${validation.risk_level}`,
+            'risk_block',
+            {
+              tool: body.tool_name,
+              category: classification.category,
+              violations: validation.violations ?? [],
+              signals: classification.signals ?? [],
+            },
+          );
+        }
+
+        // Anomaly escalations / blocks. Anomaly signals are inherently
+        // per-behaviour-vector (not per-rule), so we key on the top-
+        // signal type. `anomaly:tool_burst` etc. shows up as its own
+        // rule row so buyers can see "our behavioural detector caught
+        // 8 things last week without any hand-written rule."
+        if (anomalyResult && (anomalyResult.decision === 'block' || anomalyResult.decision === 'escalate')) {
+          const topSignal = anomalyResult.signals[0]?.type ?? 'unspecified';
+          recordViolation(
+            `anomaly:${topSignal}`,
+            anomalyResult.decision === 'block' ? 'anomaly_block' : 'anomaly_escalate',
+            {
+              composite_score: anomalyResult.composite_score,
+              top_signal_detail: anomalyResult.signals[0]?.detail,
+              tool: body.tool_name,
+              category: classification.category,
+            },
+          );
         }
 
         // Communication tools (email, messaging) always require human review in blocking mode
