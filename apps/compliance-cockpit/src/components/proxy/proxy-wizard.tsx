@@ -124,11 +124,11 @@ export function ProxyWizard() {
 
       {!inTauri && (
         <div className="rounded-lg border p-4 flex items-start gap-3"
-             style={{ background: 'hsl(36 55% 96%)', borderColor: 'hsl(36 65% 82%)' }}>
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+             style={{ background: 'hsl(var(--warn-bg))', borderColor: 'hsl(var(--warn-border))' }}>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--warn-fg))' }} />
           <div className="text-sm">
-            <div className="font-medium" style={{ color: WARN }}>Desktop only</div>
-            <div className="text-xs mt-0.5" style={{ color: WARN }}>
+            <div className="font-medium" style={{ color: 'hsl(var(--warn-fg))' }}>Desktop only</div>
+            <div className="text-xs mt-0.5" style={{ color: 'hsl(var(--warn-fg))', opacity: 0.85 }}>
               This wizard configures the OS proxy + trust store. It only runs inside the AEGIS desktop app
               (macOS / Windows / Linux). If you're viewing the hosted Cockpit, download the desktop app
               from <Link href="https://aegistraces.com/download" className="underline">aegistraces.com/download</Link>.
@@ -299,15 +299,15 @@ export function ProxyWizard() {
 
       {binRunning && caResult?.ok && enableResult?.ok && (
         <div className="rounded-lg border p-4 flex items-center justify-between gap-4"
-             style={{ background: 'hsl(150 30% 96%)', borderColor: 'hsl(150 30% 78%)' }}>
-          <div className="text-sm" style={{ color: 'hsl(150 30% 25%)' }}>
+             style={{ background: 'hsl(var(--success-bg))', borderColor: 'hsl(var(--success-border))' }}>
+          <div className="text-sm" style={{ color: 'hsl(var(--success-fg))' }}>
             <div className="font-medium">You're set up.</div>
-            <div className="text-xs mt-0.5">Every allowlisted request from any agent on this machine now shows up in Activity.</div>
+            <div className="text-xs mt-0.5" style={{ opacity: 0.85 }}>Every allowlisted request from any agent on this machine now shows up in Activity.</div>
           </div>
           <button
             onClick={() => router.push('/')}
             className="text-sm px-3 py-1.5 rounded font-medium"
-            style={{ background: 'hsl(150 30% 40%)', color: 'white' }}>
+            style={{ background: 'hsl(var(--success-fg))', color: 'hsl(var(--card))' }}>
             Open Cockpit →
           </button>
         </div>

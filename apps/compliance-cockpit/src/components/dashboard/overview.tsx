@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Search, X, ArrowRight, AlertTriangle } from 'lucide-react'
+import { Search, X, ArrowRight, AlertTriangle, Code2, Zap, Sparkles, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { RecentTraces } from './recent-traces'
 import { UpsellBanner } from './upsell-banner'
@@ -227,36 +227,43 @@ function EmptyState() {
         </h2>
         <p className="text-sm max-w-xl mx-auto" style={{ color: MUTED }}>
           The gateway is up and the dashboard is wired — it just hasn't seen
-          its first tool call. Plug your agent in, or load a few sample
-          traces to feel how the dashboard reacts.
+          its first tool call. Pick a way to plug in below.
         </p>
 
-        <div className="pt-3 flex items-center justify-center gap-3 flex-wrap">
-          <Link
-            href="/welcome"
-            className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-md"
-            style={{
-              background: 'hsl(var(--primary))',
-              color: 'hsl(var(--primary-foreground))',
-            }}
-          >
-            Open Welcome <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+        {/* Quest checklist: what has to happen for the first real trace
+            to land. Step 1 is inherently met (this page rendering
+            means the gateway responded). Steps 2 + 3 are the branch
+            points into either the SDK or the zero-code proxy. */}
+        <div className="max-w-xl mx-auto text-left space-y-1.5 py-2">
+          <QuestRow done label="Gateway is listening on localhost:18080" />
+          <QuestRow done={false} label="Choose an integration path (below)" />
+          <QuestRow done={false} label="Make your first LLM / tool call" />
+        </div>
 
-          <button
+        <div className="pt-2 grid grid-cols-1 md:grid-cols-3 gap-3 text-left max-w-3xl mx-auto">
+          <PathCard
+            icon={<Zap className="h-5 w-5" />}
+            title="Zero-code proxy"
+            body="Install a root cert + route OS proxy through AEGIS. Every agent on this machine gets traced. Two admin prompts."
+            cta="Set up proxy"
+            href="/proxy"
+            recommended
+          />
+          <PathCard
+            icon={<Code2 className="h-5 w-5" />}
+            title="SDK"
+            body="One line of code in your agent client. Full LLM prompt context + per-agent attribution."
+            cta="Open Welcome"
+            href="/welcome"
+          />
+          <PathCard
+            icon={<Sparkles className="h-5 w-5" />}
+            title="Sample data"
+            body="Not ready to wire anything up? Seed a few example traces to feel how the dashboard reacts."
+            cta={seeding ? 'Seeding…' : 'Load samples'}
             onClick={seedDemo}
-            disabled={seeding}
-            className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-md border"
-            style={{
-              background: 'transparent',
-              color: 'hsl(var(--foreground))',
-              borderColor: BORDER,
-              opacity: seeding ? 0.5 : 1,
-            }}
-          >
-            {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            {seeding ? 'Seeding…' : 'See it with sample data'}
-          </button>
+            loading={seeding}
+          />
         </div>
 
         {seedError && (
@@ -272,6 +279,77 @@ function EmptyState() {
       </div>
     </div>
   )
+}
+
+/** Small check + label row for the quest-style "first-trace" checklist. */
+function QuestRow({ done, label }: { done: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        className="flex-shrink-0 inline-flex items-center justify-center rounded-full"
+        style={{
+          width: 16, height: 16,
+          background: done ? 'hsl(150 30% 40%)' : 'transparent',
+          border: done ? 'none' : `1.5px dashed ${BORDER}`,
+        }}
+      >
+        {done && <CheckCircle2 className="h-3 w-3" style={{ color: 'white' }} />}
+      </span>
+      <span style={{ color: done ? 'hsl(var(--foreground))' : MUTED, opacity: done ? 0.75 : 1 }}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/** Integration-path card shown in the empty state. Either navigates
+ *  via href OR fires an onClick (for the seed-samples path). */
+function PathCard({
+  icon, title, body, cta, href, onClick, recommended, loading,
+}: {
+  icon: React.ReactNode
+  title: string
+  body: string
+  cta: string
+  href?: string
+  onClick?: () => void
+  recommended?: boolean
+  loading?: boolean
+}) {
+  const inner = (
+    <>
+      <div className="flex items-center gap-2 mb-2">
+        <span style={{ color: 'hsl(var(--primary))' }}>{icon}</span>
+        <div className="text-sm font-medium" style={{ color: 'hsl(var(--foreground))' }}>
+          {title}
+        </div>
+        {recommended && (
+          <span
+            className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded-sm ml-auto"
+            style={{ background: 'hsl(var(--secondary))', color: MUTED }}
+          >
+            Recommended
+          </span>
+        )}
+      </div>
+      <p className="text-xs leading-relaxed mb-3" style={{ color: MUTED }}>
+        {body}
+      </p>
+      <div className="text-xs font-medium flex items-center gap-1" style={{ color: 'hsl(var(--primary))' }}>
+        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+        {cta} {!loading && <ArrowRight className="h-3 w-3" />}
+      </div>
+    </>
+  )
+  const style: React.CSSProperties = {
+    background: 'hsl(var(--card))',
+    borderColor: BORDER,
+    color: 'hsl(var(--foreground))',
+    opacity: loading ? 0.6 : 1,
+  }
+  const cls = 'block rounded-md border p-4 hover:border-current transition-colors text-left'
+  if (href) return <Link href={href} className={cls} style={style}>{inner}</Link>
+  return <button type="button" onClick={onClick} className={cls} style={style} disabled={loading}>{inner}</button>
 }
 
 export function DashboardOverview() {

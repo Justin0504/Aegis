@@ -35,6 +35,23 @@
     --status-ok:            142 50% 32%;   /* allow / green */
     --status-attn:           36 80% 38%;   /* pending / amber */
     --status-drift:           0 60% 42%;   /* block / red */
+
+    /* Semantic banner tokens — used by AgentLimitBanner, alert-rules
+       Recent Fires bullets, hit-rate KIND badges. Each has a bg,
+       border, and fg triplet so dark mode can override all three
+       cleanly. */
+    --info-bg:              220 40% 96%;
+    --info-border:          220 45% 82%;
+    --info-fg:              220 45% 30%;
+    --warn-bg:               36 55% 96%;
+    --warn-border:           36 55% 78%;
+    --warn-fg:               36 55% 26%;
+    --danger-bg:              0 45% 97%;
+    --danger-border:          0 45% 78%;
+    --danger-fg:              0 55% 32%;
+    --success-bg:           150 30% 96%;
+    --success-border:       150 30% 78%;
+    --success-fg:           150 30% 25%;
   }
 
   /*
@@ -75,6 +92,21 @@
     --status-ok:            142 38% 52%;
     --status-attn:           36 60% 56%;
     --status-drift:           0 55% 58%;
+
+    /* Dark-mode banner tokens — desaturated fills on a near-black
+       background so the accent reads clearly but never glares. */
+    --info-bg:              220 25% 15%;
+    --info-border:          220 30% 30%;
+    --info-fg:              220 55% 72%;
+    --warn-bg:               36 25% 14%;
+    --warn-border:           36 30% 30%;
+    --warn-fg:               36 65% 68%;
+    --danger-bg:              0 25% 14%;
+    --danger-border:          0 30% 32%;
+    --danger-fg:              0 55% 68%;
+    --success-bg:           150 20% 12%;
+    --success-border:       150 25% 26%;
+    --success-fg:           150 40% 62%;
   }
 
   /*

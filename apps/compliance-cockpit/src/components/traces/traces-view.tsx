@@ -123,7 +123,10 @@ export function TracesView() {
         <TabsContent value="list" className="space-y-4">
           <TraceSearchBar onResults={setSearchResults} />
           <div className="grid gap-4 md:grid-cols-12">
-            <div className="col-span-5">
+            {/* Mobile: hide the list while a trace is selected — the
+                details panel takes the whole width. On md+ they sit
+                side-by-side. */}
+            <div className={`md:col-span-5 ${selectedTrace ? 'hidden md:block' : ''}`}>
               <TracesList
                 traces={effectiveTraces?.traces || []}
                 selectedTrace={selectedTrace}
@@ -131,7 +134,21 @@ export function TracesView() {
                 onSelectAgent={setSelectedAgent}
               />
             </div>
-            <div className="col-span-7">
+            <div className={`md:col-span-7 ${selectedTrace ? '' : 'hidden md:block'}`}>
+              {selectedTrace && (
+                <div className="md:hidden mb-2">
+                  <button
+                    onClick={() => setSelectedTrace(null)}
+                    className="text-xs px-2 py-1 rounded border"
+                    style={{
+                      borderColor: 'hsl(var(--border))',
+                      color: 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    ← Back to list
+                  </button>
+                </div>
+              )}
               {selectedTrace && (
                 <TraceDetails
                   traceId={selectedTrace}

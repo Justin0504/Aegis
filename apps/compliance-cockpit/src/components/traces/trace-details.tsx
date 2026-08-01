@@ -205,6 +205,71 @@ function fmtDuration(ms: any): string {
  * marketing copy. Users see a chip in the traces list; the detail
  * view is where they read exact counts.
  */
+/**
+ * Sticky pill-row that jumps to a specific section of the trace
+ * details panel. Only renders sections that actually exist for the
+ * given trace, so a run-of-the-mill trace with no anomaly / no
+ * delegation doesn't get dead links.
+ *
+ * Scroll target is the CardContent scroll container (id
+ * `trace-details-scroll`), NOT the window — the details panel is a
+ * scrollable region inside a fixed-height card, so `scrollIntoView`
+ * with `nearest` inside that container works. offset-header via
+ * scrollBy compensates for this bar's own sticky height.
+ */
+function TraceJumpNav({ trace }: { trace: any }) {
+  const anchors: Array<{ id: string; label: string }> = [
+    { id: 'section-summary', label: 'Summary' },
+    ...(trace.llm || trace.model ? [{ id: 'section-llm', label: 'LLM' }] : []),
+    { id: 'section-what', label: 'What' },
+    ...(trace.safety_validation ? [{ id: 'section-check', label: 'Check' }] : []),
+    ...(trace.anomaly_score > 0 && trace.anomaly_signals ? [{ id: 'section-anomaly', label: 'Anomaly' }] : []),
+    { id: 'section-result', label: 'Result' },
+    { id: 'section-delegation', label: 'Delegation' },
+    { id: 'section-quality', label: 'Quality' },
+  ]
+  // Bail if only 2 sections — the whole panel fits above the fold; jump
+  // nav adds visual weight without saving a scroll.
+  if (anchors.length <= 3) return null
+
+  const jump = (id: string) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Compensate for the sticky nav's own height.
+    const scroller = document.getElementById('trace-details-scroll')
+    setTimeout(() => { scroller?.scrollBy({ top: -44 }) }, 350)
+  }
+
+  return (
+    <div
+      className="sticky top-0 z-10 flex items-center gap-1 flex-wrap py-2 -mx-2 px-2"
+      style={{
+        background: 'hsl(var(--card))',
+        borderBottom: '1px solid hsl(var(--border))',
+        margin: '-24px -24px 0',   // extend to card edges
+        padding: '10px 24px',
+      }}
+    >
+      {anchors.map((a) => (
+        <button
+          key={a.id}
+          onClick={() => jump(a.id)}
+          className="text-[11px] px-2 py-1 rounded font-medium transition-colors"
+          style={{
+            color: 'hsl(var(--muted-foreground))',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--secondary))')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+        >
+          {a.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function LlmSummaryCard({ trace }: { trace: any }) {
   const llm = trace.llm ?? {}
   const model = llm.model ?? trace.model ?? null
@@ -411,9 +476,11 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto space-y-6">
+      <CardContent className="flex-1 overflow-y-auto space-y-6" id="trace-details-scroll">
+        <TraceJumpNav trace={trace} />
+
         {/* Summary — when + status only, no IDs */}
-        <div>
+        <div id="section-summary">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">When</span>
@@ -435,10 +502,11 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
             renders when trace carries an `llm` block OR the extracted
             model column is set — so non-LLM traces stay clean. */}
         {(trace.llm || trace.model) && (
-          <LlmSummaryCard trace={trace} />
+          <div id="section-llm"><LlmSummaryCard trace={trace} /></div>
         )}
 
         {/* What it tried — auto-summary, JSON behind a toggle */}
+        <div id="section-what">
         <CollapsibleSection
           title="What it tried"
           summary={summarizeData(trace.tool_call.arguments) || trace.tool_call.tool_name}
@@ -446,10 +514,11 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
         >
           <SmartDataView data={trace.tool_call.arguments} />
         </CollapsibleSection>
+        </div>
 
         {/* Safety Validation */}
         {trace.safety_validation && (
-          <div>
+          <div id="section-check">
             <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Shield className="h-4 w-4" />
               AEGIS check
@@ -485,6 +554,7 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
 
         {/* Anomaly Detection */}
         {trace.anomaly_score > 0 && trace.anomaly_signals && (
+          <div id="section-anomaly">
           <CollapsibleSection
             title="Behavioral Anomaly"
             icon={<Brain className="h-3.5 w-3.5" style={{ color: trace.anomaly_score >= 0.6 ? 'hsl(220 10% 42%)' : 'hsl(210 14% 42%)' }} />}
@@ -531,9 +601,11 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
               ))}
             </div>
           </CollapsibleSection>
+          </div>
         )}
 
         {/* Result */}
+        <div id="section-result">
         <CollapsibleSection
           title="Result"
           summary={
@@ -558,10 +630,12 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
             )}
           </div>
         </CollapsibleSection>
+        </div>
 
         {/* Delegation waterfall — every hop under the same delegation
             scope as this trace. Datadog / Sentry-style. Empty state
             (no delegation_id) is quietly informative rather than a hole. */}
+        <div id="section-delegation">
         <CollapsibleSection
           title="Delegation trace"
           summary="waterfall of every hop under the same delegation scope"
@@ -571,9 +645,10 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
             <DelegationWaterfall traceId={traceId} onSelectTrace={onSelectTrace} />
           </div>
         </CollapsibleSection>
+        </div>
 
         {/* Evaluation / Scoring */}
-        <div style={{ border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '14px 16px' }}>
+        <div id="section-quality" style={{ border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '14px 16px' }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: TEXT }}>Quality</h3>
           {trace.score !== null && trace.score !== undefined ? (
             <div className="space-y-1">

@@ -14,7 +14,12 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      // Mobile: horizontal scroll so 5+ tabs don't wrap or shrink to
+      // illegible width. `overflow-x-auto` + `whitespace-nowrap` on
+      // triggers keeps each label intact. `no-scrollbar` (from
+      // globals.css if present, otherwise inherits browser default)
+      // hides the visible scrollbar for cleanliness.
+      "inline-flex h-10 items-center justify-start md:justify-center rounded-md bg-muted p-1 text-muted-foreground max-w-full overflow-x-auto",
       className
     )}
     {...props}

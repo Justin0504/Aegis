@@ -68,21 +68,21 @@ export function AgentLimitBanner() {
   if (!over_limit) {
     return (
       <div className="rounded-lg border p-3 flex items-start gap-3"
-           style={{ background: 'hsl(36 45% 96%)', borderColor: 'hsl(36 55% 78%)' }}>
+           style={{ background: 'hsl(var(--warn-bg))', borderColor: 'hsl(var(--warn-border))' }}>
         <div className="p-1.5 rounded-md flex-shrink-0"
-             style={{ background: 'hsl(36 55% 88%)' }}>
-          <Users className="h-3.5 w-3.5" style={{ color: 'hsl(36 55% 30%)' }} />
+             style={{ background: 'color-mix(in oklab, hsl(var(--warn-fg)) 20%, hsl(var(--warn-bg)))' }}>
+          <Users className="h-3.5 w-3.5" style={{ color: 'hsl(var(--warn-fg))' }} />
         </div>
         <div className="flex-1 text-sm">
-          <div className="font-medium" style={{ color: 'hsl(36 55% 22%)' }}>
+          <div className="font-medium" style={{ color: 'hsl(var(--warn-fg))' }}>
             {total_count} of {limit} agents on {tier} tier
           </div>
-          <div className="text-xs mt-0.5" style={{ color: 'hsl(36 55% 32%)' }}>
+          <div className="text-xs mt-0.5" style={{ color: 'hsl(var(--warn-fg))', opacity: 0.85 }}>
             {limit - total_count} agent slot{limit - total_count === 1 ? '' : 's'} left before new agents run in audit-only.
           </div>
         </div>
         <Link href="/settings/billing" className="text-xs font-medium flex items-center gap-1 hover:underline flex-shrink-0"
-              style={{ color: 'hsl(36 65% 28%)' }}>
+              style={{ color: 'hsl(var(--warn-fg))' }}>
           Upgrade to {nextTier}
           <ArrowUpRight className="h-3 w-3" />
         </Link>
@@ -93,22 +93,22 @@ export function AgentLimitBanner() {
   // Over limit — red banner.
   return (
     <div className="rounded-lg border p-3 flex items-start gap-3"
-         style={{ background: 'hsl(0 45% 97%)', borderColor: 'hsl(0 45% 78%)' }}>
+         style={{ background: 'hsl(var(--danger-bg))', borderColor: 'hsl(var(--danger-border))' }}>
       <div className="p-1.5 rounded-md flex-shrink-0"
-           style={{ background: 'hsl(0 45% 92%)' }}>
-        <AlertTriangle className="h-3.5 w-3.5" style={{ color: 'hsl(0 55% 40%)' }} />
+           style={{ background: 'color-mix(in oklab, hsl(var(--danger-fg)) 18%, hsl(var(--danger-bg)))' }}>
+        <AlertTriangle className="h-3.5 w-3.5" style={{ color: 'hsl(var(--danger-fg))' }} />
       </div>
       <div className="flex-1 text-sm">
-        <div className="font-medium" style={{ color: 'hsl(0 55% 30%)' }}>
+        <div className="font-medium" style={{ color: 'hsl(var(--danger-fg))' }}>
           {enforced_count} of {limit} agents enforced · {audit_only_count} in audit-only
         </div>
-        <div className="text-xs mt-0.5" style={{ color: 'hsl(0 45% 40%)' }}>
+        <div className="text-xs mt-0.5" style={{ color: 'hsl(var(--danger-fg))', opacity: 0.85 }}>
           Overflow agents still trace, but their calls are never blocked.
           Upgrade to {nextTier} for {nextTierCap} agents with full enforcement.
         </div>
       </div>
       <Link href="/settings/billing" className="text-xs font-semibold flex items-center gap-1 hover:underline flex-shrink-0 whitespace-nowrap"
-            style={{ color: 'hsl(0 65% 38%)' }}>
+            style={{ color: 'hsl(var(--danger-fg))' }}>
         Upgrade to {nextTier}
         <ArrowUpRight className="h-3 w-3" />
       </Link>
