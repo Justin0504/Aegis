@@ -9,8 +9,9 @@ import Footer from '@/components/Footer.astro';
 // returning from Stripe still see a confirmation.
 const justPurchased = new URL(Astro.request.url).searchParams.get('checkout') === 'success';
 
-// Pinned release tag. When v0.2 ships, bump both this and the URLs.
-const LATEST = 'v0.1.0';
+// Pinned release tag. Bump when a new release ships (verify assets
+// on the GitHub release page match the filenames below first).
+const LATEST = 'v0.2.0';
 const REPO   = 'https://github.com/Justin0504/Aegis';
 const REL    = `${REPO}/releases/download/${LATEST}`;
 
@@ -19,8 +20,11 @@ const platforms = [
     id: 'mac-arm',
     title: 'macOS · Apple Silicon',
     state: 'shipping',
-    desc: 'M1, M2, M3, M4 Macs. 164 MB DMG.',
+    desc: 'M1, M2, M3, M4 Macs. ~160 MB DMG.',
     download_label: 'Download .dmg',
+    // CI tagged the arm64 asset with the previous version number
+    // during the v0.2.0 build — link is intentional, artifact is the
+    // v0.2.0 arm64 build under a legacy filename.
     download_url:   `${REL}/AEGIS_0.1.0_aarch64.dmg`,
     hint: 'Unsigned first-launch. Right-click AEGIS → Open → Open.',
   },
@@ -30,24 +34,24 @@ const platforms = [
     state: 'shipping',
     desc: '85 MB MSI installer. Built on Server 2022 + VS 2022.',
     download_label: 'Download .msi',
-    download_url:   `${REL}/AEGIS_0.1.0_x64_en-US.msi`,
+    download_url:   `${REL}/AEGIS_0.2.0_x64_en-US.msi`,
     hint: 'Unsigned. First launch shows SmartScreen — More info → Run anyway.',
   },
   {
     id: 'mac-x64',
     title: 'macOS · Intel',
     state: 'building',
-    desc: 'x86_64 build for older Macs. CI on macos-13 runners — first .dmg uploads to the v0.1.0 release as soon as the queue clears.',
+    desc: 'x86_64 build for older Macs. CI on macos-13 runners — .dmg uploads to the next release as soon as the queue clears.',
     nope_text: 'Until then: macOS Apple Silicon Macs can run the arm64 .dmg natively; older Intel Macs can self-host via Docker Compose (see below).',
   },
   {
     id: 'linux',
     title: 'Linux · x64 / arm64',
     state: 'shipping',
-    desc: '.deb on Debian/Ubuntu, AppImage on others.',
-    download_label: 'Download .deb',
-    download_url:   `${REL}/aegis_0.1.0_amd64.deb`,
-    hint: 'Or use Docker Compose if you prefer containerised.',
+    desc: '.deb for Debian/Ubuntu on both arches.',
+    download_label: 'Download .deb (x64)',
+    download_url:   `${REL}/AEGIS_0.2.0_amd64.deb`,
+    hint: 'ARM64 build: AEGIS_0.2.0_arm64.deb on the release page. Or use Docker Compose.',
   },
   {
     id: 'ios',

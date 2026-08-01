@@ -3,6 +3,7 @@ import { GeistMono } from 'geist/font/mono'
 import { Inter, Instrument_Serif, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
+import { FirstLaunchGate } from '@/components/first-launch-gate'
 
 // Body / UI — Söhne substitute
 const inter = Inter({
@@ -53,7 +54,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="/theme-bootstrap.js" />
       </head>
       <body style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <FirstLaunchGate />
+          {children}
+        </Providers>
       </body>
     </html>
   )
