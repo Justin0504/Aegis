@@ -24,6 +24,7 @@ mod ca;
 mod config;
 mod handler;
 mod llm;
+mod metrics;
 
 use crate::attribution::Attributor;
 use crate::ca::{load_or_init, CaPaths};
@@ -57,6 +58,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ca = RcgenAuthority::new(key_pair, ca_cert, 1_000);
 
+    let metrics = crate::metrics::Metrics::new();
+    // Metrics endpoint = proxy port + 1 by convention (18081 → 18082).
+    let metrics_port = cfg.bind
+        .rsplit(':')
+        .next()
+        .and_then(|p| p.parse::<u16>().ok())
+        .map(|p| p.saturating_add(1))
+        .unwrap_or(18082);
+    crate::metrics::spawn_server(metrics.clone(), metrics_port);
+
     let handler = Handler {
         config: cfg.clone(),
         http: reqwest::Client::builder()
@@ -64,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()?,
         pending: Arc::new(dashmap::DashMap::new()),
         attributor: Attributor::new(cfg.agent_id.clone()),
+        metrics: metrics.clone(),
     };
 
     let bind_addr: std::net::SocketAddr = cfg.bind.parse()?;

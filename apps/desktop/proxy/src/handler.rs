@@ -24,6 +24,7 @@ use std::time::{Duration, Instant};
 use crate::attribution::Attributor;
 use crate::config::ProxyConfig;
 use crate::llm::{enrich_request, enrich_response, LlmEnrichment};
+use crate::metrics::Metrics;
 
 const MAX_BODY_PREVIEW: usize = 8 * 1024;
 
@@ -45,6 +46,7 @@ pub struct Handler {
     /// can be attributed to the actual agent (claude-code, cursor,
     /// custom-python) instead of the generic proxy label.
     pub attributor: Attributor,
+    pub metrics: Arc<Metrics>,
 }
 
 pub struct Pending {
@@ -156,6 +158,7 @@ impl Handler {
                 CheckOutcome::Allow => {}
                 CheckOutcome::Block(reason) => {
                     tracing::info!(target: "aegis-proxy", %host, %method, %agent_id, reason, "policy BLOCK");
+                    self.metrics.inc(&self.metrics.requests_blocked_total);
                     return synthetic_403(&reason).into();
                 }
             }
@@ -163,6 +166,11 @@ impl Handler {
 
         let path = uri.path().to_string();
         let llm = enrich_request(&host, &path, &bytes);
+        if llm.is_some() {
+            self.metrics.inc(&self.metrics.llm_enriched_total);
+        }
+        self.metrics.inc(&self.metrics.requests_mitm_total);
+        self.metrics.add(&self.metrics.bytes_intercepted_total, bytes.len() as u64);
 
         let trace_id = uuid::Uuid::new_v4().to_string();
         let pending = Pending {
@@ -323,6 +331,7 @@ impl Handler {
                 let elapsed_ms = pending.started_at.elapsed().as_millis();
                 let status = parts.status.as_u16();
                 let resp_preview = preview_of(&bytes);
+                self.metrics.add(&self.metrics.bytes_intercepted_total, bytes.len() as u64);
 
                 // Merge response-side LLM signals into the enrichment
                 // we built from the request. Non-LLM hosts skip this
