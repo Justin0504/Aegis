@@ -71,7 +71,8 @@
       "../sidecar-stage/gateway-bin":   "gateway-bin",
       "../sidecar-stage/cockpit-static": "cockpit-static",
       "../sidecar-stage/node-runtime":   "node-runtime",
-      "../sidecar-stage/tools":          "tools"
+      "../sidecar-stage/tools":          "tools",
+      "../sidecar-stage/proxy-bin":      "proxy-bin"
     },
     "macOS": {
       "minimumSystemVersion": "11.0",

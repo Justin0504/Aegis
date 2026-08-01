@@ -33,6 +33,7 @@ use tauri::{AppHandle, Manager};
 /// AEGIS dev ports so a parallel `docker compose up` keeps working.
 const GATEWAY_PORT: u16 = 18080;
 const COCKPIT_PORT: u16 = 13001;
+const PROXY_PORT: u16 = 18081;
 
 pub const COCKPIT_URL: &str = "http://127.0.0.1:13001/welcome";
 pub const GATEWAY_URL: &str = "http://127.0.0.1:18080";
@@ -40,6 +41,10 @@ pub const GATEWAY_URL: &str = "http://127.0.0.1:18080";
 #[derive(Debug)]
 pub struct Sidecars {
     children: Mutex<Vec<Child>>,
+    /// Slot for the transparent proxy — spawned on demand from the
+    /// /proxy wizard, not at app boot. Held in its own Mutex so
+    /// start/stop don't have to lock all the other sidecars.
+    proxy_child: Mutex<Option<Child>>,
 }
 
 impl Sidecars {
@@ -104,7 +109,68 @@ impl Sidecars {
 
         Ok(Self {
             children: Mutex::new(vec![gateway_child, cockpit_child]),
+            proxy_child: Mutex::new(None),
         })
+    }
+
+    /// Spawn the transparent-proxy binary (bundled at
+    /// `<resources>/proxy-bin/aegis-proxy`). Idempotent: if the proxy
+    /// is already running, returns Ok(()) with no side effect.
+    pub fn spawn_proxy(&self, app: &AppHandle) -> Result<(), String> {
+        {
+            // Fast path — already running.
+            if let Ok(guard) = self.proxy_child.lock() {
+                if guard.is_some() {
+                    return Ok(());
+                }
+            }
+        }
+
+        let resource_dir = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("resource_dir: {e}"))?;
+        let bin_name = if cfg!(windows) { "aegis-proxy.exe" } else { "aegis-proxy" };
+        let proxy_bin = resource_dir.join("proxy-bin").join(bin_name);
+        if !proxy_bin.exists() {
+            return Err(format!(
+                "proxy binary not bundled at {}. Build with `cargo build --release -p aegis-proxy` and copy into sidecar-stage/proxy-bin/ (see prepare-sidecars.mjs).",
+                proxy_bin.display(),
+            ));
+        }
+
+        let mut cmd = Command::new(&proxy_bin);
+        cmd.env("AEGIS_PROXY_GATEWAY_URL", GATEWAY_URL);
+        cmd.env("RUST_LOG", "info");
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        let child = cmd
+            .spawn()
+            .map_err(|e| format!("spawn proxy: {e}"))?;
+
+        wait_for_port(PROXY_PORT, Duration::from_secs(10))
+            .map_err(|e| format!("proxy readiness: {e}"))?;
+
+        if let Ok(mut guard) = self.proxy_child.lock() {
+            *guard = Some(child);
+        }
+        Ok(())
+    }
+
+    /// SIGTERM the proxy if it's running. Idempotent.
+    pub fn kill_proxy(&self) {
+        if let Ok(mut guard) = self.proxy_child.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+    }
+
+    /// Is the proxy currently spawned by us?
+    pub fn is_proxy_running(&self) -> bool {
+        self.proxy_child
+            .lock()
+            .map(|g| g.is_some())
+            .unwrap_or(false)
     }
 
     /// Best-effort SIGTERM to every spawned child. Called on app exit.
@@ -115,6 +181,7 @@ impl Sidecars {
             }
             children.clear();
         }
+        self.kill_proxy();
     }
 }
 

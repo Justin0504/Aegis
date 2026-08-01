@@ -1,0 +1,61 @@
+[package]
+name = "aegis-proxy"
+version = "0.3.0"
+description = "AEGIS transparent MITM proxy — decrypts allowlisted LLM/payment API traffic and forwards traces to the AEGIS gateway. Zero code changes to the agent."
+authors = ["Aojie Yuan <aojieyua@usc.edu>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[[bin]]
+name = "aegis-proxy"
+path = "src/main.rs"
+
+[dependencies]
+# MITM proxy engine — actively maintained, rustls-based, pluggable
+# request/response handlers. 0.22 line is the current stable series.
+hudsucker = { version = "0.22", default-features = false, features = ["rustls-client", "http2", "rcgen-ca"] }
+
+# Cert generation for the AEGIS root CA. Hudsucker handles per-host
+# leaf certs itself; we only need to mint + persist the root.
+rcgen = { version = "0.13", default-features = false, features = ["pem", "crypto", "ring", "x509-parser"] }
+
+# Async runtime — full features (net, io, sync, macros) for the
+# proxy body handler + trace forwarder.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "net", "time"] }
+
+# HTTP + serde for the trace forwarder (proxy → gateway /api/v1/traces).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Base primitives.
+http = "1"
+http-body-util = "0.1"
+bytes = "1"
+dashmap = "6"
+futures = { version = "0.3", default-features = false, features = ["std"] }
+
+# Structured logging — printed to stdout, picked up by Tauri sidecar
+# runner which pipes to app-log-directory files.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Config parsing.
+toml = "0.8"
+
+# UUID for trace_id generation.
+uuid = { version = "1", features = ["v4"] }
+
+# Time (chrono is small enough; also lets us format ISO 8601 for
+# gateway trace timestamps).
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+[profile.release]
+# Slim the binary — inline heavy fns, drop debug info, keep symbols
+# only for panic traces. Ships around 7-8 MB stripped.
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = "debuginfo"
+panic = "abort"

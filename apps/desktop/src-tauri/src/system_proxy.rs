@@ -38,6 +38,7 @@
 
 use std::process::Command;
 use serde::Serialize;
+use tauri::{AppHandle, State};
 
 const PROXY_HOST: &str = "127.0.0.1";
 const PROXY_PORT: u16 = 18081;
@@ -321,6 +322,56 @@ pub fn uninstall_proxy_ca() -> SysCmdResult {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+// ── Proxy binary lifecycle ──────────────────────────────────────────────────
+//
+// These commands drive the transparent-MITM proxy sidecar. The proxy
+// is bundled at <resources>/proxy-bin/aegis-proxy but NEVER auto-
+// starts — the /proxy wizard is the only entry point, and it prompts
+// for OS admin (cert install + proxy config) before starting the
+// binary. That way a user who launches AEGIS never has traffic
+// silently re-routed.
+
+/// Start the transparent proxy sidecar. Idempotent.
+#[tauri::command]
+pub fn proxy_start(app: AppHandle, sidecars: State<'_, crate::sidecars::Sidecars>) -> SysCmdResult {
+    match sidecars.spawn_proxy(&app) {
+        Ok(_) => SysCmdResult {
+            ok: true,
+            command: "aegis-proxy (sidecar spawn)".to_string(),
+            stdout: "proxy listening on 127.0.0.1:18081".to_string(),
+            stderr: String::new(),
+            hint: Some("Continue to Step 3 to point the OS proxy at 127.0.0.1:18081.".to_string()),
+        },
+        Err(e) => SysCmdResult::err("aegis-proxy (sidecar spawn)".to_string(), e),
+    }
+}
+
+/// Stop the transparent proxy sidecar. Idempotent.
+#[tauri::command]
+pub fn proxy_stop(sidecars: State<'_, crate::sidecars::Sidecars>) -> SysCmdResult {
+    sidecars.kill_proxy();
+    SysCmdResult {
+        ok: true,
+        command: "aegis-proxy (SIGTERM)".to_string(),
+        stdout: "proxy stopped".to_string(),
+        stderr: String::new(),
+        hint: None,
+    }
+}
+
+/// Report whether the proxy sidecar is currently running.
+#[tauri::command]
+pub fn proxy_status(sidecars: State<'_, crate::sidecars::Sidecars>) -> SysCmdResult {
+    let running = sidecars.is_proxy_running();
+    SysCmdResult {
+        ok: running,
+        command: "aegis-proxy (status)".to_string(),
+        stdout: if running { "running".to_string() } else { "not running".to_string() },
+        stderr: String::new(),
+        hint: None,
+    }
+}
 
 /// Expand a leading `~` to the current user's home directory.
 /// Falls back to the input unchanged if $HOME (macOS/Linux) or

@@ -216,6 +216,9 @@ pub fn run() {
             system_proxy::system_proxy_status,
             system_proxy::install_proxy_ca,
             system_proxy::uninstall_proxy_ca,
+            system_proxy::proxy_start,
+            system_proxy::proxy_stop,
+            system_proxy::proxy_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -285,4 +285,29 @@ if (fs.existsSync(wtsSrc)) {
   warn('node_modules/web-tree-sitter missing — desktop scanner will fall back to regex');
 }
 
+// ── 6. transparent proxy binary ───────────────────────────────────
+// Compiled from apps/desktop/proxy/ (Cargo crate). Ships alongside
+// the other sidecars so the /proxy wizard can spawn it on demand.
+// Never auto-started — the wizard is the only entry point.
+log('Building AEGIS transparent proxy binary');
+const proxyCrate = path.join(DESKTOP_ROOT, 'proxy');
+if (!fs.existsSync(proxyCrate)) {
+  warn(`apps/desktop/proxy/ missing — skipping proxy binary. /proxy wizard will show "not bundled" until this is fixed.`);
+} else {
+  run(['cargo', 'build', '--release', '--manifest-path', path.join(proxyCrate, 'Cargo.toml')], REPO_ROOT);
+  const proxyBinName = process.platform === 'win32' ? 'aegis-proxy.exe' : 'aegis-proxy';
+  const proxySrc = path.join(proxyCrate, 'target', 'release', proxyBinName);
+  if (!fs.existsSync(proxySrc)) {
+    warn(`proxy binary not found at ${proxySrc} after cargo build — check target triple`);
+  } else {
+    const proxyDst = path.join(STAGE, 'proxy-bin', proxyBinName);
+    mkdirp(path.dirname(proxyDst));
+    copyFile(proxySrc, proxyDst);
+    if (process.platform !== 'win32') {
+      fs.chmodSync(proxyDst, 0o755);
+    }
+    log(`Staged proxy binary at ${proxyDst}`);
+  }
+}
+
 log(`Sidecars staged under ${STAGE}`);

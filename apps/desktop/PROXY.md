@@ -4,17 +4,21 @@ The "no-code integration" path: user installs AEGIS, grants OS admin
 once, and every HTTPS call any agent makes on that machine flows
 through AEGIS's gateway — no SDK, no source-code change.
 
-Status: **Phase 2a shipped, Phase 2b next.**
+Status: **Phase 2a + 2b shipped (v0.3), Phase 2c next.**
 
 | Piece | State | File |
 |---|---|---|
 | CA-trust install helpers (macOS `security`, Windows `certutil`, Linux `update-ca-certificates`) | shipped | `src-tauri/src/system_proxy.rs` |
 | System-proxy config helpers (macOS `networksetup`, Windows `netsh winhttp`, Linux env file) | shipped | `src-tauri/src/system_proxy.rs` |
-| Cockpit `/proxy` wizard UI — 4-step flow, verbatim commands, reversal instructions | shipped | `apps/compliance-cockpit/src/components/proxy/proxy-wizard.tsx` |
-| **CA generator (rcgen), leaf-cert on-the-fly signer** | **next** | Rust module TBD |
-| **MITM proxy binary listening on `:18081`** | **next** | Rust binary using `hudsucker` |
-| **Trace forwarder from proxy → gateway `/api/v1/traces`** | **next** | Rust HTTP client + serde bridge |
-| First-launch wizard integration (offer setup on Day 1) | next | Cockpit `/activate` or `/welcome` |
+| Cockpit `/proxy` wizard UI — 5-step flow, verbatim commands, reversal instructions | shipped | `apps/compliance-cockpit/src/components/proxy/proxy-wizard.tsx` |
+| CA generator (rcgen), on-disk PEM (0600) | shipped | `apps/desktop/proxy/src/ca.rs` |
+| MITM proxy binary listening on `:18081` (hudsucker + rustls) | shipped | `apps/desktop/proxy/src/main.rs` |
+| Trace forwarder from proxy → gateway `/api/v1/traces` | shipped | `apps/desktop/proxy/src/handler.rs` |
+| Sidecar spawn from Tauri (opt-in via wizard `Start proxy` button, never auto-starts) | shipped | `src-tauri/src/sidecars.rs` + `system_proxy.rs::proxy_start` |
+| Proxy binary bundled into .app resources via `prepare-sidecars.mjs` | shipped | `apps/desktop/scripts/prepare-sidecars.mjs` |
+| First-launch wizard integration (offer setup on Day 1) | Phase 2c | Cockpit `/activate` or `/welcome` |
+| HTTP/2 multiplexed correlation (currently coarse min-started per connection) | Phase 2c | `handler.rs` rewrite w/ per-request extensions |
+| CA private key in OS keychain (`keyring` crate) instead of 0600 file | Phase 2c | `ca.rs` |
 
 ## Design
 
