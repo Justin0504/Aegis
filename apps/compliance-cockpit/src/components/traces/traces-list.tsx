@@ -6,6 +6,7 @@ import { traceSummary } from '@/lib/trace-summary'
 import { describeActivity } from '@/lib/activity-description'
 import { friendlyAgent, friendlyDecision, friendlyRisk, friendlyPolicy } from '@/lib/friendly-names'
 import { ToolIcon } from '@/lib/tool-icons'
+import { BrandIcon, brandForHostOrModel } from '@/components/ui/brand-icon'
 import { Search, X, ChevronDown, Clock } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
 
@@ -279,24 +280,28 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
                     >
                       <Highlight text={agentLabel} query={search} />
                     </button>
-                    {trace.model && (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded font-mono flex-shrink-0"
-                        style={{ background: 'hsl(220 30% 94%)', color: 'hsl(220 30% 32%)' }}
-                        title={
-                          trace.input_tokens || trace.output_tokens
-                            ? `${trace.input_tokens ?? 0} in / ${trace.output_tokens ?? 0} out`
-                            : undefined
-                        }
-                      >
-                        {trace.model}
-                        {(trace.input_tokens || trace.output_tokens) ? (
-                          <span className="ml-1" style={{ color: 'hsl(220 20% 45%)' }}>
-                            · {((Number(trace.input_tokens) || 0) + (Number(trace.output_tokens) || 0)).toLocaleString()}tok
-                          </span>
-                        ) : null}
-                      </span>
-                    )}
+                    {trace.model && (() => {
+                      const brand = brandForHostOrModel(trace.model)
+                      return (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded font-mono flex-shrink-0 inline-flex items-center gap-1"
+                          style={{ background: 'hsl(220 30% 94%)', color: 'hsl(220 30% 32%)' }}
+                          title={
+                            trace.input_tokens || trace.output_tokens
+                              ? `${trace.input_tokens ?? 0} in / ${trace.output_tokens ?? 0} out`
+                              : undefined
+                          }
+                        >
+                          {brand && <BrandIcon brand={brand} size={11} />}
+                          {trace.model}
+                          {(trace.input_tokens || trace.output_tokens) ? (
+                            <span style={{ color: 'hsl(220 20% 45%)' }}>
+                              · {((Number(trace.input_tokens) || 0) + (Number(trace.output_tokens) || 0)).toLocaleString()}tok
+                            </span>
+                          ) : null}
+                        </span>
+                      )
+                    })()}
                   </div>
                   {/* L2 — what it did, plain English */}
                   <p className="text-sm leading-snug truncate" style={{ color: TEXT }}>

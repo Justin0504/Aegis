@@ -31,6 +31,7 @@ import {
   Shield, ShieldCheck, ShieldOff, ChevronRight, CheckCircle2,
   AlertTriangle, Copy, Loader2, RotateCcw, Play, Zap,
 } from 'lucide-react'
+import { BrandIcon, brandForHostOrModel } from '@/components/ui/brand-icon'
 
 // Tauri IPC bridge — no-op outside Tauri (hosted Cockpit still renders).
 function tauriInvoke<T>(name: string, args?: any): Promise<T> {
@@ -143,20 +144,26 @@ export function ProxyWizard() {
         subtitle="AEGIS decrypts only these hosts. All other HTTPS passes through untouched (no MITM)."
       >
         <div className="rounded-md border overflow-hidden" style={{ borderColor: BORDER }}>
-          {allowlist.map((a, i) => (
-            <div key={a.host} className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0"
-                 style={{ borderColor: BORDER, background: SURFACE }}>
-              <input
-                type="checkbox"
-                checked={a.enabled}
-                onChange={() => setAllowlist(prev => prev.map((x, ix) => ix === i ? { ...x, enabled: !x.enabled } : x))}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-mono">{a.host}</div>
-                <div className="text-xs mt-0.5" style={{ color: MUTED }}>{a.category}</div>
+          {allowlist.map((a, i) => {
+            const brand = brandForHostOrModel(a.host)
+            return (
+              <div key={a.host} className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0"
+                   style={{ borderColor: BORDER, background: SURFACE }}>
+                <input
+                  type="checkbox"
+                  checked={a.enabled}
+                  onChange={() => setAllowlist(prev => prev.map((x, ix) => ix === i ? { ...x, enabled: !x.enabled } : x))}
+                />
+                {brand
+                  ? <BrandIcon brand={brand} size={18} title={a.host} />
+                  : <span style={{ width: 18, display: 'inline-block' }} />}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-mono">{a.host}</div>
+                  <div className="text-xs mt-0.5" style={{ color: MUTED }}>{a.category}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <p className="text-xs mt-2" style={{ color: MUTED }}>
           {enabledHosts.length} host{enabledHosts.length === 1 ? '' : 's'} on the allowlist.

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Loader2, Sparkles, ArrowRight, Cpu, ShieldOff, ShieldHalf, Compass } from 'lucide-react'
 import { gw } from '@/lib/gateway'
+import { BrandIcon } from '@/components/ui/brand-icon'
 
 interface CandidateAgent {
   pid: number
@@ -563,16 +564,19 @@ export function WelcomeView() {
             style={{ background: SURFACE, border: `1px solid ${BORDER}` }}
           >
             <div className="flex items-center justify-between">
-              <div>
-                <h3
-                  className="font-medium text-[15px]"
-                  style={{ color: TEXT, letterSpacing: '-0.005em' }}
-                >
-                  {fw.name}
-                </h3>
-                <p className="text-[11px] uppercase tracking-wider mt-0.5" style={{ color: MUTED }}>
-                  {fw.lang}
-                </p>
+              <div className="flex items-center gap-2.5">
+                <BrandIcon brand={fw.id.replace(/-js$/, '')} size={20} title={fw.name} />
+                <div>
+                  <h3
+                    className="font-medium text-[15px]"
+                    style={{ color: TEXT, letterSpacing: '-0.005em' }}
+                  >
+                    {fw.name}
+                  </h3>
+                  <p className="text-[11px] uppercase tracking-wider mt-0.5" style={{ color: MUTED }}>
+                    {fw.lang}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => copy(fw.id, fw.snippet)}

@@ -11,6 +11,7 @@ import { friendlyAgent } from '@/lib/friendly-names'
 import { useState, ReactNode } from 'react'
 import { AnomalyExplanationPanel } from './anomaly-explanation-panel'
 import { ToolIcon } from '@/lib/tool-icons'
+import { BrandIcon, brandForHostOrModel } from '@/components/ui/brand-icon'
 import { DelegationWaterfall } from './delegation-waterfall'
 
 const BORDER = 'hsl(var(--border))'
@@ -180,6 +181,7 @@ function LlmSummaryCard({ trace }: { trace: any }) {
   const llm = trace.llm ?? {}
   const model = llm.model ?? trace.model ?? null
   const provider = llm.provider ?? null
+  const brandSlug = provider ?? brandForHostOrModel(model)
   const inTok = llm.input_tokens ?? trace.input_tokens ?? null
   const outTok = llm.output_tokens ?? trace.output_tokens ?? null
   const cost = typeof trace.cost_usd === 'number' && trace.cost_usd > 0 ? trace.cost_usd : null
@@ -187,11 +189,15 @@ function LlmSummaryCard({ trace }: { trace: any }) {
   return (
     <div>
       <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+        {brandSlug && <BrandIcon brand={brandSlug} size={16} />}
         LLM call
       </h3>
       <div className="rounded-lg border p-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <Field label="Provider" value={provider ?? '—'} mono={!!provider} />
+          <Field label="Provider"
+                 icon={brandSlug ? <BrandIcon brand={brandSlug} size={14} /> : undefined}
+                 value={provider ?? '—'}
+                 mono={!!provider} />
           <Field label="Model" value={model ?? '—'} mono={!!model} />
           <Field label="In / Out tokens" value={
             (inTok != null || outTok != null)
@@ -213,13 +219,16 @@ function LlmSummaryCard({ trace }: { trace: any }) {
   )
 }
 
-function Field({ label, value, mono, tight }: { label: string; value: string; mono?: boolean; tight?: boolean }) {
+function Field({ label, value, mono, tight, icon }: { label: string; value: string; mono?: boolean; tight?: boolean; icon?: React.ReactNode }) {
   return (
     <div>
       <div className={`${tight ? 'text-[10px]' : 'text-xs'} uppercase tracking-wide`}
            style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</div>
-      <div className={`${tight ? 'text-xs' : 'text-sm'} ${mono ? 'font-mono' : ''} truncate`}
-           style={{ color: 'hsl(var(--foreground))' }}>{value}</div>
+      <div className={`${tight ? 'text-xs' : 'text-sm'} ${mono ? 'font-mono' : ''} truncate flex items-center gap-1.5`}
+           style={{ color: 'hsl(var(--foreground))' }}>
+        {icon}
+        {value}
+      </div>
     </div>
   )
 }
