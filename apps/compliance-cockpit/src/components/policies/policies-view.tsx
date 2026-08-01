@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Shield, ShieldAlert, ShieldCheck, Plus, Trash2, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, X, FlaskConical, Layers, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { USE_MOCK, mockPolicies } from '@/lib/mock-traces'
+import { PolicyHitRate } from './policy-hit-rate'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -212,6 +213,8 @@ export function PoliciesView() {
           </button>
         </div>
       </div>
+
+      <PolicyHitRate />
 
       {/* Summary chips */}
       <div className="flex items-center gap-3">

@@ -361,6 +361,35 @@ export class CheckAPI {
         const dslBlocks = dslMatch?.decision === 'block'
         const dslPending = dslMatch?.decision === 'pending'
 
+        // Persist a violations row for every DSL block/pending so the
+        // /policies/hit-rate endpoint can aggregate over time. Fire-
+        // and-forget: an insert failure must never break the check
+        // response.
+        if (dslMatch && (dslBlocks || dslPending)) {
+          try {
+            this.db.prepare(
+              `INSERT INTO violations (agent_id, policy_id, trace_id, violation_type, details)
+               VALUES (?, ?, ?, ?, ?)`,
+            ).run(
+              body.agent_id,
+              dslMatch.ruleName,     // rule name doubles as policy_id — unique across packs
+              checkId,               // trace_id ← check_id link; SDK later posts a trace with same id
+              dslBlocks ? 'dsl_block' : 'dsl_pending',
+              JSON.stringify({
+                reason: dslMatch.reason,
+                tags: dslMatch.tags ?? [],
+                tool: body.tool_name,
+                category: classification.category,
+              }),
+            );
+          } catch (err) {
+            this.logger.warn(
+              { err: (err as Error).message, rule: dslMatch.ruleName },
+              'violations insert failed — hit-rate stats will undercount',
+            );
+          }
+        }
+
         // Communication tools (email, messaging) always require human review in blocking mode
         const requiresHumanReview = classification.category === 'communication'
 

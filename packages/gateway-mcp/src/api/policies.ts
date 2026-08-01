@@ -51,6 +51,36 @@ export class PolicyAPI {
       res.json({ packs: listPacks() })
     })
 
+    // Rule hit-rate — per-rule fire counts over three windows (24h,
+    // 7d, all time) plus last-fired timestamp. Read from the
+    // violations table populated by check.ts when a DSL rule blocks
+    // or holds a call. Powers the /policies "hit rate" panel.
+    this.router.get('/hit-rate', async (req: Request, res: Response) => {
+      try {
+        const now = Date.now();
+        const cutoff24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+        const cutoff7d  = new Date(now -  7 * 24 * 60 * 60 * 1000).toISOString();
+        const rows = this.db.prepare(`
+          SELECT
+            policy_id        AS rule_name,
+            COUNT(*)         AS total,
+            SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS h24,
+            SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS d7,
+            SUM(CASE WHEN violation_type = 'dsl_block'   THEN 1 ELSE 0 END) AS blocks,
+            SUM(CASE WHEN violation_type = 'dsl_pending' THEN 1 ELSE 0 END) AS pendings,
+            MAX(created_at)  AS last_fired
+          FROM violations
+          WHERE violation_type IN ('dsl_block', 'dsl_pending')
+          GROUP BY policy_id
+          ORDER BY total DESC, last_fired DESC
+        `).all(cutoff24h, cutoff7d);
+        res.json({ rules: rows });
+      } catch (err) {
+        this.logger.error({ err }, 'hit-rate query failed');
+        res.status(500).json({ error: 'query failed' });
+      }
+    })
+
     // Preview a pack's policies before install
     this.router.get('/packs/:slug', async (req: Request, res: Response) => {
       const pack = getPack(req.params.slug)
