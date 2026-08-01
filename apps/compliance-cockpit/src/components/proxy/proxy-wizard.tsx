@@ -26,6 +26,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Shield, ShieldCheck, ShieldOff, ChevronRight, CheckCircle2,
   AlertTriangle, Copy, Loader2, RotateCcw, Play, Zap,
@@ -70,6 +71,7 @@ const WARN    = 'hsl(36 65% 40%)'
 const PRIMARY = 'hsl(var(--primary))'
 
 export function ProxyWizard() {
+  const router = useRouter()
   const [inTauri, setInTauri]           = useState(false)
   const [running, setRunning]           = useState<string | null>(null)
   const [proxyStatus, setProxyStatus]   = useState<SysCmdResult | null>(null)
@@ -288,13 +290,29 @@ export function ProxyWizard() {
         <CodeCopy code="curl -sSL https://api.openai.com/v1/models -o /dev/null -w '%{http_code}\n'" />
       </Step>
 
+      {binRunning && caResult?.ok && enableResult?.ok && (
+        <div className="rounded-lg border p-4 flex items-center justify-between gap-4"
+             style={{ background: 'hsl(150 30% 96%)', borderColor: 'hsl(150 30% 78%)' }}>
+          <div className="text-sm" style={{ color: 'hsl(150 30% 25%)' }}>
+            <div className="font-medium">You're set up.</div>
+            <div className="text-xs mt-0.5">Every allowlisted request from any agent on this machine now shows up in Activity.</div>
+          </div>
+          <button
+            onClick={() => router.push('/')}
+            className="text-sm px-3 py-1.5 rounded font-medium"
+            style={{ background: 'hsl(150 30% 40%)', color: 'white' }}>
+            Open Cockpit →
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border p-4" style={{ background: SURFACE, borderColor: BORDER }}>
         <div className="text-xs uppercase tracking-widest mb-2" style={{ color: MUTED }}>
           Reversal
         </div>
         <p className="text-sm" style={{ color: TEXT }}>
-          To fully undo: Disable the system proxy (Step 3), then Uninstall the CA (Step 2).
-          Both operations are idempotent. AEGIS never persists anything on the OS outside these two objects.
+          To fully undo: Disable the system proxy (Step 4), Uninstall the CA (Step 3), Stop the proxy (Step 2).
+          Every operation is idempotent. AEGIS never persists anything on the OS outside these three objects.
         </p>
       </div>
     </div>

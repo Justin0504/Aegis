@@ -1,0 +1,1 @@
+/Users/justin/agentguard/apps/desktop/proxy/target/release/aegis-proxy: /Users/justin/agentguard/apps/desktop/proxy/src/ca.rs /Users/justin/agentguard/apps/desktop/proxy/src/config.rs /Users/justin/agentguard/apps/desktop/proxy/src/handler.rs /Users/justin/agentguard/apps/desktop/proxy/src/main.rs

@@ -1,0 +1,1 @@
+hudsucker::Proxy<hyper_rustls::connector::HttpsConnector<HttpConnector>, RcgenAuthority, Handler, NoopHandler, impl std::future::Future<Output = ()>>

@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LicensePanel, readLicense } from '@/components/settings/license-panel'
 import { useEffect, useState } from 'react'
+import { Zap, Code2 } from 'lucide-react'
 
 const BG      = 'hsl(var(--background))'
 const TEXT    = 'hsl(var(--foreground))'
@@ -52,33 +53,79 @@ export default function ActivatePage() {
           </p>
         </div>
 
-        <div className="rounded-lg border p-6 mb-4" style={{ borderColor: BORDER, background: SURFACE }}>
+        <div className="rounded-lg border p-6 mb-6" style={{ borderColor: BORDER, background: SURFACE }}>
+          <div className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: MUTED }}>
+            Step 1 · License
+          </div>
           <LicensePanel />
         </div>
 
-        <div className="flex items-center justify-between gap-4 mt-8">
+        <div className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: MUTED }}>
+          Step 2 · Choose your integration path
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          <PathCard
+            icon={<Zap className="h-5 w-5" />}
+            title="Zero-code (recommended)"
+            body="Install a root cert and route your OS proxy through AEGIS. Every agent on this machine — Claude Code, Cursor, custom — gets traced. Two admin prompts, five minutes."
+            cta="Open proxy setup"
+            onClick={() => router.push('/proxy')}
+          />
+          <PathCard
+            icon={<Code2 className="h-5 w-5" />}
+            title="SDK"
+            body="Wrap your agent client with one line of code. Full observability including LLM prompt context and per-agent attribution. Best for CI/CD-managed agents."
+            cta="Open Welcome guide"
+            onClick={() => router.push('/welcome')}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
           <Link href="https://aegistraces.com/pricing" target="_blank" rel="noopener"
                 className="text-xs underline" style={{ color: MUTED }}>
             Don't have a key? See pricing →
           </Link>
           <button
             onClick={() => router.push('/')}
-            className="text-sm px-4 py-2 rounded-md font-medium"
-            style={{
-              background: licenseValid ? PRIMARY : 'transparent',
-              color:      licenseValid ? 'hsl(var(--primary-foreground))' : TEXT,
-              border:    `1px solid ${licenseValid ? PRIMARY : BORDER}`,
-            }}>
-            {licenseValid ? 'Open Cockpit →' : 'Continue on Free tier →'}
+            className="text-xs px-3 py-2 rounded-md"
+            style={{ color: MUTED, border: `1px solid ${BORDER}` }}>
+            Skip — open Cockpit
           </button>
         </div>
 
         <p className="mt-10 text-center text-xs" style={{ color: MUTED }}>
           AEGIS gateway is running on <code className="font-mono">localhost:18080</code>.
-          Point your agents at that URL — see the{' '}
-          <Link href="/welcome" className="underline">Welcome guide</Link> for one-line SDK setup.
+          {licenseValid ? ` License: ${readLicense()?.plan?.toUpperCase() ?? 'active'}.` : ''}
         </p>
       </div>
     </div>
+  )
+}
+
+function PathCard({
+  icon, title, body, cta, onClick,
+}: {
+  icon: React.ReactNode; title: string; body: string; cta: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-left rounded-lg border p-5 hover:border-current transition-colors"
+      style={{
+        background: 'hsl(var(--card))',
+        borderColor: 'hsl(var(--border))',
+        color: 'hsl(var(--foreground))',
+      }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span style={{ color: 'hsl(var(--primary))' }}>{icon}</span>
+        <div className="font-medium text-sm">{title}</div>
+      </div>
+      <p className="text-xs mb-3" style={{ color: 'hsl(var(--muted-foreground))' }}>
+        {body}
+      </p>
+      <div className="text-xs font-medium" style={{ color: 'hsl(var(--primary))' }}>
+        {cta} →
+      </div>
+    </button>
   )
 }

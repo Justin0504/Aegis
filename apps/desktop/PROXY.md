@@ -16,9 +16,10 @@ Status: **Phase 2a + 2b shipped (v0.3), Phase 2c next.**
 | Trace forwarder from proxy → gateway `/api/v1/traces` | shipped | `apps/desktop/proxy/src/handler.rs` |
 | Sidecar spawn from Tauri (opt-in via wizard `Start proxy` button, never auto-starts) | shipped | `src-tauri/src/sidecars.rs` + `system_proxy.rs::proxy_start` |
 | Proxy binary bundled into .app resources via `prepare-sidecars.mjs` | shipped | `apps/desktop/scripts/prepare-sidecars.mjs` |
-| First-launch wizard integration (offer setup on Day 1) | Phase 2c | Cockpit `/activate` or `/welcome` |
-| HTTP/2 multiplexed correlation (currently coarse min-started per connection) | Phase 2c | `handler.rs` rewrite w/ per-request extensions |
-| CA private key in OS keychain (`keyring` crate) instead of 0600 file | Phase 2c | `ca.rs` |
+| First-launch wizard offer on `/activate` (two-path card: zero-code vs SDK) | shipped | `apps/compliance-cockpit/src/app/activate/page.tsx` |
+| Per-connection FIFO correlation (fixes HTTP/1.1 pipelining + HTTP/2 in-order streams) | shipped | `handler.rs` — `pending: DashMap<SocketAddr, VecDeque<Pending>>` |
+| HTTP/2 stream-id-level correlation (races across multiplexed streams on same conn) | v0.4 | needs hudsucker to surface `:stream-id`; tracked upstream |
+| CA private key in OS keychain (`keyring` crate) instead of 0600 file | v0.4 | `ca.rs` — 0600 file is fine for single-user desktop; keyring is a hardening pass |
 
 ## Design
 

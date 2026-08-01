@@ -15,7 +15,9 @@ use hudsucker::{
 use http_body_util::{BodyExt, Full};
 use hudsucker::hyper::body::Bytes;
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::future::Future;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -27,12 +29,16 @@ const MAX_BODY_PREVIEW: usize = 8 * 1024;
 pub struct Handler {
     pub config: Arc<ProxyConfig>,
     pub http: reqwest::Client,
-    /// One entry per in-flight request keyed by the client's socket
-    /// address + a monotonic per-connection counter. Since hudsucker
-    /// serialises request/response pairs per connection in HTTP/1.1
-    /// mode, popping the min-started entry per connection correlates
-    /// correctly for the common case.
-    pub pending: Arc<dashmap::DashMap<u64, Pending>>,
+    /// Per-client-connection FIFO queue of pending requests. Handler
+    /// is called back for handle_request and handle_response as
+    /// separate events; hudsucker guarantees the ordering of BOTH is
+    /// preserved per connection, so a FIFO keyed on `client_addr`
+    /// correctly correlates (req, resp) pairs for HTTP/1.1 keep-
+    /// alive AND HTTP/2 in-order streams. Real HTTP/2 multiplexing
+    /// across the same connection would still race — documented in
+    /// PROXY.md, tracked for a v0.4 fix using the `:stream-id`
+    /// pseudo-header once hudsucker exposes it.
+    pub pending: Arc<dashmap::DashMap<SocketAddr, VecDeque<Pending>>>,
 }
 
 pub struct Pending {
@@ -78,25 +84,27 @@ struct ResponseSummary {
 impl HttpHandler for Handler {
     fn handle_request(
         &mut self,
-        _ctx: &HttpContext,
+        ctx: &HttpContext,
         req: Request<Body>,
     ) -> impl Future<Output = RequestOrResponse> + Send {
         let handler = self.clone();
-        async move { handler.on_request(req).await }
+        let addr = ctx.client_addr;
+        async move { handler.on_request(addr, req).await }
     }
 
     fn handle_response(
         &mut self,
-        _ctx: &HttpContext,
+        ctx: &HttpContext,
         res: Response<Body>,
     ) -> impl Future<Output = Response<Body>> + Send {
         let handler = self.clone();
-        async move { handler.on_response(res).await }
+        let addr = ctx.client_addr;
+        async move { handler.on_response(addr, res).await }
     }
 }
 
 impl Handler {
-    async fn on_request(&self, req: Request<Body>) -> RequestOrResponse {
+    async fn on_request(&self, client_addr: SocketAddr, req: Request<Body>) -> RequestOrResponse {
         let method = req.method().to_string();
         let uri = req.uri().clone();
         let host = uri.host().unwrap_or("").to_string();
@@ -118,41 +126,49 @@ impl Handler {
         let preview = preview_of(&bytes);
 
         let trace_id = uuid::Uuid::new_v4().to_string();
-        let key = ctx_key(&parts);
-        self.pending.insert(
-            key,
-            Pending {
-                trace_id,
-                method: method.clone(),
-                url: url.clone(),
-                host,
-                started_at: Instant::now(),
-                req_body_preview: preview,
-            },
-        );
+        let pending = Pending {
+            trace_id,
+            method: method.clone(),
+            url: url.clone(),
+            host,
+            started_at: Instant::now(),
+            req_body_preview: preview,
+        };
+        // Push to the tail of the per-connection queue.
+        self.pending
+            .entry(client_addr)
+            .or_insert_with(VecDeque::new)
+            .push_back(pending);
 
         let new_req = Request::from_parts(parts, body_from_bytes(bytes));
         new_req.into()
     }
 
-    async fn on_response(&self, res: Response<Body>) -> Response<Body> {
+    async fn on_response(&self, client_addr: SocketAddr, res: Response<Body>) -> Response<Body> {
         let (parts, body) = res.into_parts();
         let bytes = match body.collect().await {
             Ok(collected) => collected.to_bytes(),
             Err(_) => Bytes::new(),
         };
 
-        // Coarse correlation: pop the min-started pending entry.
-        // Works for single-in-flight-per-connection HTTP/1.1.
-        // HTTP/2 multiplexing is documented as a v0.4 improvement.
-        let pending_key = self
+        // Pop the head of the queue for THIS connection. Hudsucker
+        // preserves per-connection handler-call ordering, so this
+        // pairs correctly with the corresponding on_request for
+        // HTTP/1.1 keep-alive + HTTP/2 in-order streams. Cleans up
+        // empty queues to bound memory across long-lived clients.
+        let matched = self
             .pending
-            .iter()
-            .min_by_key(|e| e.started_at)
-            .map(|e| *e.key());
+            .get_mut(&client_addr)
+            .and_then(|mut q| q.pop_front());
+        if let Some(entry) = self.pending.get(&client_addr) {
+            if entry.is_empty() {
+                drop(entry);
+                self.pending.remove(&client_addr);
+            }
+        }
 
-        if let Some(k) = pending_key {
-            if let Some((_, pending)) = self.pending.remove(&k) {
+        if let Some(pending) = matched {
+            {
                 let elapsed_ms = pending.started_at.elapsed().as_millis();
                 let status = parts.status.as_u16();
                 let resp_preview = preview_of(&bytes);
@@ -217,19 +233,6 @@ fn preview_of(bytes: &[u8]) -> String {
     }
 }
 
-fn ctx_key(parts: &http::request::Parts) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut h = DefaultHasher::new();
-    parts.method.hash(&mut h);
-    parts.uri.hash(&mut h);
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos()
-        .hash(&mut h);
-    h.finish()
-}
 
 // Silence unused warning — kept for signature parity with future Full<Bytes> body path.
 #[allow(dead_code)]

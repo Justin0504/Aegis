@@ -148,6 +148,13 @@ declare module 'astro:content' {
   collection: "blog";
   data: InferEntrySchema<"blog">
 } & { render(): Render[".md"] };
+"agent-payment-security-refunds-wires-stablecoin.md": {
+	id: "agent-payment-security-refunds-wires-stablecoin.md";
+  slug: "agent-payment-security-refunds-wires-stablecoin";
+  body: string;
+  collection: "blog";
+  data: InferEntrySchema<"blog">
+} & { render(): Render[".md"] };
 "ai-agent-safety-fintech-pci-dss.md": {
 	id: "ai-agent-safety-fintech-pci-dss.md";
   slug: "ai-agent-safety-fintech-pci-dss";
