@@ -222,6 +222,40 @@ const websiteLd = {
 
     <slot />
 
+    {/*
+      Scroll-triggered reveal. Any element with `data-reveal` fades +
+      rises into place the first time it enters the viewport. Uses
+      IntersectionObserver so the site never spins the main thread on
+      scroll. Honours `prefers-reduced-motion`: the observer simply
+      applies the "in" class immediately without a transition, so
+      motion-sensitive users still see the content.
+
+      Selectors auto-applied to common structural elements (h2, .card,
+      .bento-card, section headings) so blog posts + landing pages
+      get the effect without changing every markup site.
+    */}
+    <script is:inline>
+      (function () {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var targets = document.querySelectorAll(
+          '[data-reveal], section > h2, .bento-card, .vt-panel, .container-narrow > h2, article header, article h2',
+        );
+        if (reduce || !('IntersectionObserver' in window)) {
+          targets.forEach(function (el) { el.classList.add('in-view'); });
+          return;
+        }
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('in-view');
+              io.unobserve(e.target);
+            }
+          });
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+        targets.forEach(function (el) { io.observe(el); });
+      })();
+    </script>
+
     <style is:global>
       /* Scroll progress bar — fixed above every sticky header. */
       #aegis-scroll-progress {
@@ -329,6 +363,47 @@ const websiteLd = {
         h3 { font-size: 1.15rem; }
         .container { padding: 0 1.1rem; }
         pre { font-size: 0.78rem; padding: 0.85rem 0.9rem; }
+      }
+
+      /* Scroll-reveal — every eligible element starts slightly below
+         and transparent, then eases into place the moment it enters
+         the viewport. Motion is small (12px + 0.55s) so it reads as
+         "the page is breathing" not "everything is animating". */
+      section > h2,
+      .bento-card,
+      .vt-panel,
+      .container-narrow > h2,
+      article header,
+      article h2,
+      [data-reveal] {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.55s cubic-bezier(0.2, 0.7, 0.2, 1),
+                    transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+        will-change: opacity, transform;
+      }
+      section > h2.in-view,
+      .bento-card.in-view,
+      .vt-panel.in-view,
+      .container-narrow > h2.in-view,
+      article header.in-view,
+      article h2.in-view,
+      [data-reveal].in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        section > h2,
+        .bento-card,
+        .vt-panel,
+        .container-narrow > h2,
+        article header,
+        article h2,
+        [data-reveal] {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
       }
 
       /* Buttons / CTAs */
