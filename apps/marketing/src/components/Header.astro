@@ -163,6 +163,24 @@ const displayName = user
       .primary { order: 3; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 1rem; }
       .cta { margin-left: 0; }
     }
+    /* Below iPhone 15 — tighten everything so brand + CTAs fit in
+       one row without the primary nav wrapping the header height. */
+    @media (max-width: 500px) {
+      .header-inner { gap: 0.7rem; }
+      .brand { font-size: 1.15rem; gap: 0.3rem; }
+      .mark { font-size: 1.35rem; }
+      .primary { gap: 0.9rem; font-size: 0.88rem; }
+      .cta { gap: 0.4rem; }
+      .cta .btn, .cta .btn-secondary {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        /* Apple HIG: touch target ≥44px. padding+font gets us to ~40 —
+           bump min-height explicitly. */
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+      }
+    }
 
     /* ── User chip (logged-in state) ───────────────────────── */
     .user-chip { position: relative; }

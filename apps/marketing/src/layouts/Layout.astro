@@ -315,6 +315,22 @@ const websiteLd = {
         max-width: 760px;
       }
 
+      /* Mobile-first responsive typography + spacing overrides.
+         Big headings that clamp() nicely on desktop still bleed off
+         small viewports because the min-value is 2.6rem. Cap the
+         min at 1.9rem below 500px + tighten container padding so the
+         page never scrolls horizontally on iPhone SE (375px). Also
+         forces long <pre> code blocks to wrap instead of x-overflowing
+         next to body copy. */
+      @media (max-width: 500px) {
+        html, body { font-size: 15px; }
+        h1 { font-size: clamp(1.9rem, 8vw, 2.6rem); line-height: 1.1; }
+        h2 { font-size: clamp(1.5rem, 6vw, 1.9rem); }
+        h3 { font-size: 1.15rem; }
+        .container { padding: 0 1.1rem; }
+        pre { font-size: 0.78rem; padding: 0.85rem 0.9rem; }
+      }
+
       /* Buttons / CTAs */
       .btn {
         display: inline-flex;

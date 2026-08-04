@@ -706,6 +706,36 @@ action:  BLOCK`,
     .vt-brand { padding: 0.35rem; }
   }
 
+  /* Below iPhone 15 width — tab strip needs to be swipeable and
+     tighter, brand row wraps to a horizontal chip grid instead of a
+     column list, panel padding shrinks. */
+  @media (max-width: 500px) {
+    .vt-tablist {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      gap: 1rem;
+      /* Momentum scroll on iOS */
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 0.35rem;
+    }
+    .vt-tab {
+      flex-shrink: 0;
+      padding: 0.55rem 0.2rem 0.65rem;
+    }
+    .vt-panel { padding: 1.1rem; margin: 0.6rem 0 0; border-radius: 10px; }
+    .vt-grid { gap: 1.1rem; }
+    .vt-visual { min-height: 180px; border-radius: 8px; }
+    .vt-stat dt { font-size: 1.25rem; }
+    .vt-stats { padding: 0.6rem 0; }
+    .vt-code-body { font-size: 0.7rem; padding: 0.7rem 0.85rem; }
+    .vt-brands {
+      /* Horizontal chip row — density beats a long vertical list */
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+  }
+
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     .vt-panel { animation: none; opacity: 1; transform: none; }

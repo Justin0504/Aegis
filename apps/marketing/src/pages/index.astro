@@ -1078,6 +1078,12 @@ client = openai.OpenAI(
       .bento-text { padding: 2rem 1.6rem; }
       .bento-visual { padding: 1.6rem; min-height: 320px; }
     }
+    /* Below iPhone 15 width: tighten padding + shorter visual so hero
+       + body copy fit above the fold. */
+    @media (max-width: 500px) {
+      .bento-text { padding: 1.4rem 1.1rem; }
+      .bento-visual { padding: 1.1rem; min-height: 200px; }
+    }
 
     /* ── Zero code ──────────────────────────────────────────────── */
     .zero-code { padding: 4rem 0; border-top: 1px solid var(--hairline); background: var(--surface); }
@@ -1110,11 +1116,30 @@ client = openai.OpenAI(
 
     /* ── vs table ─────────────────────────────────────────────── */
     .vs { padding: 4rem 0; border-top: 1px solid var(--hairline); }
-    .vs-scroll { overflow-x: auto; }
+    .vs-scroll {
+      overflow-x: auto;
+      /* Hint to the user that this is scrollable on narrow viewports —
+         soft gradient fade on the right edge. */
+      background:
+        linear-gradient(90deg, transparent 90%, hsl(0 0% 0% / 0.06));
+      background-attachment: local;
+    }
     .vs table {
       width: 100%;
       min-width: 620px;
       border-collapse: collapse;
+    }
+    @media (max-width: 500px) {
+      .vs { padding: 2.5rem 0; }
+      .vs table {
+        /* Drop min-width so the table shrinks with the viewport.
+           Cells will wrap; still readable, no horizontal scroll. */
+        min-width: 0;
+        font-size: 0.82rem;
+      }
+      .vs thead th, .vs tbody th, .vs tbody td {
+        padding: 0.5rem 0.55rem;
+      }
     }
     .vs thead th {
       text-align: left;
