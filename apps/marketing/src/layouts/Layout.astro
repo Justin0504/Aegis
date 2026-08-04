@@ -237,22 +237,147 @@ const websiteLd = {
     <script is:inline>
       (function () {
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ── Scroll-triggered reveal ────────────────────────────────
         var targets = document.querySelectorAll(
           '[data-reveal], section > h2, .bento-card, .vt-panel, .container-narrow > h2, article header, article h2',
         );
         if (reduce || !('IntersectionObserver' in window)) {
           targets.forEach(function (el) { el.classList.add('in-view'); });
-          return;
+        } else {
+          var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add('in-view');
+                io.unobserve(e.target);
+              }
+            });
+          }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+          targets.forEach(function (el) { io.observe(el); });
         }
-        var io = new IntersectionObserver(function (entries) {
-          entries.forEach(function (e) {
-            if (e.isIntersecting) {
-              e.target.classList.add('in-view');
-              io.unobserve(e.target);
+
+        if (reduce) return;
+
+        // ── Magnetic buttons ───────────────────────────────────────
+        // On hover, the button leans ~35% of the cursor offset from
+        // its centre. Small enough (max ~5px) to feel like a physical
+        // pull, not a UI toy. Only rebound on real pointer devices
+        // (touch users don't get hover, so the JS is a no-op for
+        // them anyway).
+        var mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+        if (mq.matches) {
+          document.querySelectorAll('.btn, .btn-secondary').forEach(function (btn) {
+            var maxPull = 5;
+            function onMove(e) {
+              var r = btn.getBoundingClientRect();
+              var cx = r.left + r.width / 2;
+              var cy = r.top + r.height / 2;
+              var dx = (e.clientX - cx) / (r.width / 2);
+              var dy = (e.clientY - cy) / (r.height / 2);
+              btn.style.setProperty('--mx', (dx * maxPull) + 'px');
+              btn.style.setProperty('--my', (dy * maxPull) + 'px');
             }
+            btn.addEventListener('pointermove', onMove);
+            btn.addEventListener('pointerleave', function () {
+              btn.style.setProperty('--mx', '0px');
+              btn.style.setProperty('--my', '0px');
+            });
           });
-        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-        targets.forEach(function (el) { io.observe(el); });
+        }
+
+        // ── Cursor-follow spotlight ────────────────────────────────
+        // Any container marked `data-spotlight` gets a soft radial
+        // gradient that tracks the pointer. Uses CSS custom
+        // properties so the paint pass stays cheap. Skipped on
+        // touch devices (no pointer to follow).
+        if (mq.matches) {
+          document.querySelectorAll('[data-spotlight]').forEach(function (el) {
+            el.addEventListener('pointermove', function (e) {
+              var r = el.getBoundingClientRect();
+              el.style.setProperty('--sx', (e.clientX - r.left) + 'px');
+              el.style.setProperty('--sy', (e.clientY - r.top)  + 'px');
+            });
+          });
+        }
+
+        // ── Parallax ───────────────────────────────────────────────
+        // Any element with `data-parallax` (optional value = speed,
+        // default 0.15) drifts vertically as it scrolls through the
+        // viewport. Speed is clamped to ±60px so nothing floats out
+        // of its container. Runs on scroll via rAF-throttled loop —
+        // one loop for the whole page, not one per element.
+        var parallaxEls = Array.prototype.slice.call(document.querySelectorAll('[data-parallax]'));
+        if (parallaxEls.length) {
+          var ticking = false;
+          function updateParallax() {
+            var vh = window.innerHeight;
+            parallaxEls.forEach(function (el) {
+              var r = el.getBoundingClientRect();
+              // Element midpoint relative to viewport centre; -1 above,
+              // 0 centred, +1 below. Only run when visible-ish.
+              if (r.bottom < -100 || r.top > vh + 100) return;
+              var mid = (r.top + r.height / 2 - vh / 2) / vh;
+              var speed = parseFloat(el.dataset.parallax) || 0.15;
+              var y = Math.max(-60, Math.min(60, mid * speed * -100));
+              el.style.transform = 'translate3d(0,' + y.toFixed(1) + 'px,0)';
+            });
+            ticking = false;
+          }
+          window.addEventListener('scroll', function () {
+            if (!ticking) { requestAnimationFrame(updateParallax); ticking = true; }
+          }, { passive: true });
+          updateParallax();
+        }
+
+        // ── Count-up numbers ───────────────────────────────────────
+        // Any element `<span data-count="12345">12,345</span>` counts
+        // from 0 up to that value once when scrolled into view. Text
+        // is set to `0` at start, restored to the (formatted) target
+        // on completion. Formatting preserves commas, "%", "$" etc.
+        function fmt(n, tpl) {
+          // Preserve non-digit prefix/suffix from the original text.
+          var m = /^(\D*)([\d.,]+)(\D*)$/.exec(tpl);
+          if (!m) return String(n);
+          var target = m[2].replace(/,/g, '');
+          var decimals = target.indexOf('.') >= 0
+            ? target.length - target.indexOf('.') - 1
+            : 0;
+          var rounded = n.toFixed(decimals);
+          // Re-insert thousands separators if the source had them.
+          if (m[2].indexOf(',') >= 0) {
+            var parts = rounded.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            rounded = parts.join('.');
+          }
+          return m[1] + rounded + m[3];
+        }
+        var countTargets = document.querySelectorAll('[data-count]');
+        if (countTargets.length && 'IntersectionObserver' in window) {
+          countTargets.forEach(function (el) {
+            el.dataset.countTpl = el.textContent.trim();
+            el.textContent = fmt(0, el.dataset.countTpl);
+          });
+          var cio = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (!e.isIntersecting) return;
+              var el = e.target;
+              cio.unobserve(el);
+              var target = parseFloat(el.dataset.count);
+              if (!isFinite(target)) return;
+              var duration = 1200;
+              var start = performance.now();
+              function tick(now) {
+                var t = Math.min(1, (now - start) / duration);
+                // ease-out-cubic
+                var eased = 1 - Math.pow(1 - t, 3);
+                el.textContent = fmt(target * eased, el.dataset.countTpl);
+                if (t < 1) requestAnimationFrame(tick);
+              }
+              requestAnimationFrame(tick);
+            });
+          }, { threshold: 0.4 });
+          countTargets.forEach(function (el) { cio.observe(el); });
+        }
       })();
     </script>
 
@@ -365,6 +490,34 @@ const websiteLd = {
         pre { font-size: 0.78rem; padding: 0.85rem 0.9rem; }
       }
 
+      /* Cursor-follow spotlight — any [data-spotlight] container gets
+         a soft radial gradient tracking the pointer. Uses ::before
+         so the parent can keep its own background; the layer is
+         `pointer-events: none` so it never eats clicks. */
+      [data-spotlight] {
+        position: relative;
+        isolation: isolate;
+      }
+      [data-spotlight]::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background: radial-gradient(
+          420px circle at var(--sx, 50%) var(--sy, 50%),
+          color-mix(in oklab, var(--accent) 8%, transparent),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+      [data-spotlight]:hover::before { opacity: 1; }
+      [data-spotlight] > * { position: relative; z-index: 1; }
+      @media (prefers-reduced-motion: reduce) {
+        [data-spotlight]::before { display: none; }
+      }
+
       /* Scroll-reveal — every eligible element starts slightly below
          and transparent, then eases into place the moment it enters
          the viewport. Motion is small (12px + 0.55s) so it reads as
@@ -406,7 +559,11 @@ const websiteLd = {
         }
       }
 
-      /* Buttons / CTAs */
+      /* Buttons / CTAs — with hover glow + magnetic hover tracking.
+         The `--mx` / `--my` custom properties are set by the
+         magnetic-buttons script below; the button uses them to lean
+         2-3px toward the cursor on hover. On tap / active they
+         snap back with a subtle press. */
       .btn {
         display: inline-flex;
         align-items: center;
@@ -419,10 +576,23 @@ const websiteLd = {
         text-decoration: none;
         font-weight: 500;
         font-size: 0.96rem;
-        transition: background 0.15s, color 0.15s, transform 0.05s;
+        position: relative;
+        transition:
+          background 0.18s ease,
+          color 0.18s ease,
+          transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
+          box-shadow 0.25s ease;
+        transform: translate(calc(var(--mx, 0px) * 0.35), calc(var(--my, 0px) * 0.35));
+        will-change: transform, box-shadow;
       }
-      .btn:hover { background: transparent; color: var(--accent); }
-      .btn:active { transform: translateY(1px); }
+      .btn:hover {
+        background: transparent;
+        color: var(--accent);
+        box-shadow:
+          0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent),
+          0 8px 24px color-mix(in oklab, var(--accent) 22%, transparent);
+      }
+      .btn:active { transform: translate(0, 1px) scale(0.98); }
       .btn-secondary {
         display: inline-flex;
         align-items: center;
@@ -435,8 +605,25 @@ const websiteLd = {
         text-decoration: none;
         font-weight: 500;
         font-size: 0.96rem;
+        position: relative;
+        transition:
+          background 0.18s ease,
+          border-color 0.18s ease,
+          transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
+          box-shadow 0.25s ease;
+        transform: translate(calc(var(--mx, 0px) * 0.35), calc(var(--my, 0px) * 0.35));
+        will-change: transform, box-shadow;
       }
-      .btn-secondary:hover { border-color: var(--accent); }
+      .btn-secondary:hover {
+        border-color: var(--accent);
+        background: color-mix(in oklab, var(--accent) 5%, transparent);
+        box-shadow: 0 6px 18px color-mix(in oklab, var(--accent) 12%, transparent);
+      }
+
+      /* Kill magnetic + glow when the user has opted out of motion. */
+      @media (prefers-reduced-motion: reduce) {
+        .btn, .btn-secondary { transform: none !important; box-shadow: none !important; }
+      }
 
       hr { border: 0; border-top: 1px solid var(--hairline); margin: 3rem 0; }
     </style>

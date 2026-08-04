@@ -194,12 +194,23 @@ action:  BLOCK`,
               </div>
 
               <dl class="vt-stats">
-                {p.stats.map(([k, v]) => (
-                  <div class="vt-stat">
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
-                  </div>
-                ))}
+                {p.stats.map(([k, v]) => {
+                  // Extract the leading numeric portion so the
+                  // count-up script can animate purely numeric
+                  // stats ("80%", "$1,000", "27m", "7"). Stats
+                  // without a leading number ("2-of-N") stay
+                  // static — no data-count attribute.
+                  const m = /^(\D*)([\d.,]+)(\D*)$/.exec(k);
+                  const target = m ? parseFloat(m[2].replace(/,/g, '')) : null;
+                  return (
+                    <div class="vt-stat">
+                      {target !== null
+                        ? <dt data-count={target}>{k}</dt>
+                        : <dt>{k}</dt>}
+                      <dd>{v}</dd>
+                    </div>
+                  );
+                })}
               </dl>
 
               <a class="vt-read" href={p.readMore.href}>
@@ -214,7 +225,7 @@ action:  BLOCK`,
               <pre class="vt-policy-mini" aria-hidden="true">{p.policyMini}</pre>
             </div>
 
-            <div class="vt-visual" aria-hidden="true">
+            <div class="vt-visual" aria-hidden="true" data-parallax="0.12">
               <figure class="vt-photo">
                 <img
                   src={`https://images.unsplash.com/photo-${p.photo}?w=1000&h=760&q=80&fit=crop&auto=format`}
