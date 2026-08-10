@@ -1,11 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
 
-  "framework": null,
+  "framework": "nextjs",
 
-  "installCommand": "npm install --no-audit --no-fund --ignore-scripts",
+  "installCommand": "npm install --no-audit --no-fund --ignore-scripts && (cd node_modules && ln -sfn ../apps/compliance-cockpit/node_modules/next next 2>/dev/null || true)",
 
-  "buildCommand": "npm run --workspace=@agentguard/core-schema build && cd apps/compliance-cockpit && npx next build && cd ../..",
+  "buildCommand": "npm run --workspace=@agentguard/core-schema build && npm run --workspace=@agentguard/compliance-cockpit build",
 
   "outputDirectory": "apps/compliance-cockpit/.next",
 
