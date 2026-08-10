@@ -2,6 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const BASE = process.env['GATEWAY_URL'] || 'http://localhost:8080'
 
+// Demo mode: when this is a public-facing demo build without a real
+// gateway behind it, short-circuit gateway-proxy calls with sensible
+// empty responses so the UI renders "no data" states cleanly instead
+// of red banners + toasts. Set by build env in the Vercel demo deploy.
+const DEMO_MODE =
+  process.env['NEXT_PUBLIC_DEMO_MODE'] === 'true' ||
+  process.env['DEMO_MODE'] === 'true';
+
+/**
+ * Best-effort empty-shape reply for known gateway endpoints. The
+ * shapes here match what the real gateway returns on empty data,
+ * so downstream React components render their empty-state UI
+ * (rather than throwing on missing fields).
+ */
+function demoEmptyShape(path: string): unknown {
+  // Common list endpoints — return the wrapper the real gateway uses.
+  if (path === 'traces' || path.startsWith('traces?'))    return { traces: [], total: 0 };
+  if (path === 'agents' || path.startsWith('agents?'))    return { items: [] };
+  if (path.startsWith('policies'))                        return [];
+  if (path.startsWith('violations'))                      return { violations: [] };
+  if (path.startsWith('approvals'))                       return { approvals: [] };
+  if (path.startsWith('stats'))                           return {};
+  if (path.startsWith('sessions'))                        return { sessions: [] };
+  if (path.startsWith('audit-log'))                       return { items: [] };
+  if (path.startsWith('compliance'))                      return { rows: [], mappings: [] };
+  if (path.startsWith('rollbacks'))                       return { items: [] };
+  if (path.startsWith('coverage'))                        return { agents: [], rules: [] };
+  // Fallback — well-shaped empty object; every React component in
+  // the codebase treats `undefined`/`null` fields as absence.
+  return {};
+}
+
 // Server-side key cache — resolved once, reused for all requests
 let _cachedKey: string | null = null
 
@@ -52,6 +84,9 @@ export async function GET(
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
+    if (DEMO_MODE) {
+      return NextResponse.json(demoEmptyShape(params.path.join('/')), { status: 200 })
+    }
     return NextResponse.json({ error: 'Gateway unavailable' }, { status: 502 })
   }
 }
@@ -68,6 +103,9 @@ export async function POST(
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
+    if (DEMO_MODE) {
+      return NextResponse.json(demoEmptyShape(params.path.join('/')), { status: 200 })
+    }
     return NextResponse.json({ error: 'Gateway unavailable' }, { status: 502 })
   }
 }
@@ -84,6 +122,9 @@ export async function PATCH(
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
+    if (DEMO_MODE) {
+      return NextResponse.json(demoEmptyShape(params.path.join('/')), { status: 200 })
+    }
     return NextResponse.json({ error: 'Gateway unavailable' }, { status: 502 })
   }
 }
@@ -100,6 +141,9 @@ export async function PUT(
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
+    if (DEMO_MODE) {
+      return NextResponse.json(demoEmptyShape(params.path.join('/')), { status: 200 })
+    }
     return NextResponse.json({ error: 'Gateway unavailable' }, { status: 502 })
   }
 }
@@ -115,6 +159,9 @@ export async function DELETE(
     const data = await response.json()
     return NextResponse.json(data, { status: response.status })
   } catch {
+    if (DEMO_MODE) {
+      return NextResponse.json(demoEmptyShape(params.path.join('/')), { status: 200 })
+    }
     return NextResponse.json({ error: 'Gateway unavailable' }, { status: 502 })
   }
 }

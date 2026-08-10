@@ -70,7 +70,13 @@ export function EuAiActView() {
       const data = await res.json() as EuPack
       setPack(data)
     } catch (err) {
-      toast.error(`Failed to load evidence pack: ${(err as Error).message}`)
+      // Silent-fail in the public demo — no real gateway to fetch
+      // evidence from, so the missing pack is expected, not an error
+      // to shout at the visitor about.
+      const inDemo = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+      if (!inDemo) {
+        toast.error(`Failed to load evidence pack: ${(err as Error).message}`)
+      }
     } finally {
       setLoading(false)
     }

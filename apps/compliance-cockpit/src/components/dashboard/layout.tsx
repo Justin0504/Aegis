@@ -61,22 +61,27 @@ const MUTED     = 'hsl(var(--muted-foreground))'
 const ACTIVE_BG = 'hsl(var(--sidebar-active))'
 
 function AegisLogo() {
-  // Pure monochrome wordmark — no tinted shield, no decorative slash.
-  // Name only, set in display weight + tight tracking.
+  // Serif wordmark to match the marketing site header
+  // (aegistraces.com uses Instrument Serif regular for the brand).
+  // Rendered as plain <span> not SVG so the browser applies the
+  // system font stack fallback cleanly if Instrument Serif hasn't
+  // loaded yet — no FOUT with a bold sans-serif fallback.
   return (
-    <svg width="92" height="22" viewBox="0 0 92 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="AEGIS">
-      <text
-        x="0"
-        y="17"
-        fontFamily="var(--font-plus-jakarta), system-ui, sans-serif"
-        fontWeight="800"
-        fontSize="18"
-        letterSpacing="2"
-        fill="hsl(var(--foreground))"
-      >
-        AEGIS
-      </text>
-    </svg>
+    <span
+      aria-label="AEGIS"
+      style={{
+        fontFamily: 'var(--font-serif), "Instrument Serif", Georgia, serif',
+        fontWeight: 400,
+        fontSize: 24,
+        letterSpacing: '-0.005em',
+        lineHeight: 1,
+        color: 'hsl(var(--foreground))',
+        display: 'inline-block',
+        padding: '0 2px',
+      }}
+    >
+      AEGIS
+    </span>
   )
 }
 

@@ -109,7 +109,12 @@ export function StatusBar() {
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
-  const protectionOn = reachable && stats !== null
+  // Demo mode: no real gateway is attached, but the demo UI should
+  // never surface a red "unreachable" banner — treat it as protected
+  // and use the mock trace stats already flowing through the panels.
+  const DEMO_MODE =
+    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  const protectionOn = DEMO_MODE ? true : (reachable && stats !== null)
   const blocked = stats?.violations24h ?? 0
   const pending = stats?.pendingChecks ?? 0
   const traces  = stats?.totalTraces ?? 0
