@@ -124,19 +124,26 @@ interface Props {
 }
 
 export function BrandIcon({ brand, size = 16, className, title }: Props) {
-  const [stage, setStage] = useState<'simpleicons' | 'iconhorse' | 'placeholder'>('simpleicons')
+  // Fetch ladder: real favicon first (icon.horse pulls the site's own
+  // asset, so Gmail becomes its multi-color M, Stripe becomes its
+  // purple mark, OpenAI becomes its actual monogram, etc.). Simple
+  // Icons is the fallback for cases where the site has no discoverable
+  // favicon or icon.horse rate-limits. Placeholder as final safety net.
+  //
+  // Rationale: favicons are what users associate with a brand. Simple
+  // Icons is technically nicer (SVG, vector-sharp), but returns
+  // brand-color monochrome — which reads as "wrong" when the actual
+  // brand mark is multi-colored (Gmail, Google, Meta, YouTube).
+  const [stage, setStage] = useState<'iconhorse' | 'simpleicons' | 'placeholder'>('iconhorse')
   const key = brand.toLowerCase().trim()
   const def: BrandDef | undefined = BRANDS[key]
-
-  // Unknown brand — go straight to icon.horse using whatever the caller
-  // gave us as a domain guess. If that flops we render a placeholder.
   const resolved: BrandDef = def ?? { slug: null, domain: guessDomain(brand) }
 
   let src: string | null = null
-  if (stage === 'simpleicons' && resolved.slug) {
-    src = `https://cdn.simpleicons.org/${encodeURIComponent(resolved.slug)}/${encodeURIComponent(resolved.slug)}`
-  } else if (stage === 'iconhorse' || (stage === 'simpleicons' && !resolved.slug)) {
+  if (stage === 'iconhorse') {
     src = `https://icon.horse/icon/${encodeURIComponent(resolved.domain)}`
+  } else if (stage === 'simpleicons' && resolved.slug) {
+    src = `https://cdn.simpleicons.org/${encodeURIComponent(resolved.slug)}/${encodeURIComponent(resolved.slug)}`
   }
 
   if (stage === 'placeholder' || !src) {
@@ -152,7 +159,7 @@ export function BrandIcon({ brand, size = 16, className, title }: Props) {
       height={size}
       onError={() => {
         setStage(prev =>
-          prev === 'simpleicons' && resolved.slug ? 'iconhorse' : 'placeholder',
+          prev === 'iconhorse' && resolved.slug ? 'simpleicons' : 'placeholder',
         )
       }}
       className={className}
