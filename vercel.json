@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "framework": null,
+
+  "installCommand": "npm install --no-audit --no-fund --ignore-scripts",
+
+  "buildCommand": "npm run --workspace=@agentguard/core-schema build && cd apps/compliance-cockpit && npx next build && cd ../..",
+
+  "outputDirectory": "apps/compliance-cockpit/.next",
+
+  "env": {
+    "NEXT_PUBLIC_USE_MOCK_TRACES": "true",
+    "NEXT_PUBLIC_DEMO_MODE": "true"
+  },
+
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_USE_MOCK_TRACES": "true",
+      "NEXT_PUBLIC_DEMO_MODE": "true"
+    }
+  }
+}
