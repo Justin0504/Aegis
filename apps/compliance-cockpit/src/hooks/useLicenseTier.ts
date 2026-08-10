@@ -18,13 +18,14 @@
 import { useEffect, useState } from 'react'
 import { readLicense, type LicenseState } from '@/components/settings/license-panel'
 
-export type Tier = 'free' | 'pro' | 'team' | 'enterprise'
+export type Tier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 
 const TIER_RANK: Record<Tier, number> = {
   free:       0,
   pro:        1,
   team:       2,
-  enterprise: 3,
+  business:   3,
+  enterprise: 4,
 }
 
 /** True if the operator's current tier meets or exceeds `required`. */
@@ -32,12 +33,23 @@ export function hasTier(current: Tier, required: Tier): boolean {
   return TIER_RANK[current] >= TIER_RANK[required]
 }
 
-/** Normalize whatever the backend returned into our tier enum. Any
- *  unrecognised plan strings fall back to 'free' so a data-shape
- *  drift can't accidentally unlock paid features. */
+/** Human label for chips + upsell copy. Mirrors marketing pricing. */
+export const TIER_LABEL: Record<Tier, string> = {
+  free:       'Free',
+  pro:        'Pro',
+  team:       'Team',
+  business:   'Business',
+  enterprise: 'Enterprise',
+}
+
+/** Normalize whatever the backend returned into our tier enum. New
+ *  builds should prefer the explicit `tier` field on the license
+ *  payload; legacy `plan` fallback keeps older cached licenses
+ *  working. Any unrecognised value falls back to 'free' so a data-
+ *  shape drift can't accidentally unlock paid features. */
 function normalize(plan: string | undefined): Tier {
   const p = (plan ?? '').toLowerCase()
-  if (p === 'pro' || p === 'team' || p === 'enterprise') return p
+  if (p === 'pro' || p === 'team' || p === 'business' || p === 'enterprise') return p
   return 'free'
 }
 
@@ -55,6 +67,10 @@ export function useLicenseTier(): {
     return () => window.removeEventListener('aegis-license-change', handler)
   }, [])
 
-  const tier = license?.valid ? normalize(license.plan) : 'free'
+  // Prefer the new explicit `tier` field on the license (v2 API);
+  // fall back to `plan` for compatibility with pre-v2 cached licenses.
+  const tier = license?.valid
+    ? normalize((license as any).tier ?? license.plan)
+    : 'free'
   return { tier, license, isPaid: tier !== 'free' }
 }

@@ -25,11 +25,13 @@ import { useQuery } from '@tanstack/react-query'
 import { gw } from '@/lib/gateway'
 import { useLicenseTier, type Tier } from '@/hooks/useLicenseTier'
 
-/** Marketing pricing → monthly check limits. Update if pricing changes. */
+/** Marketing pricing → monthly check limits. Mirror any change in
+ *  apps/marketing/src/pages/pricing.astro. */
 export const TIER_LIMITS: Record<Tier, number> = {
   free:       1_000,
   pro:        100_000,
   team:       1_000_000,
+  business:   Number.POSITIVE_INFINITY,
   enterprise: Number.POSITIVE_INFINITY,
 }
 

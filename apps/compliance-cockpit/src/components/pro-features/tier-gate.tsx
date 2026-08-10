@@ -17,14 +17,7 @@
 
 import type { ReactNode } from 'react'
 import { Lock, ArrowUpRight } from 'lucide-react'
-import { useLicenseTier, hasTier, type Tier } from '@/hooks/useLicenseTier'
-
-const TIER_LABEL: Record<Tier, string> = {
-  free:       'Free',
-  pro:        'Pro',
-  team:       'Team',
-  enterprise: 'Enterprise',
-}
+import { useLicenseTier, hasTier, TIER_LABEL, type Tier } from '@/hooks/useLicenseTier'
 
 interface Props {
   /** Minimum tier that unlocks the feature. */

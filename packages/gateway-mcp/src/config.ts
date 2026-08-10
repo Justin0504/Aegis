@@ -67,7 +67,7 @@ const envSchema = z.object({
   WEBHOOK_TIMEOUT_MS:   z.coerce.number().int().min(1000).default(10000),
 
   // License / feature gating
-  AEGIS_LICENSE_TIER: z.enum(['community', 'pro', 'enterprise']).default('community'),
+  AEGIS_LICENSE_TIER: z.enum(['community', 'pro', 'team', 'business', 'enterprise']).default('community'),
 
   // Graceful shutdown
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),
@@ -168,48 +168,103 @@ export const config = {
     timeoutMs: env.WEBHOOK_TIMEOUT_MS,
   },
   license: {
-    tier: env.AEGIS_LICENSE_TIER as 'community' | 'pro' | 'enterprise',
+    tier: env.AEGIS_LICENSE_TIER as LicenseTier,
   },
 } as const;
+
+/** Canonical tier ordering. Every enforcement check ranks against this. */
+export type LicenseTier = 'community' | 'pro' | 'team' | 'business' | 'enterprise';
+export const TIER_RANK: Record<LicenseTier, number> = {
+  community: 0, pro: 1, team: 2, business: 3, enterprise: 4,
+};
 
 /**
  * Max **enforced** agents per license tier. Agents past the cap still
  * get registered — they're just flagged `audit_only` so the gateway
  * traces them without ever blocking. Prevents "we can't ship because
  * you'll block prod" while giving the buyer a concrete upgrade signal.
- *   community → 5   (single dev / prototype)
- *   pro       → 50  (small team)
- *   enterprise → unlimited
+ *   community  →   3   (solo dev evaluating)
+ *   pro        →  20   (small team gating production agents)
+ *   team+      → unlimited
  */
-export const AGENT_ENFORCEMENT_LIMITS: Record<'community' | 'pro' | 'enterprise', number> = {
-  community: 5,
-  pro: 50,
+export const AGENT_ENFORCEMENT_LIMITS: Record<LicenseTier, number> = {
+  community: 3,
+  pro:       20,
+  team:      Number.POSITIVE_INFINITY,
+  business:  Number.POSITIVE_INFINITY,
   enterprise: Number.POSITIVE_INFINITY,
 };
 
-export function agentLimitForTier(tier: 'community' | 'pro' | 'enterprise'): number {
+export function agentLimitForTier(tier: LicenseTier): number {
   return AGENT_ENFORCEMENT_LIMITS[tier];
 }
 
-/** Feature availability by license tier */
-export const FEATURE_GATES: Record<string, ('community' | 'pro' | 'enterprise')[]> = {
-  'traces':           ['community', 'pro', 'enterprise'],
-  'policies':         ['community', 'pro', 'enterprise'],
-  'blocking':         ['community', 'pro', 'enterprise'],
-  'anomaly':          ['pro', 'enterprise'],
-  'judge':            ['pro', 'enterprise'],
-  'multi-tenancy':    ['enterprise'],
-  'rbac':             ['enterprise'],
-  'audit-log':        ['enterprise'],
-  'sla-metrics':      ['enterprise'],
-  'data-retention':   ['enterprise'],
-  'usage-metering':   ['enterprise'],
-  'supply-chain':     ['pro', 'enterprise'],
-  'webhook-retry':    ['pro', 'enterprise'],
+/**
+ * Feature availability by license tier. Order = tier hierarchy from
+ * FREE (community) up to ENTERPRISE. When adding a feature: pick the
+ * MINIMUM paid tier that unlocks it, then add every tier at that rank
+ * or above. `isFeatureEnabled()` checks membership at runtime.
+ *
+ * Open-core principle: OSS core (traces + basic detectors + policies)
+ * is FREE forever at every tier. Advanced detectors, editor UX,
+ * enterprise auth, compliance artifacts, and long retention are the
+ * paid gates.
+ */
+export const FEATURE_GATES: Record<string, LicenseTier[]> = {
+  // ── Free tier baseline (every install gets these) ─────────────
+  'traces':                ['community', 'pro', 'team', 'business', 'enterprise'],
+  'policies':              ['community', 'pro', 'team', 'business', 'enterprise'],
+  'blocking':              ['community', 'pro', 'team', 'business', 'enterprise'],
+  'basic-anomaly':         ['community', 'pro', 'team', 'business', 'enterprise'],
+  'community-packs':       ['community', 'pro', 'team', 'business', 'enterprise'],
+
+  // ── Pro tier ($49/mo) — production-ready detectors + editor ──
+  'judge':                 ['pro', 'team', 'business', 'enterprise'],
+  'anomaly':               ['pro', 'team', 'business', 'enterprise'],
+  'dsl-editor':            ['pro', 'team', 'business', 'enterprise'],
+  'ai-policy-generator':   ['pro', 'team', 'business', 'enterprise'],
+  'multi-agent-collusion': ['pro', 'team', 'business', 'enterprise'],
+  'oidc-sso':              ['pro', 'team', 'business', 'enterprise'],
+  'supply-chain':          ['pro', 'team', 'business', 'enterprise'],
+  'webhook-retry':         ['pro', 'team', 'business', 'enterprise'],
+
+  // ── Team tier ($199/mo) — compliance-grade audit + enterprise auth
+  'crypto-audit':          ['team', 'business', 'enterprise'],
+  'witness-cosignature':   ['team', 'business', 'enterprise'],
+  'saml-sso':              ['team', 'business', 'enterprise'],
+  'scim-provisioning':     ['team', 'business', 'enterprise'],
+  'pi-corpus':             ['team', 'business', 'enterprise'],
+  'coverage-report':       ['team', 'business', 'enterprise'],
+  'policy-effectiveness':  ['team', 'business', 'enterprise'],
+  'multi-tenancy':         ['team', 'business', 'enterprise'],
+  'rbac':                  ['team', 'business', 'enterprise'],
+
+  // ── Business tier ($599/mo) — EE self-host + long retention ──
+  'ee-self-host':          ['business', 'enterprise'],
+  'custom-detectors':      ['business', 'enterprise'],
+  'long-retention':        ['business', 'enterprise'],
+  'delegation-observability':['business', 'enterprise'],
+  'managed-self-host':     ['business', 'enterprise'],
+  'data-retention':        ['business', 'enterprise'],
+
+  // ── Enterprise only — compliance artifacts + hard SLA ────────
+  'soc2-evidence':         ['enterprise'],
+  'byoc':                  ['enterprise'],
+  'onprem-airgap':         ['enterprise'],
+  'sla-99-9':              ['enterprise'],
+  'sla-metrics':           ['enterprise'],
+  'audit-log':             ['enterprise'],
+  'usage-metering':        ['enterprise'],
+  'dedicated-slack':       ['enterprise'],
 };
 
 export function isFeatureEnabled(feature: string): boolean {
   const tiers = FEATURE_GATES[feature];
   if (!tiers) return true; // unknown feature = allowed
   return tiers.includes(config.license.tier);
+}
+
+/** Check whether the current tier is at or above a given minimum tier. */
+export function hasMinTier(min: LicenseTier): boolean {
+  return TIER_RANK[config.license.tier] >= TIER_RANK[min];
 }

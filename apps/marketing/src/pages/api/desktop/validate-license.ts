@@ -86,9 +86,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const { data: userData } = await supabase.auth.admin.getUserById(license.user_id);
   const email = userData?.user?.email ?? null;
 
+  // Canonical tier normalization. Legacy license_keys.plan values
+  // were 'pro' | 'enterprise'; new rows can also be 'team' | 'business'.
+  // The Cockpit's useLicenseTier hook expects one of these five
+  // strings and gates every UI feature on them via TierGate.
+  type Tier = 'free' | 'pro' | 'team' | 'business' | 'enterprise';
+  const TIER_MAP: Record<string, Tier> = {
+    pro: 'pro',
+    team: 'team',
+    business: 'business',
+    enterprise: 'enterprise',
+  };
+  const tier: Tier = TIER_MAP[String(license.plan).toLowerCase()] ?? 'free';
+
   return json({
     valid: true,
+    // `plan` kept for backward compat with older desktop builds; new
+    // builds should read `tier` instead — it's the canonical field
+    // used by the Cockpit's useLicenseTier hook + gateway config.
     plan: license.plan,
+    tier,
     status: license.status,
     issued_at:  license.issued_at,
     expires_at: license.expires_at,

@@ -3,76 +3,108 @@ import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 
-// Pricing source of truth. When you change a number here, mirror it
-// in the Stripe billing config (apps/billing/plans.ts when that lands).
+// Pricing source of truth. Mirror any change here into:
+//   - packages/gateway-mcp/src/config.ts  (FEATURE_GATES + AGENT_ENFORCEMENT_LIMITS)
+//   - apps/marketing/src/pages/api/checkout.ts  (Stripe price ID map)
+//   - apps/marketing/src/pages/api/stripe-webhook.ts  (plan → license row)
+//   - apps/compliance-cockpit/src/hooks/useLicenseTier.ts  (tier ranking)
+//
+// Open-core strategy: OSS core stays free forever; SSO / SAML / crypto
+// audit / long retention / EE self-host binary are the paid gates.
+// Self-hosting is allowed at every tier — paid features simply refuse
+// to activate without a license key.
 const tiers = [
   {
     id: 'free',
     name: 'Free',
     price: '$0',
     period: 'forever',
-    blurb: 'For solo developers and OSS projects. Self-host, or use our hosted cloud — same gateway either way.',
-    cta:   { label: 'Start free', href: '/signup?next=/download' },
+    blurb: 'For solo devs kicking the tires. Self-host, tap the core detectors, ship your first agent under guard today.',
+    cta:   { label: 'Download AEGIS', href: '/download' },
     featured: false,
     quotas: [
-      '1 organization, 5 agents',
+      '3 agents',
       '1,000 tool-call checks / month',
-      '7-day audit retention',
+      '7-day trace retention',
       '1 seat',
     ],
     features: [
-      'Full detector chain (rules → ML → LLM-judge)',
-      'Policy DSL + AI-generated bundles',
-      'Cryptographic audit (Merkle log)',
+      'Deterministic policy + behavioural anomaly detection',
+      'Basic policy pack (BFSI + Healthcare community rules)',
+      'Local SQLite storage',
       'Community Slack',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: '$19',
+    price: '$49',
     period: '/month',
-    annualPrice: '$190 / yr (save 17%)',
-    blurb: 'For startups and small product teams ready to gate production agents.',
+    annualPrice: '$490 / yr (save 17%)',
+    blurb: 'For startups gating production agents. Unlocks the LLM-judge + DSL editor + OIDC.',
     cta:   { label: 'Upgrade to Pro', href: '#', plan: 'pro' },
     featured: true,
     quotas: [
-      '5 organizations, 100 agents',
+      '20 agents',
       '100,000 checks / month',
-      '30-day audit retention',
-      '3 seats',
+      '30-day trace retention',
+      '5 seats',
     ],
     features: [
       'Everything in Free, plus:',
-      'SCIM 2.0 + OIDC SSO',
+      'Full detector chain (adds calibrated LLM-judge)',
+      'Policy DSL editor + AI-generated bundles',
       'Multi-agent collusion detector',
-      'Workflow-aware policy generator',
-      'Custom scan rules',
+      'OIDC SSO',
       'Email support, 1 business-day SLA',
     ],
   },
   {
     id: 'team',
     name: 'Team',
-    price: '$99',
+    price: '$199',
     period: '/month',
-    annualPrice: '$990 / yr (save 17%)',
-    blurb: 'For mid-market teams ready to bring AEGIS into compliance reviews.',
-    cta:   { label: 'Upgrade to Team', href: '#', plan: 'enterprise' },
+    annualPrice: '$1,990 / yr (save 17%)',
+    blurb: 'For mid-market teams bringing AEGIS into compliance reviews. Cryptographic audit, SAML, unlimited agents.',
+    cta:   { label: 'Upgrade to Team', href: '#', plan: 'team' },
     featured: false,
     quotas: [
-      'Unlimited orgs / agents',
+      'Unlimited agents',
       '1,000,000 checks / month',
-      '90-day audit retention',
-      '10 seats',
+      '90-day trace retention',
+      '10 seats · $15 / extra seat',
     ],
     features: [
       'Everything in Pro, plus:',
-      'SAML 2.0 + ADFS / Shibboleth',
-      'Witness cosignature on transparency log',
-      'PI corpus + coverage report',
+      'Cryptographic audit (Merkle log) + witness cosignature',
+      'SAML 2.0 + SCIM 2.0 provisioning',
+      'PI corpus + policy coverage report',
       'Policy effectiveness scoring',
-      'Priority Slack channel',
+      'Priority Slack support',
+    ],
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: '$599',
+    period: '/month',
+    annualPrice: '$5,990 / yr (save 17%)',
+    blurb: 'For companies self-hosting AEGIS in production. Enterprise Edition binary license included.',
+    cta:   { label: 'Upgrade to Business', href: '#', plan: 'business' },
+    featured: false,
+    quotas: [
+      'Unlimited everything',
+      '365-day trace retention',
+      '25 seats · $15 / extra seat',
+      'Self-host EE binary license included',
+    ],
+    features: [
+      'Everything in Team, plus:',
+      'Custom detectors + on-call engineering (4h business)',
+      'License-gated EE features unlock in your on-prem binary',
+      'Managed self-host: we run your Helm chart under SLA',
+      'Advanced RBAC + delegation observability',
+      'Quarterly security review',
     ],
   },
   {
@@ -80,22 +112,22 @@ const tiers = [
     name: 'Enterprise',
     price: 'Custom',
     period: '',
-    blurb: 'For regulated industries — self-hosted, BYOC, or on-prem with airgap.',
+    blurb: 'For regulated industries — BYOC, on-prem airgap, SOC 2 evidence, 24/7 SLA.',
     cta:   { label: 'Contact sales', href: 'mailto:aojieyuan04@gmail.com' },
     featured: false,
     quotas: [
       'Unlimited everything',
       'Custom retention (forever available)',
       'Unlimited seats',
-      'BYOC / on-prem deploy',
+      'BYOC / on-prem / air-gap deploy',
     ],
     features: [
-      'Everything in Team, plus:',
+      'Everything in Business, plus:',
       'SOC 2 Type II report',
       '99.9% SLA, 24/7 PagerDuty',
-      'Custom detectors + on-call engineering',
-      'Dedicated Slack + quarterly review',
       'MSA + DPA + BAA available',
+      'Dedicated Slack + named CSE',
+      'Data residency / usage-metering controls',
     ],
   },
 ];
@@ -160,7 +192,7 @@ const faqLd = {
       name:    'Is AEGIS free to use?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'Yes. The core engine is MIT-licensed and free forever — you can self-host it with no license key, no phone-home, no seat cap. The paid tiers ($19/mo Pro, $99/mo Team, custom Enterprise) add the cloud control plane, SSO, longer audit retention, and compliance features.',
+        text:    'Yes. The core detector chain, agent registry, and trace store are open-source (MIT) and free forever — you can self-host with no license key. Open-core paid tiers ($49/mo Pro adds LLM-judge + DSL editor + OIDC SSO; $199/mo Team adds cryptographic audit + SAML; $599/mo Business adds an EE binary license for your on-prem install + custom detectors; Enterprise adds SOC 2 + 24/7 SLA + air-gap). Self-hosting is allowed at every tier; paid features simply refuse to activate without a valid license key.',
       },
     },
     {
@@ -168,7 +200,7 @@ const faqLd = {
       name:    'What is a "check" and how do I count them?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. The Free tier (1k checks/month) covers a solo developer running a personal agent; Pro (100k) covers small production deployments; Team (1M) covers most mid-market usage.',
+        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free (1k/mo) covers a solo developer; Pro (100k/mo) covers small production deployments; Team + Business (1M/mo) covers most mid-market usage.',
       },
     },
     {
@@ -192,7 +224,7 @@ const faqLd = {
       name:    'How does AEGIS pricing compare to Lakera Guard, Robust Intelligence, or Guardrails AI?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'Free forever tier — Lakera and Robust Intelligence do not offer one; Guardrails AI is open-source but does not include a gateway or audit log. Paid tiers start at $19/mo — comparable open-core plans from Lakera start at "contact sales" pricing (typically $2k+/mo). AEGIS trades detector maturity for data sovereignty, self-hostability, and cryptographic tamper-evidence.',
+        text:    'Free forever tier — Lakera and Robust Intelligence do not offer one; Guardrails AI is open-source but does not include a gateway or audit log. Paid tiers start at $49/mo — comparable open-core plans from Lakera start at "contact sales" pricing (typically $2k+/mo). AEGIS trades detector maturity for data sovereignty, self-hostability, and cryptographic tamper-evidence.',
       },
     },
   ],
@@ -201,7 +233,7 @@ const faqLd = {
 
 <Layout
   title="Pricing — AEGIS"
-  description="AEGIS pricing — Free (1k requests/mo), Pro ($99/mo, 100k requests, SCIM SSO), Team ($499/mo, 1M requests, SAML), Enterprise (BYOC, SOC 2, 24/7)."
+  description="AEGIS pricing — Free (1k requests/mo, self-host), Pro ($49/mo, 100k requests, LLM-judge + OIDC), Team ($199/mo, 1M requests, SAML + crypto audit), Business ($599/mo, EE self-host license), Enterprise (BYOC, SOC 2, 24/7)."
 >
   <Header current="pricing" />
 

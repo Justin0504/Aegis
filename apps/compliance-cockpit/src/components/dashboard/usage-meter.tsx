@@ -20,14 +20,7 @@
 
 import { ArrowUpRight } from 'lucide-react'
 import { useMonthlyUsage, TIER_LIMITS } from '@/hooks/useMonthlyUsage'
-import { useLicenseTier, type Tier } from '@/hooks/useLicenseTier'
-
-const TIER_NAME: Record<Tier, string> = {
-  free:       'Free',
-  pro:        'Pro',
-  team:       'Team',
-  enterprise: 'Enterprise',
-}
+import { useLicenseTier, TIER_LABEL as TIER_NAME, type Tier } from '@/hooks/useLicenseTier'
 
 function fmt(n: number): string {
   if (!isFinite(n)) return '∞'
