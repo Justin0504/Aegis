@@ -30,8 +30,16 @@ import { useState } from 'react'
 interface BrandDef {
   /** Simple Icons slug — null if the brand isn't in the catalogue. */
   slug: string | null
-  /** Canonical domain for icon.horse fallback. */
+  /** Canonical domain for the favicon fetchers. */
   domain: string
+  /**
+   * Explicit brand-mark URL that overrides all favicon fetchers.
+   * Use when the site's favicon isn't the recognisable brand mark
+   * (Gmail's favicon → Google G; YouTube's favicon → red play, but
+   * the app icon on iOS is the fuller rounded-square glyph). The
+   * URL must be public + CORS-friendly (Wikimedia is a safe bet).
+   */
+  iconUrl?: string
 }
 
 const BRANDS: Record<string, BrandDef> = {
@@ -101,7 +109,11 @@ const BRANDS: Record<string, BrandDef> = {
   mongodb:        { slug: 'mongodb',        domain: 'mongodb.com' },
 
   // ── Email / messaging services (surfaced via tool-icons) ───────
-  gmail:          { slug: 'gmail',          domain: 'gmail.com' },
+  // Gmail: Google's favicon service returns Google's G for gmail.com
+  // instead of the multi-colour M. Force the Wikimedia SVG (public,
+  // stable, exact recognisable mark).
+  gmail:          { slug: 'gmail',          domain: 'gmail.com',
+                    iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg' },
   outlook:        { slug: 'microsoftoutlook', domain: 'outlook.com' },
   icloud:         { slug: 'icloud',         domain: 'icloud.com' },
   proton:         { slug: 'protonmail',     domain: 'proton.me' },
@@ -124,29 +136,45 @@ interface Props {
 }
 
 export function BrandIcon({ brand, size = 16, className, title }: Props) {
-  // Fetch ladder: real favicon first (icon.horse pulls the site's own
-  // asset, so Gmail becomes its multi-color M, Stripe becomes its
-  // purple mark, OpenAI becomes its actual monogram, etc.). Simple
-  // Icons is the fallback for cases where the site has no discoverable
-  // favicon or icon.horse rate-limits. Placeholder as final safety net.
+  // Fetch ladder (each stage silent, no console noise):
+  //   1. Explicit iconUrl override  — for brands whose favicon
+  //      doesn't match their recognisable mark (Gmail).
+  //   2. Google s2 favicons          — most reliable third-party
+  //      favicon service, returns the real branded PNG for 99%
+  //      of domains (Anthropic → orange A, Stripe → purple S,
+  //      OpenAI → real knot in colour, etc.).
+  //   3. icon.horse                   — backup favicon fetcher.
+  //   4. Simple Icons                 — vector SVG, monochrome
+  //      brand colour. Used only when both favicon sources fail
+  //      AND the brand has a Simple Icons slug.
+  //   5. Placeholder dotted circle.
   //
-  // Rationale: favicons are what users associate with a brand. Simple
-  // Icons is technically nicer (SVG, vector-sharp), but returns
-  // brand-color monochrome — which reads as "wrong" when the actual
-  // brand mark is multi-colored (Gmail, Google, Meta, YouTube).
-  const [stage, setStage] = useState<'iconhorse' | 'simpleicons' | 'placeholder'>('iconhorse')
+  // Google s2 was picked over icon.horse because the latter returns
+  // a grey letter placeholder (as a valid 200 PNG) for domains it
+  // can't resolve — silently fooling the onError handler. Google
+  // returns a small default globe or 404s cleanly on unknowns.
+  const [stage, setStage] = useState<'override' | 'google' | 'iconhorse' | 'simpleicons' | 'placeholder'>(
+    'override',
+  )
   const key = brand.toLowerCase().trim()
   const def: BrandDef | undefined = BRANDS[key]
   const resolved: BrandDef = def ?? { slug: null, domain: guessDomain(brand) }
 
+  // Skip 'override' stage when no explicit URL is set.
+  const effectiveStage = stage === 'override' && !resolved.iconUrl ? 'google' : stage
+
   let src: string | null = null
-  if (stage === 'iconhorse') {
+  if (effectiveStage === 'override' && resolved.iconUrl) {
+    src = resolved.iconUrl
+  } else if (effectiveStage === 'google') {
+    src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(resolved.domain)}&sz=64`
+  } else if (effectiveStage === 'iconhorse') {
     src = `https://icon.horse/icon/${encodeURIComponent(resolved.domain)}`
-  } else if (stage === 'simpleicons' && resolved.slug) {
+  } else if (effectiveStage === 'simpleicons' && resolved.slug) {
     src = `https://cdn.simpleicons.org/${encodeURIComponent(resolved.slug)}/${encodeURIComponent(resolved.slug)}`
   }
 
-  if (stage === 'placeholder' || !src) {
+  if (effectiveStage === 'placeholder' || !src) {
     return <PlaceholderDot size={size} className={className} title={title ?? brand} />
   }
 
@@ -158,9 +186,13 @@ export function BrandIcon({ brand, size = 16, className, title }: Props) {
       width={size}
       height={size}
       onError={() => {
-        setStage(prev =>
-          prev === 'iconhorse' && resolved.slug ? 'simpleicons' : 'placeholder',
-        )
+        setStage(prev => {
+          if (prev === 'override')    return 'google'
+          if (prev === 'google')      return 'iconhorse'
+          if (prev === 'iconhorse')   return resolved.slug ? 'simpleicons' : 'placeholder'
+          if (prev === 'simpleicons') return 'placeholder'
+          return 'placeholder'
+        })
       }}
       className={className}
       style={{ display: 'inline-block', verticalAlign: 'middle', borderRadius: 2 }}
