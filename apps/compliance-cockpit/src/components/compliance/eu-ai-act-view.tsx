@@ -68,7 +68,14 @@ export function EuAiActView() {
         throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`)
       }
       const data = await res.json() as EuPack
-      setPack(data)
+      // Guard against the demo proxy returning {} (well-shaped empty)
+      // — treat any pack without an articles array as "no pack yet"
+      // so downstream pack.articles.map() calls don't blow up.
+      if (!data || !Array.isArray((data as any).articles)) {
+        setPack(null)
+      } else {
+        setPack(data)
+      }
     } catch (err) {
       // Silent-fail in the public demo — no real gateway to fetch
       // evidence from, so the missing pack is expected, not an error
@@ -105,8 +112,8 @@ export function EuAiActView() {
     setExpanded(next)
   }
 
-  const compliantCount = pack?.articles.filter((a) => a.compliant).length ?? 0
-  const totalArticles  = pack?.articles.length ?? 4
+  const compliantCount = pack?.articles?.filter((a) => a.compliant).length ?? 0
+  const totalArticles  = pack?.articles?.length ?? 4
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
