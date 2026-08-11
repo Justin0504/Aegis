@@ -29,6 +29,29 @@ function demoEmptyShape(path: string): unknown {
   if (path.startsWith('compliance'))                      return { rows: [], mappings: [] };
   if (path.startsWith('rollbacks'))                       return { items: [] };
   if (path.startsWith('coverage'))                        return { agents: [], rules: [] };
+
+  // Config endpoints power the Settings page's DeploymentMode
+  // panel. Returning {} would crash the panel because it reads
+  // config.layers.l1.enabled etc. Shape mirrors what the real
+  // gateway's TenantConfig serialises to.
+  if (path === 'config/templates')                        return { templates: [] };
+  if (path === 'config' || path.startsWith('config?'))    return {
+    deploymentMode: 'demo',
+    layers: {
+      l1: { enabled: true,  threshold: 0.3 },
+      l2: { enabled: true,  threshold: 0.5 },
+      l3: { enabled: false, threshold: 0.7 },
+    },
+    retention: { days: 30, enforcePII: true },
+    thresholds: { anomalyScore: 0.6, pendingTimeoutSec: 600 },
+  };
+
+  // Health check — Cockpit uses it to render the "gateway online"
+  // chip in Settings. Return a plausible OK shape so the demo
+  // shows green instead of red.
+  if (path === 'health' || path.startsWith('health?'))    return { ok: true, uptime_seconds: 0 };
+  if (path === 'auth/key')                                return { api_key: 'demo-mode-no-real-key' };
+
   // Fallback — well-shaped empty object; every React component in
   // the codebase treats `undefined`/`null` fields as absence.
   return {};
