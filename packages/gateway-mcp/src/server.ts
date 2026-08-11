@@ -2,7 +2,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import pino from 'pino';
-import { config, isFeatureEnabled } from './config';
+import { config, isFeatureEnabled, FEATURE_GATES } from './config';
 import { initializeDatabase, getOrCreateDashboardKey } from './db/database';
 import { MCPProxyService } from './mcp/proxy-service';
 import { AegisMcpServer } from './mcp/aegis-mcp-server';
@@ -11,6 +11,8 @@ import { PolicyAPI } from './api/policies';
 import { ApprovalAPI } from './api/approvals';
 import { CheckAPI } from './api/check';
 import { AgentsAPI } from './api/agents';
+import { LicenseAPI } from './api/license';
+import { LicenseService } from './services/license-service';
 import { OnboardingAPI } from './api/onboarding';
 import { RollbackAPI } from './api/rollback';
 import { WorkflowAPI } from './api/workflow';
@@ -216,6 +218,13 @@ async function main() {
     detectors.register(new AnomalyDetectorPlugin(anomalyDetector, profileManager));
   }
   const agentRegistry = new AgentRegistryService(db, logger);
+
+  // License service — loads persisted license on startup + starts
+  // the 24h revalidation loop. requireFeature() middleware reads
+  // license.getTier() so a Cockpit activation takes effect on the
+  // very next request without a gateway restart.
+  const license = new LicenseService(db, logger, config.license.tier);
+  license.startRevalidator();
   const agentIdCards  = new AgentIdCardService(new SigningService(db, logger), agentRegistry);
   const budgetGuard = new BudgetGuardService(db, tenantConfig, logger, agentRegistry);
   detectors.register(new BudgetDetector(budgetGuard));
@@ -613,14 +622,21 @@ async function main() {
   }
 
   // ── Feature gate middleware ────────────────────────────────────────────────
+  // Reads the LICENSE SERVICE's live tier (not the static config
+  // one) so a Cockpit activation takes effect on the next request
+  // without a gateway restart. Also handles the license being
+  // revoked mid-session: the revalidator downgrades the in-memory
+  // tier and this middleware immediately starts returning 403.
   function requireFeature(feature: string) {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if (!isFeatureEnabled(feature)) {
+      const tiers = FEATURE_GATES[feature];
+      const allowed = !tiers || tiers.includes(license.getTier());
+      if (!allowed) {
         return res.status(403).json({
           error: {
             code: 'FEATURE_UNAVAILABLE',
             message: `Feature '${feature}' requires ${FEATURE_GATES_MSG[feature] || 'a higher'} license tier`,
-            current_tier: config.license.tier,
+            current_tier: license.getTier(),
           },
         });
       }
@@ -645,6 +661,10 @@ async function main() {
   // SDK ingest paths (POST /api/v1/traces + /batch) through without a
   // key. Everything else (GET /traces, POST /search, /saved-queries,
   // /stats/cost) needs an authenticated req.orgId for tenant scoping.
+  // License hand-off from Cockpit UI. Not requireAuth-gated: the
+  // license key itself is the credential and it's validated
+  // against the marketing service, not the local API key store.
+  app.use('/api/v1/license', new LicenseAPI(license, logger).router);
   app.use('/api/v1/traces', requireAuth, new TraceAPI(db, logger, agentRegistry).router);
   app.use('/api/v1/check',  new CheckAPI(
     db, policyEngine, logger, webhooks, undefined,
@@ -1175,8 +1195,8 @@ async function main() {
   });
 }
 
-// Import FEATURE_GATES for gate messages
-import { FEATURE_GATES } from './config';
+// FEATURE_GATES already imported at the top for the tier-check
+// middleware; the earlier bottom-of-file import was a duplicate.
 
 main().catch((err) => {
   logger.error({ err }, 'Failed to start server');

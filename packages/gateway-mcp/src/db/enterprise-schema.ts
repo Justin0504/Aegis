@@ -276,6 +276,23 @@ export function initializeEnterpriseSchema(db: Database.Database): void {
     // on the overflow. Cleared explicitly by upgrade or manual toggle.
     `ALTER TABLE agents ADD COLUMN audit_only INTEGER NOT NULL DEFAULT 0`,
     `CREATE INDEX IF NOT EXISTS idx_agents_audit_only ON agents(org_id, audit_only) WHERE audit_only = 1`,
+    // Local license state (single-row table). Cockpit hands off the
+    // user-pasted license key here; startup reads it back and
+    // overrides config.license.tier so requireFeature() enforces
+    // the paid tier immediately, before any /activate UI round-trip.
+    // Periodic revalidator updates last_validated_at + tier.
+    `CREATE TABLE IF NOT EXISTS license_state (
+       id                  INTEGER PRIMARY KEY CHECK (id = 1),
+       key                 TEXT    NOT NULL,
+       tier                TEXT    NOT NULL,
+       plan                TEXT,
+       email               TEXT,
+       subscription_id     TEXT,
+       expires_at          TEXT,
+       last_validated_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+       last_status         TEXT    NOT NULL DEFAULT 'active',
+       activated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+     )`,
   ];
 
   for (const sql of orgMigrations) {

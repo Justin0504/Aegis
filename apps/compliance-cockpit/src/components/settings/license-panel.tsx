@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Loader2, CheckCircle, XCircle, ExternalLink, KeyRound } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, ExternalLink, KeyRound, CreditCard } from 'lucide-react'
 
 const MUTED = 'hsl(var(--muted-foreground))'
 const TEXT  = 'hsl(var(--foreground))'
@@ -119,6 +119,21 @@ export function LicensePanel() {
       }
       writeLicense(next)
       setState(next)
+
+      // Hand the license off to the local gateway. Without this,
+      // requireFeature() on the server side still returns 403 for
+      // paid features because the gateway process only knows about
+      // AEGIS_LICENSE_TIER env — Cockpit's localStorage alone
+      // doesn't reach it. Best-effort: a gateway that's offline
+      // won't kill activation (UI still gates locally); the next
+      // gateway boot will pick up the persisted key via
+      // /api/v1/license/status flow.
+      fetch('/api/gateway/license/activate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ license_key: key }),
+      }).catch(() => { /* gateway may be down; UI gate still works */ })
+
       setMessage({ ok: true, text: `${body.plan.toUpperCase()} tier active — signed in as ${body.email ?? 'unknown'}` })
     } catch (err) {
       setMessage({ ok: false, text: `Network error: ${(err as Error).message}` })
@@ -131,6 +146,9 @@ export function LicensePanel() {
     writeLicense(null)
     setState(null)
     setInput('')
+    // Also tell the gateway to forget — otherwise a stale key would
+    // keep unlocking paid API routes even after the UI shows Free.
+    fetch('/api/gateway/license/deactivate', { method: 'POST' }).catch(() => {})
     setMessage({ ok: true, text: 'License removed' })
   }
 
@@ -225,6 +243,49 @@ export function LicensePanel() {
           {state.subscription_id && (
             <> · subscription <code className="font-mono">{state.subscription_id}</code></>
           )}
+        </div>
+      )}
+
+      {/* Manage subscription — opens Stripe's billing portal so the
+          customer can update card, download invoices, cancel, or
+          switch plan without our team touching anything. Requires an
+          active license (there's no subscription to manage otherwise)
+          AND the marketing site to know the Stripe customer, which
+          it does once a purchase has completed on this account. */}
+      {state?.valid && (
+        <div className="pt-1">
+          <a
+            href="https://aegistraces.com/api/stripe/portal"
+            target="_blank"
+            rel="noopener"
+            onClick={async (e) => {
+              // Try to fetch the portal URL server-side + open it in
+              // a new tab. Fall back to the raw href (which will
+              // 401 → the marketing site will bounce to /login) if
+              // the fetch fails. Prevents an ugly redirect chain
+              // when the user is already signed in.
+              e.preventDefault()
+              try {
+                const res = await fetch('https://aegistraces.com/api/stripe/portal', {
+                  method: 'POST',
+                  credentials: 'include',
+                })
+                const body = await res.json()
+                if (res.ok && body.url) {
+                  window.open(body.url, '_blank', 'noopener')
+                } else {
+                  window.open(`https://aegistraces.com/login?next=${encodeURIComponent('/account')}`, '_blank')
+                }
+              } catch {
+                window.open('https://aegistraces.com/account', '_blank')
+              }
+            }}
+            className="text-xs inline-flex items-center gap-1 underline"
+            style={{ color: MUTED }}
+          >
+            <CreditCard className="h-3 w-3" />
+            Manage subscription <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       )}
     </div>
