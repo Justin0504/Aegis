@@ -238,7 +238,7 @@ export class AgentRegistryService {
    * ops CLI. Returns finite Infinity as `null` in the wire format.
    */
   getLimits(orgId: string): {
-    tier: 'community' | 'pro' | 'team' | 'business' | 'enterprise';
+    tier: 'community' | 'pro' | 'team' | 'enterprise';
     limit: number | null;
     enforced_count: number;
     audit_only_count: number;

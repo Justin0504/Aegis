@@ -39,8 +39,6 @@ export function planForPrice(locals: App.Locals, priceId: string): string | null
     ['STRIPE_PRICE_PRO_ANNUAL',         'pro'],
     ['STRIPE_PRICE_TEAM_MONTHLY',       'team'],
     ['STRIPE_PRICE_TEAM_ANNUAL',        'team'],
-    ['STRIPE_PRICE_BUSINESS_MONTHLY',   'business'],
-    ['STRIPE_PRICE_BUSINESS_ANNUAL',    'business'],
     ['STRIPE_PRICE_ENTERPRISE_MONTHLY', 'enterprise'],
     ['STRIPE_PRICE_ENTERPRISE_ANNUAL',  'enterprise'],
   ] as const;
@@ -65,8 +63,6 @@ export function priceForPlan(locals: App.Locals, plan: string): string | null {
     'pro-annual':         'STRIPE_PRICE_PRO_ANNUAL',
     'team':               'STRIPE_PRICE_TEAM_MONTHLY',
     'team-annual':        'STRIPE_PRICE_TEAM_ANNUAL',
-    'business':           'STRIPE_PRICE_BUSINESS_MONTHLY',
-    'business-annual':    'STRIPE_PRICE_BUSINESS_ANNUAL',
     'enterprise':         'STRIPE_PRICE_ENTERPRISE_MONTHLY',
     'enterprise-annual':  'STRIPE_PRICE_ENTERPRISE_ANNUAL',
   } as Record<string, string>)[plan];

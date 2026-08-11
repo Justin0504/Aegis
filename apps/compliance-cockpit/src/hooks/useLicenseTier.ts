@@ -18,14 +18,13 @@
 import { useEffect, useState } from 'react'
 import { readLicense, type LicenseState } from '@/components/settings/license-panel'
 
-export type Tier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
+export type Tier = 'free' | 'pro' | 'team' | 'enterprise'
 
 const TIER_RANK: Record<Tier, number> = {
   free:       0,
   pro:        1,
   team:       2,
-  business:   3,
-  enterprise: 4,
+  enterprise: 3,
 }
 
 /** True if the operator's current tier meets or exceeds `required`. */
@@ -38,7 +37,6 @@ export const TIER_LABEL: Record<Tier, string> = {
   free:       'Free',
   pro:        'Pro',
   team:       'Team',
-  business:   'Business',
   enterprise: 'Enterprise',
 }
 
@@ -49,7 +47,7 @@ export const TIER_LABEL: Record<Tier, string> = {
  *  shape drift can't accidentally unlock paid features. */
 function normalize(plan: string | undefined): Tier {
   const p = (plan ?? '').toLowerCase()
-  if (p === 'pro' || p === 'team' || p === 'business' || p === 'enterprise') return p
+  if (p === 'pro' || p === 'team' || p === 'enterprise') return p
   return 'free'
 }
 

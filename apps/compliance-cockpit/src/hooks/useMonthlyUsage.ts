@@ -31,7 +31,6 @@ export const TIER_LIMITS: Record<Tier, number> = {
   free:       1_000,
   pro:        100_000,
   team:       1_000_000,
-  business:   Number.POSITIVE_INFINITY,
   enterprise: Number.POSITIVE_INFINITY,
 }
 

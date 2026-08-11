@@ -65,46 +65,23 @@ const tiers = [
     price: '$99',
     period: '/month',
     annualPrice: '$990 / yr (save 17%)',
-    blurb: 'For mid-market teams bringing AEGIS into compliance reviews. Cryptographic audit, SAML, unlimited agents.',
+    blurb: 'For mid-market teams running AEGIS in production. Full compliance-grade audit, SAML, self-host EE license, custom detectors.',
     cta:   { label: 'Upgrade to Team', href: '#', plan: 'team' },
     featured: false,
     quotas: [
       'Unlimited agents',
       '1,000,000 checks / month',
-      '90-day trace retention',
+      '365-day trace retention',
       '10 seats · $15 / extra seat',
     ],
     features: [
       'Everything in Pro, plus:',
       'Cryptographic audit (Merkle log) + witness cosignature',
       'SAML 2.0 + SCIM 2.0 provisioning',
-      'PI corpus + policy coverage report',
-      'Policy effectiveness scoring',
-      'Priority Slack support',
-    ],
-  },
-  {
-    id: 'business',
-    name: 'Business',
-    price: '$299',
-    period: '/month',
-    annualPrice: '$2,990 / yr (save 17%)',
-    blurb: 'For companies self-hosting AEGIS in production. Enterprise Edition binary license included.',
-    cta:   { label: 'Upgrade to Business', href: '#', plan: 'business' },
-    featured: false,
-    quotas: [
-      'Unlimited everything',
-      '365-day trace retention',
-      '25 seats · $15 / extra seat',
-      'Self-host EE binary license included',
-    ],
-    features: [
-      'Everything in Team, plus:',
-      'Custom detectors + on-call engineering (4h business)',
       'License-gated EE features unlock in your on-prem binary',
-      'Managed self-host: we run your Helm chart under SLA',
-      'Advanced RBAC + delegation observability',
-      'Quarterly security review',
+      'Custom detectors + delegation observability',
+      'PI corpus + policy coverage report + effectiveness scoring',
+      'Priority Slack support',
     ],
   },
   {
@@ -122,7 +99,7 @@ const tiers = [
       'BYOC / on-prem / air-gap deploy',
     ],
     features: [
-      'Everything in Business, plus:',
+      'Everything in Team, plus:',
       'SOC 2 Type II report',
       '99.9% SLA, 24/7 PagerDuty',
       'MSA + DPA + BAA available',
@@ -192,7 +169,7 @@ const faqLd = {
       name:    'Is AEGIS free to use?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'Yes. The core detector chain, agent registry, and trace store are open-source (MIT) and free forever — you can self-host with no license key. Open-core paid tiers ($49/mo Pro adds LLM-judge + DSL editor + OIDC SSO; $199/mo Team adds cryptographic audit + SAML; $599/mo Business adds an EE binary license for your on-prem install + custom detectors; Enterprise adds SOC 2 + 24/7 SLA + air-gap). Self-hosting is allowed at every tier; paid features simply refuse to activate without a valid license key.',
+        text:    'Yes. The core detector chain, agent registry, and trace store are open-source (MIT) and free forever — you can self-host with no license key. Open-core paid tiers ($29/mo Pro adds LLM-judge + DSL editor + OIDC SSO; $99/mo Team adds cryptographic audit + SAML + self-host EE license + custom detectors; Enterprise adds SOC 2 + 24/7 SLA + air-gap). Self-hosting is allowed at every tier; paid features simply refuse to activate without a valid license key.',
       },
     },
     {
@@ -200,7 +177,7 @@ const faqLd = {
       name:    'What is a "check" and how do I count them?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free (1k/mo) covers a solo developer; Pro (100k/mo) covers small production deployments; Team + Business (1M/mo) covers most mid-market usage.',
+        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free (1k/mo) covers a solo developer; Pro (100k/mo) covers small production deployments; Team (1M/mo) covers most mid-market usage.',
       },
     },
     {
@@ -233,7 +210,7 @@ const faqLd = {
 
 <Layout
   title="Pricing — AEGIS"
-  description="AEGIS pricing — Free (1k requests/mo, self-host), Pro ($29/mo, 100k requests, LLM-judge + OIDC), Team ($99/mo, 1M requests, SAML + crypto audit), Business ($299/mo, EE self-host license), Enterprise (BYOC, SOC 2, 24/7)."
+  description="AEGIS pricing — Free (1k requests/mo, self-host), Pro ($29/mo, 100k requests, LLM-judge + OIDC), Team ($99/mo, 1M requests, SAML + crypto audit + self-host EE license), Enterprise (BYOC, SOC 2, 24/7)."
 >
   <Header current="pricing" />
 
@@ -252,58 +229,36 @@ const faqLd = {
 
     <section class="paths">
       <div class="container">
-        <div class="path-grid">
-          <article class="path">
-            <header>
-              <span class="path-tag">Path 1</span>
-              <h2>Self-host</h2>
-              <div class="path-price"><span class="amount">$0</span><span class="period">MIT, forever</span></div>
-            </header>
-            <p class="path-blurb">
-              Run AEGIS on your own infra — Docker, Helm, or a single
-              binary. Same code as our hosted SaaS, no feature lock.
-            </p>
-            <ul class="path-points">
-              <li>All detectors, packs, and SDKs</li>
-              <li>Full audit / compliance bundles</li>
-              <li>Community Slack support</li>
-              <li>You operate Postgres, TLS, backups</li>
-            </ul>
-            <div class="path-cta">
-              <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">Download from GitHub</a>
-              <code>curl -fsSL aegistraces.com/install.sh | bash</code>
-            </div>
-          </article>
-
-          <article class="path featured">
-            <header>
-              <span class="path-tag">Path 2</span>
-              <h2>Hosted SaaS</h2>
-              <div class="path-price"><span class="amount">$0–Custom</span><span class="period">we run it</span></div>
-            </header>
-            <p class="path-blurb">
-              We run the gateway in our cloud. You point your agents at
-              it and stop thinking about uptime, backups, or upgrades.
-            </p>
-            <ul class="path-points">
-              <li>Free tier — 1k checks / mo, no card</li>
-              <li>Managed Postgres, hourly PITR</li>
-              <li>SLA-backed support on Pro+</li>
-              <li>SOC&nbsp;2 evidence pack on Enterprise</li>
-            </ul>
-            <div class="path-cta">
-              <a class="btn" href="/download">Download AEGIS</a>
-              <span class="path-fine">Then pick a tier below when you outgrow Free.</span>
-            </div>
-          </article>
-        </div>
+        <article class="path solo featured">
+          <header>
+            <h2>Self-host, always.</h2>
+            <div class="path-price"><span class="amount">$0</span><span class="period">MIT, forever</span></div>
+          </header>
+          <p class="path-blurb">
+            Run AEGIS on your own infrastructure — Docker, Helm, or a
+            single binary. OSS core is free forever; paid tiers below
+            unlock advanced detectors, SSO, compliance-grade audit,
+            and support.
+          </p>
+          <ul class="path-points">
+            <li>All detectors, packs, and SDKs</li>
+            <li>Full audit / compliance bundles when licensed</li>
+            <li>You operate Postgres, TLS, backups</li>
+            <li>Community Slack support</li>
+          </ul>
+          <div class="path-cta">
+            <a class="btn" href="/download">Download AEGIS</a>
+            <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">GitHub source</a>
+            <code>curl -fsSL aegistraces.com/install.sh | bash</code>
+          </div>
+        </article>
       </div>
     </section>
 
     <section class="tiers">
       <div class="container container-narrow tier-eyebrow">
-        <p class="eyebrow">Hosted tiers</p>
-        <p class="tier-sub">All four tiers run the same MIT-licensed code. You're paying for operations, support, and compliance artifacts — not features the OSS doesn't have.</p>
+        <p class="eyebrow">Paid tiers</p>
+        <p class="tier-sub">All four tiers run the same MIT-licensed code. You're paying for advanced detectors, enterprise auth, compliance-grade audit, and support — not features the OSS doesn't have.</p>
       </div>
       <div class="container">
         <div class="tier-grid">
@@ -449,12 +404,12 @@ const faqLd = {
       margin: 1rem 0 0;
     }
 
-    /* Two-path strip */
+    /* Single-path hero band (used to be a two-path strip; hosted
+       SaaS was removed because we ship self-host only). */
     .paths { padding: 1rem 0 2rem; }
-    .path-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.2rem;
+    .path.solo {
+      max-width: 720px;
+      margin: 0 auto;
     }
     .path {
       display: flex;
@@ -534,9 +489,7 @@ const faqLd = {
     .tiers { padding: 1rem 0 4rem; }
     .tier-grid {
       display: grid;
-      /* 5 tiers → 5 columns on wide desktops. Breakpoints below
-         collapse to 3 → 2 → 1 as viewport shrinks. */
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 1rem;
     }
     .tier {
@@ -611,11 +564,6 @@ const faqLd = {
       width: 100%;
     }
 
-    /* Below ~1240px, 5 cols become too narrow — regroup 3+2 (last
-       two tiers wrap to a shorter row); below 980 fall to 2×3. */
-    @media (max-width: 1240px) {
-      .tier-grid { grid-template-columns: repeat(3, 1fr); }
-    }
     @media (max-width: 980px) {
       .tier-grid { grid-template-columns: repeat(2, 1fr); }
       .tier.featured { transform: none; }

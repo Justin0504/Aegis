@@ -90,11 +90,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // were 'pro' | 'enterprise'; new rows can also be 'team' | 'business'.
   // The Cockpit's useLicenseTier hook expects one of these five
   // strings and gates every UI feature on them via TierGate.
-  type Tier = 'free' | 'pro' | 'team' | 'business' | 'enterprise';
+  type Tier = 'free' | 'pro' | 'team' | 'enterprise';
   const TIER_MAP: Record<string, Tier> = {
     pro: 'pro',
     team: 'team',
-    business: 'business',
     enterprise: 'enterprise',
   };
   const tier: Tier = TIER_MAP[String(license.plan).toLowerCase()] ?? 'free';

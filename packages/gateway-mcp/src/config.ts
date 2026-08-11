@@ -67,7 +67,7 @@ const envSchema = z.object({
   WEBHOOK_TIMEOUT_MS:   z.coerce.number().int().min(1000).default(10000),
 
   // License / feature gating
-  AEGIS_LICENSE_TIER: z.enum(['community', 'pro', 'team', 'business', 'enterprise']).default('community'),
+  AEGIS_LICENSE_TIER: z.enum(['community', 'pro', 'team', 'enterprise']).default('community'),
 
   // Graceful shutdown
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15000),
@@ -173,9 +173,9 @@ export const config = {
 } as const;
 
 /** Canonical tier ordering. Every enforcement check ranks against this. */
-export type LicenseTier = 'community' | 'pro' | 'team' | 'business' | 'enterprise';
+export type LicenseTier = 'community' | 'pro' | 'team' | 'enterprise';
 export const TIER_RANK: Record<LicenseTier, number> = {
-  community: 0, pro: 1, team: 2, business: 3, enterprise: 4,
+  community: 0, pro: 1, team: 2, enterprise: 3,
 };
 
 /**
@@ -191,7 +191,6 @@ export const AGENT_ENFORCEMENT_LIMITS: Record<LicenseTier, number> = {
   community: 3,
   pro:       20,
   team:      Number.POSITIVE_INFINITY,
-  business:  Number.POSITIVE_INFINITY,
   enterprise: Number.POSITIVE_INFINITY,
 };
 
@@ -212,40 +211,40 @@ export function agentLimitForTier(tier: LicenseTier): number {
  */
 export const FEATURE_GATES: Record<string, LicenseTier[]> = {
   // ── Free tier baseline (every install gets these) ─────────────
-  'traces':                ['community', 'pro', 'team', 'business', 'enterprise'],
-  'policies':              ['community', 'pro', 'team', 'business', 'enterprise'],
-  'blocking':              ['community', 'pro', 'team', 'business', 'enterprise'],
-  'basic-anomaly':         ['community', 'pro', 'team', 'business', 'enterprise'],
-  'community-packs':       ['community', 'pro', 'team', 'business', 'enterprise'],
+  'traces':                ['community', 'pro', 'team', 'enterprise'],
+  'policies':              ['community', 'pro', 'team', 'enterprise'],
+  'blocking':              ['community', 'pro', 'team', 'enterprise'],
+  'basic-anomaly':         ['community', 'pro', 'team', 'enterprise'],
+  'community-packs':       ['community', 'pro', 'team', 'enterprise'],
 
   // ── Pro tier ($49/mo) — production-ready detectors + editor ──
-  'judge':                 ['pro', 'team', 'business', 'enterprise'],
-  'anomaly':               ['pro', 'team', 'business', 'enterprise'],
-  'dsl-editor':            ['pro', 'team', 'business', 'enterprise'],
-  'ai-policy-generator':   ['pro', 'team', 'business', 'enterprise'],
-  'multi-agent-collusion': ['pro', 'team', 'business', 'enterprise'],
-  'oidc-sso':              ['pro', 'team', 'business', 'enterprise'],
-  'supply-chain':          ['pro', 'team', 'business', 'enterprise'],
-  'webhook-retry':         ['pro', 'team', 'business', 'enterprise'],
+  'judge':                 ['pro', 'team', 'enterprise'],
+  'anomaly':               ['pro', 'team', 'enterprise'],
+  'dsl-editor':            ['pro', 'team', 'enterprise'],
+  'ai-policy-generator':   ['pro', 'team', 'enterprise'],
+  'multi-agent-collusion': ['pro', 'team', 'enterprise'],
+  'oidc-sso':              ['pro', 'team', 'enterprise'],
+  'supply-chain':          ['pro', 'team', 'enterprise'],
+  'webhook-retry':         ['pro', 'team', 'enterprise'],
 
   // ── Team tier ($199/mo) — compliance-grade audit + enterprise auth
-  'crypto-audit':          ['team', 'business', 'enterprise'],
-  'witness-cosignature':   ['team', 'business', 'enterprise'],
-  'saml-sso':              ['team', 'business', 'enterprise'],
-  'scim-provisioning':     ['team', 'business', 'enterprise'],
-  'pi-corpus':             ['team', 'business', 'enterprise'],
-  'coverage-report':       ['team', 'business', 'enterprise'],
-  'policy-effectiveness':  ['team', 'business', 'enterprise'],
-  'multi-tenancy':         ['team', 'business', 'enterprise'],
-  'rbac':                  ['team', 'business', 'enterprise'],
+  'crypto-audit':          ['team', 'enterprise'],
+  'witness-cosignature':   ['team', 'enterprise'],
+  'saml-sso':              ['team', 'enterprise'],
+  'scim-provisioning':     ['team', 'enterprise'],
+  'pi-corpus':             ['team', 'enterprise'],
+  'coverage-report':       ['team', 'enterprise'],
+  'policy-effectiveness':  ['team', 'enterprise'],
+  'multi-tenancy':         ['team', 'enterprise'],
+  'rbac':                  ['team', 'enterprise'],
 
   // ── Business tier ($599/mo) — EE self-host + long retention ──
-  'ee-self-host':          ['business', 'enterprise'],
-  'custom-detectors':      ['business', 'enterprise'],
-  'long-retention':        ['business', 'enterprise'],
-  'delegation-observability':['business', 'enterprise'],
-  'managed-self-host':     ['business', 'enterprise'],
-  'data-retention':        ['business', 'enterprise'],
+  'ee-self-host':          ['team', 'enterprise'],
+  'custom-detectors':      ['team', 'enterprise'],
+  'long-retention':        ['team', 'enterprise'],
+  'delegation-observability':['team', 'enterprise'],
+  'managed-self-host':     ['team', 'enterprise'],
+  'data-retention':        ['team', 'enterprise'],
 
   // ── Enterprise only — compliance artifacts + hard SLA ────────
   'soc2-evidence':         ['enterprise'],

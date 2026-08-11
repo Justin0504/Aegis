@@ -15,7 +15,7 @@ alter table public.license_keys
 
 alter table public.license_keys
   add constraint license_keys_plan_check
-  check (plan in ('pro', 'team', 'business', 'enterprise'));
+  check (plan in ('pro', 'team', 'enterprise'));
 
 comment on column public.license_keys.plan is
-  'Billable tier at time of purchase: pro | team | business | enterprise. Free is not billable and has no license row.';
+  'Billable tier at time of purchase: pro | team | enterprise. Free is not billable and has no license row.';
