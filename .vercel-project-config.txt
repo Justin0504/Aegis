@@ -1,0 +1,3 @@
+Set via Vercel dashboard for project 'aegis-demo':
+  Root Directory: apps/compliance-cockpit
+  Framework: Next.js

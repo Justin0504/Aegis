@@ -92,3 +92,5 @@ data/uploads/
 test_agentguard.py
 cleanup-project.sh
 .env.production
+.vercel
+.env*

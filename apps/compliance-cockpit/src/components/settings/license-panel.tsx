@@ -20,8 +20,8 @@
  * unreachable (offline-tolerant, still expires when the key does).
  */
 
-import { useEffect, useState } from 'react'
-import { Loader2, CheckCircle, XCircle, ExternalLink, KeyRound, CreditCard } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2, CheckCircle, XCircle, ExternalLink, KeyRound, CreditCard, LogIn } from 'lucide-react'
 
 const MUTED = 'hsl(var(--muted-foreground))'
 const TEXT  = 'hsl(var(--foreground))'
@@ -69,6 +69,8 @@ export function LicensePanel() {
   const [input, setInput] = useState('')
   const [validating, setValidating] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [linking, setLinking] = useState(false)
+  const linkPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     const cached = readLicense()
@@ -76,7 +78,84 @@ export function LicensePanel() {
       setState(cached)
       setInput(cached.key)
     }
+    // Cancel any in-flight poll on unmount so we don't leak the timer
+    // (e.g. user navigates away from Settings mid sign-in).
+    return () => { if (linkPollRef.current) clearInterval(linkPollRef.current) }
   }, [])
+
+  /**
+   * 360-style "Sign in with your AEGIS account".
+   *
+   * 1. Ask the local gateway to mint a one-time nonce + return the
+   *    browser URL to open (POST /api/gateway/license/link-start).
+   * 2. Open the URL in the user's default browser. In Tauri we use
+   *    the shell plugin so it doesn't fall inside our webview.
+   * 3. Poll the gateway's /license/status every 2s. When the tier
+   *    flips (from community to pro/team/enterprise), pull the row
+   *    into localStorage and stop polling. If nothing lands in 10
+   *    minutes, give up with a hint.
+   */
+  async function signInWithAegis() {
+    setMessage(null)
+    setLinking(true)
+    let url: string
+    try {
+      const res = await fetch('/api/gateway/license/link-start', { method: 'POST' })
+      if (!res.ok) throw new Error(`gateway ${res.status}`)
+      const body = await res.json() as { url?: string; nonce?: string }
+      if (!body.url) throw new Error('gateway did not return a sign-in URL')
+      url = body.url
+    } catch (err) {
+      setLinking(false)
+      setMessage({ ok: false, text: `Could not reach local gateway — is AEGIS running? (${(err as Error).message})` })
+      return
+    }
+
+    // Open the sign-in URL in the OS default browser. Tauri's shell
+    // plugin (window.__TAURI__?.shell.open) does this cleanly on
+    // desktop; window.open('_blank') is the browser-mode fallback.
+    const tauri: any = (window as any).__TAURI__
+    if (tauri?.shell?.open) tauri.shell.open(url).catch(() => window.open(url, '_blank', 'noopener'))
+    else window.open(url, '_blank', 'noopener')
+
+    const startedAt = Date.now()
+    const TIMEOUT_MS = 10 * 60 * 1000 // 10 min — matches gateway nonce TTL
+    if (linkPollRef.current) clearInterval(linkPollRef.current)
+    linkPollRef.current = setInterval(async () => {
+      // Timeout guard — nonce is dead by now on the gateway side too.
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        if (linkPollRef.current) clearInterval(linkPollRef.current)
+        setLinking(false)
+        setMessage({ ok: false, text: 'Sign-in timed out. Try again from Settings.' })
+        return
+      }
+      try {
+        const s = await fetch('/api/gateway/license/status')
+        if (!s.ok) return
+        const snap = await s.json() as any
+        if (snap.from_license && snap.tier && snap.tier !== 'community' && snap.key) {
+          // Success — gateway activated the license via link-callback.
+          // Mirror the row into localStorage so the header chip + UI
+          // TierGate render immediately, matching the paste-key flow.
+          const next: LicenseState = {
+            key: snap.key,
+            valid: true,
+            plan: snap.tier,
+            email: snap.email ?? undefined,
+            expires_at: snap.expires_at ?? undefined,
+            subscription_id: snap.subscription_id ?? undefined,
+            last_validated_at: new Date().toISOString(),
+          }
+          writeLicense(next)
+          setState(next)
+          setInput(next.key)
+          if (linkPollRef.current) clearInterval(linkPollRef.current)
+          setLinking(false)
+          setMessage({ ok: true, text: `${String(snap.tier).toUpperCase()} tier active — signed in as ${snap.email ?? 'unknown'}` })
+        }
+      } catch { /* transient — keep polling */ }
+    }, 2000)
+  }
 
   async function validate() {
     const key = input.trim()
@@ -183,6 +262,31 @@ export function LicensePanel() {
           </a>.
         </div>
         {activeChip}
+      </div>
+
+      {/* 360-style "Sign in with your AEGIS account" — opens the
+          browser, user auths on aegistraces.com, marketing hands the
+          license back to the local gateway via a signed loopback
+          callback. No key pasting for existing paid customers. */}
+      <div className="rounded border p-3 flex items-center gap-3"
+           style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--card))' }}>
+        <LogIn className="h-4 w-4 flex-shrink-0" style={{ color: MUTED }} />
+        <div className="flex-1 min-w-0 text-xs" style={{ color: MUTED }}>
+          Already have an account? Sign in and we'll pull your license
+          automatically — no copy-paste.
+        </div>
+        <button onClick={signInWithAegis} disabled={linking}
+          className="text-sm px-3 py-1.5 rounded font-medium border"
+          style={{
+            borderColor: 'hsl(var(--border))',
+            background: 'hsl(var(--secondary))',
+            color: TEXT,
+            opacity: linking ? 0.6 : 1,
+          }}>
+          {linking
+            ? (<><Loader2 className="h-4 w-4 inline mr-1 animate-spin" /> Waiting for browser</>)
+            : (<><LogIn className="h-4 w-4 inline mr-1" /> Sign in with AEGIS</>)}
+        </button>
       </div>
 
       <div className="flex gap-2 items-start">

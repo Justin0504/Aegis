@@ -1,0 +1,128 @@
+---
+/**
+ * /desktop/link — the 360-style "Sign in with your AEGIS account" hand-off.
+ *
+ * Cockpit → local gateway → open browser here with:
+ *     ?callback=http://127.0.0.1:18080/api/v1/license/link-callback
+ *     &nonce=<one-time nonce minted by the local gateway>
+ *
+ * We check the user's Supabase session, look up their most-recent
+ * active license_key, and 302 the browser back to `callback` with
+ * `?license_key=…&nonce=…`. The gateway verifies the nonce and
+ * activates.
+ *
+ * Security rails (each one closes a real hole, do not remove):
+ *   - `callback` MUST resolve to 127.0.0.1 / localhost on http.
+ *     Anything else 400s — no arbitrary-URL redirects, no external
+ *     hosts, no https (loopback is http-only). This blocks phishing
+ *     pages from stealing license keys via a rogue callback.
+ *   - `nonce` is opaque — we don't validate it; the local gateway
+ *     will refuse an unknown nonce. Passing it back lets the gateway
+ *     bind this browser round-trip to the click that started it.
+ *   - Not signed in → bounce to /login with `next` set so the user
+ *     lands right back here after auth. The nonce survives the
+ *     round-trip because it's a query param on `next`.
+ *   - Signed in but no active license → send back with
+ *     `?error=no_license` so Cockpit can show a "sign up for a plan"
+ *     CTA instead of a silent failure.
+ */
+
+import Layout from '@/layouts/Layout.astro';
+import { getServerSupabase } from '@/lib/supabase';
+
+export const prerender = false;
+
+const url = new URL(Astro.request.url);
+const callback = url.searchParams.get('callback')?.trim() ?? '';
+const nonce    = url.searchParams.get('nonce')?.trim() ?? '';
+
+// Callback allow-list — loopback only, http scheme, sane port range.
+// Reject anything else without leaking why (a phisher already knows
+// what they tried; the buyer will never see this branch).
+function isSafeCallback(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:') return false;
+    if (u.hostname !== '127.0.0.1' && u.hostname !== 'localhost') return false;
+    const port = Number(u.port || '80');
+    if (!Number.isFinite(port) || port < 1024 || port > 65535) return false;
+    return true;
+  } catch { return false; }
+}
+
+let error: string | null = null;
+if (!callback || !nonce)      error = 'missing_params';
+else if (!isSafeCallback(callback)) error = 'unsafe_callback';
+
+// If the request is safe, resolve the session next.
+let redirectUrl: string | null = null;
+
+if (!error) {
+  const supabase = getServerSupabase(Astro.locals, Astro.cookies, Astro.request);
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // Not signed in — bounce to /login with the FULL current URL
+    // as `next` so we come right back here (with the callback +
+    // nonce preserved) after auth.
+    const next = encodeURIComponent(url.pathname + url.search);
+    return Astro.redirect(`/login?next=${next}`, 302);
+  }
+
+  // Find the most recent active license for this user. Service-role
+  // needed because RLS on license_keys restricts to the owner via
+  // auth.uid() -- server-side we're not authenticated as that user.
+  const { getServiceSupabase } = await import('@/lib/supabase');
+  const svc = getServiceSupabase(Astro.locals);
+  const { data: license, error: dbErr } = await svc
+    .from('license_keys')
+    .select('key, plan, status, expires_at')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('issued_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (dbErr) {
+    error = 'lookup_failed';
+  } else if (!license) {
+    // Signed in but no paid license. Bounce back so Cockpit shows
+    // "You're signed in as X. Upgrade to Pro to unlock paid features."
+    const cb = new URL(callback);
+    cb.searchParams.set('error', 'no_license');
+    cb.searchParams.set('nonce', nonce);
+    if (user.email) cb.searchParams.set('email', user.email);
+    return Astro.redirect(cb.toString(), 302);
+  } else if (license.expires_at && new Date(license.expires_at) < new Date()) {
+    const cb = new URL(callback);
+    cb.searchParams.set('error', 'license_expired');
+    cb.searchParams.set('nonce', nonce);
+    return Astro.redirect(cb.toString(), 302);
+  } else {
+    // Happy path.
+    const cb = new URL(callback);
+    cb.searchParams.set('license_key', license.key);
+    cb.searchParams.set('nonce', nonce);
+    redirectUrl = cb.toString();
+  }
+}
+
+// Server-side redirect on the happy path so the browser never
+// renders the license key in its address bar for longer than the
+// hand-off itself takes. If we got here without redirectUrl set,
+// fall through to the error page below.
+if (redirectUrl) return Astro.redirect(redirectUrl, 302);
+---
+<Layout title="Sign-in error — AEGIS" description="Desktop sign-in failed.">
+  <main style="min-height:60vh;display:grid;place-items:center;padding:40px 20px;">
+    <div style="max-width:440px;padding:32px;background:hsl(42 45% 96%);border:1px solid hsl(42 30% 82%);border-radius:12px;text-align:center;">
+      <h1 style="margin:0 0 8px;font-family:'Instrument Serif',Georgia,serif;font-size:28px;font-weight:400;">Sign-in didn't complete</h1>
+      <p style="color:hsl(20 10% 40%);font-size:14px;line-height:1.55;">
+        {error === 'missing_params'  && 'The sign-in link was missing required parameters. Start again from Cockpit → Settings.'}
+        {error === 'unsafe_callback' && 'The callback URL was rejected. Only local (127.0.0.1) callbacks from the AEGIS desktop app are accepted.'}
+        {error === 'lookup_failed'   && 'We could not look up your license just now. Please try again in a minute.'}
+      </p>
+      <a href="/account" style="display:inline-block;margin-top:16px;padding:8px 16px;background:hsl(20 45% 30%);color:white;text-decoration:none;border-radius:6px;font-size:14px;">Go to your account</a>
+    </div>
+  </main>
+</Layout>
