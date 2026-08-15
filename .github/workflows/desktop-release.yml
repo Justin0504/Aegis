@@ -106,24 +106,35 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
-      # Gate every codesigning-related env behind a non-empty secret
-      # check. If APPLE_CERTIFICATE is empty (== not configured yet),
-      # tauri sees no APPLE_SIGNING_IDENTITY and produces an unsigned
-      # .dmg — which is what we want in the pre-$99-Apple-Dev era.
-      # Once secrets exist, all six env vars propagate and tauri
-      # signs + notarizes automatically.
+      # One build step, shell script decides at runtime whether to
+      # preserve or wipe the Apple codesigning env. An empty-string
+      # env var still trips tauri's `security import` path, so an
+      # unset APPLE_CERTIFICATE has to be truly absent from the
+      # child process environment — hence `unset`, not `""`.
+      # `shell: bash` forces bash even on Windows runners (which
+      # default to pwsh) so the script parses uniformly; on Windows
+      # the unset is a no-op because the vars are never set anyway.
       - name: Build desktop bundle
         working-directory: apps/desktop
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY:          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE:          ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_CERTIFICATE          || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY:     ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_SIGNING_IDENTITY     || '' }}
-          APPLE_ID:                   ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_ID                   || '' }}
-          APPLE_PASSWORD:             ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_PASSWORD             || '' }}
-          APPLE_TEAM_ID:              ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_TEAM_ID              || '' }}
-        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          APPLE_CERTIFICATE:          ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY:     ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID:                   ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD:             ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID:              ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD \
+                  APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+            echo "Apple codesigning secrets absent — building unsigned (Gatekeeper warning expected)."
+          else
+            echo "Apple codesigning secrets present — signing + notarizing enabled."
+          fi
+          cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Generate SHA256 checksums
         shell: bash
