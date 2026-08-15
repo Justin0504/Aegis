@@ -195,8 +195,7 @@ fn macos_owner(local_port: u16) -> Option<String> {
 
 #[cfg(target_os = "windows")]
 fn windows_owner(local_port: u16) -> Option<String> {
-    use std::mem::size_of;
-    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::NetworkManagement::IpHelper::{
         GetExtendedTcpTable, MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID, TCP_TABLE_OWNER_PID_ALL,
     };
@@ -273,12 +272,6 @@ fn windows_owner(local_port: u16) -> Option<String> {
         }
         None
     }
-
-    // Silence unused warning on this branch when the size_of import
-    // isn't touched (defensive — the compiler is inconsistent about
-    // this across editions).
-    #[allow(dead_code)]
-    fn _touch_imports() { let _ = size_of::<u8>(); }
 }
 
 // ── Linux: /proc/net/tcp + /proc/*/fd/* ────────────────────────────────
