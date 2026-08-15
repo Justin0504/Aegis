@@ -46,22 +46,22 @@ jobs:
             target: aarch64-apple-darwin
             label: macOS / Apple Silicon
             bundles: dmg
-            artifact_glob: 'target/release/bundle/dmg/*_aarch64.dmg'
+            artifact_glob: 'target/aarch64-apple-darwin/release/bundle/dmg/*_aarch64.dmg'
           - os: macos-13            # Intel runner
             target: x86_64-apple-darwin
             label: macOS / Intel
             bundles: dmg
-            artifact_glob: 'target/release/bundle/dmg/*_x64.dmg'
+            artifact_glob: 'target/x86_64-apple-darwin/release/bundle/dmg/*_x64.dmg'
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: Linux / x86_64
             bundles: deb
-            artifact_glob: 'target/release/bundle/deb/*.deb'
+            artifact_glob: 'target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb'
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             label: Windows / x86_64
             bundles: msi
-            artifact_glob: 'target/release/bundle/msi/*.msi'
+            artifact_glob: 'target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -154,7 +154,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aegis-${{ matrix.target }}
-          path: apps/desktop/src-tauri/target/release/bundle/**/*
+          path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*
           retention-days: 14
 
       - name: Attach to GitHub Release
@@ -165,12 +165,12 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.sha256
-            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
-            apps/desktop/src-tauri/target/release/bundle/deb/*.sha256
-            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
-            apps/desktop/src-tauri/target/release/bundle/msi/*.sha256
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.sha256
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.sha256
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.sha256
           generate_release_notes: false
           fail_on_unmatched_files: false
 
