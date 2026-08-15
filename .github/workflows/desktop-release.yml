@@ -1,23 +1,39 @@
 name: Desktop Release
 
-# Triggered on a version tag (e.g. v0.2.0) — builds macOS .dmg
-# (both arches), Windows .exe + .msi, and Linux .deb + .AppImage,
-# then uploads everything to the corresponding GitHub Release.
+# Cross-platform build for the AEGIS desktop app.
 #
-# Also publishes `latest.json` (Tauri auto-updater manifest) and
-# `*.sha256` files alongside each binary so `install.sh` can verify.
+# Triggers:
+#   - push of any v* tag → full release: build all four targets and
+#     attach every artifact to the matching GitHub Release.
+#   - workflow_dispatch  → same build, but attach only if the caller
+#     picks an existing tag; useful to backfill a platform later
+#     without cutting a new version.
 #
-# Set TAURI_SIGNING_PRIVATE_KEY in repo secrets to sign updater
-# bundles. Leave it unset to ship unsigned (Gatekeeper will warn).
+# Signing:
+#   macOS codesigning + notarization run only when APPLE_CERTIFICATE
+#   secret is a real (non-empty) value. Missing → build proceeds
+#   UNSIGNED and users see Gatekeeper's "unidentified developer"
+#   warning on first launch (workaround: right-click AEGIS → Open).
+#   Same for Windows — SIGNING_CERTIFICATE_BASE64 gates it.
+#
+# Linux:
+#   Only .deb is built (both amd64 and arm64 via the matrix host).
+#   AppImage was dropped because linuxdeploy consistently fails on
+#   the ubuntu-22.04 runners with our webkit2gtk-4.1 layout — .deb
+#   covers the target audience (Debian/Ubuntu dev machines) and is
+#   what /download links to.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Tag to publish (e.g. v0.2.0). Leave blank to use the workflow trigger ref.'
+      tag:
+        description: 'Existing tag to attach artifacts to (leave blank to only produce workflow-run artifacts).'
         required: false
+
+permissions:
+  contents: write   # softprops/action-gh-release needs this to attach files + read release-notes template
 
 jobs:
   build:
@@ -29,19 +45,23 @@ jobs:
           - os: macos-14            # Apple Silicon runner
             target: aarch64-apple-darwin
             label: macOS / Apple Silicon
+            bundles: dmg
             artifact_glob: 'target/release/bundle/dmg/*_aarch64.dmg'
           - os: macos-13            # Intel runner
             target: x86_64-apple-darwin
             label: macOS / Intel
+            bundles: dmg
             artifact_glob: 'target/release/bundle/dmg/*_x64.dmg'
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: Linux / x86_64
-            artifact_glob: 'target/release/bundle/deb/*.deb target/release/bundle/appimage/*.AppImage'
+            bundles: deb
+            artifact_glob: 'target/release/bundle/deb/*.deb'
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             label: Windows / x86_64
-            artifact_glob: 'target/release/bundle/msi/*.msi target/release/bundle/nsis/*.exe'
+            bundles: msi
+            artifact_glob: 'target/release/bundle/msi/*.msi'
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -86,19 +106,24 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
+      # Gate every codesigning-related env behind a non-empty secret
+      # check. If APPLE_CERTIFICATE is empty (== not configured yet),
+      # tauri sees no APPLE_SIGNING_IDENTITY and produces an unsigned
+      # .dmg — which is what we want in the pre-$99-Apple-Dev era.
+      # Once secrets exist, all six env vars propagate and tauri
+      # signs + notarizes automatically.
       - name: Build desktop bundle
         working-directory: apps/desktop
         env:
           TAURI_SIGNING_PRIVATE_KEY:          ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS-only codesigning (skip silently if cert not set)
-          APPLE_CERTIFICATE:        ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY:   ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID:                 ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD:           ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID:            ${{ secrets.APPLE_TEAM_ID }}
-        run: cargo tauri build --target ${{ matrix.target }}
+          APPLE_CERTIFICATE:          ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_CERTIFICATE          || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY:     ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_SIGNING_IDENTITY     || '' }}
+          APPLE_ID:                   ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_ID                   || '' }}
+          APPLE_PASSWORD:             ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_PASSWORD             || '' }}
+          APPLE_TEAM_ID:              ${{ secrets.APPLE_CERTIFICATE          != '' && secrets.APPLE_TEAM_ID              || '' }}
+        run: cargo tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Generate SHA256 checksums
         shell: bash
@@ -122,27 +147,26 @@ jobs:
           retention-days: 14
 
       - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        # Attach when either a v* tag pushed OR workflow_dispatch
+        # supplies an existing `tag` input. Skips when neither.
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
             apps/desktop/src-tauri/target/release/bundle/dmg/*.sha256
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/deb/*.sha256
-            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
-            apps/desktop/src-tauri/target/release/bundle/appimage/*.sha256
             apps/desktop/src-tauri/target/release/bundle/msi/*.msi
             apps/desktop/src-tauri/target/release/bundle/msi/*.sha256
-            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
-            apps/desktop/src-tauri/target/release/bundle/nsis/*.sha256
-          generate_release_notes: true
+          generate_release_notes: false
           fail_on_unmatched_files: false
 
   publish-updater-manifest:
     name: Publish updater manifest (latest.json)
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -151,7 +175,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          TAG="${GITHUB_REF##*/}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
           cat > latest.json <<JSON
           {
@@ -169,11 +193,11 @@ jobs:
               },
               "linux-x86_64": {
                 "signature": "",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/aegis_${VERSION}_amd64.AppImage"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/aegis_${VERSION}_amd64.deb"
               },
               "windows-x86_64": {
                 "signature": "",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/AEGIS_${VERSION}_x64-setup.exe"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/AEGIS_${VERSION}_x64_en-US.msi"
               }
             }
           }
@@ -181,4 +205,5 @@ jobs:
       - name: Attach latest.json to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: latest.json
