@@ -227,38 +227,9 @@ const faqLd = {
       </div>
     </section>
 
-    <section class="paths">
-      <div class="container">
-        <article class="path solo featured">
-          <header>
-            <h2>Self-host, always.</h2>
-            <div class="path-price"><span class="amount">$0</span><span class="period">MIT, forever</span></div>
-          </header>
-          <p class="path-blurb">
-            Run AEGIS on your own infrastructure — Docker, Helm, or a
-            single binary. OSS core is free forever; paid tiers below
-            unlock advanced detectors, SSO, compliance-grade audit,
-            and support.
-          </p>
-          <ul class="path-points">
-            <li>All detectors, packs, and SDKs</li>
-            <li>Full audit / compliance bundles when licensed</li>
-            <li>You operate Postgres, TLS, backups</li>
-            <li>Community Slack support</li>
-          </ul>
-          <div class="path-cta">
-            <a class="btn" href="/download">Download AEGIS</a>
-            <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">GitHub source</a>
-            <code>curl -fsSL aegistraces.com/install.sh | bash</code>
-          </div>
-        </article>
-      </div>
-    </section>
-
     <section class="tiers">
       <div class="container container-narrow tier-eyebrow">
-        <p class="eyebrow">Paid tiers</p>
-        <p class="tier-sub">All four tiers run the same MIT-licensed code. You're paying for advanced detectors, enterprise auth, compliance-grade audit, and support — not features the OSS doesn't have.</p>
+        <p class="tier-sub">Four tiers, one MIT-licensed codebase. You're paying for advanced detectors, enterprise auth, compliance-grade audit, and support — the things regulated teams need, not features the OSS doesn't have.</p>
       </div>
       <div class="container">
         <div class="tier-grid">
@@ -288,6 +259,38 @@ const faqLd = {
             </article>
           ))}
         </div>
+      </div>
+    </section>
+
+    <section class="paths">
+      <div class="container">
+        <div class="container-narrow selfhost-eyebrow">
+          <p class="eyebrow">Or run it yourself</p>
+        </div>
+        <article class="path solo">
+          <header>
+            <h2>Self-host, always.</h2>
+            <div class="path-price"><span class="amount">$0</span><span class="period">MIT, forever</span></div>
+          </header>
+          <p class="path-blurb">
+            The MIT-licensed OSS core runs on your infrastructure — Docker,
+            Helm, or a single binary. Everything above unlocks with a
+            license key (SSO, LLM-judge, cryptographic audit, priority
+            support). Below is the free-forever floor for solo devs and
+            teams that operate their own Postgres, TLS, and on-call.
+          </p>
+          <ul class="path-points">
+            <li>Core detectors, packs, and SDKs</li>
+            <li>Signed audit + compliance bundles only when licensed</li>
+            <li>You operate Postgres, TLS, backups, on-call</li>
+            <li>Community Slack support</li>
+          </ul>
+          <div class="path-cta">
+            <a class="btn-secondary" href="/download">Download AEGIS</a>
+            <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">GitHub source</a>
+            <code>curl -fsSL aegistraces.com/install.sh | bash</code>
+          </div>
+        </article>
       </div>
     </section>
 
