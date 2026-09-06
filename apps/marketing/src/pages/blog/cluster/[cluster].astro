@@ -1,0 +1,194 @@
+---
+// /blog/cluster/[cluster]
+//
+// One landing page per blog cluster (agent-safety, verticals,
+// comparison, deep-dive). Each cluster page aggregates all posts
+// in that cluster with a topical intro that answer engines can
+// cite. Ships CollectionPage + ItemList JSON-LD so schema-aware
+// crawlers surface the cluster as a rich result.
+//
+// Prerender at build time (astro.config sets output:'server' so
+// the opt-in flag is required per route).
+
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  const clusters = Array.from(new Set(posts.filter((p) => !p.data.draft).map((p) => p.data.cluster))).filter(Boolean);
+  return clusters.map((cluster) => ({
+    params: { cluster },
+    props:  { cluster },
+  }));
+}
+
+interface Props { cluster: string; }
+const { cluster } = Astro.props;
+
+// Load-bearing per-cluster metadata. Written so an answer engine
+// asking "what does AEGIS say about agent safety / vertical /
+// comparison / deep-dive?" can quote a self-contained answer.
+const CLUSTER_META: Record<string, { title: string; blurb: string; intro: string; }> = {
+  'agent-safety': {
+    title: 'Agent Safety',
+    blurb: 'Runtime defence for LLM agents: prompt injection, indirect PI, tool-call gating, taint propagation.',
+    intro: 'The load-bearing question in agent safety is not whether the LLM will hallucinate — it will — but whether that hallucination can trigger side effects before a human catches it. On the 5,525-record ToolGuard-Bench (arXiv:2603.12621), rules-only defences block just 1.2% of malicious tool calls; the three-layer cascade shipping in AEGIS reaches 99.9% at 1.06 ms P50 latency. These articles cover the underlying attack surface and the defensive patterns that hold up in production.',
+  },
+  'verticals': {
+    title: 'Verticals + Compliance',
+    blurb: 'AI agent safety in regulated verticals: fintech (PCI-DSS + PSD3), healthcare (HIPAA), stablecoin (Travel Rule), payment orchestration.',
+    intro: 'Regulated verticals bring hard requirements no generic LLM safety layer meets by default: PCI-DSS v4.0 Req 8 + 10 audit trails, HIPAA §164.312 tamper-evident logs, EU AI Act Article 12 record-keeping, FATF Travel Rule for stablecoin flows above $1,000. These articles map the regulatory surface to concrete AEGIS controls at the tool-call layer.',
+  },
+  'comparison': {
+    title: 'Comparisons',
+    blurb: 'Head-to-head comparisons between AEGIS and other AI agent safety projects.',
+    intro: 'Most AI agent safety projects solve one layer of the stack. Lakera Guard is a hosted commercial detector service. Guardrails AI validates structured output. NeMo Guardrails uses the Colang DSL to shape conversation. Langfuse records traces. These articles explain the honest deltas so you deploy the right project for each layer — and often several together.',
+  },
+  'deep-dive': {
+    title: 'Deep Dives',
+    blurb: 'Technical deep dives on cryptographic audit primitives, LLM judge calibration, and evaluation methodology.',
+    intro: 'The load-bearing technical questions behind AEGIS: how do you build a third-party-verifiable audit log (RFC 6962 Merkle + Sigstore witness), how well are LLM judges actually calibrated as pre-execution gates (Expected Calibration Error on GPT-4o-mini and Claude Haiku), and how does the ToolGuard-Bench evaluation protocol work.',
+  },
+};
+
+const meta = CLUSTER_META[cluster] ?? {
+  title: cluster,
+  blurb: `Articles about ${cluster}.`,
+  intro: '',
+};
+
+const allPosts = await getCollection('blog');
+const posts = allPosts
+  .filter((p) => !p.data.draft && p.data.cluster === cluster)
+  .sort((a, b) => b.data.publishedAt.getTime() - a.data.publishedAt.getTime());
+
+const canonicalUrl = `https://aegistraces.com/blog/cluster/${cluster}`;
+
+const collectionLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  '@id': `${canonicalUrl}#collection`,
+  name: `AEGIS — ${meta.title}`,
+  description: meta.blurb,
+  url: canonicalUrl,
+  isPartOf: { '@type': 'WebSite', name: 'AEGIS', url: 'https://aegistraces.com' },
+  hasPart: posts.map((p) => ({
+    '@type': 'TechArticle',
+    headline: p.data.title,
+    description: p.data.description,
+    url: `https://aegistraces.com/blog/${p.slug}/`,
+    datePublished: p.data.publishedAt.toISOString().split('T')[0],
+  })),
+};
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': `${canonicalUrl}#list`,
+  name: `${meta.title} — articles`,
+  numberOfItems: posts.length,
+  itemListElement: posts.map((p, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    item: {
+      '@type': 'TechArticle',
+      name: p.data.title,
+      url: `https://aegistraces.com/blog/${p.slug}/`,
+    },
+  })),
+};
+
+const fmt = (d: Date) => d.toISOString().split('T')[0];
+---
+
+<Layout
+  title={`${meta.title} — AEGIS blog cluster (${posts.length} articles)`}
+  description={meta.blurb}
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header current="blog" />
+  <main>
+    <section class="cluster-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow"><a href="/blog">Blog</a> / cluster</p>
+        <h1>{meta.title}</h1>
+        <p class="blurb">{meta.blurb}</p>
+        {meta.intro && (
+          <p class="intro">{meta.intro}</p>
+        )}
+      </div>
+    </section>
+
+    <section class="cluster-list">
+      <div class="container container-narrow">
+        <h2>{posts.length} article{posts.length === 1 ? '' : 's'}</h2>
+        <div class="post-grid">
+          {posts.map((p) => (
+            <article class="post-card">
+              <h3><a href={`/blog/${p.slug}/`}>{p.data.title}</a></h3>
+              <p class="post-date">{fmt(p.data.publishedAt)}</p>
+              <p class="post-desc">{p.data.description}</p>
+              {p.data.headlineStat && (
+                <p class="post-stat"><strong>Load-bearing stat:</strong> {p.data.headlineStat}</p>
+              )}
+              <a href={`/blog/${p.slug}/`} class="post-more">Read →</a>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="cluster-cta">
+      <div class="container container-narrow">
+        <h2>Related pages</h2>
+        <ul class="related">
+          <li><a href="/tools">AI agent security tools — catalogue</a></li>
+          <li><a href="/guides/how-to-secure-ai-agents">How to secure an AI agent — 6 steps</a></li>
+          <li><a href="/guides/agent-tool-call-risks">Agent tool-call risks — OWASP LLM Top-10 mapped</a></li>
+          <li><a href="/faq">Full FAQ</a></li>
+          <li><a href="https://arxiv.org/abs/2603.12621">arXiv:2603.12621 — the AEGIS paper</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(collectionLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(itemListLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .cluster-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  .eyebrow a { color: inherit; text-decoration: none; }
+  .eyebrow a:hover { text-decoration: underline; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 46px; font-weight: 400; margin: 0 0 12px; line-height: 1.1; }
+  .blurb { font-size: 17px; line-height: 1.55; color: hsl(20 10% 30%); max-width: 720px; margin: 0 0 14px; }
+  .intro { font-size: 14.5px; line-height: 1.65; color: hsl(20 10% 40%); max-width: 720px; padding: 12px 16px; background: hsl(42 30% 96%); border-left: 3px solid hsl(20 45% 40%); border-radius: 4px; }
+
+  .cluster-list { padding: 24px 0 16px; }
+  .cluster-list h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 22px; margin: 0 0 20px; color: hsl(20 30% 20%); }
+  .post-grid { display: grid; gap: 14px; }
+  .post-card { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 18px; }
+  .post-card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+  .post-card h3 a { color: hsl(20 30% 20%); text-decoration: none; }
+  .post-card h3 a:hover { text-decoration: underline; }
+  .post-date { margin: 0 0 8px; font-size: 12px; color: hsl(20 15% 50%); }
+  .post-desc { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; color: hsl(20 10% 30%); }
+  .post-stat { margin: 0 0 8px; padding: 8px 12px; background: hsl(150 25% 94%); border-left: 3px solid hsl(150 40% 35%); border-radius: 4px; font-size: 12.5px; line-height: 1.5; color: hsl(20 10% 25%); }
+  .post-stat strong { color: hsl(150 40% 25%); }
+  .post-more { font-size: 13px; color: hsl(20 45% 30%); text-decoration: none; font-weight: 500; }
+  .post-more:hover { text-decoration: underline; }
+
+  .cluster-cta { padding: 40px 0 80px; }
+  .cluster-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 22px; margin: 0 0 12px; color: hsl(20 30% 20%); }
+  .related { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .related a { color: hsl(20 30% 25%); text-decoration: none; font-size: 14px; padding: 8px 12px; background: white; border: 1px solid hsl(42 20% 82%); border-radius: 6px; display: inline-block; }
+  .related a:hover { background: hsl(42 30% 96%); }
+</style>

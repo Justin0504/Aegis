@@ -74,10 +74,21 @@ const softwareLd = {
       <div class="container">
         <div class="hero-grid">
           <div class="hero-text">
-            <p class="eyebrow">Open-source · MIT · v0.1.0</p>
+            <p class="eyebrow">
+              Open-source · MIT · v0.2.0 ·
+              <a href="https://arxiv.org/abs/2603.12621" class="hero-paper-link">arXiv:2603.12621 v2</a>
+            </p>
             <h1>The runtime <em>safety layer</em> for AI agents.</h1>
             <p class="lede">
               Every tool call — classified, gated, audited. Zero code change.
+            </p>
+            <p class="hero-stat">
+              <strong>99.9%</strong> block rate at
+              <strong>1.06&nbsp;ms</strong> median latency and
+              <strong>$0.05</strong> per run on the 5,525-record
+              <a href="/guides/agent-tool-call-risks">ToolGuard-Bench</a>.
+              Full ablation + adversarial numbers in the
+              <a href="https://arxiv.org/abs/2603.12621">v2 paper</a>.
             </p>
             <div class="hero-cta dual">
               <a href="/download" class="btn-dual primary">
@@ -494,6 +505,27 @@ client = openai.OpenAI(
       max-width: 38ch;
     }
     .hero-cta { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .hero-paper-link {
+      color: var(--text);
+      text-decoration: underline;
+      text-decoration-color: var(--hairline);
+      text-underline-offset: 2px;
+    }
+    .hero-paper-link:hover { text-decoration-color: var(--accent); }
+    /* Load-bearing headline stat — extractable, quotable, cited. */
+    .hero-stat {
+      margin: 0.9rem 0 1.2rem;
+      padding: 0.7rem 0.9rem;
+      background: hsl(150 25% 96%);
+      border-left: 3px solid hsl(150 40% 35%);
+      border-radius: 4px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: hsl(20 10% 25%);
+      max-width: 46ch;
+    }
+    .hero-stat strong { color: hsl(150 40% 25%); }
+    .hero-stat a { color: hsl(20 30% 30%); text-decoration: underline; text-decoration-color: var(--hairline); }
     .hero-trust { color: var(--muted); font-size: 0.82rem; margin: 1rem 0 0; }
     .hero-trust a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
     .hero-trust a:hover { text-decoration-color: var(--accent); }

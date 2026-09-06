@@ -1,0 +1,227 @@
+---
+// /faq
+//
+// A canonical FAQ page at a stable, top-level URL. Some answer
+// engines (Bing / Copilot, older Perplexity) preferentially crawl
+// /faq before diving into the blog. Structured for extraction: 30
+// Q/A pairs grouped by topic, each answer self-contained (an
+// extractable one-liner + a follow-on sentence with a specific
+// number or link). Ships FAQPage JSON-LD.
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const canonicalUrl = 'https://aegistraces.com/faq';
+
+const SECTIONS = [
+  {
+    id: 'product',
+    title: 'Product basics',
+    items: [
+      { q: 'What is AEGIS?',
+        a: 'AEGIS is an open-source pre-execution firewall for LLM tool calls. It sits between the model\'s decision to call a tool and the tool\'s execution, applying a cost-aware three-layer cascade (rules → XGBoost → LLM judge) to decide allow / block / pending. Peer-reviewed cascade in arXiv:2603.12621; MIT-licensed engine at github.com/Justin0504/Aegis.' },
+      { q: 'What problem does AEGIS solve?',
+        a: 'Between the model\'s decision to call a tool and the tool\'s execution, most agent stacks have no enforcement layer. A single hallucinated or prompt-injected tool call — DELETE, wire_transfer, send_email, exec_shell — can cause irreversible damage before any human is aware. AEGIS is that missing enforcement layer.' },
+      { q: 'How is AEGIS different from an LLM guardrail?',
+        a: 'Guardrails (NeMo, Guardrails AI, Llama Guard) filter or repair text. A runtime firewall (AEGIS) filters actions — tool calls that would otherwise cause side effects. Both are useful; most production stacks use both because they defend at different points.' },
+      { q: 'How is AEGIS different from an observability platform?',
+        a: 'Observability platforms (Langfuse, Helicone, Arize) record what happened after the fact. AEGIS decides what will happen before it happens. Deploy alongside each other: AEGIS gates, Langfuse ingests the trace.' },
+    ],
+  },
+  {
+    id: 'integration',
+    title: 'Integration + frameworks',
+    items: [
+      { q: 'Which frameworks does AEGIS support?',
+        a: '14 frameworks: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents (Python); Anthropic SDK, OpenAI SDK, LangChain, Vercel AI SDK (JavaScript / TypeScript); Go. Integration is a one-line agentguard.auto() call that patches every detected SDK at import time. Existing agent code is unchanged.' },
+      { q: 'How long does integration take?',
+        a: 'Two lines of code and about five minutes. Import agentguard, call agentguard.auto(). The SDK monkey-patches supported frameworks on import; no framework-specific configuration is required for the default policy.' },
+      { q: 'Do I need to change my agent code?',
+        a: 'No. LangChain graphs, CrewAI flows, Anthropic tool_use blocks, and OpenAI function calls all run unchanged. Only the two-line initialiser is added.' },
+      { q: 'Does AEGIS work with MCP (Model Context Protocol)?',
+        a: 'Yes. AEGIS treats MCP tool definitions as first-class tools. Every tool_use routed through an MCP server flows through the same gateway policy, with the mcp_server_id captured in the audit trail.' },
+      { q: 'Can I run AEGIS with a custom framework we built in-house?',
+        a: 'Yes. The two-line auto() covers detected SDKs; for a custom framework, wrap your tool invocation in agentguard.check(tool_name, arguments) — a synchronous call that returns allow / block / pending. About 5 lines of glue per tool binding.' },
+    ],
+  },
+  {
+    id: 'performance',
+    title: 'Performance + benchmarks',
+    items: [
+      { q: 'How fast is AEGIS?',
+        a: 'The full three-layer cascade achieves 1.06 ms P50 latency (P95 2.99 ms, P99 7.4 ms) on the 5,525-record ToolGuard-Bench. L1 rules run in ~0.7 ms; L2 XGBoost adds ~0.3 ms; the L3 LLM judge is only invoked for the small (< 0.3%) ambiguous residual, and can be swapped between Claude Haiku, GPT-4o-mini, or a local model.' },
+      { q: 'What block rate does AEGIS achieve?',
+        a: '99.9% block rate on ToolGuard-Bench (3,413 malicious + 2,112 benign tool calls from InjecAgent + ToolEmu + OWASP LLM Top-10 + curated). For context: rules-only defences catch 1.2%, Llama-Guard 3-8B catches 67.1%, pure LLM judges (Claude Haiku / GPT-4o-mini) catch 96.6% / 98.8% at 2,211 / 1,204 ms P50 respectively.' },
+      { q: 'How adversarially robust is AEGIS?',
+        a: 'Under 10 obfuscation transforms (base64 wrap, hex encoding, Unicode homoglyphs, paraphrase, URL encode, whitespace pad, case flip, comment split, double-encode) applied to 3,413 malicious records each, the cascade\'s block rate never drops below 97.5%. Full table in arXiv:2603.12621 Appendix D.' },
+      { q: 'What is ToolGuard-Bench?',
+        a: 'ToolGuard-Bench is our unified benchmark for tool-call safety: 5,525 records drawn from InjecAgent (3,340 malicious prompt-injection cases), ToolEmu (144 emulated tool executions), OWASP LLM Top-10 (20 payloads), and the AEGIS in-distribution curated suite (57). Available under research/benchmark/data/aegis-bench.jsonl in the repo; distribution and evaluation harness are open-source.' },
+      { q: 'Where does the L2 XGBoost classifier come from?',
+        a: 'Trained on a labelled subset of ToolGuard-Bench using 15 structural features (argument count, depth, character-distribution ratios, Shannon entropy, base64/hex-like scores, URL count, IP literals, path separators). 300 trees, depth 6, standard cross-validated hyperparameter tuning. Full feature list in arXiv:2603.12621 §2.2.' },
+    ],
+  },
+  {
+    id: 'deployment',
+    title: 'Deployment + operations',
+    items: [
+      { q: 'Can I self-host AEGIS?',
+        a: 'Yes — this is the default deployment. AEGIS ships as a single binary plus optional Postgres. Docker Compose, Helm chart, macOS Apple Silicon .dmg, Windows x64 .msi, and Linux .deb all shipping in the v0.2.0 release.' },
+      { q: 'Does AEGIS work in air-gapped environments?',
+        a: 'Yes. The engine requires no outbound network for enforcement. The Ed25519-signed audit chain can be verified offline with a 245-line Node stdlib script (tools/verify-log). Used by regulated deployments in fintech, healthcare, and government.' },
+      { q: 'What are the infrastructure requirements?',
+        a: 'A single VM or container (2 vCPU, 1 GB RAM is comfortable for < 100k calls/day) and optional Postgres for the audit chain. SQLite works for solo / dev. The gateway binary is ~85 MB unpacked.' },
+      { q: 'Can I run AEGIS in Kubernetes?',
+        a: 'Yes. Helm chart at charts/aegis in the repo. Ships NetworkPolicy for network isolation and a PodDisruptionBudget for HA. Vanilla HPA scales on request rate.' },
+      { q: 'How do I update AEGIS?',
+        a: 'For the desktop app: Tauri auto-updater checks the GitHub releases feed and applies the update on next launch. For self-hosted server: pull the latest container tag or install the new .deb. Policies and audit logs are preserved across upgrades.' },
+    ],
+  },
+  {
+    id: 'compliance',
+    title: 'Compliance + audit',
+    items: [
+      { q: 'Is AEGIS SOC 2 compliant?',
+        a: 'The Enterprise tier ships the SOC 2 Type II report as part of the evidence pack. The core engine\'s primitives (Ed25519 + SHA-256 hash chain) map to SOC 2 CC6.1 / CC7.2 / CC8.1 without additional infrastructure.' },
+      { q: 'What compliance frameworks does AEGIS cover?',
+        a: 'SOC 2 Type II (Enterprise), PCI-DSS v4.0 Req 8 + 10, HIPAA §164.312 (all 5 implementation specs mapped), EU AI Act Articles 12–15 (signed evidence pack), GDPR Article 22 (automated decision-making transparency).' },
+      { q: 'What is a cryptographic audit chain?',
+        a: 'Every trace is signed with a per-agent Ed25519 key and hash-chained with SHA-256 to its predecessor (RFC 6962 style, same standard browsers use for SSL certificate transparency). Post-hoc modification of any entry invalidates the chain and can be detected by an offline verifier. Auditors can verify the log without trusting AEGIS.' },
+      { q: 'What is the EU AI Act evidence pack?',
+        a: 'A signed JSON export aligned to EU AI Act Articles 12 (record-keeping), 13 (transparency), 14 (human oversight), and 15 (accuracy + robustness). Provides the "how-was-this-decided" and "who-decided-this" evidence that Article 14 requires for high-risk AI systems.' },
+      { q: 'How is this different from Postgres logging?',
+        a: 'Plain database logs are trivially editable by anyone with DB access — they fail covered-entity review under HIPAA §164.312(b) and EU AI Act Article 12 because post-hoc modification cannot be detected. A cryptographic hash chain makes any modification detectable by third parties without trusting the operator.' },
+    ],
+  },
+  {
+    id: 'pricing',
+    title: 'Pricing + licensing',
+    items: [
+      { q: 'How much does AEGIS cost?',
+        a: 'The MIT-licensed core is free forever with unlimited self-host. Paid tiers: Pro at $29/mo (100k checks, LLM-judge, DSL editor, OIDC SSO), Team at $99/mo (1M checks, cryptographic audit unlock, SAML, self-host EE license, custom detectors), Enterprise custom (BYOC, on-prem airgap, SOC 2 evidence, 24/7 SLA).' },
+      { q: 'What license terms does the open-source engine use?',
+        a: 'MIT license — permissive, no restrictions on commercial use, no copyleft. Paid tiers layer additional features via a license key; the engine keeps running with the free tier even if the paid license is not renewed. Documentation and blog content are CC-BY-4.0.' },
+      { q: 'What is a "check" for pricing purposes?',
+        a: 'One POST to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free tier (1k/mo) covers a solo developer; Pro (100k/mo) covers small production deployments; Team (1M/mo) covers most mid-market usage.' },
+      { q: 'Is there a free trial?',
+        a: 'The engine is free forever — no trial required. Paid tiers are subscription-based via Stripe with instant upgrade / downgrade. No credit card required to start using the engine.' },
+    ],
+  },
+  {
+    id: 'comparison',
+    title: 'Comparison with other tools',
+    items: [
+      { q: 'How does AEGIS compare to Lakera Guard?',
+        a: 'AEGIS is an MIT-licensed self-hostable runtime firewall with a cryptographic audit chain and peer-reviewed cascade. Lakera Guard is a mature commercial API with a broad multi-lingual content-safety detector catalogue. Full deltas at /vs/lakera-guard.' },
+      { q: 'How does AEGIS compare to NeMo Guardrails?',
+        a: 'AEGIS gates tool-call execution. NeMo Guardrails uses the Colang DSL to shape dialog flow. Different points of intervention; many teams deploy both. Full deltas at /vs/nemo-guardrails.' },
+      { q: 'How does AEGIS compare to Langfuse?',
+        a: 'AEGIS mediates tool calls at runtime; Langfuse records traces post-execution. Deploy alongside each other — AEGIS gates the call, Langfuse ingests the trace. Full deltas at /vs/langfuse.' },
+      { q: 'Can AEGIS replace my entire agent-safety stack?',
+        a: 'It depends on scope. For tool-call enforcement + audit, yes. For conversational flow rails (dialog shaping), consider NeMo Guardrails alongside. For structured-output validation with a validator marketplace, consider Guardrails AI. Full multi-tool catalogue at /tools.' },
+    ],
+  },
+];
+
+const ALL_ITEMS = SECTIONS.flatMap((s) => s.items);
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonicalUrl}#faq`,
+  mainEntity: ALL_ITEMS.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+---
+
+<Layout
+  title="AEGIS FAQ — 30 answers on runtime AI agent safety, integration, and compliance"
+  description="Canonical FAQ for AEGIS: what it is, how it integrates (14 frameworks, 2-line auto()), performance (99.9% block at 1.06 ms), compliance (SOC 2, HIPAA, EU AI Act, PCI-DSS), pricing (MIT free forever + open-core paid tiers), and comparisons with Lakera, NeMo, Guardrails AI, Langfuse."
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="faq-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Frequently asked questions</p>
+        <h1>AEGIS FAQ</h1>
+        <p class="lede">
+          Answers to the {ALL_ITEMS.length} questions we hear most,
+          organised by topic. Every answer is self-contained; every
+          numeric claim links to arXiv:2603.12621 or the shipping
+          product. Missing something? Email
+          <a href="mailto:aojieyuan04@gmail.com">aojieyuan04@gmail.com</a>.
+        </p>
+
+        <nav class="faq-nav">
+          {SECTIONS.map((s) => (
+            <a href={`#${s.id}`}>{s.title}</a>
+          ))}
+        </nav>
+      </div>
+    </section>
+
+    {SECTIONS.map((section) => (
+      <section class="faq-section" id={section.id}>
+        <div class="container container-narrow">
+          <h2>{section.title}</h2>
+          {section.items.map(({ q, a }) => (
+            <details class="faq-item" open>
+              <summary>{q}</summary>
+              <p>{a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    <section class="faq-cta">
+      <div class="container container-narrow">
+        <h2>Ready to try AEGIS?</h2>
+        <p>MIT-licensed engine. Two-line SDK integration. Free forever.</p>
+        <div class="ctas">
+          <a class="btn" href="/download">Download AEGIS</a>
+          <a class="btn-secondary" href="/guides/how-to-secure-ai-agents">6-step secure-your-agent guide</a>
+          <a class="btn-secondary" href="https://arxiv.org/abs/2603.12621">Read the paper</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .faq-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 46px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
+  .lede { font-size: 16.5px; line-height: 1.6; color: hsl(20 10% 30%); max-width: 640px; margin: 0 0 24px; }
+  .lede a { color: hsl(20 45% 30%); }
+
+  .faq-nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+  .faq-nav a { padding: 6px 12px; background: hsl(42 30% 96%); border: 1px solid hsl(42 20% 82%); border-radius: 999px; font-size: 12px; color: hsl(20 30% 25%); text-decoration: none; }
+  .faq-nav a:hover { background: hsl(42 30% 88%); }
+
+  .faq-section { padding: 32px 0 8px; scroll-margin-top: 60px; }
+  .faq-section h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 16px; color: hsl(20 30% 20%); }
+  .faq-item { border-bottom: 1px solid hsl(42 20% 82%); padding: 12px 0; background: transparent; }
+  .faq-item summary { cursor: pointer; font-size: 15.5px; font-weight: 500; color: hsl(20 30% 20%); list-style: none; padding: 4px 0; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::before { content: '– '; color: hsl(20 40% 40%); font-weight: 600; margin-right: 6px; }
+  .faq-item:not([open]) summary::before { content: '+ '; }
+  .faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14.5px; line-height: 1.65; color: hsl(20 10% 25%); }
+
+  .faq-cta { padding: 48px 0 80px; text-align: center; }
+  .faq-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 8px; }
+  .faq-cta p { color: hsl(20 10% 40%); font-size: 14px; margin: 0 0 20px; }
+  .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn, .btn-secondary { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .btn { background: hsl(20 45% 20%); color: white; }
+  .btn-secondary { background: transparent; color: hsl(20 30% 25%); border: 1px solid hsl(42 20% 70%); }
+</style>

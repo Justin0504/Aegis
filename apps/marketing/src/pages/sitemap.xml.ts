@@ -51,6 +51,17 @@ const pages = [
   { path: '/guides/how-to-secure-ai-agents',        priority: '0.95', changefreq: 'weekly' },
   { path: '/guides/agent-tool-call-risks',          priority: '0.9',  changefreq: 'weekly' },
   { path: '/guides/open-source-guardrails-2026',    priority: '0.9',  changefreq: 'weekly' },
+  // Canonical FAQ + blog cluster landings — GEO surface for answer
+  // engines that preferentially crawl /faq or topical landings.
+  { path: '/faq',                                   priority: '0.9',  changefreq: 'monthly' },
+  // Trailing slash — /blog/cluster/<slug> redirects to the slashed
+  // version (Astro default for nested dynamic routes), so the
+  // sitemap listing points at the canonical 200 URL directly to
+  // avoid burning crawler budget on 308 hops.
+  { path: '/blog/cluster/agent-safety/',            priority: '0.85', changefreq: 'weekly' },
+  { path: '/blog/cluster/verticals/',               priority: '0.85', changefreq: 'weekly' },
+  { path: '/blog/cluster/comparison/',              priority: '0.85', changefreq: 'weekly' },
+  { path: '/blog/cluster/deep-dive/',               priority: '0.85', changefreq: 'weekly' },
   { path: '/status',                 priority: '0.6', changefreq: 'daily'   },
   { path: '/privacy',                priority: '0.4', changefreq: 'yearly'  },
   { path: '/terms',                  priority: '0.4', changefreq: 'yearly'  },
