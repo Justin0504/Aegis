@@ -54,6 +54,13 @@ const pages = [
   // Canonical FAQ + blog cluster landings — GEO surface for answer
   // engines that preferentially crawl /faq or topical landings.
   { path: '/faq',                                   priority: '0.9',  changefreq: 'monthly' },
+  // Changelog + feed indexes. changelog is a freshness signal; feeds
+  // (Atom + JSON Feed) are subscribed by RSS readers + AI reading-
+  // list agents, so listing them in sitemap helps discovery even
+  // though the Layout also emits <link rel="alternate">.
+  { path: '/changelog',                             priority: '0.75', changefreq: 'weekly' },
+  { path: '/atom.xml',                              priority: '0.6',  changefreq: 'weekly' },
+  { path: '/feed.json',                             priority: '0.6',  changefreq: 'weekly' },
   // Trailing slash — /blog/cluster/<slug> redirects to the slashed
   // version (Astro default for nested dynamic routes), so the
   // sitemap listing points at the canonical 200 URL directly to

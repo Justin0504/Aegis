@@ -147,6 +147,11 @@ const websiteLd = {
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang="en" href={canonical} />
     <link rel="alternate" hreflang="x-default" href={canonical} />
+    {/* Feed autodiscovery — lets browsers, RSS readers, Slack unfurl,
+        Feedly, Fraidycat, and (increasingly) AI reading-list agents
+        subscribe without visiting the /changelog page first. */}
+    <link rel="alternate" type="application/feed+json" title="AEGIS — JSON Feed" href="https://aegistraces.com/feed.json" />
+    <link rel="alternate" type="application/atom+xml" title="AEGIS — Atom Feed" href="https://aegistraces.com/atom.xml" />
     <meta name="theme-color" content="#eae3d2" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1a1816" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />

@@ -1,0 +1,167 @@
+---
+// /changelog
+//
+// A public changelog is the cheapest freshness signal a marketing
+// site can carry. Every release note is a new anchor URL a crawler
+// can index; the datePublished on each entry keeps re-triggering
+// freshness scoring in AI answer engines.
+//
+// Entries are hand-authored here (kept short — the GitHub Release
+// page has the full body). Order: newest first. Every release maps
+// to a git tag and a downloadable installer.
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const canonicalUrl = 'https://aegistraces.com/changelog';
+
+const RELEASES = [
+  {
+    version: 'v0.2.0',
+    date: '2026-08-27',
+    tag: 'v0.2.0',
+    title: 'Cross-platform installers + license activation + arXiv v2 paper',
+    highlights: [
+      'macOS Apple Silicon .dmg (cmux-style designed installer), Windows x64 .msi, Linux amd64/arm64 .deb — all on GitHub Releases + downloadable from /download.',
+      'Sign-in with AEGIS device-link flow (Cursor/Warp-style OAuth): Cockpit → browser → aegistraces.com → local gateway callback. No key-paste required for existing paid customers.',
+      'Open-core license enforcement: gateway hot-swaps tier on activation; 24h revalidation with 7-day grace period; deactivation removes tier immediately.',
+      'Stripe subscription flow + Billing Portal: manage subscription without a support ticket.',
+      'arXiv:2603.12621 v2 paper: 3-layer cost-aware cascade (rules + XGBoost + LLM judge) reaches 99.9% block rate at 1.06 ms P50 latency and $0.05 total cost on 5,525-record ToolGuard-Bench. Adversarial ≥ 97.5% under 10 obfuscation transforms.',
+      'CI matrix rebuild: macOS ARM + Windows + Linux all building unsigned in GitHub Actions; workflow_dispatch supports backfill to existing tags.',
+    ],
+  },
+  {
+    version: 'v0.1.0',
+    date: '2026-05-20',
+    tag: 'v0.1.0',
+    title: 'First desktop release — Cockpit + gateway bundled',
+    highlights: [
+      'AEGIS Compliance Cockpit shipping as a Tauri desktop app with embedded Node.js gateway + SQLite trace store.',
+      '14 framework SDKs supported (Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents; Anthropic JS, OpenAI JS, LangChain JS, Vercel AI SDK; Go).',
+      'Tamper-evident audit chain: Ed25519 signatures + SHA-256 hash chain (RFC 6962 style).',
+      'Human-in-the-loop pending queue: SDK suspends agent execution on pending decision; reviewer approves in the Cockpit within one polling cycle.',
+      '22 detection patterns across 7 categories (SQL injection, path traversal, shell injection, prompt injection, sensitive files, data exfiltration, PII leakage).',
+    ],
+  },
+  {
+    version: 'v0.0.1',
+    date: '2026-03-13',
+    tag: 'arxiv-v1',
+    title: 'arXiv v1 demo paper — first public release',
+    highlights: [
+      'arXiv:2603.12621 v1: "No Tool Call Left Unchecked — a Pre-Execution Firewall and Audit Layer for AI Agents".',
+      'Initial rules-only defense evaluated on a 48-attack curated suite (100% blocked, 1.2% false positive, 8.3 ms median latency).',
+      'Open-source engine + Cockpit UI + demo scenarios (SQL injection interception, path traversal, human-in-the-loop approval).',
+      'Note: v1 rules-only design blocked 48/48 curated but only 1.2% on the larger 5,525-record ToolGuard-Bench introduced in v2 — motivating the 3-layer cascade.',
+    ],
+  },
+];
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': `${canonicalUrl}#releases`,
+  name: 'AEGIS Changelog',
+  numberOfItems: RELEASES.length,
+  itemListElement: RELEASES.map((r, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    item: {
+      '@type': 'SoftwareApplication',
+      name: `AEGIS ${r.version}`,
+      softwareVersion: r.version.replace(/^v/, ''),
+      datePublished: r.date,
+      description: r.title,
+      url: `https://github.com/Justin0504/Aegis/releases/tag/${r.tag}`,
+    },
+  })),
+};
+---
+
+<Layout
+  title="AEGIS Changelog — Releases, benchmarks, and shipped features"
+  description="Public changelog for AEGIS: every release tagged, dated, and linked to its GitHub tag + benchmark numbers. Latest: v0.2.0 (cross-platform installers + license activation + arXiv v2 paper with 99.9% block rate on ToolGuard-Bench)."
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="cl-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Changelog · updated 2026-09</p>
+        <h1>AEGIS changelog</h1>
+        <p class="lede">
+          Every release tagged, dated, linked to its GitHub tag +
+          benchmark numbers. Follow along via
+          <a href="/atom.xml">Atom</a> / <a href="/feed.json">JSON Feed</a> /
+          <a href="https://github.com/Justin0504/Aegis/releases">GitHub Releases</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="cl-list">
+      <div class="container container-narrow">
+        {RELEASES.map((r) => (
+          <article class="cl-release" id={r.version}>
+            <header class="cl-release-head">
+              <h2>{r.version}</h2>
+              <time datetime={r.date}>{r.date}</time>
+            </header>
+            <p class="cl-title">{r.title}</p>
+            <ul class="cl-highlights">
+              {r.highlights.map((h) => <li>{h}</li>)}
+            </ul>
+            <p class="cl-source">
+              <a href={`https://github.com/Justin0504/Aegis/releases/tag/${r.tag}`} target="_blank" rel="noopener">
+                Full release notes on GitHub →
+              </a>
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="cl-cta">
+      <div class="container container-narrow">
+        <h2>Follow along</h2>
+        <div class="feeds">
+          <a class="feed-btn" href="/atom.xml">Atom feed</a>
+          <a class="feed-btn" href="/feed.json">JSON Feed</a>
+          <a class="feed-btn" href="https://github.com/Justin0504/Aegis/releases">GitHub Releases</a>
+          <a class="feed-btn" href="https://arxiv.org/abs/2603.12621">arXiv v2 paper</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(itemListLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .cl-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 46px; font-weight: 400; margin: 0 0 12px; line-height: 1.1; }
+  .lede { font-size: 15.5px; line-height: 1.6; color: hsl(20 10% 30%); max-width: 720px; }
+  .lede a { color: hsl(20 40% 30%); }
+
+  .cl-list { padding: 8px 0 16px; }
+  .cl-release { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 20px; margin: 0 0 16px; scroll-margin-top: 60px; }
+  .cl-release-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 8px; flex-wrap: wrap; }
+  .cl-release-head h2 { margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 22px; color: hsl(20 30% 20%); font-weight: 700; }
+  .cl-release-head time { font-size: 12px; color: hsl(20 15% 50%); text-transform: uppercase; letter-spacing: 0.05em; }
+  .cl-title { margin: 0 0 10px; font-size: 16px; font-weight: 600; color: hsl(20 25% 20%); line-height: 1.4; }
+  .cl-highlights { padding-left: 20px; margin: 0 0 10px; }
+  .cl-highlights li { font-size: 13.5px; line-height: 1.6; color: hsl(20 10% 25%); margin-bottom: 6px; }
+  .cl-source { margin: 8px 0 0; font-size: 12px; }
+  .cl-source a { color: hsl(20 40% 30%); text-decoration: none; font-weight: 500; }
+  .cl-source a:hover { text-decoration: underline; }
+
+  .cl-cta { padding: 40px 0 80px; }
+  .cl-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 22px; margin: 0 0 12px; color: hsl(20 30% 20%); }
+  .feeds { display: flex; gap: 8px; flex-wrap: wrap; }
+  .feed-btn { padding: 8px 14px; background: white; border: 1px solid hsl(42 20% 82%); border-radius: 6px; font-size: 13px; color: hsl(20 30% 25%); text-decoration: none; }
+  .feed-btn:hover { background: hsl(42 30% 96%); }
+</style>

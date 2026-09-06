@@ -14,6 +14,14 @@ answersQuery: "What PCI-DSS and SOC 2 requirements apply to AI agents that handl
 headlineStat: "PCI-DSS v4.0 Req 10 (logging) + Req 8 (access control) + SOC 2 CC6.1/CC7.2/CC8.1 cover ~80% of what a fintech AI agent compliance review will ask for."
 oneSentenceAnswer: "Fintech AI agents that touch cardholder data must satisfy PCI-DSS v4.0 Req 10 (tamper-evident logging), Req 8 (per-agent access control), and SOC 2 CC6.1 / CC7.2 / CC8.1, together covering about 80% of what a compliance review will ask for; tokenise cardholder data at the gateway to keep PCI scope tight."
 coverImage: "1611974789855-9c2a0a7236a3"
+howToDuration: "PT2H"
+howToSteps:
+  - "Map every AI-agent tool call that touches cardholder data (CHD) or authentication artefacts against PCI-DSS v4.0 Req 3 (protect CHD), Req 7 (least privilege), Req 8 (unique IDs + strong auth), and Req 10 (log + monitor)."
+  - "Deploy a tool-call gateway that enforces Req 8: every tool_use carries a distinct agent_id, and any operation touching CHD requires an OIDC or SAML session token bound to a natural person for approval."
+  - "Wire the audit trail to satisfy Req 10.2 (audit all access to CHD): every tool decision (allow / block / pending) with all argument JSON is written to a tamper-evident Ed25519-signed hash chain. Plain database logs fail QSA review — the log must be verifiable without trusting the operator."
+  - "Configure per-agent daily caps + destination allowlist for money-movement tools (refund, wire, USDC transfer) to prevent single-tool compromise from causing cascading loss. Reg-E requires the merchant to be able to reconstruct every automated payment decision."
+  - "Enable SOC 2 CC7.2 continuous monitoring: >3 blocks per agent per hour triggers a Slack + PagerDuty alert; compromised agents almost always exhibit unusual block-frequency signatures before the operator notices."
+  - "Ship the signed evidence pack quarterly to your QSA. AEGIS emits a per-tenant SOC 2 CC6.1 / CC7.2 / CC8.1 evidence bundle (JSON + PDF) that maps 1-to-1 to the auditor's control questionnaire; the same pack covers PCI-DSS Req 10 with the Merkle inclusion proofs."
 keyTakeaways:
   - "PCI-DSS v4.0 Req 10 (logging) and Req 8 (access control) apply to every agent tool call that touches cardholder data."
   - "SOC 2 CC6.1 / CC7.2 / CC8.1 cover ~80% of what a fintech AI agent compliance review will ask for."

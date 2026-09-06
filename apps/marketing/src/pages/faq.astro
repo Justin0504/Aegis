@@ -134,6 +134,15 @@ const faqLd = {
     name: q,
     acceptedAnswer: { '@type': 'Answer', text: a },
   })),
+  // Speakable — declares which CSS selectors are safe for a
+  // text-to-speech voice assistant (Google Assistant, Alexa,
+  // Bixby) to read aloud when answering a voice query. Every
+  // FAQ answer <p> element is speakable; question <summary>
+  // headers are too so the assistant frames the answer.
+  speakable: {
+    '@type': 'SpeakableSpecification',
+    cssSelector: ['.faq-item summary', '.faq-item p'],
+  },
 };
 ---
 

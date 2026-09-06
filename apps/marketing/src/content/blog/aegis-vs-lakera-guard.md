@@ -15,6 +15,13 @@ answersQuery: "Should I use Lakera Guard or AEGIS for my AI agent safety layer?"
 headlineStat: "Lakera Guard: closed SaaS, <50ms inline, $300M Check Point acquisition (2025). AEGIS: MIT, self-host, parameter-level taint propagation, cryptographic audit, $0."
 oneSentenceAnswer: "Choose Lakera Guard if you want a managed SaaS with mature classifiers and enterprise procurement support; choose AEGIS if data sovereignty, open-source extensibility, or cryptographic audit trails matter — a regulated vertical (fintech, healthcare, gov) defaults to AEGIS, a speed-to-prod startup defaults to Lakera."
 coverImage: "1453928582365-b6ad33cbcf64"
+howToDuration: "PT45M"
+howToSteps:
+  - "Inventory the requirements: data sovereignty (must PII / prompts stay in your VPC?), compliance evidence (SOC 2 + ISO 27001 vs SOC 2 alone), detector coverage (English-only tool-call inspection or multi-lingual content safety), and cost model at your call volume."
+  - "Rule Lakera in when: you want a hosted managed API with zero infra, multi-lingual content-safety detectors matter more than architectural transparency, and per-call pricing (~$2k/mo baseline) is within budget."
+  - "Rule AEGIS in when: you need open-source auditability, cryptographic tamper-evidence for regulators, air-gap deploy without an enterprise sales cycle, or per-call cost matters at scale (>100k calls/mo self-hosted is $0)."
+  - "Deploy both if the requirement is composite: Lakera for content-safety detection on the input/output surface + AEGIS as the tool-call runtime firewall + audit layer. Risk signals from Lakera can feed AEGIS as an additional detector input."
+  - "Benchmark on your own traffic before committing: run 1,000 real tool calls through each and record block precision + FP rate + P50/P95 latency + total cost. On the public ToolGuard-Bench (arXiv:2603.12621), AEGIS cascade+XGB is 99.9% at 1.06 ms; Lakera does not publish a comparable public benchmark."
 keyTakeaways:
   - "Lakera Guard wins on detector maturity, managed-service ergonomics, and enterprise procurement support."
   - "AEGIS wins on data sovereignty (MIT engine on your hardware) and cryptographic audit trails."
