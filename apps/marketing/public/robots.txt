@@ -1,4 +1,113 @@
+# AEGIS — robots policy for aegistraces.com
+#
+# We want to be cited by AI answer engines (ChatGPT, Claude, Perplexity,
+# Gemini, Bing Copilot). The three surfaces they crawl are:
+#   1. sitemap.xml   — page index with lastmod + priority
+#   2. llms.txt      — human-authored map for LLM crawlers per the
+#                      emerging llms.txt convention
+#   3. llms-full.txt — single-file concatenation of every blog article
+#                      (preferred over follow-the-link crawling)
+
+# ── Default policy ─────────────────────────────────────────────────
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /account
+Disallow: /login
+Disallow: /signup
+Crawl-delay: 1
 
-Sitemap: https://aegis.dev/sitemap.xml
+# ── AI answer-engine crawlers (explicit allow) ─────────────────────
+# These bots read structured content to answer user questions in
+# real time. We want them citing us. Explicit User-agent entries
+# take precedence over the wildcard above for these agents.
+
+# OpenAI (ChatGPT search + browse)
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /account
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic (Claude web fetch + search)
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+# Perplexity (Ask + Pro Search + Sonar)
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google Gemini + AI Overviews (separate from classic Googlebot).
+# Google-Extended is the specific token that gates Gemini training +
+# grounding fetches. Classic Googlebot inherits the default policy.
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
+# Microsoft Copilot (Bing) — the search index feeds Copilot answers.
+User-agent: BingBot
+Allow: /
+
+# Meta AI
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+# Apple Intelligence
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Common Crawl — training data for most open LLMs.
+User-agent: CCBot
+Allow: /
+
+# Amazon Rufus / Q
+User-agent: Amazonbot
+Allow: /
+
+# xAI (Grok)
+User-agent: xAI-Bot
+Allow: /
+
+# Cohere
+User-agent: cohere-ai
+Allow: /
+
+# Mistral
+User-agent: MistralAI-User
+Allow: /
+
+# You.com
+User-agent: YouBot
+Allow: /
+
+# Diffbot (used by many AI stacks for structured extraction)
+User-agent: DiffbotBot
+Allow: /
+
+# ── Sitemaps ───────────────────────────────────────────────────────
+Sitemap: https://aegistraces.com/sitemap.xml

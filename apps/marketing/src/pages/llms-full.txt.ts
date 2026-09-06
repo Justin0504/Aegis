@@ -87,3 +87,11 @@ export const GET: APIRoute = async () => {
     },
   });
 };
+
+// HEAD support so AI crawlers that probe freshness before pulling
+// the full corpus don't see a 404 and skip. Same headers as GET,
+// empty body.
+export const HEAD: APIRoute = async (ctx) => {
+  const res = await GET(ctx);
+  return new Response(null, { status: res.status, headers: res.headers });
+};

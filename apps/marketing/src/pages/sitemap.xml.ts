@@ -31,6 +31,9 @@ const pages = [
   // keeps Googlebot re-crawling around the deadline.
   { path: '/eu-ai-act',              priority: '0.9', changefreq: 'weekly'  },
   { path: '/case-studies',           priority: '0.8', changefreq: 'weekly'  },
+  // Answer-engine landing: category catalogue with FAQPage +
+  // ItemList schema. High-intent search + zero-click AI answers.
+  { path: '/tools',                  priority: '0.95', changefreq: 'weekly' },
   // Competitor "AEGIS vs X" landings — high-intent long-tail.
   { path: '/vs/microsoft-agt',       priority: '0.8', changefreq: 'monthly' },
   { path: '/vs/langfuse',            priority: '0.8', changefreq: 'monthly' },
@@ -76,6 +79,19 @@ ${urls}
 
   return new Response(xml, {
     status: 200,
-    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      // 24h edge cache is fine — sitemap changes only on deploy.
+      'Cache-Control': 'public, max-age=86400',
+    },
   });
+};
+
+// Explicit HEAD handler. Without it, HEAD requests fall through to
+// Astro's 404 handler and older AI crawlers (PerplexityBot,
+// classic BingBot, Slack unfurl) that HEAD-before-GET simply skip
+// the sitemap. Returns the same headers as GET, empty body.
+export const HEAD: APIRoute = async (ctx) => {
+  const res = await GET(ctx);
+  return new Response(null, { status: res.status, headers: res.headers });
 };
