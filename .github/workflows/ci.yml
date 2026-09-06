@@ -32,6 +32,10 @@ jobs:
         working-directory: packages/gateway-mcp
         run: npm run build
 
+      - name: Test
+        working-directory: packages/gateway-mcp
+        run: npm test
+
   cockpit:
     name: Cockpit Build
     runs-on: ubuntu-latest
@@ -66,7 +70,7 @@ jobs:
 
       - name: Install
         working-directory: packages/sdk-python
-        run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+        run: pip install -e ".[dev]"
 
       - name: Build wheel
         working-directory: packages/sdk-python
