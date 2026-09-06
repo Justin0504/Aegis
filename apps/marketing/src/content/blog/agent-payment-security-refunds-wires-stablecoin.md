@@ -18,6 +18,15 @@ answersQuery: "How do you secure an AI agent that can initiate payments, refunds
 headlineStat: "97% of agent-payment incidents in 2026 auditor postmortems trace to one of three missing controls: no per-agent daily cap, no 2-of-N on high-value flows, or no allowlist on destination addresses."
 oneSentenceAnswer: "Agent payment security means intercepting every money-movement tool call — x402 HTTP 402, Stripe Agentic charges, wire APIs, stablecoin transfers — and gating each one against a per-flow policy (daily cap, 2-of-N approval, OFAC + allowlist check, burst detector), then shipping the tamper-evident evidence trail your PSD3, Reg-E, BSA, and PCI-DSS auditor will actually accept."
 coverImage: "1601597111158-2fceff292cdc"
+howToDuration: "PT90M"
+howToSteps:
+  - "Enumerate every money-movement tool the agent can invoke: refund_charge, initiate_wire, send_ach, transfer_usdc, execute_x402_payment, adjust_credit. Bucket each by max blast radius (per-call cap × frequency)."
+  - "Set a per-agent daily cap enforced at the tool-call gateway — the gateway refuses further payment calls once the day-window sum exceeds the cap. Default cap: 10× the typical daily flow of the agent's approved use case."
+  - "Configure 2-of-N approval for any single call above a high-value threshold (recommended: $1,000 for USDC, $10,000 for wires). The gateway routes such calls to pending; two independent human reviewers must approve within the timeout window."
+  - "Maintain a destination allowlist per agent — for wires, IBANs/routing numbers of counterparties the business has KYC'd; for USDC, wallet addresses screened against OFAC + Chainalysis. Refuse any destination outside the list at policy evaluation time."
+  - "Deploy a burst detector: > 5 payment calls per agent per hour trips a pending-mode override that requires human unlock. Compromised agent scenarios almost always exhibit unusual burst patterns."
+  - "Log every payment decision to a tamper-evident audit chain (Ed25519 + SHA-256) so PSD3, Reg-E, BSA, and PCI-DSS auditors have third-party-verifiable evidence. Plain database logs fail this bar."
+  - "Wire alerts on any refused-destination attempt to Slack + PagerDuty; a legitimate agent should never attempt a non-allowlisted destination, so any attempt is a compromise signal."
 keyTakeaways:
   - "AI agents can now move money via x402 (HTTP 402), Stripe Agentic API, wire APIs, and stablecoins — the security surface is the payment stack, not the LLM."
   - "The three controls that catch 97% of incidents: per-agent daily cap, 2-of-N approval above threshold, and destination allowlist (with OFAC screening for crypto)."

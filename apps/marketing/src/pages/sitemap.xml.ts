@@ -45,6 +45,12 @@ const pages = [
   // Guardrails AI (output validation) and NeMo Guardrails (dialog rails).
   { path: '/vs/guardrails-ai',       priority: '0.85', changefreq: 'monthly' },
   { path: '/vs/nemo-guardrails',     priority: '0.85', changefreq: 'monthly' },
+  // /guides — answer-engine-bait landings for high-volume queries.
+  // Each ships HowTo / ItemList / FAQPage schema. Higher priority
+  // than blog because they answer a canonical query verbatim.
+  { path: '/guides/how-to-secure-ai-agents',        priority: '0.95', changefreq: 'weekly' },
+  { path: '/guides/agent-tool-call-risks',          priority: '0.9',  changefreq: 'weekly' },
+  { path: '/guides/open-source-guardrails-2026',    priority: '0.9',  changefreq: 'weekly' },
   { path: '/status',                 priority: '0.6', changefreq: 'daily'   },
   { path: '/privacy',                priority: '0.4', changefreq: 'yearly'  },
   { path: '/terms',                  priority: '0.4', changefreq: 'yearly'  },

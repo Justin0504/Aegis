@@ -15,6 +15,14 @@ answersQuery: "How do I prove my AI agent's audit log was never edited after the
 headlineStat: "RFC 6962 (Certificate Transparency) is the same standard browsers use to detect rogue SSL certificates. AEGIS applies it to every agent decision."
 oneSentenceAnswer: "Store agent decisions in an RFC 6962 Merkle tree with each root co-signed by an independent witness (Sigstore pattern); auditors verify inclusion and consistency proofs against any witness without trusting the operator, using the same cryptographic standard browsers use to detect rogue SSL certificates."
 coverImage: "1633265486064-086b219458ec"
+howToDuration: "PT1H"
+howToSteps:
+  - "Model each agent decision as a leaf in a Merkle tree — the tuple (trace_id, agent_id, tool_call, timestamp, decision) canonicalised to a byte string and hashed with SHA-256."
+  - "On every write, compute the new Merkle root and sign it with the operator's Ed25519 key. Publish the (root, signature, tree size) triple to an append-only public log."
+  - "Bring in an independent witness (RFC 6962 pattern) that co-signs every root the operator publishes. The witness refuses to sign an inconsistent history — this closes the operator-rewind attack surface."
+  - "Ship an offline verifier (245-line Node stdlib script in AEGIS) that any auditor can run air-gapped. The verifier accepts a Merkle inclusion proof + a consistency proof and returns pass/fail without contacting either operator or witness."
+  - "Wire log-inclusion checks into every audit-export path: a signed evidence pack for SOC 2 / PCI-DSS / EU AI Act must include the Merkle proof for each cited trace."
+  - "Rotate the witness quarterly and rotate operator keys yearly, publishing the cross-signature so historical proofs stay verifiable across the rotation."
 keyTakeaways:
   - "RFC 6962 Merkle trees give O(log n) inclusion and consistency proofs over the full agent decision log."
   - "Sigstore-style witness co-signature stops the operator from silently rewinding the log."

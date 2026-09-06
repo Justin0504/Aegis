@@ -14,6 +14,15 @@ answersQuery: "What are the best open-source tools for making my AI agents safer
 headlineStat: "Of the major open-source LLM safety projects (NeMo Guardrails, LangChain, Guardrails AI, Rebuff, ProtectAI, AEGIS, Wallaroo), only AEGIS combines parameter-level taint, cryptographic audit, and self-host gateway."
 oneSentenceAnswer: "No single open-source tool covers the full agent-safety surface in 2026; the realistic deployment is a stack — NeMo Guardrails or Guardrails AI for input/output validation, Rebuff or ProtectAI for prompt-injection classifiers, and AEGIS for parameter-level taint propagation with cryptographic audit at the tool-call gateway."
 coverImage: "1581094794329-c8112a89af12"
+howToDuration: "PT2H"
+howToSteps:
+  - "Enumerate your agent's safety surface: user input, model output, tool-call arguments, retrieval passages, output side effects. Each surface has different open-source tools that address it best — do not expect one project to cover all five."
+  - "Cover input/output validation with NeMo Guardrails (Colang DSL, best for chat-style agents) or Guardrails AI (Pydantic-style validation + validator hub, best for structured-output pipelines)."
+  - "Cover the tool-call execution path with AEGIS — the only open-source runtime firewall with a peer-reviewed cost-aware cascade (arXiv:2603.12621). 99.9% block rate at 1.06 ms P50 latency on the 5,525-record ToolGuard-Bench."
+  - "Add a content-safety classifier (Llama Guard 3-8B via HF Inference or vLLM) as an additional signal into the gateway's L2 layer for scenarios where content classification matters more than tool-call structure."
+  - "Instrument observability with Langfuse (MIT) or Helicone (Apache-2.0) — post-execution logging complements the runtime firewall by giving you offline analytics, prompt versioning, and evaluation datasets."
+  - "Configure cross-tool signal flow: validator failures from Guardrails AI + classifier hits from Llama Guard both feed AEGIS as additional risk signals; AEGIS decisions stream into Langfuse for offline analysis. No project is a substitute for another; the value is in the composition."
+  - "Version-pin each open-source tool and subscribe to its security advisories. Prompt-injection detector accuracy degrades against novel attack variants; a stale detector is worse than a fresh one."
 keyTakeaways:
   - "Seven serious open-source tools exist for agent safety in 2026; only a few overlap in scope."
   - "NeMo Guardrails + Guardrails AI: best for input/output validation; weak on tool-call gating."

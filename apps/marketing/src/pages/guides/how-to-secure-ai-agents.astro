@@ -1,0 +1,247 @@
+---
+// /guides/how-to-secure-ai-agents
+//
+// Answer-engine landing for the highest-volume "how do I secure my
+// AI agent" query. Structured for extraction: TL;DR → 6-step HowTo →
+// per-step detail → FAQ → CTA. Ships HowTo + FAQPage + BreadcrumbList
+// JSON-LD so ChatGPT SGE, Google AI Overviews, and Perplexity can
+// surface it as a rich result.
+//
+// Facts are anchored to arXiv:2603.12621 (the AEGIS paper) and OWASP
+// LLM Top-10 (2025 revision) so the extractable claims are
+// externally verifiable.
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const canonicalUrl = 'https://aegistraces.com/guides/how-to-secure-ai-agents';
+
+const STEPS = [
+  {
+    title: 'Enumerate the tool-call surface',
+    duration: '15 min',
+    body: 'List every tool your agent can call — database, shell, HTTP, email send, file write, code execution. Group into read-only, write, and side-effectful. Read-only tools default to allow; write and side-effectful tools go through classification.',
+    concrete: 'For a LangChain agent: iterate agent.tools and label each. For Anthropic tool_use: enumerate tools[] in the API call. For OpenAI: iterate tools[] in the response. This step is required — 86% of harm in agent deployments happens at the tool-call boundary, not in the prompt.',
+  },
+  {
+    title: 'Instrument the framework with a tool-call gateway',
+    duration: '10 min',
+    body: 'Add a runtime layer between the LLM\'s tool-call decision and the tool\'s execution. In the AEGIS SDK this is a two-line change: import agentguard; agentguard.auto(). The SDK monkey-patches all detected framework SDKs at import time; existing agent code is unchanged.',
+    concrete: 'Supported frameworks: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents (Python); Anthropic, OpenAI, LangChain, Vercel AI SDK (JS/TS); Go. See https://github.com/Justin0504/Aegis for the full list.',
+  },
+  {
+    title: 'Configure a three-layer classification cascade',
+    duration: '30 min',
+    body: 'A single detector is either too brittle (regex misses 98%+ of real attacks in our benchmark) or too expensive (LLM judges cost $0.36–$5.32 per run at 1–2 s latency). The Pareto-optimal defence is a cost-aware cascade: deterministic rules for known-bad patterns (L1), a supervised classifier over structural features (L2), and an LLM judge for the small ambiguous residual (L3).',
+    concrete: 'AEGIS ships this cascade out of the box: L1 = 22 patterns × 7 categories, L2 = XGBoost over 15 features, L3 = Claude Haiku. On the 5,525-record ToolGuard-Bench (arXiv:2603.12621), the cascade achieves 99.9% block rate at 1.06 ms P50 latency and $0.05 total run cost.',
+  },
+  {
+    title: 'Add a human-in-the-loop approval queue for high-risk calls',
+    duration: '20 min',
+    body: 'Not every risky call should be auto-blocked — some legitimate calls look suspicious (e.g. an admin script deleting old records). Route calls above a risk threshold to a pending queue where a reviewer sees the full argument JSON, risk signals, and can approve or reject in one polling cycle.',
+    concrete: 'The AEGIS Compliance Cockpit ships this queue with SDK-level suspension: the agent pauses execution while the reviewer decides, then resumes on approval within one polling cycle (typically 2 s). Reviewers can grant one-shot approval or persist the decision as a new policy rule.',
+  },
+  {
+    title: 'Log every decision to a tamper-evident audit chain',
+    duration: '10 min',
+    body: 'Plain database logging fails covered-entity review (HIPAA §164.312(b)) and EU AI Act Article 12 compliance because a database row is trivially editable by anyone with DB access. Use a cryptographic hash chain (SHA-256) with per-agent Ed25519 signatures so the audit log is third-party verifiable — the standard RFC 6962 uses for SSL certificate transparency.',
+    concrete: 'AEGIS ships a 245-line Node stdlib verifier that runs air-gapped; auditors can validate Merkle inclusion + consistency proofs without trusting AEGIS. See https://github.com/Justin0504/Aegis/tree/main/tools/verify-log.',
+  },
+  {
+    title: 'Wire alerts on repeated blocks + PII exposure to Slack / PagerDuty',
+    duration: '15 min',
+    body: 'A compromised agent typically triggers many blocks in a short window before the operator notices. Alerting on ≥3 blocks per agent per hour catches compromise early; alerting on any PII-in-args event catches the accidental leak scenarios.',
+    concrete: 'AEGIS ships native destinations for Slack (Incoming Webhooks) and PagerDuty (Events API v2). Configuration is in the Compliance Cockpit → Settings → Alert Rules. Both destinations are open-source; no vendor lock-in.',
+  },
+];
+
+const FAQ = [
+  {
+    q: 'What is the fastest way to secure an AI agent?',
+    a: 'Add a tool-call gateway with a two-line SDK change (import agentguard; agentguard.auto()). Deploy the three-layer cascade (rules → XGBoost → LLM judge) which reaches 99.9% block rate on ToolGuard-Bench at 1.06 ms P50 latency and $0.05 total cost. The Compliance Cockpit provides the human-review UI and tamper-evident audit chain out of the box.',
+  },
+  {
+    q: 'Do I need to change my agent code?',
+    a: 'No. The AEGIS SDK monkey-patches supported frameworks at import time via agentguard.auto(). Existing agent code — LangChain graphs, CrewAI flows, Anthropic tool_use blocks, OpenAI function calls — runs unchanged. Only the two-line initialiser is added.',
+  },
+  {
+    q: 'Which frameworks are supported?',
+    a: 'Fourteen frameworks: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents (Python); Anthropic SDK, OpenAI SDK, LangChain, Vercel AI SDK (JavaScript / TypeScript); Go. New framework support ships every ~2 weeks; the current matrix is at github.com/Justin0504/Aegis.',
+  },
+  {
+    q: 'How does this compare to Lakera Guard or NeMo Guardrails?',
+    a: 'AEGIS is a runtime firewall on the tool-call execution path with a cryptographic audit chain. Lakera Guard is a managed content-safety API without a self-hostable engine. NeMo Guardrails uses the Colang DSL for conversational flow control (topical / input / output / retrieval / execution rails). Head-to-head deltas at /vs/lakera-guard and /vs/nemo-guardrails.',
+  },
+  {
+    q: 'Can I self-host without any egress?',
+    a: 'Yes. AEGIS runs as a single binary plus optional Postgres. The audit chain uses Ed25519 signatures and SHA-256 hash-chaining verifiable with a 245-line Node stdlib script — no calls to third parties are required for enforcement or verification. This is the mode used by regulated deployments in fintech, healthcare, and government.',
+  },
+  {
+    q: 'What compliance frameworks does this satisfy?',
+    a: 'SOC 2 Type II (Enterprise tier ships the report), PCI-DSS v4.0 Req 8 + 10, HIPAA §164.312 (all 5 implementation specs mapped), EU AI Act Articles 12–15 (signed evidence pack), GDPR Article 22 (automated decision-making transparency).',
+  },
+  {
+    q: 'How is a runtime firewall different from an LLM guardrail?',
+    a: 'A guardrail (NeMo, Guardrails AI, Llama Guard) filters or repairs text — input from the user, output from the model. A runtime firewall (AEGIS) filters actions — tool calls that would otherwise cause side effects. Both are useful; most production stacks use both, because they defend at different points in the pipeline.',
+  },
+];
+
+const howToLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  '@id': `${canonicalUrl}#howto`,
+  name: 'How to Secure an AI Agent',
+  description: 'Six practical steps to deploy runtime safety on an LLM agent — from enumerating the tool-call surface to alerting on repeated blocks.',
+  totalTime: 'PT100M',
+  step: STEPS.map((s, i) => ({
+    '@type': 'HowToStep',
+    position: i + 1,
+    name: s.title,
+    text: `${s.body} ${s.concrete}`,
+  })),
+};
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonicalUrl}#faq`,
+  mainEntity: FAQ.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+---
+
+<Layout
+  title="How to Secure an AI Agent — 6 Steps (2026 Guide)"
+  description="Six practical steps to deploy runtime safety on an LLM agent: enumerate tool-call surface, instrument with a gateway, configure a three-layer cascade (99.9% block at 1.06 ms), route pending calls to a reviewer, log to a tamper-evident audit chain, alert on repeated blocks. Facts anchored to arXiv:2603.12621."
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="g-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Guide · updated 2026-09</p>
+        <h1>How to secure an AI agent</h1>
+        <p class="lede">
+          Six steps, roughly 100 minutes to complete, one file to
+          change. If you have five minutes: install the AEGIS SDK,
+          run <code>agentguard.auto()</code>, and every tool call
+          your agent makes is now mediated by a three-layer cascade
+          that blocks 99.9% of malicious calls at 1.06 ms P50 latency
+          (see <a href="https://arxiv.org/abs/2603.12621">arXiv:2603.12621</a>).
+        </p>
+      </div>
+    </section>
+
+    <section class="g-tldr">
+      <div class="container container-narrow">
+        <h2>TL;DR</h2>
+        <p>
+          Add a tool-call gateway between the LLM's decision to call
+          a tool and the tool's execution. Configure a three-layer
+          cascade (deterministic rules → supervised classifier → LLM
+          judge) so most calls resolve in &lt; 1 ms and only the
+          ambiguous residual reaches the expensive judge. Route
+          high-risk calls to a human reviewer. Log every decision to
+          a cryptographic hash chain so auditors can verify the log
+          was not modified after the fact.
+        </p>
+      </div>
+    </section>
+
+    <section class="g-steps">
+      <div class="container container-narrow">
+        <h2>The six steps</h2>
+        <ol class="step-list">
+          {STEPS.map((s, i) => (
+            <li class="step">
+              <div class="step-head">
+                <span class="step-num">{i + 1}</span>
+                <div>
+                  <h3>{s.title}</h3>
+                  <p class="step-meta">Estimated: {s.duration}</p>
+                </div>
+              </div>
+              <p class="step-body">{s.body}</p>
+              <p class="step-concrete"><strong>Concretely:</strong> {s.concrete}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <section class="g-faq">
+      <div class="container container-narrow">
+        <h2>Frequently asked</h2>
+        {FAQ.map(({ q, a }) => (
+          <details class="faq-item">
+            <summary>{q}</summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="g-cta">
+      <div class="container container-narrow">
+        <h2>Deploy AEGIS</h2>
+        <p>MIT-licensed engine. Two-line SDK integration. Free forever.</p>
+        <div class="ctas">
+          <a class="btn" href="/download">Download AEGIS</a>
+          <a class="btn-secondary" href="https://arxiv.org/abs/2603.12621">Read the paper</a>
+          <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">GitHub source</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(howToLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .g-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 46px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
+  .lede { font-size: 17px; line-height: 1.6; color: hsl(20 10% 30%); max-width: 720px; }
+  .lede code { background: hsl(42 30% 88%); padding: 1px 6px; border-radius: 4px; font-size: 14.5px; }
+
+  .g-tldr { padding: 24px 0; }
+  .g-tldr h2 { font-size: 20px; margin: 0 0 8px; }
+  .g-tldr p { padding: 14px 16px; background: hsl(42 30% 96%); border: 1px solid hsl(42 20% 82%); border-radius: 8px; font-size: 14.5px; line-height: 1.6; margin: 0; }
+
+  .g-steps { padding: 40px 0 16px; }
+  .g-steps h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 30px; margin: 0 0 24px; }
+  .step-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; counter-reset: step; }
+  .step { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 20px; }
+  .step-head { display: flex; gap: 14px; align-items: flex-start; margin: 0 0 10px; }
+  .step-num { flex: 0 0 34px; height: 34px; border-radius: 50%; background: hsl(20 45% 30%); color: white; display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+  .step-head h3 { margin: 0 0 2px; font-size: 17px; font-weight: 600; color: hsl(20 30% 20%); }
+  .step-meta { margin: 0; font-size: 11px; color: hsl(20 15% 50%); text-transform: uppercase; letter-spacing: 0.05em; }
+  .step-body { margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: hsl(20 10% 25%); }
+  .step-concrete { margin: 0; padding: 10px 12px; background: hsl(42 30% 96%); border-left: 3px solid hsl(20 45% 40%); border-radius: 4px; font-size: 13.5px; line-height: 1.55; color: hsl(20 10% 30%); }
+  .step-concrete strong { color: hsl(20 40% 25%); }
+
+  .g-faq { padding: 48px 0 16px; }
+  .g-faq h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 30px; margin: 0 0 16px; }
+  .faq-item { border-bottom: 1px solid hsl(42 20% 82%); padding: 12px 0; }
+  .faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: hsl(20 30% 25%); list-style: none; padding: 4px 0; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::before { content: '+ '; color: hsl(20 40% 40%); font-weight: 600; margin-right: 6px; }
+  .faq-item[open] summary::before { content: '– '; }
+  .faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: hsl(20 10% 30%); }
+
+  .g-cta { padding: 40px 0 80px; text-align: center; }
+  .g-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 8px; }
+  .g-cta p { color: hsl(20 10% 40%); font-size: 14px; margin: 0 0 20px; }
+  .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn, .btn-secondary { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .btn { background: hsl(20 45% 20%); color: white; }
+  .btn-secondary { background: transparent; color: hsl(20 30% 25%); border: 1px solid hsl(42 20% 70%); }
+</style>
