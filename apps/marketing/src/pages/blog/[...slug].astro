@@ -5,6 +5,15 @@ import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import BlogCover from '@/components/BlogCover.astro';
 
+// Prerender at build time. Required because astro.config.mjs sets
+// output:'server' globally (for the Stripe webhook + auth routes),
+// which makes getStaticPaths() a no-op unless prerender is
+// explicitly opted-in per route. Without this flag Astro tries to
+// SSR every /blog/<slug>/ at request time, and Astro.props.post
+// comes back undefined → 500 on every blog URL. Not a hypothetical:
+// it broke every blog post in production until this line was added.
+export const prerender = true;
+
 // Generate one static page per blog entry at build time.
 export async function getStaticPaths() {
   const posts = await getCollection('blog');

@@ -16,6 +16,14 @@ answersQuery: "What is indirect prompt injection and how do I defend my AI agent
 headlineStat: "IPIGuard (EMNLP 2025 oral) drops attack success rate from 4.43% → 0.69% by tracking parameter-level data flow rather than blocking by classifier."
 oneSentenceAnswer: "Indirect prompt injection is when an attacker hides instructions in tool outputs your agent later reads — webpages, emails, retrieved documents — and the fix is parameter-level taint propagation, which drops attack success rate from 4.43% (classifier-only) to 0.69% (IPIGuard, EMNLP 2025 oral)."
 coverImage: "1586282391129-76a6df230234"
+howToDuration: "PT45M"
+howToSteps:
+  - "Enumerate every tool your agent reads from that returns untrusted content — web fetch, email inboxes, retrieved documents, PDF text extraction, RSS feeds. This is your attack surface."
+  - "Add taint labels to every tool argument that carries data flowing from an untrusted source. LangGraph, LangChain, and LlamaIndex all support middleware where this can be attached."
+  - "Deploy a tool-call gateway (AEGIS or equivalent) that inspects every downstream tool_use for arguments carrying tainted content and refuses execution on high-privilege sinks (payment, email send, file write, code execution)."
+  - "Write policy rules that require trusted-source-only taint on the top three sensitive sinks — writes to filesystems, outbound HTTP, and any subprocess call."
+  - "Route flagged calls to a human-review queue with the full argument JSON and the taint provenance chain so a reviewer can approve or deny in one polling cycle."
+  - "Log every decision to a tamper-evident audit log (Ed25519-signed hash chain) so post-incident forensics can reconstruct the exact tool_use blocks that triggered the block."
 keyTakeaways:
   - "Indirect prompt injection hides instructions in tool outputs (web pages, emails, PDFs) the agent later reads."
   - "Classifier-only defenses leak; IPIGuard drops ASR from 4.43% → 0.69% with parameter-level taint."
