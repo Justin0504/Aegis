@@ -1,0 +1,231 @@
+---
+// AEGIS vs Guardrails AI
+//
+// Guardrails AI is Apache-2.0, focused on validating structured
+// LLM output (Pydantic-style schemas + validator hub). It shares
+// a "safety" label with AEGIS but solves a different problem in
+// the stack. This page pins down the delta and explains when to
+// use both together.
+//
+// Cross-referenced against guardrailsai.com and github.com/
+// guardrails-ai/guardrails as of 2026-09.
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const CAPS = [
+  { row: 'Category',                              aegis: 'Runtime firewall + cryptographic audit', gr: 'Structured-output validation + validator hub', note: 'AEGIS mediates tool calls at execution time. Guardrails AI validates model output against a schema and rejects/repairs invalid outputs. Different layer of the stack.', depth: 'core' },
+  { row: 'Runtime enforcement (block tool call)', aegis: 'Yes', gr: 'No', note: 'AEGIS gates the tool call before it fires. Guardrails AI validates the output; it does not sit on the tool-execution path.', depth: 'core' },
+  { row: 'Structured-output validation',          aegis: 'JSON Schema (AJV compiled)', gr: 'Pydantic-style + validator hub (100+ validators)', note: 'AEGIS validates tool-call arguments against a JSON Schema policy. Guardrails AI provides a much broader validator hub for content shaping.', depth: 'core' },
+  { row: 'License',                               aegis: 'MIT (core)', gr: 'Apache-2.0', note: 'Both fully open-source, both have hosted variants.', depth: 'core' },
+  { row: 'Deployment',                            aegis: 'Self-host + hosted', gr: 'Self-host + hosted (guardrailsai.com)', note: 'Both deployable as a library in-process or as a hosted service.', depth: 'core' },
+  { row: 'Cryptographic audit chain',             aegis: 'Yes (Ed25519 + SHA-256, RFC 6962 style)', gr: 'No', note: 'AEGIS ships a tamper-evident log verifiable by a 245-line Node stdlib verifier. Guardrails AI does not — its purpose stops at validation.', depth: 'core' },
+  { row: 'Peer-reviewed benchmark',               aegis: 'Yes (arXiv:2603.12621)', gr: 'No (product-driven)', note: 'AEGIS publishes head-to-head numbers on ToolGuard-Bench (5,525 records). Guardrails AI publishes validator quality but no gateway-level benchmark.', depth: 'core' },
+  { row: 'Prompt-injection defence',              aegis: 'L1 rules + L2 XGBoost + L3 LLM judge', gr: 'Validators (regex, classifier, LLM prompts)', note: 'AEGIS runs a documented cost-aware cascade. Guardrails AI has PI-specific validators the user composes into a Guard chain.', depth: 'core' },
+  { row: 'Framework SDK coverage',                aegis: '14 (2-line auto())', gr: 'Python-first + LiteLLM shims', note: 'AEGIS: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents, Vercel AI SDK, Go. Guardrails AI targets Python primarily; JS SDK is newer.', depth: 'core' },
+  { row: 'Human-in-the-loop approval queue',      aegis: 'Yes (Compliance Cockpit)', gr: 'No (not in scope)', note: 'AEGIS routes ambiguous/high-risk calls to a reviewer UI. Guardrails AI returns success/failure to the caller.', depth: 'core' },
+  { row: 'Compliance evidence pack (EU AI Act)',  aegis: 'Yes (Article 12-15 signed export)', gr: 'No', note: 'AEGIS emits a signed JSON pack aligned to EU AI Act Articles 12-15. Guardrails AI does not.', depth: 'detail' },
+  { row: 'Validator marketplace',                 aegis: 'No', gr: 'Yes (100+ community validators)', note: 'Guardrails AI Hub lets you install community validators. AEGIS ships fixed detectors; custom detectors are a Team-tier feature.', depth: 'detail' },
+  { row: 'Repair / re-ask flow',                  aegis: 'No (fail-safe block)', gr: 'Yes (re-ask + repair strategies)', note: 'Guardrails AI can re-prompt the model to fix invalid output. AEGIS fails safe and returns block; upstream code decides retry policy.', depth: 'detail' },
+];
+
+const CORE   = CAPS.filter((c) => c.depth === 'core');
+const DETAIL = CAPS.filter((c) => c.depth === 'detail');
+
+const canonicalUrl = 'https://aegistraces.com/vs/guardrails-ai';
+
+const FAQ = [
+  { q: 'Is AEGIS a Guardrails AI alternative?',
+    a: 'They are complementary layers, not alternatives. AEGIS gates tool-call execution and produces a cryptographic audit trail. Guardrails AI validates and repairs structured LLM output. Most production stacks that care about safety end up using both: Guardrails AI on the output side, AEGIS on the tool-call side.' },
+  { q: 'Which one blocks prompt injection better?',
+    a: 'For the tool-call runtime path, AEGIS wins on the ToolGuard-Bench benchmark (99.9% block at 1.06 ms P50). Guardrails AI does not publish comparable per-call runtime numbers on that benchmark, since its scope is output validation rather than gateway mediation.' },
+  { q: 'Can I use them together?',
+    a: 'Yes and it is common. A typical topology: Guardrails AI validates and, if needed, repairs the LLM output before it emits a tool_use block; AEGIS then intercepts the tool_use block and applies runtime firewall policy (block / pending / allow) before execution. Risk signals from Guardrails validators can also feed AEGIS as additional detector input.' },
+  { q: 'Is Guardrails AI free?',
+    a: 'The library is Apache-2.0 and free to self-host. The hosted platform (guardrailsai.com) has paid tiers.' },
+  { q: 'Does AEGIS include a validator hub?',
+    a: 'No. AEGIS ships fixed detectors optimized for tool-call inspection (SQL injection, path traversal, shell injection, prompt injection, sensitive-file access, data exfiltration, PII). Custom detectors are a Team-tier feature. Guardrails AI is the right choice if you want a marketplace of community validators.' },
+];
+
+const productLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  '@id': `${canonicalUrl}#product`,
+  name: 'AEGIS',
+  description: 'MIT-licensed pre-execution firewall for LLM tool calls with peer-reviewed cost-aware cascade and cryptographic audit chain.',
+  brand: { '@type': 'Organization', name: 'AEGIS' },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
+};
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${canonicalUrl}#faq`,
+  mainEntity: FAQ.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+---
+
+<Layout
+  title="AEGIS vs Guardrails AI — Runtime firewall vs structured-output validator (2026)"
+  description="AEGIS is a runtime firewall for LLM tool calls (MIT, cryptographic audit, peer-reviewed cascade). Guardrails AI is an Apache-2.0 output-validation library. Different layers of the stack — most teams use both. Head-to-head matrix + FAQ."
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="vs-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Head to head · updated 2026-09</p>
+        <h1>AEGIS <span class="vs-word">vs</span> Guardrails AI</h1>
+        <p class="lede">
+          Different layers of the stack. AEGIS mediates the
+          tool-call execution path (block / pending / allow with a
+          cryptographic audit trail). Guardrails AI validates and
+          repairs structured LLM output. Both are open-source; most
+          teams that care about agent safety end up deploying both.
+        </p>
+        <p class="lede small">
+          Written by the AEGIS team. Facts cross-referenced against
+          <a href="https://www.guardrailsai.com/" target="_blank" rel="noopener">guardrailsai.com</a>
+          and <a href="https://github.com/guardrails-ai/guardrails" target="_blank" rel="noopener">github.com/guardrails-ai/guardrails</a>
+          as of 2026-09.
+        </p>
+      </div>
+    </section>
+
+    <section class="vs-tldr">
+      <div class="container container-narrow">
+        <h2>TL;DR</h2>
+        <ul class="tldr-list">
+          <li><strong>Guardrails AI</strong> = <em>output validation</em>: validate + repair structured LLM output against Pydantic-style schemas with a community validator hub.</li>
+          <li><strong>AEGIS</strong> = <em>runtime firewall</em>: mediate tool calls at execution, produce a tamper-evident audit trail, route ambiguous calls to a human reviewer.</li>
+          <li><strong>Common pattern</strong>: Guardrails validates output → AEGIS intercepts the resulting tool_use → decides allow/block/pending → logs signed trace.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="vs-matrix">
+      <div class="container">
+        <h2>Head-to-head capability matrix</h2>
+        <table class="cap-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>AEGIS</th>
+              <th>Guardrails AI</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CORE.map((c) => (
+              <tr>
+                <td class="row-name">{c.row}</td>
+                <td>{c.aegis}</td>
+                <td>{c.gr}</td>
+                <td class="row-note">{c.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <details class="detail-expand">
+          <summary>Show marketplace + repair-flow detail ({DETAIL.length} more rows)</summary>
+          <table class="cap-table">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>AEGIS</th>
+                <th>Guardrails AI</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DETAIL.map((c) => (
+                <tr>
+                  <td class="row-name">{c.row}</td>
+                  <td>{c.aegis}</td>
+                  <td>{c.gr}</td>
+                  <td class="row-note">{c.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      </div>
+    </section>
+
+    <section class="vs-faq">
+      <div class="container container-narrow">
+        <h2>Frequently asked</h2>
+        {FAQ.map(({ q, a }) => (
+          <details class="faq-item">
+            <summary>{q}</summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="vs-cta">
+      <div class="container container-narrow">
+        <h2>Try AEGIS</h2>
+        <p>MIT-licensed engine. Deploys alongside Guardrails AI.</p>
+        <div class="ctas">
+          <a class="btn" href="/download">Download AEGIS</a>
+          <a class="btn-secondary" href="https://arxiv.org/abs/2603.12621">Read the paper</a>
+          <a class="btn-secondary" href="https://github.com/Justin0504/Aegis">GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .vs-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
+  h1 .vs-word { font-style: italic; color: hsl(20 30% 40%); font-weight: 400; }
+  .lede { font-size: 17px; line-height: 1.55; color: hsl(20 10% 30%); max-width: 640px; margin: 0 0 8px; }
+  .lede.small { font-size: 13px; color: hsl(20 10% 45%); }
+  .vs-tldr { padding: 24px 0; }
+  .vs-tldr h2 { font-size: 20px; margin: 0 0 12px; }
+  .tldr-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .tldr-list li { padding: 12px 16px; background: hsl(42 30% 96%); border: 1px solid hsl(42 20% 82%); border-radius: 8px; font-size: 14.5px; line-height: 1.55; }
+  .tldr-list strong { color: hsl(20 40% 25%); }
+  .vs-matrix { padding: 40px 0 16px; }
+  .vs-matrix h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 20px; }
+  .cap-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; overflow: hidden; }
+  .cap-table th { text-align: left; padding: 10px 12px; background: hsl(42 30% 90%); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(20 20% 25%); border-bottom: 1px solid hsl(42 20% 82%); }
+  .cap-table td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid hsl(42 20% 90%); line-height: 1.5; }
+  .cap-table tr:last-child td { border-bottom: none; }
+  .cap-table .row-name { font-weight: 600; color: hsl(20 25% 20%); width: 22%; }
+  .cap-table .row-note { color: hsl(20 10% 40%); font-size: 12px; width: 38%; }
+  .detail-expand { margin-top: 16px; }
+  .detail-expand summary { cursor: pointer; font-size: 14px; color: hsl(20 30% 30%); padding: 8px 0; font-weight: 500; }
+  .detail-expand[open] > summary { margin-bottom: 12px; }
+  .vs-faq { padding: 48px 0 16px; }
+  .vs-faq h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 16px; }
+  .faq-item { border-bottom: 1px solid hsl(42 20% 82%); padding: 12px 0; }
+  .faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: hsl(20 30% 25%); list-style: none; padding: 4px 0; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::before { content: '+ '; color: hsl(20 40% 40%); font-weight: 600; margin-right: 6px; }
+  .faq-item[open] summary::before { content: '– '; }
+  .faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: hsl(20 10% 30%); }
+  .vs-cta { padding: 40px 0 80px; text-align: center; }
+  .vs-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 8px; }
+  .vs-cta p { color: hsl(20 10% 40%); font-size: 14px; margin: 0 0 20px; }
+  .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn, .btn-secondary { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .btn { background: hsl(20 45% 20%); color: white; }
+  .btn-secondary { background: transparent; color: hsl(20 30% 25%); border: 1px solid hsl(42 20% 70%); }
+</style>

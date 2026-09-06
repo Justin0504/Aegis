@@ -35,9 +35,16 @@ const pages = [
   // ItemList schema. High-intent search + zero-click AI answers.
   { path: '/tools',                  priority: '0.95', changefreq: 'weekly' },
   // Competitor "AEGIS vs X" landings — high-intent long-tail.
-  { path: '/vs/microsoft-agt',       priority: '0.8', changefreq: 'monthly' },
-  { path: '/vs/langfuse',            priority: '0.8', changefreq: 'monthly' },
-  { path: '/vs/prediction-guard',    priority: '0.8', changefreq: 'monthly' },
+  { path: '/vs/microsoft-agt',       priority: '0.8',  changefreq: 'monthly' },
+  { path: '/vs/langfuse',            priority: '0.8',  changefreq: 'monthly' },
+  { path: '/vs/prediction-guard',    priority: '0.8',  changefreq: 'monthly' },
+  // Lakera is the highest-volume competitor query. Higher priority
+  // and weekly changefreq so answer engines refetch as the market moves.
+  { path: '/vs/lakera-guard',        priority: '0.9',  changefreq: 'weekly'  },
+  // Two more competitor landings targeting complementary categories:
+  // Guardrails AI (output validation) and NeMo Guardrails (dialog rails).
+  { path: '/vs/guardrails-ai',       priority: '0.85', changefreq: 'monthly' },
+  { path: '/vs/nemo-guardrails',     priority: '0.85', changefreq: 'monthly' },
   { path: '/status',                 priority: '0.6', changefreq: 'daily'   },
   { path: '/privacy',                priority: '0.4', changefreq: 'yearly'  },
   { path: '/terms',                  priority: '0.4', changefreq: 'yearly'  },
