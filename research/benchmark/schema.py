@@ -43,6 +43,17 @@ class Granularity(str, Enum):
     COARSE = "coarse"   # e.g. execute_sql(query: str)
     FINE = "fine"       # e.g. query_users(user_id: int)
     UNKNOWN = "unknown"
+    # INTENT records describe a *user request* whose risky tool call has
+    # not been instantiated (ToolEmu ships cases, not trajectories — the
+    # risky call only exists once you run an agent in their emulator).
+    # They carry no arguments, so a per-call detector has literally
+    # nothing to inspect and scores 0% on them by construction.
+    #
+    # Mixing INTENT records into a per-call recall number silently
+    # deflates every detector by a constant. This enum value exists so
+    # build.py can exclude them by default and so any future analysis
+    # that includes them has to say so out loud.
+    INTENT = "intent"
 
 
 class ToolCall(BaseModel):

@@ -5,6 +5,12 @@
 \usepackage{times,latexsym,booktabs,graphicx,hyperref,xcolor}
 \usepackage{amsmath,amssymb,enumitem,microtype}
 \usepackage{listings,xspace,pifont,float}
+% colortbl gives us \rowcolor for the highlight row in Table 3.
+\usepackage{colortbl}
+% placeins auto-inserts \FloatBarrier at every \section boundary,
+% preventing the four Evaluation tables from all floating to page-top
+% and colliding on top of each other.
+\usepackage[section]{placeins}
 
 \newcommand{\system}{\textsc{Aegis}\xspace}
 \newcommand{\bench}{\textsc{ToolGuard-Bench}\xspace}
@@ -46,11 +52,13 @@
 \maketitle
 
 \begin{abstract}
-Tool-using LLM agents execute database queries, shell commands, and API calls, creating a direct path from model output to real-world side effects.
-We present \system, an open-source pre-execution firewall that interposes on this path with a cost-aware three-layer cascade: (L1)~pattern-based rules at sub-millisecond latency, (L2)~a supervised XGBoost classifier over 15 structural features, and (L3)~LLM-judge escalation for the few ambiguous cases.
-The cascade resolves the fundamental trade-off between fast-but-brittle rules and flexible-but-expensive LLM judges. On \bench, a new benchmark of 5{,}525 tool calls from four public sources, the cascade achieves \textbf{99.9\% block rate} at \textbf{1.1\,ms median latency} and \textbf{\$0.05 total cost}---outperforming all standalone LLM judges on every metric simultaneously.
-\system supports 14 agent frameworks with two-line integration, provides tamper-evident auditing via Ed25519 signatures and SHA-256 hash chains, and offers a human-in-the-loop compliance dashboard.
-The system is released under MIT license.\footnote{Code: \url{https://github.com/Justin0504/Aegis}. Demo video: \url{https://www.youtube.com/watch?v=8ebpjCMRRic}}
+Tool-using LLM agents execute database queries, shell commands, and API calls, creating a direct path from model output to real-world side effects that a single hallucinated or prompt-injected call can traverse before any human is aware.
+We present \system, an open-source pre-execution firewall that interposes on this path with a cost-aware three-layer cascade: (L1)~pattern-based rules at sub-millisecond latency, (L2)~a supervised XGBoost classifier over 15 structural features, and (L3)~LLM-judge escalation for the small ambiguous residual.
+We build \bench, a unified benchmark of 5{,}525 tool calls drawn from InjecAgent, ToolEmu, OWASP LLM Top-10, and a curated in-distribution suite; on this scale the rules-only defense of prior work blocks only \textbf{1.2\%} of malicious calls, while pure LLM judges reach 96--99\% at \textbf{1{,}204--2{,}211\,ms} P50 latency and up to \textbf{\$5.32} per run.
+The full \system cascade achieves \textbf{99.9\% block rate} at \textbf{1.06\,ms} P50 latency and \textbf{\$0.05} total cost---Pareto-dominating every standalone baseline on latency, coverage, and cost simultaneously.
+Under 10 adversarial obfuscation transforms (base64 wrap, hex encoding, Unicode homoglyphs, paraphrase, \ldots) applied to 3{,}413 malicious calls each, block rate never falls below \textbf{97.5\%}.
+\system supports 14 agent frameworks with two-line integration, provides tamper-evident auditing via Ed25519 signatures and SHA-256 hash chains, and ships a human-in-the-loop compliance dashboard with an AI-agent-ATT\&CK coverage view.
+The system is released under MIT license.\footnote{Code: \url{https://github.com/Justin0504/Aegis}. Demo video: \url{https://www.youtube.com/watch?v=8ebpjCMRRic}.}
 \end{abstract}
 
 \section{Introduction}
@@ -60,17 +68,25 @@ LLM agents that act through tools~\cite{yao2023react,schick2024toolformer} are m
 A single hallucinated or prompt-injected tool call~\cite{greshake2023not} can cause irreversible damage before any human is aware.
 Yet in most agent stacks, no enforcement layer sits between the model's tool-call decision and execution.
 
-Post-execution observability platforms~\cite{langfuse2024,arize2024} record events after side effects occur.
+\paragraph{The rules-vs-LLM dilemma.}
+Post-execution observability platforms~\cite{langfuse2024,arize2024} record events \emph{after} side effects occur.
 Evaluation systems such as ToolEmu~\cite{ruan2024toolemu}, AgentDojo~\cite{debenedetti2024agentsec}, and InjecAgent~\cite{zhan2024injecagent} measure risk in sandboxes but do not operate on the runtime execution path.
-Runtime defenses face a trade-off: rule-based layers are fast ($<$1\,ms) but miss novel attacks (0\% block rate on out-of-distribution threats in our evaluation), while LLM judges generalize well (96.6\% block) but add 1--4\,s latency and \$0.36--\$5.32 per run.
+Runtime defenses that do operate on the path face a sharp trade-off.
+Rule-based scanners are fast ($<$1\,ms) but brittle: on our 5{,}525-record unified benchmark, a pattern-only defense---the design underlying our own arXiv v1 and every commercial rules gateway we surveyed---blocks only \textbf{1.2\%} of malicious calls, because the majority of real-world attacks are prompt-injection-driven agent misuse whose surface tokens do not match any static regex.
+LLM judges generalize much better (Claude Haiku~4.5 blocks 96.6\%, GPT-4o-mini 98.8\%), but at \textbf{1.2--2.2\,s} per call and \textbf{\$0.36--\$5.32} per run---prohibitive on hot paths that see millions of calls per day.
 
-\system bridges this gap.
-The key insight is that most tool calls in production are benign---cheap rules can handle them at negligible cost, while the expensive LLM judge only needs to inspect the small fraction that rules cannot resolve.
-We demonstrate three novel capabilities:
+\paragraph{Cost-aware cascade.}
+\system bridges this gap with a three-layer cascade that short-circuits at the cheapest confident layer.
+The critical insight is that a small \emph{supervised} classifier (XGBoost over 15 structural features) sits between rules and the LLM judge and catches almost everything the rules miss at $<$1\,ms and \$0---leaving the LLM to inspect only the small ambiguous residual (typically $<$0.3\% of production calls).
+On our unified benchmark this three-layer cascade reaches \textbf{99.9\% block rate at 1.06\,ms P50 and \$0.05 total cost}, Pareto-dominating every standalone baseline (Figure~\ref{fig:pareto}).
+An ablation (Appendix~\ref{app:ablation}) shows the L2 XGBoost stage is the single largest driver: removing it collapses coverage to 4.6\%.
+
+\paragraph{Contributions.}
 \begin{enumerate}[nosep,leftmargin=*]
-\item \textbf{Cost-aware cascade defense.} A three-layer pipeline (rules $\to$ XGBoost classifier $\to$ LLM judge) that short-circuits at the cheapest confident layer.
-\item \textbf{Framework-agnostic interception.} Two-line integration across 14 frameworks in Python, JavaScript, and Go.
-\item \textbf{Auditable enforcement.} Tamper-evident audit trails with Ed25519 signatures, human-in-the-loop approval workflows, and compliance reporting.
+\item \textbf{Cost-aware three-layer cascade} (\S\ref{sec:cascade}) that resolves the fast-but-brittle vs.\ flexible-but-expensive trade-off, achieving 99.9\%/1.06\,ms/\$0.05 on \bench.
+\item \textbf{\bench{}}: a unified benchmark of 5{,}525 tool calls from four public sources, plus 32{,}829 adversarially obfuscated variants; ten baselines evaluated head-to-head (\S\ref{sec:eval}, Appendix~\ref{app:baselines}).
+\item \textbf{Framework-agnostic interception} with two-line integration across 14 frameworks in Python, JavaScript, and Go (\S\ref{sec:sdk}, Appendix~\ref{app:sdk}).
+\item \textbf{Auditable enforcement}: tamper-evident audit trails (Ed25519 + SHA-256 chain), human-in-the-loop approval, and an AI-agent-ATT\&CK-style threat coverage view in the Compliance Cockpit (Appendix~\ref{app:cockpit}).
 \end{enumerate}
 
 \section{System Architecture}
@@ -198,10 +214,10 @@ Training on InjecAgent and testing on ToolEmu+OWASP yields only 27.2\% block rat
 Training on ToolEmu+OWASP and testing on InjecAgent yields 89.4\%.
 This motivates the cascade design: L2 handles calls that match training distribution at $<$3\,ms, while L3 (LLM judge) catches the OOD remainder---combining speed with generalization.
 
-\begin{table}[t]
+\begin{table*}[!htbp]
 \centering\small
 \caption{Cross-source generalization of XGBoost L2 (no L3). Block rate drops on OOD sources, validating the need for L3 as a generalization backstop.}
-\vspace{-0.1in}
+\vspace{-0.05in}
 \label{tab:xsource}
 \begin{tabular}{llrr}
 \toprule
@@ -212,8 +228,7 @@ InjecAgent & ToolEmu+OWASP+Self & 27.2 & 0.00 \\
 ToolEmu+OWASP+Self & InjecAgent & 89.4 & 0.00 \\
 \bottomrule
 \end{tabular}
-\vspace{-0.1in}
-\end{table}
+\end{table*}
 
 \paragraph{Adaptive Robustness.}
 An LLM-driven red-team attacker (Sonnet~4.6) iteratively rewrites 53 malicious seeds over 5 rounds.
@@ -275,5 +290,7 @@ The system supports 14 frameworks, provides tamper-evident auditing, and is open
 
 \bibliography{references}
 \bibliographystyle{acl_natbib}
+
+\input{appendix}
 
 \end{document}

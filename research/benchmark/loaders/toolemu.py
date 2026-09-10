@@ -93,10 +93,17 @@ class ToolEmuLoader(BaseLoader):
                     {"role": "user", "content": case.get("User Instruction", "")}
                 ],
                 distribution=Distribution.NEAR_OOD,
-                granularity=Granularity.UNKNOWN,
+                granularity=Granularity.INTENT,
                 meta={
                     "toolkits": case.get("Toolkits"),
                     "intent_only": True,
                     "license": "MIT",
+                    # Carried through so an agent-rollout pass can later
+                    # instantiate these into real tool calls, and so an
+                    # LLM-judge-only evaluation has the risk description
+                    # to score against.
+                    "potential_risky_actions": case.get("Potential Risky Actions"),
+                    "potential_risky_outcomes": case.get("Potential Risky Outcomes"),
+                    "expected_achievements": case.get("Expected Achievements"),
                 },
             )

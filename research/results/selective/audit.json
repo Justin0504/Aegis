@@ -1,0 +1,576 @@
+{
+  "n_records": 5381,
+  "n_malicious": 3269,
+  "n_benign": 2112,
+  "runs": {
+    "no_defense": "no_defense__aegis-bench__20260415-224314",
+    "keyword_blacklist": "keyword_blacklist__aegis-bench__20260415-224314",
+    "aegis_rules": "aegis_rules__aegis-bench__20260416-173938",
+    "llama_guard": "llama_guard__aegis-bench__20260417-102343",
+    "llm_judge_anthropic": "llm_judge_anthropic__aegis-bench__20260416-171722",
+    "llm_judge_openai": "llm_judge_openai__aegis-bench__20260417-041945"
+  },
+  "score_surface": {
+    "keyword_blacklist": {
+      "display": "Keyword blacklist",
+      "family": "lexical",
+      "distinct_values": 2,
+      "values": [
+        0.0,
+        1.0
+      ],
+      "null_rate": 0.0,
+      "conformalizable": false
+    },
+    "aegis_rules": {
+      "display": "AEGIS rules (L1)",
+      "family": "lexical",
+      "distinct_values": 5,
+      "values": [
+        0.0,
+        0.1,
+        0.5,
+        0.8,
+        1.0
+      ],
+      "null_rate": 0.981416093662888,
+      "conformalizable": true
+    },
+    "llama_guard": {
+      "display": "Llama-Guard-3-8B",
+      "family": "learned-classifier",
+      "distinct_values": 2,
+      "values": [
+        0.0,
+        1.0
+      ],
+      "null_rate": 0.0,
+      "conformalizable": false
+    },
+    "llm_judge_anthropic": {
+      "display": "LLM judge (Haiku 4.5)",
+      "family": "llm-judge",
+      "distinct_values": 12,
+      "values": [
+        0.0,
+        0.01,
+        0.05,
+        0.1,
+        0.15,
+        0.2,
+        0.85,
+        0.9,
+        0.92,
+        0.95,
+        0.98,
+        0.99
+      ],
+      "null_rate": 0.0,
+      "conformalizable": true
+    },
+    "llm_judge_openai": {
+      "display": "LLM judge (GPT-4o-mini)",
+      "family": "llm-judge",
+      "distinct_values": 6,
+      "values": [
+        0.0,
+        0.1,
+        0.7,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "null_rate": 0.0,
+      "conformalizable": true
+    }
+  },
+  "complementarity": {
+    "recovery": {
+      "keyword_blacklist": {
+        "aegis_rules": 0.009108040201005025,
+        "llama_guard": 0.7050879396984925,
+        "llm_judge_anthropic": 0.9827261306532663,
+        "llm_judge_openai": 0.9978015075376885
+      },
+      "aegis_rules": {
+        "keyword_blacklist": 0.022614622057001238,
+        "llama_guard": 0.7007434944237918,
+        "llm_judge_anthropic": 0.9826517967781908,
+        "llm_judge_openai": 0.9978314745972738
+      },
+      "llama_guard": {
+        "keyword_blacklist": 0.04085801838610827,
+        "aegis_rules": 0.013278855975485188,
+        "llm_judge_anthropic": 0.9713993871297242,
+        "llm_judge_openai": 0.992849846782431
+      },
+      "llm_judge_anthropic": {
+        "keyword_blacklist": 0.03508771929824561,
+        "aegis_rules": 0.017543859649122806,
+        "llama_guard": 0.5087719298245614,
+        "llm_judge_openai": 0.8771929824561403
+      },
+      "llm_judge_openai": {
+        "keyword_blacklist": 0.0,
+        "aegis_rules": 0.0,
+        "llama_guard": 0.0,
+        "llm_judge_anthropic": 0.0
+      }
+    },
+    "phi": {
+      "keyword_blacklist": {
+        "aegis_rules": 0.1888584049191707,
+        "llama_guard": -0.06103792654992554,
+        "llm_judge_anthropic": -0.007605640080664571,
+        "llm_judge_openai": 0.007568851333851333
+      },
+      "aegis_rules": {
+        "keyword_blacklist": 0.1888584049191707,
+        "llama_guard": -0.004328884737723947,
+        "llm_judge_anthropic": -0.005987313860098632,
+        "llm_judge_openai": 0.005220741703408919
+      },
+      "llama_guard": {
+        "keyword_blacklist": -0.06103792654992554,
+        "aegis_rules": -0.004328884737723947,
+        "llm_judge_anthropic": 0.05576819366856988,
+        "llm_judge_openai": 0.0708489530425142
+      },
+      "llm_judge_anthropic": {
+        "keyword_blacklist": -0.007605640080664571,
+        "aegis_rules": -0.005987313860098632,
+        "llama_guard": 0.05576819366856988,
+        "llm_judge_openai": 0.34774218779073995
+      },
+      "llm_judge_openai": {
+        "keyword_blacklist": 0.007568851333851333,
+        "aegis_rules": 0.005220741703408919,
+        "llama_guard": 0.0708489530425142,
+        "llm_judge_anthropic": 0.34774218779073995
+      }
+    },
+    "union_recall": {
+      "keyword_blacklist": {
+        "aegis_rules": 0.034873049862343186,
+        "llama_guard": 0.7127561945549097,
+        "llm_judge_anthropic": 0.9831752829611502,
+        "llm_judge_openai": 0.9978586723768736
+      },
+      "aegis_rules": {
+        "keyword_blacklist": 0.034873049862343186,
+        "llama_guard": 0.7044967880085653,
+        "llm_judge_anthropic": 0.9828693790149893,
+        "llm_judge_openai": 0.9978586723768736
+      },
+      "llama_guard": {
+        "keyword_blacklist": 0.7127561945549097,
+        "aegis_rules": 0.7044967880085653,
+        "llm_judge_anthropic": 0.9914346895074947,
+        "llm_judge_openai": 0.9978586723768736
+      },
+      "llm_judge_anthropic": {
+        "keyword_blacklist": 0.9831752829611502,
+        "aegis_rules": 0.9828693790149893,
+        "llama_guard": 0.9914346895074947,
+        "llm_judge_openai": 0.9978586723768736
+      },
+      "llm_judge_openai": {
+        "keyword_blacklist": 0.9978586723768736,
+        "aegis_rules": 0.9978586723768736,
+        "llama_guard": 0.9978586723768736,
+        "llm_judge_anthropic": 0.9978586723768736
+      }
+    },
+    "standalone_recall": {
+      "keyword_blacklist": 0.026001835423676966,
+      "aegis_rules": 0.012542061792597125,
+      "llama_guard": 0.7005200367084735,
+      "llm_judge_anthropic": 0.9825634750688284,
+      "llm_judge_openai": 0.9978586723768736
+    },
+    "best_single": "llm_judge_openai",
+    "best_pair": [
+      "keyword_blacklist",
+      "llm_judge_openai"
+    ],
+    "best_union_recall": 0.9978586723768736,
+    "marginal_gain": 0.0,
+    "n_malicious": 3269,
+    "scope": "clean benchmark"
+  },
+  "per_partition": {
+    "far_ood": {
+      "n": 20,
+      "n_malicious": 20,
+      "recall": {
+        "keyword_blacklist": 0.25,
+        "aegis_rules": 0.0,
+        "llama_guard": 0.8,
+        "llm_judge_anthropic": 1.0,
+        "llm_judge_openai": 1.0
+      },
+      "best_single": 1.0,
+      "union_all": 1.0,
+      "cascade_gain": 0.0
+    },
+    "in_distribution": {
+      "n": 57,
+      "n_malicious": 53,
+      "recall": {
+        "keyword_blacklist": 0.22641509433962265,
+        "aegis_rules": 0.7735849056603774,
+        "llama_guard": 0.5660377358490566,
+        "llm_judge_anthropic": 0.7735849056603774,
+        "llm_judge_openai": 0.8679245283018868
+      },
+      "best_single": 0.8679245283018868,
+      "union_all": 0.8679245283018868,
+      "cascade_gain": 0.0
+    },
+    "near_ood": {
+      "n": 5304,
+      "n_malicious": 3196,
+      "recall": {
+        "keyword_blacklist": 0.02127659574468085,
+        "aegis_rules": 0.0,
+        "llama_guard": 0.7021276595744681,
+        "llm_judge_anthropic": 0.9859198998748435,
+        "llm_judge_openai": 1.0
+      },
+      "best_single": 1.0,
+      "union_all": 1.0,
+      "cascade_gain": 0.0
+    }
+  },
+  "conformal": {
+    "iid": [
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.01,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.01,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.01,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.01,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.7,
+        "certifiable": true,
+        "realised_miss_rate": 0.002442002442002442,
+        "abstention_rate": 0.6551467855815681,
+        "benign_abstention": 0.1225071225071225,
+        "guarantee_held": true
+      },
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.05,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.05,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.05,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.95,
+        "certifiable": true,
+        "realised_miss_rate": 0.04700854700854701,
+        "abstention_rate": 0.5800817539947974,
+        "benign_abstention": 0.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.05,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.8,
+        "certifiable": true,
+        "realised_miss_rate": 0.01221001221001221,
+        "abstention_rate": 0.6183574879227053,
+        "benign_abstention": 0.04368471035137702,
+        "guarantee_held": true
+      },
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.1,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.1,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.1,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.95,
+        "certifiable": true,
+        "realised_miss_rate": 0.04700854700854701,
+        "abstention_rate": 0.5800817539947974,
+        "benign_abstention": 0.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.1,
+        "n_cal_mal": 1631,
+        "n_test_mal": 1638,
+        "n_test_ben": 1053,
+        "allow_threshold": 0.8,
+        "certifiable": true,
+        "realised_miss_rate": 0.01221001221001221,
+        "abstention_rate": 0.6183574879227053,
+        "benign_abstention": 0.04368471035137702,
+        "guarantee_held": true
+      }
+    ],
+    "shift": [
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.01,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.01,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.01,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.01,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.7,
+        "certifiable": true,
+        "realised_miss_rate": 0.0958904109589041,
+        "abstention_rate": 0.8701298701298701,
+        "benign_abstention": 0.25,
+        "guarantee_held": false
+      },
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.05,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.05,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.05,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.95,
+        "certifiable": true,
+        "realised_miss_rate": 0.2602739726027397,
+        "abstention_rate": 0.7012987012987013,
+        "benign_abstention": 0.0,
+        "guarantee_held": false
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.05,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.8,
+        "certifiable": true,
+        "realised_miss_rate": 0.1232876712328767,
+        "abstention_rate": 0.8441558441558441,
+        "benign_abstention": 0.25,
+        "guarantee_held": false
+      },
+      {
+        "detector": "aegis_rules",
+        "alpha": 0.1,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llama_guard",
+        "alpha": 0.1,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.0,
+        "certifiable": true,
+        "realised_miss_rate": 0.0,
+        "abstention_rate": 1.0,
+        "benign_abstention": 1.0,
+        "guarantee_held": true
+      },
+      {
+        "detector": "llm_judge_anthropic",
+        "alpha": 0.1,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.95,
+        "certifiable": true,
+        "realised_miss_rate": 0.2602739726027397,
+        "abstention_rate": 0.7012987012987013,
+        "benign_abstention": 0.0,
+        "guarantee_held": false
+      },
+      {
+        "detector": "llm_judge_openai",
+        "alpha": 0.1,
+        "n_cal_mal": 3196,
+        "n_test_mal": 73,
+        "n_test_ben": 4,
+        "allow_threshold": 0.9,
+        "certifiable": true,
+        "realised_miss_rate": 0.2054794520547945,
+        "abstention_rate": 0.7532467532467533,
+        "benign_abstention": 0.0,
+        "guarantee_held": false
+      }
+    ]
+  },
+  "worst_violation": {
+    "detector": "llm_judge_openai",
+    "alpha": 0.01,
+    "n_cal_mal": 3196,
+    "n_test_mal": 73,
+    "n_test_ben": 4,
+    "allow_threshold": 0.7,
+    "certifiable": true,
+    "realised_miss_rate": 0.0958904109589041,
+    "abstention_rate": 0.8701298701298701,
+    "benign_abstention": 0.25,
+    "guarantee_held": false
+  }
+}
