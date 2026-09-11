@@ -32,12 +32,24 @@ def main() -> int:
     parser.add_argument(
         "--include-intent-only", action="store_true",
         help=(
-            "Include records that carry no concrete tool call (ToolEmu ships "
-            "cases, not trajectories). OFF by default: a per-call detector "
-            "scores 0%% on them by construction, so including them deflates "
-            "every recall number by a constant and makes cross-source "
-            "comparisons meaningless. They are always written to a sidecar "
-            "file regardless of this flag."
+            "Include records that carry no concrete tool call (InjecAgent and "
+            "ToolEmu both ship cases, not instantiated attacker calls). OFF by "
+            "default: a per-call detector scores 0%% on them by construction, "
+            "so including them deflates every recall number by a constant and "
+            "makes cross-source comparisons meaningless. They are always "
+            "written to a sidecar file regardless of this flag."
+        ),
+    )
+    parser.add_argument(
+        "--keep-duplicates", action="store_true",
+        help=(
+            "Keep byte-identical (tool_name, arguments, label) records. OFF by "
+            "default. Upstream sources reuse the same attacker instruction "
+            "across many cases: 3,196 InjecAgent malicious records collapse to "
+            "94 unique tool calls (97.1%% duplicated) and 2,108 benign to 17 "
+            "(99.2%%). Reporting n=5,381 when the effective sample is 186 "
+            "overstates statistical power by ~29x and lets a detector that "
+            "memorises one attack look like it generalises."
         ),
     )
     args = parser.parse_args()
@@ -48,7 +60,9 @@ def main() -> int:
     written = 0
     per_source: dict[str, int] = {}
     quarantined: dict[str, int] = {}
+    deduped: dict[str, int] = {}
     skipped: list[str] = []
+    seen: set[tuple] = set()
 
     with args.out.open("w") as out, intent_out.open("w") as iout:
         for name in args.sources:
@@ -72,6 +86,18 @@ def main() -> int:
                     quarantined[name] = quarantined.get(name, 0) + 1
                     if not args.include_intent_only:
                         continue
+
+                if not args.keep_duplicates:
+                    sig = (
+                        rec.tool_call.tool_name,
+                        json.dumps(rec.tool_call.arguments, sort_keys=True),
+                        rec.label,
+                    )
+                    if sig in seen:
+                        deduped[name] = deduped.get(name, 0) + 1
+                        continue
+                    seen.add(sig)
+
                 out.write(rec.model_dump_json() + "\n")
                 count += 1
             per_source[name] = count
@@ -81,6 +107,14 @@ def main() -> int:
     for name, n in sorted(per_source.items()):
         print(f"  {name:>14}  {n:>7}")
 
+    if deduped:
+        total_d = sum(deduped.values())
+        print(f"\nDuplicate records dropped: {total_d}")
+        for name, n in sorted(deduped.items()):
+            print(f"  {name:>14}  {n:>7}")
+        print("  Identical (tool_name, arguments, label). Pass --keep-duplicates\n"
+              "  to retain them, but do not report the inflated n as sample size.")
+
     if quarantined:
         total_q = sum(quarantined.values())
         state = "INCLUDED (--include-intent-only)" if args.include_intent_only else "EXCLUDED"
@@ -89,9 +123,10 @@ def main() -> int:
             print(f"  {name:>14}  {n:>7}")
         print(
             f"  {'TOTAL':>14}  {total_q:>7}\n"
-            "  These carry no tool_call arguments. Per-call detectors score 0%\n"
-            "  on them by construction; evaluate them with an LLM judge over\n"
-            "  the conversation context instead, and report that separately."
+            "  These carry no tool_call arguments because the upstream source\n"
+            "  never instantiated the attacker's call. Per-call detectors score\n"
+            "  0% on them by construction; evaluate them with a conversation-\n"
+            "  level judge instead, and report that separately."
         )
 
     if skipped:

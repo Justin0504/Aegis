@@ -104,12 +104,44 @@ class InjecAgentLoader(BaseLoader):
                         meta={"split": path.stem, "license": "Apache-2.0"},
                     )
 
-                # ... and one malicious record per attacker tool. The attacker
-                # tool's arguments are not given explicitly in the dataset
-                # (they would be filled in by the agent's interpretation of
-                # the injected instruction); we therefore put the attacker
-                # instruction in the conversation context so intent-based
-                # baselines can act on it.
+                # ... and one malicious record per attacker tool.
+                #
+                # IMPORTANT: InjecAgent does NOT ship the attacker tool's
+                # arguments. Like ToolEmu, it is an agent-execution
+                # benchmark — the concrete malicious call only exists once
+                # an agent has interpreted the injected instruction. An
+                # earlier version of this loader fabricated the call as
+                #
+                #     arguments={"_attacker_instruction": <the injection>}
+                #
+                # which produced three independent shortcuts that made the
+                # benchmark trivially solvable, all measured in
+                # results/selective/:
+                #
+                #   1. Label leakage. 3,196/3,196 malicious records carried
+                #      an argument key literally containing "attacker";
+                #      0/2,108 benign ones did. The key name *was* the label,
+                #      readable by any LLM judge and by grep.
+                #   2. Structural shortcut. Benign records got real
+                #      `Tool Parameters` from the dataset (median 38 chars)
+                #      while malicious got a natural-language sentence
+                #      (median 152). `total_chars` alone separates the two
+                #      classes at AUC 0.9944 — no semantics required.
+                #   3. Duplication. Distinct attacker instructions are far
+                #      fewer than cases: 3,196 malicious records collapse to
+                #      94 unique tool calls (97.1% duplicated).
+                #
+                # Marking these INTENT is the honest encoding: there is a
+                # real attack described here, but not a tool call a per-call
+                # detector can inspect. build.py quarantines INTENT records
+                # from the default benchmark, so they can still be evaluated
+                # by conversation-level judges without silently inflating
+                # per-call detection numbers.
+                #
+                # To turn these into genuine per-call records, run an agent
+                # against the injected observation and capture what it
+                # actually emits. That instantiation pass is the correct
+                # construction and is tracked separately.
                 attacker_tools = case.get("Attacker Tools") or []
                 if isinstance(attacker_tools, str):
                     attacker_tools = [attacker_tools]
@@ -121,7 +153,11 @@ class InjecAgentLoader(BaseLoader):
                         category=category,
                         tool_call=ToolCall(
                             tool_name=tool_name,
-                            arguments={"_attacker_instruction": attacker_instruction},
+                            # Deliberately empty. The injected instruction
+                            # lives in `conversation` where it belongs; it is
+                            # context that caused the attack, not an argument
+                            # the attacker passed.
+                            arguments={},
                             framework="injecagent-emulator",
                         ),
                         conversation=[
@@ -129,11 +165,12 @@ class InjecAgentLoader(BaseLoader):
                             {"role": "tool_observation", "content": attacker_instruction},
                         ],
                         distribution=Distribution.NEAR_OOD,
-                        granularity=Granularity.COARSE,
+                        granularity=Granularity.INTENT,
                         meta={
                             "split": path.stem,
                             "user_tool": user_tool,
                             "attack_type": case.get("Attack Type"),
+                            "attacker_instruction": attacker_instruction,
                             "license": "Apache-2.0",
                         },
                     )

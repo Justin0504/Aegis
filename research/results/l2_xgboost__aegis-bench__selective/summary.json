@@ -1,0 +1,10 @@
+{
+  "train_category": "data_exfiltration",
+  "source": "injecagent",
+  "n_fit": 3428,
+  "n_val": 856,
+  "val_auc": 1.0,
+  "distinct_scores": 22,
+  "n_estimators": 300,
+  "max_depth": 6
+}
