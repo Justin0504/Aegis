@@ -289,8 +289,17 @@ def parse_tool_json(text: str) -> dict | None:
     if not isinstance(obj, dict) or not obj.get("tool_name"):
         return None
     args = obj.get("arguments")
+    # Models sometimes write the name as a call expression —
+    # "GoogleMapGetCurrentLocation()" instead of the bare identifier.
+    # Left as-is this silently forks one tool into two names, which put
+    # the benign and malicious uses of the same tool into different
+    # buckets and re-created tool-identity leakage for that tool.
+    name = str(obj["tool_name"]).strip()
+    if name.endswith("()"):
+        name = name[:-2]
+    name = name.split("(", 1)[0].strip()
     return {
-        "tool_name": str(obj["tool_name"]),
+        "tool_name": name,
         "arguments": args if isinstance(args, dict) else {},
     }
 
