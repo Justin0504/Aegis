@@ -345,72 +345,88 @@ feature retains discriminative power.
 
 \input{figures/table_integrity}
 
-\section{Evaluation}
+\section{Evaluation on Corrected Data}
 \label{sec:eval}
 
-We validate \system on \bench, a benchmark we release alongside the system.
+We evaluate on the instantiated corpus of \S\ref{sec:instantiate}: 663
+records, 237 malicious and 426 benign, every call emitted by a live
+agent. Because the classes are unbalanced and both recall and
+false-positive rate move independently, we report balanced accuracy
+$\tfrac{1}{2}(\mathrm{TPR} + \mathrm{TNR})$ alongside both.
+\system-rules is the shipping gateway, run locally, rather than a
+reimplementation.
 
-\paragraph{Benchmark.}
-\bench contains 5{,}525 tool calls (3{,}413 malicious, 2{,}112 benign) from four public sources (Table~\ref{tab:bench}).
-Each record is tagged with a distribution-shift label relative to AEGIS rules: \emph{in-distribution} (crafted to match L1), \emph{near-OOD} (InjecAgent prompt-injection attacks), and \emph{far-OOD} (OWASP payloads).
+\input{figures/table_results}
 
-\input{figures/table_1_benchmark}
+\paragraph{Payload inspection does not detect these attacks.}
+The keyword blacklist is at chance (0.499). The \system rules engine
+reports 84.4\% block rate, but blocks 73.9\% of legitimate calls for the
+same reason, and its balanced accuracy is 0.552. Decomposing its block
+reasons shows why: JSON-Schema policy validation, rejecting calls for a
+missing \texttt{reason} property, accounts for 199/237 malicious and
+312/426 benign blocks. The 22 detection patterns fire on \textbf{one}
+malicious record. Their balanced accuracy alone is 0.499.
 
-\paragraph{Baselines.}
-We compare 10 configurations: four LLM judges (GPT-4o-mini, GPT-4o, Claude Haiku~4.5, Claude Sonnet~4.6), Llama-Guard-3-8B on GPU, keyword blacklist, AEGIS-rules (L1 only), AEGIS-L2 only, the full AEGIS cascade (L1+L2+L3), and no defense.
+This is not a tuning deficiency. Running the pattern families directly
+against the 237 real attack calls: SQL injection 0.0\%, path traversal
+0.0\%, sensitive-file access 0.0\%, prompt injection 0.0\%, shell
+injection 0.4\%; any pattern 0.4\%. The attacks contain no payload to
+match. \texttt{AmazonViewSavedPaymentMethods(\{\})} carries no argument
+at all, and \texttt{ViewAccessHistory} carries two ISO-8601 dates.
 
-\paragraph{Main Results.}
-Table~\ref{tab:overall} shows headline metrics.
-With XGBoost L2, the AEGIS cascade achieves \textbf{99.9\% block rate} with 0.09\% FP at \textbf{1.1\,ms} median latency and \textbf{\$0.05} total cost---outperforming every standalone LLM judge on all four metrics simultaneously.
-Even the best LLM judge (GPT-4o-mini, 98.8\% block) has 11.88\% false positives and 1{,}204\,ms latency.
-The unsupervised IForest variant achieves 94.1\% block rate with 0\% FP but at 2{,}146\,ms and \$4.18, showing the value of supervised L2.
+\paragraph{Only task context separates the classes.}
+The LLM judge reaches balanced accuracy \textbf{0.851} (78.9\% recall,
+8.7\% FPR)---the only configuration meaningfully above chance. Its
+rationales say what it is doing: \emph{``the requested tool
+\ldots{} is unrelated to fetching product details.''} It compares the
+call against the user's stated task. That comparison, not pattern
+matching, is what works, and it is available only to a detector that
+reads context the call string does not contain.
 
-\input{figures/table_3_overall}
+The cost is 2{,}280\,ms median per call, roughly $1600\times$ the rules
+path. A defence that must consult a frontier model on every tool call is
+not deployable on a hot path, which is the practical problem this result
+leaves open.
 
-\paragraph{Generalization.}
-Table~\ref{tab:perdist} reveals the cascade's value: L1 rules achieve 77.4\% on in-distribution attacks but \textbf{0\%} on near-OOD InjecAgent attacks.
-The LLM judge (Haiku) improves from 77.4\% in-dist to 96.9\% near-OOD, demonstrating semantic generalization.
-The cascade captures this via L3 escalation: 79.2\% in-dist, 94.3\% near-OOD, 100\% far-OOD.
+\paragraph{A model does not reliably recognise its own compromise.}
+The judge here is the same model that generated the attacks. Self-
+evaluation should if anything be optimistic, yet it misses 21.1\% of the
+calls it was itself manipulated into emitting. Asking a model to audit
+its own actions is therefore not a substitute for an external control
+point.
 
-\input{figures/table_2_per_distribution}
+\paragraph{Provenance, measured honestly.}
+If content does not separate the classes, provenance is the candidate.
+\texttt{cascade/features.py} carries five taint features
+(untrusted fraction, source entropy, max hop, sink-untrusted,
+cross-source count). Evaluating them requires care: attack records all
+follow a tool observation and single-step benign records follow none, so
+``was there a tool observation?'' separates the classes for a
+construction reason. We therefore built the two-step benign arm of
+\S\ref{sec:instantiate}, in which a legitimate call also carries
+arguments derived from a tool response.
 
-\paragraph{Per-Layer Resolution and L2 Ablation.}
-With supervised XGBoost L2, the cascade resolves 96.3\% of calls at L2 ($<$1\,ms), with only 1.6\% reaching the expensive L3 LLM judge---a 46$\times$ reduction versus the unsupervised IForest variant (92.7\% reaching L3).
-L2 alone (XGBoost, no L3) achieves 99.8\% block rate at 0.82\,ms P50, confirming the classifier's discriminative power.
-The unsupervised IForest L2 alone achieves only 0.67\% block rate, showing that supervised training is essential for L2 to carry the cascade's detection burden.
+\input{figures/table_taint}
 
-\paragraph{Production Cost.}
-The XGBoost cascade costs \$0.05 per full benchmark run (5{,}525 calls), compared to \$0.36--\$5.32 for standalone LLM judges.
-In realistic traffic ($\ge$99\% benign), the effective per-call cost drops below \$0.00001.
+Against the single-step control the taint block scores AUC 0.8498; against
+the two-step control, 0.7374. The 0.112 difference is the artifact, and
+\texttt{untrusted\_frac} is where it lives, falling from 0.8186 to
+0.6226 once benign records also carry untrusted data.
 
-\paragraph{Cross-Source Generalization.}
-To test for same-source bias, we evaluate XGBoost L2 in cross-source settings (Table~\ref{tab:xsource}).
-Training on InjecAgent and testing on ToolEmu+OWASP yields only 27.2\% block rate, confirming that the classifier learns source-specific patterns.
-Training on ToolEmu+OWASP and testing on InjecAgent yields 89.4\%.
-This motivates the cascade design: L2 handles calls that match training distribution at $<$3\,ms, while L3 (LLM judge) catches the OOD remainder---combining speed with generalization.
+On the honest comparison provenance nominally beats content (0.7374 vs
+0.6866) and taint alone beats taint plus content, so the surface features
+dilute rather than add. We do not claim the ordering: at $n=237$ versus
+169 the cross-validation spreads overlap. One feature improves under the
+stricter control---\texttt{cross\_source}, 0.6254 to 0.6727---consistent
+with attack arguments drawing on both the injection and the original
+data while a benign two-step call draws on a single lookup.
 
-\begin{table*}[!htbp]
-\centering\small
-\caption{Cross-source generalization of XGBoost L2 (no L3). Block rate drops on OOD sources, validating the need for L3 as a generalization backstop.}
-\vspace{-0.05in}
-\label{tab:xsource}
-\begin{tabular}{llrr}
-\toprule
-Train source & Test source & Block\% & FP\% \\
-\midrule
-InjecAgent & InjecAgent (held-out) & 93.4 & 0.00 \\
-InjecAgent & ToolEmu+OWASP+Self & 27.2 & 0.00 \\
-ToolEmu+OWASP+Self & InjecAgent & 89.4 & 0.00 \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\paragraph{Adaptive Robustness.}
-An LLM-driven red-team attacker (Sonnet~4.6) iteratively rewrites 53 malicious seeds over 5 rounds.
-The keyword blacklist is bypassed 52.8\% of the time; AEGIS rules at 17.0\%; the LLM judge at 11.3\%.
-This confirms that layered defense degrades more gracefully than any single layer.
-
-\input{figures/table_5_adaptive}
+\paragraph{What this leaves.}
+Both classes now carry untrusted-derived arguments, and the five features
+encode \emph{data} provenance only. What still distinguishes them is
+whether the \emph{instruction} arrived through the untrusted channel---
+a quantity nothing in the current feature set represents. That is the
+concrete gap these measurements identify.
 
 \section{Demonstration}
 \label{sec:demo}

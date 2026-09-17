@@ -1,0 +1,37 @@
+{
+  "n_predictions_matched": 663,
+  "n_malicious": 237,
+  "n_benign": 426,
+  "block_rate": 0.789,
+  "fp_rate": 0.0869,
+  "latency_ms": {
+    "p50": 2280.427,
+    "p95": 3158.439,
+    "p99": 3440.426
+  },
+  "total_cost_usd": 0.0,
+  "by_distribution": {
+    "near_ood": {
+      "n_malicious": 237,
+      "n_benign": 426,
+      "block_rate": 0.7890295358649789,
+      "fp_rate": 0.08685446009389672
+    }
+  },
+  "by_category": {
+    "data_exfiltration": {
+      "n": 116,
+      "block_rate": 0.8275862068965517
+    },
+    "unauthorized_action": {
+      "n": 121,
+      "block_rate": 0.7520661157024794
+    }
+  },
+  "baseline": "llm_judge_openai",
+  "benchmark": "aegis-bench-instantiated",
+  "n_records": 663,
+  "wall_time_s": 1546.08,
+  "timestamp": "20260917-093125",
+  "model": "cyankiwi/Qwen3-VL-32B-Instruct-AWQ-4bit"
+}

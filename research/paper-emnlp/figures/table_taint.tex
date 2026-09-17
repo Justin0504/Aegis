@@ -1,0 +1,27 @@
+% From results/selective/taint.json (selective/taint_eval.py).
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Provenance features, 5-fold CV AUC. Column~A uses the
+single-step benign class, where no record carries a tool observation
+at all; column~B uses the two-step benign arm, where legitimate calls
+also carry untrusted-derived arguments. The gap between them is
+construction artifact, not signal.}
+\label{tab:taint}
+\begin{tabular}{lrr}
+\toprule
+ & A: single-step & B: two-step \\
+\midrule
+15 content features      & 0.6310 & 0.6866 \\
+5 taint features         & 0.8498 & \textbf{0.7374} \\
+all 20 features          & 0.8961 & 0.7273 \\
+\midrule
+\multicolumn{3}{l}{\emph{per taint feature (AUC)}} \\
+\quad untrusted\_frac    & 0.8186 & 0.6226 \\
+\quad source\_entropy    & 0.6334 & 0.6476 \\
+\quad max\_hop           & 0.8186 & 0.6618 \\
+\quad sink\_untrusted    & 0.6013 & 0.5865 \\
+\quad cross\_source      & 0.6254 & 0.6727 \\
+\bottomrule
+\end{tabular}
+\end{table}
