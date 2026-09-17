@@ -85,7 +85,13 @@ class OpenAIJudge(Baseline):
 
     def warmup(self) -> None:
         from openai import OpenAI  # lazy import
-        self._client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        # OPENAI_BASE_URL lets this judge run against any OpenAI-compatible
+        # endpoint — a local vLLM server, for instance. Required when the
+        # hosted API has no credit, and the only way to evaluate a judge
+        # without paying per call.
+        base = os.environ.get("OPENAI_BASE_URL")
+        key = os.environ.get("OPENAI_API_KEY", "dummy")
+        self._client = OpenAI(api_key=key, base_url=base) if base else OpenAI(api_key=key)
 
     def predict(self, record: BenchRecord) -> Prediction:
         assert self._client is not None
@@ -98,7 +104,8 @@ class OpenAIJudge(Baseline):
             ],
             temperature=0.0,
             max_tokens=200,
-            response_format={"type": "json_object"},
+            **({} if os.environ.get("OPENAI_BASE_URL")
+               else {"response_format": {"type": "json_object"}}),
         )
         latency = (time.perf_counter() - t0) * 1000
         text = resp.choices[0].message.content or "{}"
