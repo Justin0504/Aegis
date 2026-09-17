@@ -79,7 +79,11 @@ On this corrected data the standard defence collapses. Classic payload
 patterns---SQL injection, path traversal, shell injection, sensitive
 files, prompt injection---match \textbf{0.4\%} of real attack calls,
 because a successful indirect injection produces a syntactically
-innocent call such as \texttt{ViewSavedPaymentMethods(\{\})}. We argue
+innocent call such as \texttt{ViewSavedPaymentMethods(\{\})}. The only
+detector meaningfully above chance is one that reads the user's stated
+task and compares the call against it (balanced accuracy \textbf{0.851}),
+at 2.3\,s per call---and it is the same model that was manipulated into
+emitting the attacks, which it still misses 21\% of the time. We argue
 payload inspection is the wrong abstraction for agent security: what
 makes such a call an attack is provenance and authorisation, neither of
 which is in the call string.
@@ -178,7 +182,7 @@ agentguard.auto()  # patches all detected SDKs
 The cascade is the core enforcement mechanism:
 
 \paragraph{L1: Pattern-Based Rules ($<$1\,ms).}
-22 detection patterns across 7 categories---SQL injection (7 patterns), path traversal (4), shell injection (4), prompt injection (3), sensitive file access (2), data exfiltration (1), PII leakage (1)---are matched against recursively extracted argument strings (depth limit 32). If a pattern fires, the call is immediately blocked.
+22 detection patterns across 7 categories---SQL injection (7 patterns), path traversal (4), shell injection (4), prompt injection (3), sensitive file access (2), data exfiltration (1), PII leakage (1)---are matched against recursively extracted argument strings (depth limit 32). If a pattern fires, the call is immediately blocked. This layer is effective against payloads that are themselves hostile and, as \S\ref{sec:eval} shows, nearly inert against indirect injection, where the emitted call carries no payload at all.
 
 \paragraph{L2: Supervised Behavioral Classifier ($<$10\,ms).}
 Each tool call is encoded into a 15-dimensional feature vector (Table~\ref{tab:features}) capturing argument structure (count, depth, length), character-level statistics (digit/uppercase/punctuation ratios, Shannon entropy), and content indicators (URL count, IP literals, path separators, base64/hex-like scores).
@@ -453,13 +457,21 @@ The agent resumes within one polling cycle.
 
 \noindent Attendees can submit their own adversarial inputs during the demo and observe the cascade's layer-by-layer response in the Cockpit.
 
+\noindent These scenarios are the case L1 handles well: a payload that
+is itself hostile, written into the call. \S\ref{sec:eval} is the
+counterpart attendees should read alongside them---when the attack
+arrives as an \emph{instruction} rather than a payload, the same L1 fires
+on 0.4\% of calls and the decision has to come from L3.
+
 \section{Related Work}
 \label{sec:related}
 
 \paragraph{Agent Safety Benchmarks.}
 ToolEmu~\cite{ruan2024toolemu} emulates tool execution for LLM-based risk scoring; AgentDojo~\cite{debenedetti2024agentsec} studies prompt injection in dynamic environments; InjecAgent~\cite{zhan2024injecagent} benchmarks indirect prompt injection.
-These systems evaluate risk in sandboxes.
-\system enforces pre-execution control on live tool calls and uses these benchmarks for out-of-distribution validation.
+These systems evaluate risk in sandboxes, and \S\ref{sec:audit} argues that is not incidental: the attack they define exists only inside a rollout, so the static per-call corpora derived from them are fabrications rather than extracts.
+
+\paragraph{Benchmark Integrity.}
+Our audit is an instance of a failure mode documented across ML. \citet{gururangan2018artifacts} show that SNLI hypotheses alone predict the label 67\% of the time because the annotation protocol left a trace of it in the input; \citet{northcutt2021labelerrors} find label errors in ten standard test sets large enough to reorder model rankings; \citet{geirhos2020shortcut} frame the general case as shortcut learning, where a model solves the dataset rather than the task. The \texttt{\_attacker\_instruction} key is the same phenomenon at AUC 0.9944, and it arises for the same structural reason---a generation protocol that wrote the label into the artifact it was producing. What is specific to agent security is that no held-out split can detect it, because the shortcut is present in every record of the class; only reconstructing how the data was made exposes it.
 
 \paragraph{LLM Trustworthiness.}
 TrustLLM~\cite{huang2024position} and TrustEval~\cite{wang2024trusteval} assess trustworthiness at the model level.
@@ -475,12 +487,36 @@ Llama Guard~\cite{inan2023llama} and NeMo Guardrails classify text safety.
 
 \section{Conclusion}
 
-We presented \system, a pre-execution firewall for tool-using LLM agents.
-The cost-aware cascade resolves the trade-off between cheap rules and expensive LLM judges: with a supervised XGBoost L2 classifier, the cascade achieves 99.9\% block rate at 1.1\,ms median latency and \$0.05 total cost---outperforming all standalone LLM judges on every metric.
-The system supports 14 frameworks, provides tamper-evident auditing, and is open-source.
+We presented \system, a pre-execution firewall for tool-using LLM
+agents, and an audit of the data the field uses to evaluate systems like
+it. The audit is the less comfortable half: the static per-call
+benchmark we ourselves built is degenerate, its 5{,}525 records reduce to
+92 evaluable calls, and the numbers it produced---including a
+generalisation gap we previously reported---are withdrawn.
 
+Rebuilding the corpus by running an agent removes the shortcuts and
+changes the conclusion. Against tool calls a live model actually emitted
+under injection, \system's pattern layer detects 0.4\%; its apparent
+84.4\% block rate is schema validation rejecting 73.9\% of legitimate
+traffic alongside it. Only the layer that reads the user's task is above
+chance, and it costs roughly $1600\times$ the rules path. That is not a
+tuning result: a successful indirect injection produces a call that is
+syntactically ordinary, so there is nothing in the call string for a
+cheap detector to find.
+
+What separates the two classes is where the \emph{instruction} came
+from. The provenance features we evaluate track where the \emph{data}
+came from, and once benign calls also carry tool-derived arguments their
+advantage over content features is within cross-validation noise.
+Representing instruction provenance at the gateway---which agent turn
+authorised this call, and whether that turn was attacker-controlled---is
+the concrete next step, and the one this paper's measurements argue is
+necessary. The system, the rollout harness, the audit, and the corrected
+benchmark are open-source.
+
+% emnlp2026.sty already sets \bibliographystyle{acl_natbib}; repeating it
+% here makes BibTeX abort the .aux with "Illegal, another \bibstyle".
 \bibliography{references}
-\bibliographystyle{acl_natbib}
 
 \input{appendix}
 
