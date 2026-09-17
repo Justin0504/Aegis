@@ -86,8 +86,15 @@ at 2.3\,s per call---and it is the same model that was manipulated into
 emitting the attacks, which it still misses 21\% of the time. We argue
 payload inspection is the wrong abstraction for agent security: what
 makes such a call an attack is provenance and authorisation, neither of
-which is in the call string.
-Benchmark, rollout harness, and audit are released under MIT
+which is in the call string. Acting on that, we replace data provenance
+with \emph{instruction} provenance---which turn authorised the call,
+rather than where its arguments came from---and reach \textbf{AUC 0.991}
+against a control in which legitimate calls also draw on tool output,
+versus 0.737 for taint features and 0.687 for content; against an
+attacker who deliberately shapes the call to mimic the user's own
+request it holds at \textbf{0.933}.
+Benchmark, rollout harness, audit, and provenance implementation are
+released under MIT
 license.\footnote{Code: \url{https://github.com/Justin0504/Aegis}.}
 \end{abstract}
 
@@ -429,8 +436,83 @@ data while a benign two-step call draws on a single lookup.
 Both classes now carry untrusted-derived arguments, and the five features
 encode \emph{data} provenance only. What still distinguishes them is
 whether the \emph{instruction} arrived through the untrusted channel---
-a quantity nothing in the current feature set represents. That is the
-concrete gap these measurements identify.
+a quantity nothing in that feature set represents.
+
+\section{Instruction Provenance}
+\label{sec:instprov}
+
+\input{figures/table_provenance}
+
+Data provenance asks where an argument's \emph{value} came from.
+The question a gateway actually has to answer is which turn
+\emph{authorised} the call, and whether that turn was attacker-controlled.
+We implement six features over the two channels a gateway can already
+distinguish---what the principal typed, and what entered context from
+outside the trust boundary. Four of them compare the call against the
+principal's stated task: \texttt{user\_licence} and \texttt{obs\_licence}
+measure the fraction of the call's vocabulary (tool name split on case,
+argument keys, argument values) that each channel accounts for,
+\texttt{authority\_margin} is their difference, and
+\texttt{tool\_named\_in\_obs} fires when untrusted text names the tool
+being called and the user does not. All six cost under a millisecond and
+require no model call.
+
+\paragraph{Two features that cannot corroborate themselves.}
+The remaining pair---the density of imperative sentences in the
+untrusted channel, and whether that text addresses the assistant in the
+second person---detect \emph{an instruction appearing in a data channel},
+which is the definition of indirect prompt injection. On any corpus whose
+benign tool output was written to be pure data, they are guaranteed to
+look good, and they will fail on the very common real case of tool output
+that legitimately carries imperative text: a forwarded email asking that
+something be paid, a ticket saying to escalate by Friday, documentation
+saying to call \texttt{refresh()} first. We report them in
+Table~\ref{tab:provenance} in italics and exclude them from every claim
+below. Validating them needs a benign arm whose observations carry
+genuine assistant-directed imperatives that an agent correctly declined
+to act on---with the label taken from what the model did, not from our
+intent in writing the prompt. That arm requires rollouts we have not run.
+
+\paragraph{Result.}
+Against the two-step benign arm the four grounded features reach
+\textbf{AUC 0.991 $\pm$ 0.009}, against 0.737 for data provenance and
+0.687 for content. The gap is $+0.254$ with a pooled cross-validation
+spread of 0.092. Adding content or taint features to the grounded block
+changes nothing (0.986, 0.991): once the call is compared against the
+task, what the call \emph{contains} is redundant.
+
+\paragraph{The obvious way this could be an artifact.}
+The benign arms were synthesised from tool schemas, so a model wrote
+their user instructions with the tool's name and parameter names in view.
+Manufacturing lexical overlap between request and call is exactly what
+that procedure would do, and \texttt{user\_licence} is the feature it
+would inflate. This corpus has already produced two shortcuts of that
+shape, so we check rather than argue. The control is InjecAgent's own
+human-written user instructions paired with the tool the user asked for:
+\texttt{user\_licence} $=0.500$, bootstrap 95\% CI $[0.425, 0.581]$,
+versus 0.550 for the schema-generated arm and \textbf{0.040} for attack
+calls. The generator inflates the feature by 0.049; the human-written
+interval comes nowhere near the malicious mean. The separation is not an
+artifact of how the benign arm was written, though $n=17$ is small and a
+larger human-written control is warranted.
+
+\paragraph{An adaptive attacker.}
+InjecAgent's attacks were written without any provenance defence in mind
+and are maximally off-task, which is the easy case. We therefore evade
+deliberately. Restating the user's request inside the injection---the
+first thing an attacker would try---costs nothing and gains nothing
+(margin $+0.373 \to +0.398$, AUC 0.991 $\to$ 0.994): the licence measure
+is asymmetric, scoring how much of the \emph{call} a channel explains
+rather than how similar two texts are, so padding the untrusted channel
+with text absent from the call does not move it. The evasion that works
+is carrying the user's vocabulary into the call's arguments, which any
+free-text field the tool already accepts will do: margin falls to
+$+0.192$ and AUC to \textbf{0.933 $\pm$ 0.024}. This is not a solved
+problem. It is a raised price---from ``phrase an instruction'' to
+``phrase an instruction that also looks like the user's own request''---
+and, unlike payload inspection, it is a price that scales with how
+different the attacker's goal is from the principal's, which is precisely
+what makes an attack worth running.
 
 \section{Demonstration}
 \label{sec:demo}
@@ -505,14 +587,26 @@ syntactically ordinary, so there is nothing in the call string for a
 cheap detector to find.
 
 What separates the two classes is where the \emph{instruction} came
-from. The provenance features we evaluate track where the \emph{data}
-came from, and once benign calls also carry tool-derived arguments their
-advantage over content features is within cross-validation noise.
-Representing instruction provenance at the gateway---which agent turn
-authorised this call, and whether that turn was attacker-controlled---is
-the concrete next step, and the one this paper's measurements argue is
-necessary. The system, the rollout harness, the audit, and the corrected
-benchmark are open-source.
+from. Taint features track where the \emph{data} came from, and once
+benign calls also carry tool-derived arguments their advantage over
+content features is within cross-validation noise. Representing
+instruction provenance instead---asking which turn authorised the call
+rather than what the call contains---reaches AUC 0.991 against the same
+control, and holds at 0.933 against an attacker who deliberately shapes
+the call to resemble the user's own request. Content and taint features
+add nothing on top of it.
+
+We are not claiming a solved problem. The measurement rests on a
+human-written control of $n=17$; two of the six features detect the
+attack's own definition and are excluded from every claim until a benign
+arm carrying legitimate imperatives exists to falsify them; and the
+adaptive result is a raised price, not a barrier. What the result does
+establish is where the price can be raised at all. Payload inspection has
+no purchase on a call like
+\texttt{ViewSavedPaymentMethods(\{\})}, because nothing in the call
+string is wrong. The authority behind it is. The system, the rollout
+harness, the audit, the corrected benchmark, and the provenance
+implementation are open-source.
 
 % emnlp2026.sty already sets \bibliographystyle{acl_natbib}; repeating it
 % here makes BibTeX abort the .aux with "Illegal, another \bibstyle".

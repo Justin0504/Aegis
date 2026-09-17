@@ -1,0 +1,176 @@
+{
+  "vs_singlestep": {
+    "label": "A. attack vs SINGLE-step benign  (benign has no untrusted channel; inflated throughout)",
+    "n_mal": 237,
+    "n_ben": 426,
+    "blocks": {
+      "content (15)": {
+        "auc": 0.6310289024070785,
+        "std": 0.1377364440772509
+      },
+      "taint / data provenance (5)": {
+        "auc": 0.8498365204567726,
+        "std": 0.1265627663072276
+      },
+      "instruction provenance, GROUNDED (4)": {
+        "auc": 0.9969834507281388,
+        "std": 0.0033376141879478812
+      },
+      "instruction provenance, DEFINITIONAL (2)": {
+        "auc": 0.893218085106383,
+        "std": 0.09349794470038372
+      },
+      "all instruction provenance (6)": {
+        "auc": 1.0,
+        "std": 0.0
+      },
+      "content + grounded (19)": {
+        "auc": 0.9962740489565445,
+        "std": 0.004653679348163769
+      },
+      "taint + grounded (9)": {
+        "auc": 0.9959544998108101,
+        "std": 0.005092190192194593
+      }
+    },
+    "per_feature": {
+      "prov_user_licence": {
+        "mal_mean": 0.040010067428716434,
+        "ben_mean": 0.5456083585079553,
+        "auc": 0.012361086349319525,
+        "family": "grounded"
+      },
+      "prov_obs_licence": {
+        "mal_mean": 0.41335085934990495,
+        "ben_mean": 0.0,
+        "auc": 0.9683544303797469,
+        "family": "grounded"
+      },
+      "prov_authority_margin": {
+        "mal_mean": 0.37334079192118846,
+        "ben_mean": -0.5456083585079553,
+        "auc": 0.9977714387591371,
+        "family": "grounded"
+      },
+      "prov_tool_named_in_obs": {
+        "mal_mean": 0.3398432790837854,
+        "ben_mean": 0.0,
+        "auc": 0.8481012658227849,
+        "family": "grounded"
+      },
+      "prov_imperative_density": {
+        "mal_mean": 0.4665427633782064,
+        "ben_mean": 0.0,
+        "auc": 0.8924050632911392,
+        "family": "definitional"
+      },
+      "prov_directive_to_agent": {
+        "mal_mean": 0.0,
+        "ben_mean": 0.0,
+        "auc": 0.5,
+        "family": "definitional"
+      }
+    }
+  },
+  "vs_twostep": {
+    "label": "B. attack vs TWO-step benign  (both classes carry untrusted data; the honest comparison)",
+    "n_mal": 237,
+    "n_ben": 169,
+    "blocks": {
+      "content (15)": {
+        "auc": 0.6866215344938749,
+        "std": 0.11605283790150626
+      },
+      "taint / data provenance (5)": {
+        "auc": 0.7374017869559171,
+        "std": 0.09141863683544943
+      },
+      "instruction provenance, GROUNDED (4)": {
+        "auc": 0.9913149012022604,
+        "std": 0.008484768016114195
+      },
+      "instruction provenance, DEFINITIONAL (2)": {
+        "auc": 0.8223854628892175,
+        "std": 0.1291017920606273
+      },
+      "all instruction provenance (6)": {
+        "auc": 0.9959012844338251,
+        "std": 0.004819942109291899
+      },
+      "content + grounded (19)": {
+        "auc": 0.986439646780698,
+        "std": 0.013258515703318319
+      },
+      "taint + grounded (9)": {
+        "auc": 0.9911789990012767,
+        "std": 0.008689519347769384
+      }
+    },
+    "per_feature": {
+      "prov_user_licence": {
+        "mal_mean": 0.040010067428716434,
+        "ben_mean": 0.5728620381788719,
+        "auc": 0.010411205153172044,
+        "family": "grounded"
+      },
+      "prov_obs_licence": {
+        "mal_mean": 0.41335085934990495,
+        "ben_mean": 0.2992393378162883,
+        "auc": 0.6372306693630939,
+        "family": "grounded"
+      },
+      "prov_authority_margin": {
+        "mal_mean": 0.37334079192118846,
+        "ben_mean": -0.2736227003625835,
+        "auc": 0.9252115946371058,
+        "family": "grounded"
+      },
+      "prov_tool_named_in_obs": {
+        "mal_mean": 0.3398432790837854,
+        "ben_mean": 0.008537616229923922,
+        "auc": 0.8388510223953263,
+        "family": "grounded"
+      },
+      "prov_imperative_density": {
+        "mal_mean": 0.4665427633782064,
+        "ben_mean": 0.06466493974105324,
+        "auc": 0.8285396849174844,
+        "family": "definitional"
+      },
+      "prov_directive_to_agent": {
+        "mal_mean": 0.0,
+        "ben_mean": 0.0,
+        "auc": 0.5,
+        "family": "definitional"
+      }
+    }
+  },
+  "adaptive": {
+    "baseline": {
+      "auc": 0.9913149012022604,
+      "std": 0.008484768016114195,
+      "margin": 0.37334079192118846
+    },
+    "restate": {
+      "auc": 0.9940578342878092,
+      "std": 0.00729257899796562,
+      "margin": 0.3983129248047138
+    },
+    "echo": {
+      "auc": 0.9329217550979128,
+      "std": 0.02362134187337637,
+      "margin": 0.19191546359631712
+    }
+  },
+  "human_control": {
+    "human_mean": 0.5003574424422176,
+    "human_ci": [
+      0.4245558526440879,
+      0.581463081444699
+    ],
+    "human_n": 17,
+    "generated_mean": 0.5495167753789569,
+    "generated_n": 406,
+    "malicious_mean": 0.040010067428716434
+  }
+}

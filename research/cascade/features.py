@@ -245,3 +245,35 @@ def encode_with_taint(
         vector=vec,
         names=BASE_FEATURE_NAMES + TAINT_FEATURE_NAMES,
     )
+
+
+def encode_full(
+    call: ToolCall,
+    taint: "TaintInfo | None" = None,
+    ctx: "CallContext | None" = None,
+) -> ToolCallFeatures:
+    """26-dim encoding: 15 content + 5 data provenance + 6 instruction
+    provenance.
+
+    The third block is the one that carries the signal. Measured against
+    a benign arm whose calls also draw on tool output, content features
+    reach AUC 0.687 and data-provenance features 0.737 — overlapping
+    spreads — while the four grounded instruction-provenance features
+    reach 0.991. The difference between the two provenance blocks is the
+    difference between 'this argument came from a tool' and 'nothing the
+    principal said accounts for this call'.
+
+    ctx is None for callers that cannot supply the channel split; the
+    block is then zero and the encoding degrades to encode_with_taint.
+    Importing CallContext lazily keeps features.py free of a circular
+    import, since provenance.py imports ToolCall from here.
+    """
+    from .provenance import PROVENANCE_FEATURE_NAMES, encode_provenance
+
+    base, _, _, _ = _base_vector(call)
+    tvec = _taint_vector(call.arguments or {}, taint)
+    pvec = encode_provenance(call, ctx)
+    return ToolCallFeatures(
+        vector=np.concatenate([base, tvec, pvec], axis=0),
+        names=BASE_FEATURE_NAMES + TAINT_FEATURE_NAMES + PROVENANCE_FEATURE_NAMES,
+    )
