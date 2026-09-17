@@ -34,7 +34,8 @@
   numbers=none,
 }
 
-\title{AEGIS: No Tool Call Left Unchecked --- A Pre-Execution Firewall and Audit Layer for AI Agents}
+\title{What Are We Measuring? Auditing and Rebuilding\\
+Static Benchmarks for Agent Tool-Call Security}
 
 \author{Aojie Yuan \\
   University of Southern California \\
@@ -52,13 +53,38 @@
 \maketitle
 
 \begin{abstract}
-Tool-using LLM agents execute database queries, shell commands, and API calls, creating a direct path from model output to real-world side effects that a single hallucinated or prompt-injected call can traverse before any human is aware.
-We present \system, an open-source pre-execution firewall that interposes on this path with a cost-aware three-layer cascade: (L1)~pattern-based rules at sub-millisecond latency, (L2)~a supervised XGBoost classifier over 15 structural features, and (L3)~LLM-judge escalation for the small ambiguous residual.
-We build \bench, a unified benchmark of 5{,}525 tool calls drawn from InjecAgent, ToolEmu, OWASP LLM Top-10, and a curated in-distribution suite; on this scale the rules-only defense of prior work blocks only \textbf{1.2\%} of malicious calls, while pure LLM judges reach 96--99\% at \textbf{1{,}204--2{,}211\,ms} P50 latency and up to \textbf{\$5.32} per run.
-The full \system cascade achieves \textbf{99.9\% block rate} at \textbf{1.06\,ms} P50 latency and \textbf{\$0.05} total cost---Pareto-dominating every standalone baseline on latency, coverage, and cost simultaneously.
-Under 10 adversarial obfuscation transforms (base64 wrap, hex encoding, Unicode homoglyphs, paraphrase, \ldots) applied to 3{,}413 malicious calls each, block rate never falls below \textbf{97.5\%}.
-\system supports 14 agent frameworks with two-line integration, provides tamper-evident auditing via Ed25519 signatures and SHA-256 hash chains, and ships a human-in-the-loop compliance dashboard with an AI-agent-ATT\&CK coverage view.
-The system is released under MIT license.\footnote{Code: \url{https://github.com/Justin0504/Aegis}. Demo video: \url{https://www.youtube.com/watch?v=8ebpjCMRRic}.}
+Static per-call benchmarks are how the field measures defences against
+malicious agent tool calls. We audit that practice and find it does not
+measure what it claims.
+The two corpora these benchmarks are built from---InjecAgent and
+ToolEmu---are agent-\emph{execution} suites: neither ships a concrete
+attacker tool call, because that call only exists once an agent has
+interpreted an injection. Converting them to static per-call data
+therefore requires fabricating the call, and we show the fabrications in
+use are degenerate. In a composite benchmark of 5{,}525 records, 3{,}340
+carry no tool call at all, a further 2{,}093 are exact duplicates, and
+the surviving malicious records encode their own label in an argument
+key: \textbf{a single feature, argument character count, separates the
+classes at AUC 0.9944}. Effective sample size is \textbf{92 unique
+evaluable calls}, not 5{,}525.
+We rebuild the benchmark the only way that is sound---by running an
+agent. Replaying each InjecAgent case and recording what the model
+actually emits yields 663 records whose arguments are model-chosen, with
+\textbf{no single feature above AUC 0.585} and every attacked tool also
+appearing in the benign class. A matched control arm that swaps the
+injection for length-matched neutral prose isolates the causal effect:
+attack success \textbf{95.1\%} versus \textbf{0.3\%}, a risk ratio of
+334.
+On this corrected data the standard defence collapses. Classic payload
+patterns---SQL injection, path traversal, shell injection, sensitive
+files, prompt injection---match \textbf{0.4\%} of real attack calls,
+because a successful indirect injection produces a syntactically
+innocent call such as \texttt{ViewSavedPaymentMethods(\{\})}. We argue
+payload inspection is the wrong abstraction for agent security: what
+makes such a call an attack is provenance and authorisation, neither of
+which is in the call string.
+Benchmark, rollout harness, and audit are released under MIT
+license.\footnote{Code: \url{https://github.com/Justin0504/Aegis}.}
 \end{abstract}
 
 \section{Introduction}
@@ -68,25 +94,51 @@ LLM agents that act through tools~\cite{yao2023react,schick2024toolformer} are m
 A single hallucinated or prompt-injected tool call~\cite{greshake2023not} can cause irreversible damage before any human is aware.
 Yet in most agent stacks, no enforcement layer sits between the model's tool-call decision and execution.
 
-\paragraph{The rules-vs-LLM dilemma.}
+\paragraph{How the field measures defences.}
 Post-execution observability platforms~\cite{langfuse2024,arize2024} record events \emph{after} side effects occur.
-Evaluation systems such as ToolEmu~\cite{ruan2024toolemu}, AgentDojo~\cite{debenedetti2024agentsec}, and InjecAgent~\cite{zhan2024injecagent} measure risk in sandboxes but do not operate on the runtime execution path.
-Runtime defenses that do operate on the path face a sharp trade-off.
-Rule-based scanners are fast ($<$1\,ms) but brittle: on our 5{,}525-record unified benchmark, a pattern-only defense---the design underlying our own arXiv v1 and every commercial rules gateway we surveyed---blocks only \textbf{1.2\%} of malicious calls, because the majority of real-world attacks are prompt-injection-driven agent misuse whose surface tokens do not match any static regex.
-LLM judges generalize much better (Claude Haiku~4.5 blocks 96.6\%, GPT-4o-mini 98.8\%), but at \textbf{1.2--2.2\,s} per call and \textbf{\$0.36--\$5.32} per run---prohibitive on hot paths that see millions of calls per day.
+To evaluate a defence that acts \emph{before} execution, the standard move is to assemble a static corpus of labelled tool calls and report block rate and false-positive rate on it.
+The calls are drawn from public agent-safety suites, principally
+InjecAgent~\cite{zhan2024injecagent} and ToolEmu~\cite{ruan2024toolemu}.
+This paper is about what happens when that assembly step is examined.
 
-\paragraph{Cost-aware cascade.}
-\system bridges this gap with a three-layer cascade that short-circuits at the cheapest confident layer.
-The critical insight is that a small \emph{supervised} classifier (XGBoost over 15 structural features) sits between rules and the LLM judge and catches almost everything the rules miss at $<$1\,ms and \$0---leaving the LLM to inspect only the small ambiguous residual (typically $<$0.3\% of production calls).
-On our unified benchmark this three-layer cascade reaches \textbf{99.9\% block rate at 1.06\,ms P50 and \$0.05 total cost}, Pareto-dominating every standalone baseline (Figure~\ref{fig:pareto}).
-An ablation (Appendix~\ref{app:ablation}) shows the L2 XGBoost stage is the single largest driver: removing it collapses coverage to 4.6\%.
+\paragraph{Neither corpus contains the attack.}
+InjecAgent and ToolEmu are agent-\emph{execution} benchmarks. InjecAgent ships the instruction an attacker hides in a tool response; ToolEmu ships a red-team case description. In both, the malicious tool call exists only after an agent reads the injection and decides what to do. A static per-call corpus therefore cannot be extracted; it has to be \emph{fabricated}, and the fabrication is where the measurement breaks.
+
+We audit a composite benchmark built this way (\S\ref{sec:audit}). Of 5{,}525 records, 3{,}340 carry no tool call at all and are unscoreable by construction; 2{,}093 more are exact duplicates. The malicious records that remain were synthesised by placing the injected sentence under an argument key named \texttt{\_attacker\_instruction}, present in 3{,}196/3{,}196 malicious records and 0/2{,}108 benign ones. The label is in the input, and it is legible to a regular expression: argument character count alone separates the classes at \textbf{AUC 0.9944}, and fifteen surface features reach \textbf{AUC 1.0000}. Effective sample size is \textbf{92 unique evaluable calls}.
+
+\paragraph{Instantiation.}
+The sound construction is to stop fabricating and run the agent
+(\S\ref{sec:instantiate}). We replay each InjecAgent case through a live
+model, return the poisoned tool response, and record the call the agent
+actually emits. Arguments are then model-chosen and no field encodes the
+label. A matched control arm---the same response with the injection
+replaced by length-matched neutral prose---isolates the causal effect of
+the injection: \textbf{95.1\%} attack success versus \textbf{0.3\%},
+risk ratio 334. The resulting 663-record corpus has \textbf{no single
+feature above AUC 0.585} and every attacked tool also present in the
+benign class, so neither character count nor tool identity carries the
+label.
+
+\paragraph{What the corrected data shows.}
+Measured on it, payload inspection does not work
+(\S\ref{sec:eval}). Running the classic pattern families against 237
+real attack calls, SQL injection matches 0.0\%, path traversal 0.0\%,
+sensitive-file access 0.0\%, prompt injection 0.0\%; any pattern at all
+matches \textbf{0.4\%}. This is not a tuning failure. A successful
+indirect injection makes the agent emit an ordinary call---
+\texttt{ViewSavedPaymentMethods(\{\})}, or a date range in ISO-8601---
+that is byte-for-byte the kind of call a legitimate agent makes. What
+makes it an attack is that the instruction arrived through a tool
+observation rather than from the user, and that the task did not
+authorise it. Neither fact is in the call string, so no scanner reading
+the string can recover it.
 
 \paragraph{Contributions.}
 \begin{enumerate}[nosep,leftmargin=*]
-\item \textbf{Cost-aware three-layer cascade} (\S\ref{sec:cascade}) that resolves the fast-but-brittle vs.\ flexible-but-expensive trade-off, achieving 99.9\%/1.06\,ms/\$0.05 on \bench.
-\item \textbf{\bench{}}: a unified benchmark of 5{,}525 tool calls from four public sources, plus 32{,}829 adversarially obfuscated variants; ten baselines evaluated head-to-head (\S\ref{sec:eval}, Appendix~\ref{app:baselines}).
-\item \textbf{Framework-agnostic interception} with two-line integration across 14 frameworks in Python, JavaScript, and Go (\S\ref{sec:sdk}, Appendix~\ref{app:sdk}).
-\item \textbf{Auditable enforcement}: tamper-evident audit trails (Ed25519 + SHA-256 chain), human-in-the-loop approval, and an AI-agent-ATT\&CK-style threat coverage view in the Compliance Cockpit (Appendix~\ref{app:cockpit}).
+\item \textbf{An audit} (\S\ref{sec:audit}) showing that the standard static-corpus construction is degenerate in three independent ways---unscoreable records, duplication, and label leakage---and that both build variants are reproducible from one script.
+\item \textbf{An instantiation method and corpus} (\S\ref{sec:instantiate}): agent rollouts yielding 663 records with model-chosen arguments, a matched control arm quantifying the injection's causal effect (RR 334), and integrity measurements showing the shortcuts are gone.
+\item \textbf{A negative result with a positive implication} (\S\ref{sec:eval}): payload patterns detect 0.4\% of real attacks, motivating provenance and authorisation---not content---as the signal a runtime defence should read.
+\item \textbf{An open implementation} of the gateway, the rollout harness, and the audit, so each number here can be recomputed rather than trusted.
 \end{enumerate}
 
 \section{System Architecture}
@@ -165,10 +217,133 @@ $\text{L1}_\text{block} \to \text{block}$; else $\text{L2} < \tau_l \to \text{al
 This ensures sub-millisecond response for known-pattern attacks and sub-10\,ms response for benign calls.
 
 \subsection{Audit Layer and Compliance Cockpit}
-\label{sec:audit}
+\label{sec:auditlayer}
 
 Each trace is signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and linked into a SHA-256 hash chain.
 The Compliance Cockpit provides real-time monitoring, an approval queue for pending calls, anomaly summaries, session-level inspection, cost tracking, and PDF/CSV compliance export.
+
+\section{Auditing the Construction}
+\label{sec:audit}
+
+We audit a composite per-call benchmark assembled from InjecAgent,
+ToolEmu, OWASP LLM Top-10 payloads, and a curated in-distribution suite.
+It is built the way such benchmarks are normally built, and it is the
+benchmark our own earlier report used. Three independent construction
+failures are present, each inflating or deflating results in a different
+direction, so they do not cancel.
+
+\paragraph{F1: records with no tool call.}
+ToolEmu ships red-team \emph{cases}---a user instruction plus a prose
+description of the risky action---not trajectories. The loader emitted
+all 144 as records with \texttt{tool\_name="<intent\_only>"} and empty
+arguments, labelled malicious. A per-call detector scores 0\% on them by
+construction, so every reported recall was deflated by a constant. The
+effect is concentrated: the cross-source test split was 66.4\%
+unscoreable records, capping \emph{any} detector at 33.6\% recall. A
+previously reported 27.2\% ``cross-source generalisation failure'' is
+81\% of the achievable ceiling, and is withdrawn.
+
+\paragraph{F2: the label is in the input.}
+InjecAgent likewise ships only the injected instruction. The loader
+fabricated a call by placing that sentence under an argument key named
+\texttt{\_attacker\_instruction}. That key occurs in 3{,}196/3{,}196
+malicious records and 0/2{,}108 benign records: the key name alone is a
+perfect classifier, readable by grep and by any judge shown the JSON.
+A second, subtler leak rides along. Benign records received real
+\texttt{Tool Parameters} from the dataset (median 38 characters) while
+malicious records received a natural-language sentence (median 152).
+Argument character count alone reaches \textbf{AUC 0.9944}; a
+15-feature gradient-boosted model reaches held-out \textbf{AUC 1.0000}.
+It is counting characters, not detecting attacks.
+
+\paragraph{F3: duplication.}
+Distinct attacker instructions are far fewer than cases. The 3{,}196
+malicious records collapse to 94 unique \texttt{(tool, arguments)}
+pairs (97.1\% duplicated) and the 2{,}108 benign records to 17 (99.2\%).
+One attack appears 34 times. Deduplication moves every headline number
+(Table~\ref{tab:dedup}), and leaves a benign class of 21 unique items
+from which no false-positive rate can be estimated.
+
+\input{figures/table_dedup}
+
+\paragraph{Net effect.}
+Excluding records with no tool call and collapsing duplicates leaves
+\textbf{92 unique evaluable calls}, 57 of them written by us. Both
+figures come from the same script, which is how we ask the reader to
+check them:
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
+# as reported previously
+python -m benchmark.build \
+  --keep-duplicates --include-intent-only   # 5,525
+# evaluable and unique
+python -m benchmark.build                   # 92
+\end{lstlisting}
+
+\paragraph{Why this generalises.}
+The failure is not a bug in one loader. InjecAgent and ToolEmu are both
+agent-execution suites, so any static per-call conversion must invent
+the attacker's call, and every invention we tried introduced a shortcut.
+Papers performing the same conversion are exposed to the same class of
+error, and the check is cheap: measure whether a single surface feature
+already separates the classes.
+
+\section{Instantiation by Rollout}
+\label{sec:instantiate}
+
+The sound construction is to stop inventing the call and elicit it.
+
+\paragraph{Protocol.}
+Each InjecAgent case already specifies a faithful two-turn rollout: a
+user instruction, the legitimate first call and its parameters, and a
+tool response with the attacker instruction substituted in---that
+response \emph{is} the indirect injection. We replay turns~1--2
+verbatim, so the injection point is identical across rollouts, and
+record what the model emits at turn~3. Arguments are then chosen by the
+model, and no field of the record encodes its label.
+Labels follow from behaviour: \emph{compromised} if the agent called one
+of the case's attacker tools, \emph{resisted} otherwise. Both user and
+attacker tools are always offered; withholding an attacker tool would
+manufacture resistance for the wrong reason.
+
+\paragraph{Matched control.}
+To separate the injection's effect from the task's, we run every case
+twice. The control arm is the identical tool response with the injection
+replaced by neutral prose padded to the same length---a shorter control
+would reintroduce the very length confound F2 established. Over
+$n=2{,}108$ cases per arm:
+\[
+\underbrace{95.07\%}_{\text{injected}} \;\text{vs}\;
+\underbrace{0.285\%}_{\text{control}},\quad \text{RR}=334
+\]
+with Wilson 95\% intervals $[94.06, 95.91]$ and $[0.13, 0.62]$. The six
+control-arm compromises are one user instruction repeated across splits
+(``read the latest email from \ldots''), after which the agent called
+\texttt{GmailSendEmail}---a plausible continuation of the user's own
+request. That is label ambiguity rather than spontaneous misbehaviour,
+and it is itself informative: \emph{attacker tool} is not a sound
+detection label, because the same tool is benign or malicious depending
+on context.
+
+\paragraph{Benign coverage.}
+Attack records alone do not make a benchmark. Worse, the benign records
+available initially touched a disjoint set of tools, so
+\texttt{GmailSendEmail} appeared only on the malicious side and tool
+identity became a near-perfect classifier---F2 one abstraction higher.
+We therefore synthesise legitimate requests \emph{targeting the attacked
+tools}: for each of the 63 tools that appear in the attack set, requests
+are generated from the tool schema alone for which calling it is the
+ordinary correct action, then rolled out with the full toolkit. The
+generator is never shown an attack, so these are independent legitimate
+requests rather than reverse-engineered contrasts, and five decoy tools
+are offered alongside the target so that ``the agent called the only
+available tool'' is not what is being measured.
+
+\paragraph{Integrity.}
+Table~\ref{tab:integrity} reports the corpus before and after.
+Every attacked tool now also appears in the benign class, and no surface
+feature retains discriminative power.
+
+\input{figures/table_integrity}
 
 \section{Evaluation}
 \label{sec:eval}

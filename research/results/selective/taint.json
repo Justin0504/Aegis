@@ -1,0 +1,38 @@
+{
+  "vs_singlestep": {
+    "label": "A. attack vs SINGLE-step benign  (expect inflation: benign has no tool_obs)",
+    "n_mal": 237,
+    "n_ben": 426,
+    "base_auc": 0.6310289024070785,
+    "taint_auc": 0.8498365204567726,
+    "full_auc": 0.8961385840828168,
+    "lift": 0.26510968167573823,
+    "per_feature": {
+      "untrusted_frac": {
+        "mal_mean": 0.34708659835242117,
+        "ben_mean": 0.0,
+        "auc": 0.8185654008438819
+      },
+      "source_entropy": {
+        "mal_mean": 0.595405055479157,
+        "ben_mean": 0.3039589602368418,
+        "auc": 0.63339672351974
+      },
+      "max_hop": {
+        "mal_mean": 0.06371308016877637,
+        "ben_mean": 0.0,
+        "auc": 0.8185654008438819
+      },
+      "sink_untrusted": {
+        "mal_mean": 0.20253164556962025,
+        "ben_mean": 0.0,
+        "auc": 0.6012658227848101
+      },
+      "cross_source": {
+        "mal_mean": 1.641350210970464,
+        "ben_mean": 1.3145539906103287,
+        "auc": 0.6254135219191379
+      }
+    }
+  }
+}
