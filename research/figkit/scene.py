@@ -91,6 +91,23 @@ class Arrow(Node):
 
 
 @dataclass
+class Path(Node):
+    """An orthogonal route through a list of points.
+
+    Straight arrows can only say "A then B". A control point is defined by
+    what comes *back* from it, so any figure of a mediation layer needs
+    return paths, and those have to turn corners. `x`/`y` are the first
+    point; `pts` carries the rest.
+    """
+    pts: list[tuple[float, float]] = field(default_factory=list)
+    color: str = P.INK_FAINT
+    width: float = 1.6
+    dashed: bool = False
+    head: bool = True
+    radius: float = 6
+
+
+@dataclass
 class Scene:
     w: float
     h: float
@@ -159,6 +176,30 @@ def _esc(s: str) -> str:
     return html.escape(str(s), quote=False)
 
 
+def _rounded_path(pts: list[tuple[float, float]], r: float) -> str:
+    """Polyline with the corners filleted.
+
+    Square corners on a routing line read as a table border rather than a
+    route; a small radius is what makes a reader follow it. The radius is
+    clamped to half the shorter adjacent segment so a tight corner
+    degenerates gracefully instead of overshooting.
+    """
+    if len(pts) < 2:
+        return ""
+    d = [f"M {pts[0][0]},{pts[0][1]}"]
+    for i in range(1, len(pts) - 1):
+        (x0, y0), (x1, y1), (x2, y2) = pts[i - 1], pts[i], pts[i + 1]
+        l1 = max(1e-6, ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5)
+        l2 = max(1e-6, ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5)
+        rr = min(r, l1 / 2, l2 / 2)
+        ax, ay = x1 - (x1 - x0) / l1 * rr, y1 - (y1 - y0) / l1 * rr
+        bx, by = x1 + (x2 - x1) / l2 * rr, y1 + (y2 - y1) / l2 * rr
+        d.append(f"L {ax},{ay}")
+        d.append(f"Q {x1},{y1} {bx},{by}")
+    d.append(f"L {pts[-1][0]},{pts[-1][1]}")
+    return " ".join(d)
+
+
 def to_svg(sc: Scene) -> str:
     from .icons import inline
 
@@ -223,6 +264,16 @@ def to_svg(sc: Scene) -> str:
                 f'<line x1="{n.x}" y1="{n.y}" x2="{n.x2}" y2="{n.y2}" '
                 f'stroke="{n.color}" stroke-width="{n.width}" '
                 f'stroke-linecap="round"{dash}{head}/>')
+
+        elif isinstance(n, Path):
+            dash = ' stroke-dasharray="4 3"' if n.dashed else ""
+            head = ' marker-end="url(#ah)"' if n.head else ""
+            pts = [(n.x, n.y)] + list(n.pts)
+            d = _rounded_path(pts, n.radius)
+            out.append(
+                f'<path d="{d}" fill="none" stroke="{n.color}" '
+                f'stroke-width="{n.width}" stroke-linecap="round" '
+                f'stroke-linejoin="round"{dash}{head}/>')
 
     out.append("</svg>")
     return "\n".join(out)
@@ -322,6 +373,18 @@ def to_pptx(sc: Scene, dest: Path) -> Path:
                 MSO_CONNECTOR.STRAIGHT, emu(n.x), emu(n.y), emu(n.x2), emu(n.y2))
             cx.line.color.rgb = rgb(n.color)
             cx.line.width = Pt(n.width)
+
+        elif isinstance(n, Path):
+            # One connector per segment rather than a freeform: the segments
+            # stay individually draggable, which is the point of the
+            # editable export.
+            from pptx.enum.shapes import MSO_CONNECTOR
+            pts = [(n.x, n.y)] + list(n.pts)
+            for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                cx = slide.shapes.add_connector(
+                    MSO_CONNECTOR.STRAIGHT, emu(ax), emu(ay), emu(bx), emu(by))
+                cx.line.color.rgb = rgb(n.color)
+                cx.line.width = Pt(n.width)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(dest))

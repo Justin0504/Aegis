@@ -88,7 +88,19 @@ This version also corrects our earlier evaluation. The 99.9\% block rate and 0.0
     \centering
     \includegraphics[width=\textwidth]{images/architecture.pdf}
     \vspace{-0.1in}
-    \caption{\system on the tool-execution path. The SDK instruments 14 frameworks to intercept \texttt{tool\_use} before execution. Cascade layers are ordered by \emph{observation scope}, not only by cost: L1 sees the call string, L2 a 15-dim surface encoding, L$_\mathrm{p}$ the trusted/untrusted channel split, L3 the full context. Reported numbers are measured on the corpus of agent-emitted calls described in \S\ref{sec:eval}, not on the benchmark withdrawn there. Every decision is Ed25519-signed and chained.}
+    \caption{\system on the tool-execution path, drawn as the loop it is.
+Outbound, the SDK intercepts \texttt{tool\_use} across 14 frameworks and
+the Gateway applies layers ordered by \emph{observation scope} rather
+than only by cost: L1 sees the call string, L2 a 15-dimensional surface
+encoding, L3 the full context. L$_\mathrm{p}$ (dashed) is the
+instruction-provenance layer of \S\ref{sec:eval}, optional and toggleable
+during the demonstration. Inbound is what distinguishes a control point
+from a monitor: \texttt{allow} lets the tool run, \texttt{block} returns
+a refusal \emph{in the slot a tool result would occupy}---which is why a
+blocked agent explains itself and continues rather than failing
+(Figure~\ref{fig:demo}(b))---and \texttt{pending} suspends the turn until
+a person decides. Circled numbers mark the three places an attendee acts.
+Every decision is Ed25519-signed and hash-chained.}
     \vspace{-0.1in}
     \label{fig:architecture}
 \end{figure*}
