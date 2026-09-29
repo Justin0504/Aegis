@@ -61,12 +61,14 @@ ToolEmu---are agent-\emph{execution} suites: neither ships a concrete
 attacker tool call, because that call only exists once an agent has
 interpreted an injection. Converting them to static per-call data
 therefore requires fabricating the call, and we show the fabrications in
-use are degenerate. In a composite benchmark of 5{,}525 records, 3{,}340
-carry no tool call at all, a further 2{,}093 are exact duplicates, and
+use are degenerate. In a composite benchmark of 5{,}525 records, 144
+carry no arguments to inspect, a further 5{,}195 are exact duplicates, and
 the surviving malicious records encode their own label in an argument
 key: \textbf{a single feature, argument character count, separates the
-classes at AUC 0.9944}. Effective sample size is \textbf{92 unique
-evaluable calls}, not 5{,}525.
+classes at AUC 0.918}, and fifteen surface features reach 0.996.
+Effective sample size is \textbf{186 unique evaluable calls}, not
+5{,}525---and only \textbf{21 of them are benign}, too few for any
+false-positive rate below $1/21 = 4.8\%$ to be estimable at all.
 We rebuild the benchmark the only way that is sound---by running an
 agent. Replaying each InjecAgent case and recording what the model
 actually emits yields 663 records whose arguments are model-chosen, with
@@ -115,7 +117,7 @@ This paper is about what happens when that assembly step is examined.
 \paragraph{Neither corpus contains the attack.}
 InjecAgent and ToolEmu are agent-\emph{execution} benchmarks. InjecAgent ships the instruction an attacker hides in a tool response; ToolEmu ships a red-team case description. In both, the malicious tool call exists only after an agent reads the injection and decides what to do. A static per-call corpus therefore cannot be extracted; it has to be \emph{fabricated}, and the fabrication is where the measurement breaks.
 
-We audit a composite benchmark built this way (\S\ref{sec:audit}). Of 5{,}525 records, 3{,}340 carry no tool call at all and are unscoreable by construction; 2{,}093 more are exact duplicates. The malicious records that remain were synthesised by placing the injected sentence under an argument key named \texttt{\_attacker\_instruction}, present in 3{,}196/3{,}196 malicious records and 0/2{,}108 benign ones. The label is in the input, and it is legible to a regular expression: argument character count alone separates the classes at \textbf{AUC 0.9944}, and fifteen surface features reach \textbf{AUC 1.0000}. Effective sample size is \textbf{92 unique evaluable calls}.
+We audit a composite benchmark built this way (\S\ref{sec:audit}). Of 5{,}525 records, 144 carry no arguments to inspect at all and are unscoreable by construction; 5{,}195 more are exact duplicates. The malicious records that remain were synthesised by placing the injected sentence under an argument key named \texttt{\_attacker\_instruction}, present in 3{,}196/3{,}196 InjecAgent malicious records and 0/2{,}108 benign ones. The label is in the input, and it is legible to a regular expression: argument character count alone separates the classes at \textbf{AUC 0.918}, the best single surface feature at 0.947, and fifteen surface features at \textbf{AUC 0.996}. Effective sample size is \textbf{186 unique evaluable calls}---21 of them benign, which is too few to estimate any false-positive rate below $1/21 = 4.8\%$.
 
 \paragraph{Instantiation.}
 The sound construction is to stop fabricating and run the agent
@@ -263,14 +265,20 @@ perfect classifier, readable by grep and by any judge shown the JSON.
 A second, subtler leak rides along. Benign records received real
 \texttt{Tool Parameters} from the dataset (median 38 characters) while
 malicious records received a natural-language sentence (median 152).
-Argument character count alone reaches \textbf{AUC 0.9944}; a
-15-feature gradient-boosted model reaches held-out \textbf{AUC 1.0000}.
+Argument character count alone reaches \textbf{AUC 0.918}; the best
+single surface feature (\texttt{total\_arg\_chars}) reaches 0.947, and a
+15-feature gradient-boosted model reaches \textbf{AUC 0.996}
+($\pm$0.007, 5-fold CV). Every figure here is printed by
+\texttt{python -m benchmark.audit\_construction}, which recovers the
+pre-fix loader from version control---the fix is committed, so the
+corpus now on disk no longer exhibits this shortcut and cannot
+substantiate it.
 It is counting characters, not detecting attacks.
 
 \paragraph{F3: duplication.}
 Distinct attacker instructions are far fewer than cases. The 3{,}196
-malicious records collapse to 94 unique \texttt{(tool, arguments)}
-pairs (97.1\% duplicated) and the 2{,}108 benign records to 17 (99.2\%).
+malicious records collapse to 165 unique \texttt{(tool, arguments)}
+pairs (95.0\% duplicated) and the 2{,}112 benign records to 21 (99.0\%).
 One attack appears 34 times. Deduplication moves every headline number
 (Table~\ref{tab:dedup}), and leaves a benign class of 21 unique items
 from which no false-positive rate can be estimated.
@@ -279,7 +287,7 @@ from which no false-positive rate can be estimated.
 
 \paragraph{Net effect.}
 Excluding records with no tool call and collapsing duplicates leaves
-\textbf{92 unique evaluable calls}, 57 of them written by us. Both
+\textbf{186 unique evaluable calls}, 21 of them benign. Both
 figures come from the same script, which is how we ask the reader to
 check them:
 \begin{lstlisting}[language=bash,basicstyle=\ttfamily\scriptsize]
@@ -553,7 +561,7 @@ ToolEmu~\cite{ruan2024toolemu} emulates tool execution for LLM-based risk scorin
 These systems evaluate risk in sandboxes, and \S\ref{sec:audit} argues that is not incidental: the attack they define exists only inside a rollout, so the static per-call corpora derived from them are fabrications rather than extracts.
 
 \paragraph{Benchmark Integrity.}
-Our audit is an instance of a failure mode documented across ML. \citet{gururangan2018artifacts} show that SNLI hypotheses alone predict the label 67\% of the time because the annotation protocol left a trace of it in the input; \citet{northcutt2021labelerrors} find label errors in ten standard test sets large enough to reorder model rankings; \citet{geirhos2020shortcut} frame the general case as shortcut learning, where a model solves the dataset rather than the task. The \texttt{\_attacker\_instruction} key is the same phenomenon at AUC 0.9944, and it arises for the same structural reason---a generation protocol that wrote the label into the artifact it was producing. What is specific to agent security is that no held-out split can detect it, because the shortcut is present in every record of the class; only reconstructing how the data was made exposes it.
+Our audit is an instance of a failure mode documented across ML. \citet{gururangan2018artifacts} show that SNLI hypotheses alone predict the label 67\% of the time because the annotation protocol left a trace of it in the input; \citet{northcutt2021labelerrors} find label errors in ten standard test sets large enough to reorder model rankings; \citet{geirhos2020shortcut} frame the general case as shortcut learning, where a model solves the dataset rather than the task. The \texttt{\_attacker\_instruction} key is the same phenomenon at AUC 0.996, and it arises for the same structural reason---a generation protocol that wrote the label into the artifact it was producing. What is specific to agent security is that no held-out split can detect it, because the shortcut is present in every record of the class; only reconstructing how the data was made exposes it.
 
 \paragraph{LLM Trustworthiness.}
 TrustLLM~\cite{huang2024position} and TrustEval~\cite{wang2024trusteval} assess trustworthiness at the model level.
@@ -573,8 +581,10 @@ We presented \system, a pre-execution firewall for tool-using LLM
 agents, and an audit of the data the field uses to evaluate systems like
 it. The audit is the less comfortable half: the static per-call
 benchmark we ourselves built is degenerate, its 5{,}525 records reduce to
-92 evaluable calls, and the numbers it produced---including a
-generalisation gap we previously reported---are withdrawn.
+186 evaluable calls of which only 21 are benign, and the numbers it
+produced---including a generalisation gap we previously reported, and a
+false-positive rate an order of magnitude below what 21 items can
+estimate---are withdrawn.
 
 Rebuilding the corpus by running an agent removes the shortcuts and
 changes the conclusion. Against tool calls a live model actually emitted
