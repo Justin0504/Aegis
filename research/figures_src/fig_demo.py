@@ -60,104 +60,116 @@ def crop(name: str, box: tuple[float, float, float, float]) -> Path:
 
 
 def build() -> Scene:
-    W, H = 1000, 396
+    """Three columns, but not three equal columns.
+
+    Each column prints about 161pt wide, which is not enough for a
+    readable screenshot *and* eight lines of text. The first attempt gave
+    all three a screenshot; at print size S1's dashboard and S3's queue
+    were grey smudges, and an illegible screenshot is worse than none --
+    it occupies the space without carrying anything.
+
+    So the evidence budget goes where the argument is. S2 keeps a large,
+    readable screenshot because the agent recovering from a block in its
+    own conversation is the claim a reader will not believe from prose.
+    S1 states a latency, which is all it has to say. S3 keeps a tight
+    crop of the approval control alone, because the point is that the
+    Allow/Block buttons exist and a second person presses one.
+
+    Type floor is 12 units (~6pt printed), as in Figure 1.
+    """
+    W, H = 1000, 430
     sc = Scene(W, H, bg=P.WHITE)
 
     col = 320
     xs = [12, 344, 676]
-    titles = [
+    meta = [
         ("S1  benign call", "mint",
-         "“summarise the feedback in the reviews table”"),
+         "\u201csummarise the feedback in the reviews table\u201d"),
         ("S2  interception", "peach",
          "attendee submits input carrying a SQL injection"),
         ("S3  human approval", "purple",
          "attendee asks for kubectl delete pod"),
     ]
-    for x, (name, tint, sub) in zip(xs, titles):
-        sc.panel(x, 14, col, 368, None, tint=tint)
-        sc.add(Text(x + 12, 34, name, size=11, weight="bold",
+    for x, (name, tint, sub) in zip(xs, meta):
+        sc.panel(x, 14, col, 404, None, tint=tint)
+        sc.add(Text(x + 14, 40, name, size=15, weight="bold",
                     color=P.TINT_TEXT[tint]))
-        sc.add(Icon(x + col - 28, 22, ICONS["type"], size=14,
+        sc.add(Icon(x + col - 30, 26, ICONS["type"], size=15,
                     color=P.TINT_TEXT[tint]))
-        sc.add(Box(x + 10, 42, col - 20, 26, fill=P.WHITE,
+        sc.add(Box(x + 12, 50, col - 24, 34, fill=P.WHITE,
                    stroke=P.STROKE_SOFT, radius=5))
-        sc.add(Text(x + 18, 59, sub, size=7.6, italic=True, color=P.INK))
+        sc.add(Text(x + 20, 72, sub, size=11.5, italic=True, color=P.INK))
 
-    # ---- S1 -------------------------------------------------------------
+    # ---- S1 --------------------------------------------------------------
     x = xs[0]
-    sc.code(x + 10, 76, col - 20, 22,
-            'query_database(sql="SELECT …")', size=7.2)
-    sc.add(Box(x + 10, 104, col - 20, 116, fill=P.WHITE,
-               stroke=P.STROKE_SOFT, radius=6))
-    sc.add(Image(x + 13, 107, str(crop("session.png", (0.11, 0.09, 1.0, 0.67))),
-                 w=col - 26, h=110))
-    sc.add(Text(x + 10, 234, "live feed, risk signals, cost", size=7.4,
-                color=P.INK_SOFT, italic=True))
+    sc.code(x + 12, 94, col - 24, 28, 'query_database(sql="SELECT \u2026")',
+            size=11.5)
+    sc.verdict(x + 14, 148, True, "allow")
 
-    sc.verdict(x + 12, 258, True, "allow")
-    sc.add(Box(x + 10, 272, col - 20, 44, fill=P.WHITE, stroke=P.STROKE_SOFT,
-               radius=6))
-    sc.add(Icon(x + 18, 280, ICONS["clock"], size=13, color=P.INK_SOFT))
-    sc.add(Text(x + 38, 291, "~1 ms decision latency", size=8.4, color=P.INK))
-    sc.add(Text(x + 18, 308, "the turn completes at its normal speed",
-                size=7.4, color=P.INK_SOFT))
-    sc.add(Text(x + 10, 336, "Shown first on purpose: a firewall only ever",
-                size=7.6, color=P.TINT_TEXT["mint"]))
-    sc.add(Text(x + 10, 348, "seen blocking says nothing about its cost",
-                size=7.6, color=P.TINT_TEXT["mint"]))
-    sc.add(Text(x + 10, 360, "when nothing is wrong.", size=7.6,
-                color=P.TINT_TEXT["mint"]))
+    sc.add(Box(x + 12, 166, col - 24, 92, fill=P.WHITE, stroke=P.STROKE_SOFT,
+               radius=7))
+    sc.add(Text(x + col / 2, 206, "~1 ms", size=26, weight="bold",
+                color=P.PASS, anchor="middle"))
+    sc.add(Text(x + col / 2, 226, "decision latency", size=12,
+                color=P.INK_SOFT, anchor="middle"))
+    sc.add(Text(x + col / 2, 246, "the turn completes at its normal speed",
+                size=11.5, color=P.INK_SOFT, anchor="middle"))
 
-    # ---- S2 — the widest slot, the real argument ------------------------
+    sc.add(Text(x + 14, 292, "Shown first on purpose.", size=12.5,
+                weight="bold", color=P.TINT_TEXT["mint"]))
+    for i, line in enumerate([
+            "A firewall only ever seen blocking",
+            "says nothing about what it costs when",
+            "nothing is wrong \u2014 which is the standard",
+            "objection to sitting in the hot path."]):
+        sc.add(Text(x + 14, 312 + i * 17, line, size=12,
+                    color=P.TINT_TEXT["mint"]))
+
+    # ---- S2 --------------------------------------------------------------
     x = xs[1]
-    sc.code(x + 10, 76, col - 20, 22,
-            'sql="SELECT * … ; DROP TABLE audit_log; --"', size=6.4)
-    sc.add(Box(x + 10, 104, col - 20, 150, fill=P.WHITE, stroke=P.FAIL,
-               radius=6, width=1.4))
-    sc.add(Image(x + 13, 107,
-                 str(crop("blockdemo-in-testagent.png", (0.0, 0.02, 1.0, 0.62))),
-                 w=col - 26, h=144))
-    sc.add(Text(x + 10, 268, "the agent's own conversation, unretouched",
-                size=7.4, color=P.INK_SOFT, italic=True))
+    sc.code(x + 12, 94, col - 24, 28,
+            'sql="\u2026; DROP TABLE audit_log; --"', size=11)
+    sc.add(Box(x + 12, 130, col - 24, 202, fill=P.WHITE, stroke=P.FAIL,
+               radius=7, width=1.6))
+    sc.add(Image(x + 15, 133,
+                 str(crop("blockdemo-in-testagent.png", (0.0, 0.02, 1.0, 0.60))),
+                 w=col - 30, h=196, fit="meet"))
+    sc.add(Text(x + 14, 346, "the agent's own conversation, unretouched",
+                size=11, color=P.INK_SOFT, italic=True))
 
-    sc.verdict(x + 12, 290, False, "block at L1, 6.2 ms")
-    sc.add(Box(x + 10, 302, col - 20, 60, fill=P.TINT["peach"],
-               stroke=P.TINT_EDGE["peach"], radius=6))
-    sc.add(Text(x + 18, 318, "The agent is not broken by the block.",
-                size=8.4, weight="bold", color=P.TINT_TEXT["peach"]))
-    sc.add(Text(x + 18, 332, "The refusal returns in-band as a tool result,",
-                size=7.6, color=P.TINT_TEXT["peach"]))
-    sc.add(Text(x + 18, 344, "so the model explains what was blocked and",
-                size=7.6, color=P.TINT_TEXT["peach"]))
-    sc.add(Text(x + 18, 356, "offers a safe alternative.", size=7.6,
-                color=P.TINT_TEXT["peach"]))
+    sc.verdict(x + 14, 372, False, "block at L1, 6.2 ms")
+    sc.add(Text(x + 14, 398, "The refusal returns in-band, so the agent",
+                size=12, weight="bold", color=P.TINT_TEXT["peach"]))
+    sc.add(Text(x + 14, 414, "explains it and offers an alternative.",
+                size=12, weight="bold", color=P.TINT_TEXT["peach"]))
 
-    # ---- S3 -------------------------------------------------------------
+    # ---- S3 --------------------------------------------------------------
     x = xs[2]
-    sc.code(x + 10, 76, col - 20, 22, "policy: require_approval", size=7.2)
-    sc.add(Box(x + 10, 104, col - 20, 116, fill=P.WHITE,
-               stroke=P.STROKE_SOFT, radius=6))
-    sc.add(Image(x + 13, 107, str(crop("pending.png", (0.11, 0.15, 1.0, 0.73))),
-                 w=col - 26, h=110))
-    sc.add(Text(x + 10, 234, "approval queue, full arguments visible",
-                size=7.4, color=P.INK_SOFT, italic=True))
+    sc.code(x + 12, 94, col - 24, 28, "policy: require_approval", size=11.5)
+    sc.add(Box(x + 12, 130, col - 24, 102, fill=P.WHITE, stroke=P.STROKE_SOFT,
+               radius=7))
+    sc.add(Image(x + 15, 133, str(crop("pending.png", (0.56, 0.20, 1.0, 0.48))),
+                 w=col - 30, h=96, fit="meet"))
+    sc.add(Text(x + 14, 246, "the held call \u2014 a second person presses one",
+                size=11, color=P.INK_SOFT, italic=True))
 
-    sc.add(Icon(x + 12, 250, ICONS["hand"], size=13, color=P.WARN))
-    sc.add(Text(x + 32, 261, "pending — the agent suspends", size=8.4,
+    sc.add(Icon(x + 14, 258, ICONS["hand"], size=15, color=P.WARN))
+    sc.add(Text(x + 36, 271, "pending \u2014 the agent suspends", size=12.5,
                 color=P.WARN))
-    sc.add(Box(x + 10, 272, col - 20, 44, fill=P.WHITE, stroke=P.STROKE_SOFT,
-               radius=6))
-    sc.add(Icon(x + 18, 280, ICONS["user"], size=13, color=P.INK_SOFT))
-    sc.add(Text(x + 38, 291, "a second attendee decides", size=8.4,
+    sc.add(Box(x + 12, 284, col - 24, 62, fill=P.WHITE, stroke=P.STROKE_SOFT,
+               radius=7))
+    sc.add(Icon(x + 22, 294, ICONS["user"], size=15, color=P.INK_SOFT))
+    sc.add(Text(x + 46, 307, "a second attendee decides", size=12.5,
                 color=P.INK))
-    sc.add(Text(x + 18, 308, "agent resumes within one 2 s polling cycle",
-                size=7.4, color=P.INK_SOFT))
-    sc.add(Text(x + 10, 336, "Passing a decision between two people is",
-                size=7.6, color=P.TINT_TEXT["purple"]))
-    sc.add(Text(x + 10, 348, "the part that is hard on paper and",
-                size=7.6, color=P.TINT_TEXT["purple"]))
-    sc.add(Text(x + 10, 360, "immediate in person.", size=7.6,
-                color=P.TINT_TEXT["purple"]))
+    sc.add(Text(x + 22, 332, "agent resumes within one 2 s cycle", size=11.5,
+                color=P.INK_SOFT))
+
+    sc.add(Text(x + 14, 368, "Passing a decision between two", size=12,
+                weight="bold", color=P.TINT_TEXT["purple"]))
+    sc.add(Text(x + 14, 384, "people is the part that is hard on", size=12,
+                weight="bold", color=P.TINT_TEXT["purple"]))
+    sc.add(Text(x + 14, 400, "paper and immediate in person.", size=12,
+                weight="bold", color=P.TINT_TEXT["purple"]))
 
     return sc
 

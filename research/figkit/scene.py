@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass, field
-from pathlib import Path
+# Aliased: this module defines a `Path` scene node, which would
+# otherwise shadow pathlib.Path and break every Image at render time.
+from pathlib import Path as FsPath
 
 from . import palette as P
 
@@ -74,10 +76,19 @@ class Icon(Node):
 
 @dataclass
 class Image(Node):
+    """A bitmap in a slot.
+
+    `fit` decides what happens when the image's aspect ratio does not match
+    the slot's. "slice" fills the slot and crops the overflow, which is
+    right for a texture and wrong for evidence -- it silently removes the
+    edges of a screenshot, and the reader cannot tell. "meet" fits the whole
+    image inside the slot. Screenshots a claim rests on should use "meet".
+    """
     path: str
     w: float
     h: float
     radius: float = 6
+    fit: str = "slice"
 
 
 @dataclass
@@ -249,12 +260,12 @@ def to_svg(sc: Scene) -> str:
             # you want handing a figure to a co-author.
             import base64
             import mimetypes
-            p = Path(n.path)
+            p = FsPath(n.path)
             mime = mimetypes.guess_type(p.name)[0] or "image/png"
             b64 = base64.b64encode(p.read_bytes()).decode()
             out.append(
                 f'<image x="{n.x}" y="{n.y}" width="{n.w}" height="{n.h}" '
-                f'preserveAspectRatio="xMidYMid slice" '
+                f'preserveAspectRatio="xMidYMid {n.fit}" '
                 f'xlink:href="data:{mime};base64,{b64}"/>')
 
         elif isinstance(n, Arrow):
@@ -283,7 +294,7 @@ def to_svg(sc: Scene) -> str:
 # PPTX renderer  (hand-editing)
 # --------------------------------------------------------------------------
 
-def to_pptx(sc: Scene, dest: Path) -> Path:
+def to_pptx(sc: Scene, dest: FsPath) -> FsPath:
     """Native PowerPoint shapes, not a pasted picture.
 
     Rounded rectangles keep their corner radius as an adjustment handle,
@@ -363,7 +374,7 @@ def to_pptx(sc: Scene, dest: Path) -> Path:
                                      emu(n.size), emu(n.size))
 
         elif isinstance(n, Image):
-            if Path(n.path).exists():
+            if FsPath(n.path).exists():
                 slide.shapes.add_picture(n.path, emu(n.x), emu(n.y),
                                          emu(n.w), emu(n.h))
 
@@ -395,13 +406,13 @@ def to_pptx(sc: Scene, dest: Path) -> Path:
 # export
 # --------------------------------------------------------------------------
 
-def export(sc: Scene, stem: Path, *, pdf: bool = True, pptx: bool = True,
-           png: bool = False) -> dict[str, Path]:
+def export(sc: Scene, stem: FsPath, *, pdf: bool = True, pptx: bool = True,
+           png: bool = False) -> dict[str, FsPath]:
     """Write .svg (master), .pdf (LaTeX), .pptx (hand-editing)."""
     import subprocess
 
     stem.parent.mkdir(parents=True, exist_ok=True)
-    made: dict[str, Path] = {}
+    made: dict[str, FsPath] = {}
 
     svg_path = stem.with_suffix(".svg")
     svg_path.write_text(to_svg(sc))
