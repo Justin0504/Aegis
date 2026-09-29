@@ -116,14 +116,14 @@ def build() -> Scene:
                 size=11.5, color=P.INK_SOFT, anchor="middle"))
 
     sc.add(Text(x + 14, 292, "Shown first on purpose.", size=12.5,
-                weight="bold", color=P.TINT_TEXT["mint"]))
+                weight="bold", color=P.INK))
     for i, line in enumerate([
             "A firewall only ever seen blocking",
             "says nothing about what it costs when",
             "nothing is wrong \u2014 which is the standard",
             "objection to sitting in the hot path."]):
         sc.add(Text(x + 14, 312 + i * 17, line, size=12,
-                    color=P.TINT_TEXT["mint"]))
+                    color=P.INK))
 
     # ---- S2 --------------------------------------------------------------
     x = xs[1]
@@ -139,9 +139,9 @@ def build() -> Scene:
 
     sc.verdict(x + 14, 372, False, "block at L1, 6.2 ms")
     sc.add(Text(x + 14, 398, "The refusal returns in-band, so the agent",
-                size=12, weight="bold", color=P.TINT_TEXT["peach"]))
+                size=12, weight="bold", color=P.INK))
     sc.add(Text(x + 14, 414, "explains it and offers an alternative.",
-                size=12, weight="bold", color=P.TINT_TEXT["peach"]))
+                size=12, weight="bold", color=P.INK))
 
     # ---- S3 --------------------------------------------------------------
     x = xs[2]
@@ -165,11 +165,11 @@ def build() -> Scene:
                 color=P.INK_SOFT))
 
     sc.add(Text(x + 14, 368, "Passing a decision between two", size=12,
-                weight="bold", color=P.TINT_TEXT["purple"]))
+                weight="bold", color=P.INK))
     sc.add(Text(x + 14, 384, "people is the part that is hard on", size=12,
-                weight="bold", color=P.TINT_TEXT["purple"]))
+                weight="bold", color=P.INK))
     sc.add(Text(x + 14, 400, "paper and immediate in person.", size=12,
-                weight="bold", color=P.TINT_TEXT["purple"]))
+                weight="bold", color=P.INK))
 
     return sc
 

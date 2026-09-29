@@ -71,7 +71,9 @@ class Text(Node):
 class Icon(Node):
     spec: str
     size: float = 20
-    color: str = "#334155"
+    # Follows the active theme rather than a hardcoded slate, so switching
+    # themes does not leave every icon in the other theme's grey.
+    color: str = P.INK_SOFT
 
 
 @dataclass
@@ -147,7 +149,7 @@ class Scene:
                      stroke=P.STROKE_SOFT, radius=7))
         tx = x + 9
         if icon:
-            self.add(Icon(x + 9, y + h / 2 - 7, icon, size=14))
+            self.add(Icon(x + 9, y + h / 2 - 7, icon, size=14, color=P.INK_SOFT))
             tx = x + 29
         if label:
             self.add(Text(tx, y + h / 2 + size * 0.36, label, size=size))
@@ -418,23 +420,44 @@ def export(sc: Scene, stem: FsPath, *, pdf: bool = True, pptx: bool = True,
     svg_path.write_text(to_svg(sc))
     made["svg"] = svg_path
 
-    def convert(args: list[str]) -> bool:
+    def convert(args: list[str]) -> tuple[bool, str]:
         try:
             subprocess.run(args, check=True, capture_output=True)
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return False
+            return True, ""
+        except FileNotFoundError:
+            return False, f"{args[0]} not installed"
+        except subprocess.CalledProcessError as e:
+            return False, (e.stderr or b"").decode()[:400]
+
+    # A failed conversion used to be swallowed, which left the *previous*
+    # PDF/PNG in place: the build reported success, the figure silently did
+    # not change, and the stale file was what went into the paper. Raise
+    # instead, and delete the stale output first so a failure cannot be
+    # mistaken for a no-op.
+    def render(dest: FsPath, *cmds: list[str]) -> None:
+        dest.unlink(missing_ok=True)
+        errs = []
+        for cmd in cmds:
+            ok, err = convert(cmd)
+            if ok and dest.exists():
+                made[dest.suffix.lstrip(".")] = dest
+                return
+            errs.append(f"  {cmd[0]}: {err.strip()}")
+        raise RuntimeError(
+            f"could not render {dest.name} from {svg_path.name}:\n"
+            + "\n".join(errs))
 
     if pdf:
-        p = stem.with_suffix(".pdf")
-        if convert(["rsvg-convert", "-f", "pdf", "-o", str(p), str(svg_path)]) \
-           or convert(["cairosvg", str(svg_path), "-o", str(p)]):
-            made["pdf"] = p
+        render(stem.with_suffix(".pdf"),
+               ["rsvg-convert", "-f", "pdf", "-o", str(stem.with_suffix(".pdf")),
+                str(svg_path)],
+               ["cairosvg", str(svg_path), "-o", str(stem.with_suffix(".pdf"))])
     if png:
-        p = stem.with_suffix(".png")
-        if convert(["rsvg-convert", "-z", "2", "-o", str(p), str(svg_path)]) \
-           or convert(["cairosvg", str(svg_path), "-o", str(p), "-s", "2"]):
-            made["png"] = p
+        render(stem.with_suffix(".png"),
+               ["rsvg-convert", "-z", "2", "-o", str(stem.with_suffix(".png")),
+                str(svg_path)],
+               ["cairosvg", str(svg_path), "-o", str(stem.with_suffix(".png")),
+                "-s", "2"])
     if pptx:
         made["pptx"] = to_pptx(sc, stem.with_suffix(".pptx"))
     return made

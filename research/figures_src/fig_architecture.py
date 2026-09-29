@@ -90,11 +90,10 @@ def build() -> Scene:
                 color=P.INK_SOFT, italic=True))
 
     sc.add(Box(AG_X + 12, 138, AG_W - 24, 56, fill=P.WHITE,
-               stroke=P.TINT_EDGE["mint"], radius=6))
-    sc.add(Icon(AG_X + 20, 148, ICONS["plug"], size=14,
-                color=P.TINT_TEXT["mint"]))
+               stroke=P.ACCENT_SOFT, radius=6))
+    sc.add(Icon(AG_X + 20, 148, ICONS["plug"], size=14, color=P.ACCENT))
     sc.add(Text(AG_X + 42, 160, "two lines", size=12.5, weight="bold",
-                color=P.TINT_TEXT["mint"]))
+                color=P.ACCENT))
     sc.add(Text(AG_X + 18, 184, "agentguard.auto()", size=10.8, mono=True,
                 color=P.MONO_FG))
 
@@ -119,20 +118,22 @@ def build() -> Scene:
         ("L2  classifier", "slate", ICONS["tree"], "15 features", "<10 ms", False),
         ("L3  judge", "purple", ICONS["brain"], "full context", "1\u20132 s", False),
         ("Lp  provenance", "mint", ICONS["route"], "channel split",
-         "<1 ms \u00b7 optional", True),
+         "<1 ms \u00b7 optional", True),   # accent-marked below: proposed
     ]
     for i, (name, tint, icon, sees, cost, dashed) in enumerate(layers):
         x = lx0 + i * (lw + lg)
-        sc.add(Box(x, 96, lw, 96, fill=P.TINT[tint], stroke=P.TINT_EDGE[tint],
-                   radius=12, dashed=dashed))
-        sc.add(Icon(x + 10, 104, icon, size=15, color=P.TINT_TEXT[tint]))
-        sc.add(Text(x + 32, 118, name, size=13, weight="bold",
-                    color=P.TINT_TEXT[tint]))
+        sc.add(Box(x, 96, lw, 96, fill=P.WHITE,
+                   stroke=P.ACCENT_SOFT if dashed else P.TINT_EDGE[tint],
+                   radius=P.RADIUS_PANEL, dashed=dashed))
+        lead = P.ACCENT if dashed else P.INK       # dashed == proposed
+        sc.add(Icon(x + 10, 104, icon, size=15, color=lead))
+        sc.add(Text(x + 32, 118, name, size=13, weight="bold", color=lead))
         sc.add(Box(x + 9, 132, lw - 18, 24, fill=P.WHITE,
                    stroke=P.STROKE_SOFT, radius=4))
         sc.add(Text(x + lw / 2, 148, sees, size=11.5, mono=True, color=P.INK,
                     anchor="middle"))
-        sc.add(Text(x + 12, 180, cost, size=11.5, color=P.INK_SOFT))
+        sc.add(Text(x + 12, 180, cost, size=11.5,
+                    color=P.ACCENT if dashed else P.INK_SOFT))
         if i < 3:
             sc.add(Arrow(x + lw + 1, 144, x + lw + lg - 1, 144))
 
@@ -180,7 +181,7 @@ def build() -> Scene:
                 "blocked agent explains itself and continues", size=13,
                 weight="bold", color=P.TINT_TEXT["mint"]))
     sc.add(Text(AG_X, 422, "the conversation instead of failing.", size=13,
-                weight="bold", color=P.TINT_TEXT["mint"]))
+                weight="bold", color=P.INK))
 
     # ---- audit + cockpit -------------------------------------------------
     sc.add(Arrow(GW_X + GW_W + 4, 100, RT_X - 6, 100, dashed=True,

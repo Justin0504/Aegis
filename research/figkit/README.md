@@ -1,9 +1,35 @@
 # figkit — paper figures that survive review and stay editable
 
-Reference standard: Xin Eric Wang's group, [Scaling Agents for Computer
-Use](https://arxiv.org/abs/2510.02250) Fig. 3 and
-[WorldMemArena](https://arxiv.org/abs/2605.29341) Fig. 1–2. Their visual
-grammar, distilled:
+## Two themes
+
+`FIGKIT_THEME=geist` (default) or `lab`.
+
+**geist** is taken from the design tokens of [corespeed.io](https://corespeed.io),
+which belongs to the Vercel/Geist lineage: white surfaces on an off-white
+canvas, hairline borders (`#EBEBEB`), near-monochrome text, and colour
+reserved for three semantic states plus one accent. Structure comes from
+alignment and spacing rather than from fills.
+
+This is the better default for a paper figure. Tinting four cascade
+layers in four hues asserts that hue means something; in our figures it
+did not — it was decoration standing where information should be. And
+reviewers print in greyscale, where four tints collapse into four
+indistinguishable greys while a hairline layout is unchanged.
+
+| role | geist | meaning |
+|---|---|---|
+| ink / ink-soft | `#171717` / `#4D4D4D` | everything structural |
+| line | `#EBEBEB` | separation |
+| accent | `#0070F3` | what is being proposed |
+| pass / fail / warn | `#0E8A5F` / `#D40000` / `#A96500` | allow / block / pending, and nothing else |
+
+**lab** is the original: the tinted-region grammar of Xin Eric Wang's
+group, [Scaling Agents for Computer Use](https://arxiv.org/abs/2510.02250)
+Fig. 3 and [WorldMemArena](https://arxiv.org/abs/2605.29341) Fig. 1–2.
+Keep it for venues where that is the house style. Tokens are indexed by
+role, so a figure renders in either theme without edits.
+
+Its grammar, distilled:
 
 | | |
 |---|---|
@@ -61,6 +87,19 @@ renderers: 1 unit = 1 SVG user unit = 1/72 inch in PowerPoint.
 structural, change the script and rebuild. If it is a one-off nudge for
 camera-ready, do it in the PPTX and export the PDF from there.
 
+## Two checks that are not optional
+
+**Print size.** A figure designed 1000 units wide and placed at
+`\textwidth` renders at about half scale, so a 7-unit label arrives at
+3.5pt. The floor is **12 units (~6pt printed)**. Content that does not
+fit at that size gets cut, not shrunk.
+
+**Greyscale.** Render `.convert("L")` and look. The semantic colours are
+deepened from corespeed's surface values for exactly this reason: at
+`#F5A623`, "pending" converts to L≈175 and disappears on a light fill.
+The shipped values sit at L=96/63/110 against ink at L=23. Every verdict
+also carries a word, because colour alone is never the signal.
+
 ## Gotchas already paid for
 
 - Iconify returns **403** to urllib's default User-Agent. Not 404 — if
@@ -72,6 +111,14 @@ camera-ready, do it in the PPTX and export the PDF from there.
 - PowerPoint stores corner radius as a **fraction of the short side**, so
   a fixed-pt radius has to be converted per shape or small boxes come out
   as lozenges.
+- **A double quote inside a font stack breaks the SVG.** The stacks are
+  interpolated into `font-family="..."`, so `"SF Pro Text"` closes the
+  attribute and the file stops parsing at the first `<text>`. Use single
+  quotes.
+- **`export()` raises on a failed conversion.** It used to swallow the
+  error, which left the *previous* PDF/PNG on disk: the build reported
+  success, the figure silently did not change, and the stale file is what
+  went into the paper. It now deletes the target first and raises.
 - Figures are committed with their `assets/`. A build must work offline
   and produce the same bytes next year; a figure that changes because an
   upstream icon set was updated is one you cannot trust in a camera-ready.
