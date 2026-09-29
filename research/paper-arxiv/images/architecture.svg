@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="350" viewBox="0 0 1000 350" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/></marker><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.07"/></filter></defs>
+<rect width="1000" height="350" fill="#FFFFFF"/>
+<rect x="12" y="14" width="150" height="214" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="24" y="31" font-size="11.5" fill="#475569" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Agent</text>
+<rect x="24" y="42" width="126" height="30" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(33,50.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2zm6-4v2m-3 8v9m6-9v9M5 16l4-2m6 0l4 2M9 18h6M10 8v.01M14 8v.01"/></svg></svg></g>
+<text x="53" y="60.24" font-size="9" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">LLM</text>
+<text x="30" y="88" font-size="7.6" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif" font-style="italic">untrusted principal</text>
+<rect x="24" y="96" width="126" height="30" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(33,104.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg></svg></g>
+<text x="53" y="114.24" font-size="9" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Tools</text>
+<text x="30" y="142" font-size="7.6" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">DB · shell · files · HTTP</text>
+<rect x="24" y="152" width="126" height="62" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="34" y="168" font-size="7.4" fill="#334155" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">tool_use {</text>
+<text x="34" y="182" font-size="7.4" fill="#334155" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">  name: "execute_sql",</text>
+<text x="34" y="196" font-size="7.4" fill="#334155" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">  arguments: {…}</text>
+<text x="24" y="246" font-size="7.6" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">14 frameworks · Python / JS / Go</text>
+<rect x="24" y="254" width="126" height="22" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="32" y="268.24" font-size="9" fill="#334155" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">agentguard.auto()</text>
+<line x1="164" y1="120" x2="190" y2="120" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<text x="177" y="112" font-size="7.2" fill="#64748B" font-weight="normal" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">tool_use</text>
+<rect x="194" y="14" width="596" height="262" rx="12" fill="#FBFCFE" stroke="#B8C4DC" stroke-width="1.0" stroke-dasharray="5 4"/>
+<text x="208" y="34" font-size="11.5" fill="#1F2937" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Aegis Gateway</text>
+<text x="208" y="49" font-size="8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif" font-style="italic">pre-execution mediation — the call has not run yet</text>
+<rect x="206" y="62" width="132" height="126" rx="12" fill="#EEF2FB" stroke="#AEC0E8" stroke-width="1.0"/>
+<g transform="translate(216,70)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#2F4FA8" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.5 15a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5M17 7.875l3-1.687m-3 1.687v3.375m0-3.375l-3-1.687m3 1.687l3 1.688M17 4.5v3.375m0 0l-3 1.688"/></svg></svg></g>
+<text x="238" y="82" font-size="9.5" fill="#2F4FA8" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">L1  patterns</text>
+<rect x="214" y="94" width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="220" y="107" font-size="7.4" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">sees: call string</text>
+<text x="216" y="128" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">22 patterns, &lt;1 ms</text>
+<rect x="214" y="138" width="116" height="20" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="272" y="152" font-size="8" fill="#DC2626" font-weight="bold" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">0.4% of real attacks</text>
+<rect x="352" y="62" width="132" height="126" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.0"/>
+<g transform="translate(362,70)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#475569" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 20a2 2 0 1 0-4 0a2 2 0 0 0 4 0M16 4a2 2 0 1 0-4 0a2 2 0 0 0 4 0m0 16a2 2 0 1 0-4 0a2 2 0 0 0 4 0m-5-8a2 2 0 1 0-4 0a2 2 0 0 0 4 0m10 0a2 2 0 1 0-4 0a2 2 0 0 0 4 0M5.058 18.306l2.88-4.606m2.123-3.397l2.877-4.604m-2.873 8.006l2.876 4.6M15.063 5.7l2.881 4.61"/></svg></svg></g>
+<text x="384" y="82" font-size="9.5" fill="#475569" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">L2  classifier</text>
+<rect x="360" y="94" width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="366" y="107" font-size="7.4" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">sees: 15 features</text>
+<text x="362" y="128" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">XGBoost / IForest</text>
+<rect x="360" y="138" width="116" height="20" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="418" y="152" font-size="8" fill="#64748B" font-weight="bold" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">surface only</text>
+<rect x="498" y="62" width="132" height="126" rx="12" fill="#EAF6F0" stroke="#A8D8C0" stroke-width="1.0"/>
+<g transform="translate(508,70)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#15795A" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19a2 2 0 1 0 4 0a2 2 0 0 0-4 0M19 7a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-8 12h5.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H13"/></svg></svg></g>
+<text x="530" y="82" font-size="9.5" fill="#15795A" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Lp  provenance</text>
+<rect x="506" y="94" width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="512" y="107" font-size="7.4" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">sees: channel split</text>
+<text x="508" y="128" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">6 features, &lt;1 ms</text>
+<rect x="506" y="138" width="116" height="20" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="564" y="152" font-size="8" fill="#16A34A" font-weight="bold" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">AUC 0.991</text>
+<rect x="644" y="62" width="132" height="126" rx="12" fill="#F3EEFB" stroke="#C7B4EC" stroke-width="1.0"/>
+<g transform="translate(654,70)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#6D3FBF" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3m.7 1h4.6"/></svg></svg></g>
+<text x="676" y="82" font-size="9.5" fill="#6D3FBF" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">L3  judge</text>
+<rect x="652" y="94" width="116" height="18" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="658" y="107" font-size="7.4" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">sees: full context</text>
+<text x="654" y="128" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">frontier model</text>
+<rect x="652" y="138" width="116" height="20" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="710" y="152" font-size="8" fill="#D97706" font-weight="bold" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">0.851 bal.acc, 2.3 s</text>
+<text x="206" y="200" font-size="7.4" fill="#94A3B8" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif" font-style="italic">measured on real agent traffic (the instantiated corpus)</text>
+<line x1="338" y1="122" x2="352" y2="122" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<line x1="484" y1="122" x2="498" y2="122" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<line x1="630" y1="122" x2="644" y2="122" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<text x="208" y="214" font-size="8" fill="#1F2937" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">decision</text>
+<rect x="206" y="222" width="74" height="22" rx="11.0" fill="#DCFCE7" stroke="#DCFCE7" stroke-width="1.0"/>
+<text x="243.0" y="236.06" font-size="8.5" fill="#16A34A" font-weight="normal" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">allow</text>
+<rect x="288" y="222" width="74" height="22" rx="11.0" fill="#FEE2E2" stroke="#FEE2E2" stroke-width="1.0"/>
+<text x="325.0" y="236.06" font-size="8.5" fill="#DC2626" font-weight="normal" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">block</text>
+<rect x="370" y="222" width="90" height="22" rx="11.0" fill="#FEF3C7" stroke="#FEF3C7" stroke-width="1.0"/>
+<text x="415.0" y="236.06" font-size="8.5" fill="#D97706" font-weight="normal" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">pending</text>
+<line x1="462" y1="233" x2="486" y2="233" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<rect x="492" y="218" width="160" height="30" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(501,226.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4m1 4l2 2l4-4"/></svg></svg></g>
+<text x="521" y="236.06" font-size="8.5" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">human review, 1 click</text>
+<text x="668" y="236" font-size="7.6" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif" font-style="italic">agent suspended</text>
+<rect x="802" y="14" width="186" height="130" rx="12" fill="#FDF1E7" stroke="#F0C9A0" stroke-width="1.0"/>
+<text x="814" y="31" font-size="10" fill="#A85F12" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Tamper-evident audit</text>
+<rect x="812" y="44" width="166" height="26" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(821,50.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.5 21H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v.5"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0m-3-5V7a4 4 0 1 1 8 0v4m-1 8l2 2l4-4"/></g></svg></svg></g>
+<text x="841" y="60.06" font-size="8.5" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Ed25519 signature</text>
+<rect x="812" y="76" width="166" height="26" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(821,82.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a8 3 0 1 0 16 0A8 3 0 1 0 4 6"/><path d="M4 6v6a8 3 0 0 0 16 0V6"/><path d="M4 12v6a8 3 0 0 0 16 0v-6"/></g></svg></svg></g>
+<text x="841" y="92.06" font-size="8.5" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">SHA-256 hash chain</text>
+<rect x="812" y="108" width="166" height="24" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.0"/>
+<text x="820" y="122.448" font-size="6.8" fill="#334155" font-weight="normal" text-anchor="start" font-family="SFMono-Regular, Menlo, Consolas, monospace">H(t) = SHA256(d ‖ H(t-1))</text>
+<rect x="802" y="152" width="186" height="124" rx="12" fill="#EEF2FB" stroke="#AEC0E8" stroke-width="1.0"/>
+<text x="814" y="169" font-size="10" fill="#2F4FA8" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">Compliance Cockpit</text>
+<text x="812" y="182" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">live feed · approvals · anomalies</text>
+<text x="812" y="196" font-size="7.8" fill="#64748B" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">violations · costs · sessions</text>
+<rect x="812" y="206" width="166" height="26" rx="7" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.0"/>
+<g transform="translate(821,212.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#334155" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M11.5 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v5m-5 6h7m-3-3l3 3l-3 3"/></g></svg></svg></g>
+<text x="841" y="222.06" font-size="8.5" fill="#1F2937" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">PDF / CSV export</text>
+<text x="812" y="252" font-size="7.4" fill="#94A3B8" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif" font-style="italic">every decision, signed and chained</text>
+<line x1="782" y1="200" x2="800" y2="200" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<text x="791" y="192" font-size="7" fill="#64748B" font-weight="normal" text-anchor="middle" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">log trace</text>
+<rect x="12" y="292" width="976" height="48" rx="9" fill="#EAF6F0" stroke="#A8D8C0" stroke-width="1.0"/>
+<g transform="translate(26,304)"><svg width="16" height="16" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#15795A" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a12 12 0 0 0 8.5 3A12 12 0 0 1 12 21A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3m0 0v18"/></svg></svg></g>
+<text x="50" y="310" font-size="9.5" fill="#15795A" font-weight="bold" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">The layers differ in what they may observe, not only in cost — and that is what decides the outcome.</text>
+<text x="50" y="326" font-size="8.6" fill="#0F5B44" font-weight="normal" text-anchor="start" font-family="Inter, Helvetica Neue, Helvetica, Arial, sans-serif">A successful indirect injection emits a syntactically ordinary call, so L1 and L2 have nothing to inspect. Lp recovers the signal at L1 cost by asking which turn authorised the call.</text>
+</svg>

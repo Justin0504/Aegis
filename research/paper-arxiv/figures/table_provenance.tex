@@ -1,0 +1,42 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Feature blocks against the two-step benign arm, where both
+classes carry tool-derived arguments (5-fold CV AUC, 237 malicious /
+169 benign). Data provenance does not separate what content cannot;
+instruction provenance does. The definitional pair is reported for
+completeness and excluded from the comparison---it detects
+``an instruction appeared in a data channel,'' which is what the attack
+\emph{is}.}
+\label{tab:provenance}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lc}
+\toprule
+Feature block & AUC \\
+\midrule
+Content (15) & 0.687 $\pm$ 0.116 \\
+Data provenance / taint (5) & 0.737 $\pm$ 0.091 \\
+\midrule
+\textbf{Instruction provenance, grounded (4)} & \textbf{0.991 $\pm$ 0.009} \\
+\quad Taint $+$ grounded (9) & 0.991 $\pm$ 0.009 \\
+\quad Content $+$ grounded (19) & 0.986 $\pm$ 0.013 \\
+\midrule
+\textit{Instruction prov., definitional (2)} & \textit{0.822} $\pm$ \textit{0.129} \\
+\bottomrule
+\end{tabular}
+\vspace{0.06in}
+
+\begin{tabular}{lrrr}
+\toprule
+Feature & mal. & benign & AUC \\
+\midrule
+\texttt{user\_licence} & 0.040 & 0.573 & 0.010 \\
+\texttt{obs\_licence} & 0.413 & 0.299 & 0.637 \\
+\texttt{authority\_margin} & 0.373 & $-$0.274 & \textbf{0.925} \\
+\texttt{tool\_named\_in\_obs} & 0.340 & 0.009 & 0.839 \\
+\midrule
+\textit{imperative\_density} & 0.467 & 0.065 & \textit{0.829} \\
+\textit{directive\_to\_agent} & 0.000 & 0.000 & \textit{0.500} \\
+\bottomrule
+\end{tabular}
+\end{table}

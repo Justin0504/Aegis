@@ -1,0 +1,17 @@
+{
+ "records": 5525,
+ "malicious": 3413,
+ "benign": 2112,
+ "f1_no_arguments": 144,
+ "f2_key_malicious": 3196,
+ "f2_key_benign": 0,
+ "f2_charcount_auc": 0.918332881074146,
+ "f2_best_single_feature_auc": 0.9467073588951336,
+ "f2_best_single_feature": "total_arg_chars",
+ "f2_all15_cv_auc": 0.9963011664457753,
+ "f2_all15_cv_std": 0.007397667108449591,
+ "f3_scoreable": 5381,
+ "f3_unique": 186,
+ "net_unique_malicious": 165,
+ "net_unique_benign": 21
+}
