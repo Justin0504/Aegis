@@ -37,17 +37,22 @@ import os
 THEME = os.environ.get("FIGKIT_THEME", "geist").lower()
 
 # Two families only. Reviewers read figures at 80% zoom in a PDF viewer;
-# a third family reads as noise. Geist is the reference face; the stack
-# degrades to the system UI font, which is what corespeed.io itself falls
-# back to and is close in proportion.
+# a third family reads as noise. Geist (SIL OFL, vercel/geist-font) is the
+# reference face and is installed in ~/Library/Fonts; the rest of the stack
+# is the fallback chain for a machine without it, which is what
+# corespeed.io itself falls back to and is close in proportion.
+#
+# The PPT export names Geist directly. PowerPoint substitutes silently on a
+# machine that lacks it, so a co-author editing the deck sees a different
+# face rather than an error -- worth knowing before blaming the layout.
 # Single quotes, not double: these strings are interpolated into an XML
 # attribute (font-family="..."), and a double quote inside closes it early,
 # producing an SVG that parses as far as the first <text> and no further.
 SANS = ("Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, "
         "sans-serif")
 MONO = "'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace"
-SANS_PPT = "Helvetica Neue"
-MONO_PPT = "Menlo"
+SANS_PPT = "Geist"
+MONO_PPT = "Geist Mono"
 
 if THEME == "geist":
     # ---- corespeed.io home tokens ---------------------------------------
