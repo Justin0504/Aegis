@@ -212,3 +212,4 @@ export function calculateTraceHash(trace: Omit<AgentActionTrace, 'integrity_hash
 
   return createHash('sha256').update(content).digest('hex');
 }
+export * from './provenance';

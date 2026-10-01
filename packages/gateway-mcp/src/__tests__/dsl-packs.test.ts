@@ -21,6 +21,10 @@ import { listPacks, getPack, mergePack, type PolicyPackName } from '../policies/
 const ALL_PACKS: PolicyPackName[] = [
   'bfsi-glba', 'bfsi-pci-dss', 'bfsi-sox',
   'bfsi-dora', 'healthcare-hipaa', 'gov-fedramp',
+  // fintech-agent-payments was registered but never listed here, so this
+  // suite had been red before instruction-provenance was added.
+  'fintech-agent-payments',
+  'security-instruction-provenance',
 ];
 
 describe('DSL packs · registry', () => {
@@ -57,6 +61,7 @@ describe('DSL packs · registry', () => {
       'healthcare-hipaa':        'hipaa',
       'gov-fedramp':             'fedramp',
       'fintech-agent-payments':  'agent-payments',
+      'security-instruction-provenance': 'provenance',
     };
     for (const packName of ALL_PACKS) {
       const pack = getPack(packName)!;

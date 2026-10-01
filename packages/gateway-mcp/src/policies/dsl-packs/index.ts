@@ -15,6 +15,8 @@
  *   · bfsi-dora        — EU Digital Operational Resilience Act
  *   · healthcare-hipaa — HIPAA Security + Privacy Rules
  *   · gov-fedramp      — FedRAMP Moderate (NIST SP 800-53 Rev 5)
+ *   · security-instruction-provenance — indirect prompt injection, by
+ *     authority rather than by payload
  *
  * Each pack:
  *   - is a valid PolicyDsl document (`version: 1`, up to 100 rules)
@@ -38,6 +40,7 @@ import { doraPack } from './dora';
 import { hipaaPack } from './hipaa';
 import { fedrampPack } from './fedramp';
 import { fintechAgentPaymentsPack } from './fintech-agent-payments';
+import { instructionProvenancePack } from './instruction-provenance';
 
 export interface PolicyPackMeta {
   name: PolicyPackName;
@@ -54,7 +57,11 @@ export type PolicyPackName =
   | 'bfsi-dora'
   | 'healthcare-hipaa'
   | 'gov-fedramp'
-  | 'fintech-agent-payments';
+  | 'fintech-agent-payments'
+  // Not regulation-aligned like the others: this one encodes the attack
+  // class content rules cannot see. Inert unless the SDK reports context
+  // events, so it is safe to enable alongside any of the above.
+  | 'security-instruction-provenance';
 
 const RAW: Record<PolicyPackName, {
   description: string;
@@ -68,6 +75,7 @@ const RAW: Record<PolicyPackName, {
   'healthcare-hipaa': hipaaPack,
   'gov-fedramp':      fedrampPack,
   'fintech-agent-payments': fintechAgentPaymentsPack,
+  'security-instruction-provenance': instructionProvenancePack,
 };
 
 // Fail-fast validation at module load. If a pack ever grows a bad

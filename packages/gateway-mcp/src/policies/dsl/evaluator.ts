@@ -77,6 +77,32 @@ export interface DslContext {
     binding_id?: string;
     [k: string]: unknown;
   };
+  /**
+   * Instruction provenance — which turn authorised this call.
+   *
+   * Present when the SDK reports context events (user turns and tool
+   * returns) so the gateway can maintain a per-session ledger. Every
+   * other field in this context describes the call; these describe the
+   * authority behind it, which is the only thing that distinguishes an
+   * injected tool call from a legitimate one once the call itself is
+   * syntactically ordinary. Rules can say
+   *   when provenance.authorised_by == "untrusted" and tool.is_sink == true
+   * which no combination of the content fields above can express.
+   *
+   * `authorised_by == "unknown"` means the SDK did not report context, not
+   * that the call is safe. Rules that tighten on provenance must say so
+   * explicitly rather than relying on a margin of 0, because an unreported
+   * session produces exactly that.
+   */
+  provenance?: {
+    authorised_by?: 'user' | 'untrusted' | 'unclear' | 'unknown';
+    authority_margin?: number;
+    user_licence?: number;
+    untrusted_licence?: number;
+    tool_named_in_untrusted?: number;
+    degraded?: boolean;
+    [k: string]: unknown;
+  };
 }
 
 export interface MatchResult {
