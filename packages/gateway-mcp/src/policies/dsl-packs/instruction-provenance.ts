@@ -42,6 +42,11 @@
 
 import { PolicyDsl } from '@agentguard/core-schema';
 
+// The DSL compiles `matches` as new RegExp(source) with no flags, so an
+// inline (?i) is a syntax error rather than a case-insensitivity request.
+// Tool names are camelCase or snake_case, so the classes below cover both
+// without needing the flag.
+
 const dsl: PolicyDsl = {
   version: 1,
   rules: [
@@ -56,7 +61,7 @@ const dsl: PolicyDsl = {
           {
             'tool.name': {
               matches:
-                '(?i)(send|email|post|upload|share|transfer|pay|publish|forward|export)',
+                '[Ss][Ee][Nn][Dd]|[Ee]mail|[Pp]ost|[Uu]pload|[Ss]hare|[Tt]ransfer|[Pp]ay|[Pp]ublish|[Ff]orward|[Ee]xport',
             },
           },
         ],
@@ -78,7 +83,7 @@ const dsl: PolicyDsl = {
           { 'provenance.authorised_by': 'untrusted' },
           {
             'tool.name': {
-              matches: '(?i)(delete|drop|remove|revoke|terminate|destroy|purge)',
+              matches: '[Dd]elete|[Dd]rop|[Rr]emove|[Rr]evoke|[Tt]erminate|[Dd]estroy|[Pp]urge',
             },
           },
         ],
@@ -135,7 +140,7 @@ const dsl: PolicyDsl = {
           { 'provenance.user_licence': { '<': 0.15 } },
           {
             'tool.name': {
-              matches: '(?i)(send|email|post|upload|share|transfer|pay)',
+              matches: '[Ss][Ee][Nn][Dd]|[Ee]mail|[Pp]ost|[Uu]pload|[Ss]hare|[Tt]ransfer|[Pp]ay',
             },
           },
         ],

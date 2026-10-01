@@ -41,6 +41,14 @@ import { setSpanAttributes, emitGuardrailSpan } from '../services/otel';
 const CheckRequestSchema = z.object({
   agent_id:    z.string(),
   tool_name:   z.string(),
+  /**
+   * Session this call belongs to. Required for instruction provenance:
+   * authority is a property of a conversation, not of a single call, so
+   * without it the gateway cannot tell which user turn — if any —
+   * accounts for this tool call. Optional so existing callers are
+   * unaffected; provenance rules simply do not fire for them.
+   */
+  session_id:  z.string().min(1).max(200).optional(),
   arguments:   z.record(z.unknown()).default({}),
   environment: z.string().optional(),
   /**
@@ -98,6 +106,9 @@ export class CheckAPI {
     private tenantConfig?: TenantConfigService,
     private agentRegistry?: import('../services/agent-registry').AgentRegistryService,
     private gatewayMetrics?: GatewayMetricsService,
+    /** Per-session context ledgers. Absent in deployments that do not
+     *  report context; every provenance rule is then inert. */
+    private contextLedgers?: import('../services/context-ledger-store').ContextLedgerStore,
   ) {
     this.router = Router()
     this.initTable()
@@ -353,6 +364,17 @@ export class CheckAPI {
             tool: { name: body.tool_name, args: body.arguments as Record<string, unknown> },
             agent: { id: body.agent_id },
             tenant: { id: orgId, deploymentMode },
+            // Which turn authorised this call. Undefined when the caller
+            // sent no session_id, or when that session has no ledger —
+            // deliberately distinguishable from a session that reported
+            // context but no user turn, which yields authorised_by:
+            // "unknown" instead.
+            provenance: this.contextLedgers?.assess(
+              orgId,
+              body.session_id,
+              body.tool_name,
+              body.arguments as Record<string, unknown>,
+            ),
           })
           if (dslMatch && (dslMatch.decision === 'block' || dslMatch.decision === 'pending')) {
             isRisky = true

@@ -9,6 +9,8 @@ import { AegisMcpServer } from './mcp/aegis-mcp-server';
 import { TraceAPI } from './api/traces';
 import { PolicyAPI } from './api/policies';
 import { ApprovalAPI } from './api/approvals';
+import { ContextAPI } from './api/context';
+import { ContextLedgerStore } from './services/context-ledger-store';
 import { CheckAPI } from './api/check';
 import { AgentsAPI } from './api/agents';
 import { LicenseAPI } from './api/license';
@@ -666,6 +668,13 @@ async function main() {
   // against the marketing service, not the local API key store.
   app.use('/api/v1/license', new LicenseAPI(license, logger).router);
   app.use('/api/v1/traces', requireAuth, new TraceAPI(db, logger, agentRegistry).router);
+  // Per-session context ledgers for instruction provenance. Held in
+  // memory: read once per tool call on the hot path, and worthless once
+  // the session ends. A restart degrades live sessions to unassessed,
+  // which is the fail-soft direction.
+  const contextLedgers = new ContextLedgerStore();
+  app.use('/api/v1/context', new ContextAPI(logger, contextLedgers).router);
+
   app.use('/api/v1/check',  new CheckAPI(
     db, policyEngine, logger, webhooks, undefined,
     config.anomaly.enabled ? anomalyDetector : undefined,
@@ -675,6 +684,7 @@ async function main() {
     tenantConfig,
     agentRegistry,
     gatewayMetrics,
+    contextLedgers,
   ).router);
 
   // ── Management routes (auth required) ────────────────────────────────────

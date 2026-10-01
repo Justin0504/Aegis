@@ -296,6 +296,9 @@ export function assessAuthority(
  * `anomaly.score`.
  */
 export interface ProvenanceDslFacts {
+  // Index signature so this drops straight into the DSL context, whose
+  // blocks are all open-shaped for forward compatibility.
+  [k: string]: unknown;
   authorised_by: AuthorityVerdict;
   authority_margin: number;
   user_licence: number;
