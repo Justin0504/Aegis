@@ -11,8 +11,38 @@ from datetime import datetime
 class LLMInterceptor:
     """Captures LLM API calls (OpenAI, Anthropic, etc.)."""
 
-    def __init__(self):
+    def __init__(self, context_reporter: Any = None, session_id: Optional[str] = None):
         self.captured_calls: List[Dict[str, Any]] = []
+        # Instruction provenance. The messages array passed to every model
+        # call already contains the whole conversation, so the channel
+        # split the gateway needs can be derived here with nothing extra
+        # for the host application to instrument. Absent reporter =>
+        # nothing is sent and provenance rules stay inert.
+        self._context_reporter = context_reporter
+        self._session_id = session_id
+
+    def set_context_reporter(self, reporter: Any, session_id: Optional[str] = None) -> None:
+        self._context_reporter = reporter
+        if session_id:
+            self._session_id = session_id
+
+    def _report_context(self, kwargs: Dict[str, Any]) -> None:
+        """Derive and report trust channels from an outgoing model call.
+
+        Wrapped in a blanket except on purpose: this runs inside the
+        caller's LLM request path, and a telemetry bug must never be able
+        to fail someone's agent. The cost of swallowing is that provenance
+        degrades to `unknown`, which is the fail-soft direction.
+        """
+        reporter = self._context_reporter
+        if reporter is None or not self._session_id:
+            return
+        try:
+            messages = kwargs.get("messages")
+            if messages:
+                reporter.report_messages(self._session_id, messages)
+        except Exception:  # noqa: BLE001
+            pass
 
     def patch_openai(self):
         """Monkey-patch OpenAI client to capture calls."""
@@ -40,6 +70,7 @@ class LLMInterceptor:
             @functools.wraps(original_create)
             def wrapped_create(client_self, *args, **kwargs):
                 start_time = time.time()
+                interceptor._report_context(kwargs)
                 call_data = {
                     "provider": "anthropic",
                     "method": "messages.create",
@@ -71,12 +102,14 @@ class LLMInterceptor:
         """Patch OpenAI v1.0+ client."""
         import openai
 
+        interceptor = self
         # Patch chat completions
         original_create = openai.resources.chat.completions.Completions.create
 
         @functools.wraps(original_create)
         def wrapped_create(self, *args, **kwargs):
             start_time = time.time()
+            interceptor._report_context(kwargs)
             call_data = {
                 "provider": "openai",
                 "method": "chat.completions.create",
@@ -107,10 +140,12 @@ class LLMInterceptor:
         import openai
 
         original_create = openai.ChatCompletion.create
+        interceptor = self
 
         @functools.wraps(original_create)
         def wrapped_create(*args, **kwargs):
             start_time = time.time()
+            interceptor._report_context(kwargs)
             call_data = {
                 "provider": "openai",
                 "method": "ChatCompletion.create",
