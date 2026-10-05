@@ -67,20 +67,38 @@ Authentication → URL Configuration:
 
 ## 3 · Stripe
 
-1. [Stripe Dashboard](https://dashboard.stripe.com) → get `sk_test_…`
-   + `pk_test_…` from Developers → API keys.
-2. **Products → + Add product**, create:
-   - **AEGIS Pro Monthly** (recurring, $19/mo) → copy the Price ID (`price_…`)
-   - **AEGIS Pro Annual**  (recurring, $190/yr) → copy Price ID
-   - **AEGIS Enterprise Monthly** (recurring, $99/mo) → copy Price ID
-   - **AEGIS Enterprise Annual** (recurring, $990/yr) → copy Price ID
+1. [Stripe Dashboard](https://dashboard.stripe.com) → get the API keys
+   from Developers → API keys. Use `sk_test_…` for Preview and
+   `sk_live_…` for Production.
+
+2. **Products → + Add product**. Only two tiers are billable — these
+   prices are the ones `pricing.astro` actually renders, so a mismatch
+   here is a mismatch a customer sees at checkout:
+
+   | Product | Recurring | Env var |
+   |---|---|---|
+   | AEGIS Pro Monthly  | **$29 / month** | `STRIPE_PRICE_PRO_MONTHLY` |
+   | AEGIS Pro Annual   | **$290 / year** | `STRIPE_PRICE_PRO_ANNUAL` |
+   | AEGIS Team Monthly | **$99 / month** | `STRIPE_PRICE_TEAM_MONTHLY` |
+   | AEGIS Team Annual  | **$990 / year** | `STRIPE_PRICE_TEAM_ANNUAL` |
+
+   **Free** is `$0 forever` and its button goes to `/download`; it never
+   reaches Stripe. **Enterprise** is `Custom` and its button is a
+   `mailto:` — it is sales-led and never reaches checkout either.
+
 3. Feed the four Price IDs into your env:
    ```
    STRIPE_PRICE_PRO_MONTHLY=price_...
    STRIPE_PRICE_PRO_ANNUAL=price_...
-   STRIPE_PRICE_ENTERPRISE_MONTHLY=price_...
-   STRIPE_PRICE_ENTERPRISE_ANNUAL=price_...
+   STRIPE_PRICE_TEAM_MONTHLY=price_...
+   STRIPE_PRICE_TEAM_ANNUAL=price_...
    ```
+
+   `lib/stripe.ts` also reads `STRIPE_PRICE_ENTERPRISE_MONTHLY` and
+   `STRIPE_PRICE_ENTERPRISE_ANNUAL`. No button on the pricing page routes
+   to them, so leave them unset unless you decide to sell Enterprise
+   self-serve. An unset price id makes `priceForPlan` return null and
+   `/api/checkout` reject the plan, which is the safe failure.
 4. **Webhook**: Developers → Webhooks → Add endpoint.
    - URL: `https://aegistraces.com/api/stripe-webhook`
    - Events to send:
@@ -114,9 +132,36 @@ Preview scopes; use test keys for Preview):
 | `STRIPE_SECRET_KEY`             | Secret | `sk_live_…` for prod, `sk_test_…` for preview. |
 | `STRIPE_PUBLISHABLE_KEY`        | Plain  | Currently unused by SSR; kept for future direct-embed use. |
 | `STRIPE_WEBHOOK_SECRET`         | Secret | Match to the webhook endpoint's signing secret. |
-| `STRIPE_PRICE_PRO_MONTHLY` etc. | Plain  | Price IDs — visible in Stripe Dashboard. |
+| `STRIPE_PRICE_PRO_MONTHLY`      | Plain  | Price ID — visible in Stripe Dashboard. |
+| `STRIPE_PRICE_PRO_ANNUAL`       | Plain  | |
+| `STRIPE_PRICE_TEAM_MONTHLY`     | Plain  | |
+| `STRIPE_PRICE_TEAM_ANNUAL`      | Plain  | |
 
 Save + trigger a rebuild.
+
+### How to tell whether this actually took effect
+
+Setting the variables is not the same as deploying them, and the
+difference is invisible from the dashboard. Probe the webhook from
+outside:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://aegistraces.com/api/stripe-webhook \
+  -H 'stripe-signature: t=1,v1=deadbeef' -d '{}'
+```
+
+- **400** — configured. The handler got far enough to verify the
+  signature and reject it, which is the expected answer to a forged one.
+- **500** — *not* configured. `getStripe()` and `getWebhookSecret()` are
+  the handler's first two statements and sit outside its try/catch, so a
+  missing variable throws before any signature check runs.
+
+A 500 here is the single clearest sign that the keys exist in the
+dashboard but never reached a build. Note that this repo's Cloudflare
+Pages Git integration has been disconnected since `1b89f18` — deploys
+have been manual `wrangler pages deploy` — so saving a variable will not
+redeploy anything on its own.
 
 ---
 

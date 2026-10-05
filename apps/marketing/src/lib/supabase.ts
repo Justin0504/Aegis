@@ -65,7 +65,7 @@ export function getServerSupabase(
       getAll() {
         return parseCookieHeader(cookieHeader);
       },
-      setAll(list) {
+      setAll(list: { name: string; value: string; options?: Record<string, unknown> }[]) {
         for (const { name, value, options } of list) {
           cookies.set(name, value, {
             ...(options as any),

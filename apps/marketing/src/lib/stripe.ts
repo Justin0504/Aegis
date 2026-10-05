@@ -13,7 +13,12 @@ export function getStripe(locals: App.Locals): Stripe {
     throw new Error('Stripe env not configured (STRIPE_SECRET_KEY). See docs/AUTH-SETUP.md § Stripe.');
   }
   return new Stripe(key, {
-    apiVersion: '2024-12-18.acacia',
+    // Pinned to the version the installed SDK's types describe. The pin
+    // had drifted behind a stripe@17 bump, so tsc was red and — worse —
+    // the SDK's response types described 2025-02-24 shapes while the API
+    // would have returned 2024-12-18 ones. Harmless to realign now, with
+    // no live transactions to migrate; much less so after the first one.
+    apiVersion: '2025-02-24.acacia',
     // Workers-friendly HTTP client. Prevents "Buffer is not defined"
     // and other Node-isms from tripping the Pages Functions runtime.
     httpClient: Stripe.createFetchHttpClient(),
@@ -53,9 +58,18 @@ export function planForPrice(locals: App.Locals, priceId: string): string | null
  * Called by /api/checkout so browsers never see price ids in HTML
  * (which would let anyone POST an arbitrary price and buy it).
  *
- * Plans mirror the pricing page (Free is not billable, Enterprise is
- * sales-led): pro / pro-annual / team / team-annual / business /
- * business-annual / enterprise / enterprise-annual.
+ * Plans mirror the pricing page: `pro` / `pro-annual` ($29 / $290) and
+ * `team` / `team-annual` ($99 / $990) are the billable ones. Free goes to
+ * /download and Enterprise is a mailto, so neither reaches checkout.
+ *
+ * `enterprise` / `enterprise-annual` are kept wired for the day Enterprise
+ * goes self-serve. Nothing on the page routes to them today, and with the
+ * price ids unset this returns null and /api/checkout rejects the plan —
+ * which is the behaviour we want if someone POSTs one directly.
+ *
+ * (An earlier version of this comment also listed `business` /
+ * `business-annual`. There is no Business tier on the pricing page and no
+ * entry for one below; the names were never real.)
  */
 export function priceForPlan(locals: App.Locals, plan: string): string | null {
   const key = ({
