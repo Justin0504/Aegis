@@ -57,6 +57,24 @@ const productLd = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
 };
 
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'TechArticle',
+  '@id': `${canonicalUrl}#article`,
+  headline: 'AEGIS vs NeMo Guardrails — Runtime tool-call firewall vs conversational flow control',
+  description: 'AEGIS mediates the tool-call execution path with a peer-reviewed cost-aware cascade and cryptographic audit chain. NVIDIA NeMo Guardrails uses the Colang DSL to shape conversational flow. Different points of intervention.',
+  url: canonicalUrl,
+  datePublished: '2026-09-05',
+  dateModified: '2026-09-06',
+  author: { '@type': 'Organization', name: 'AEGIS', url: 'https://aegistraces.com' },
+  publisher: { '@type': 'Organization', name: 'AEGIS', url: 'https://aegistraces.com' },
+  about: [
+    { '@type': 'SoftwareApplication', name: 'AEGIS' },
+    { '@type': 'SoftwareApplication', name: 'NeMo Guardrails' },
+  ],
+  isBasedOn: 'https://arxiv.org/abs/2603.12621',
+};
+
 const faqLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -187,6 +205,7 @@ const faqLd = {
 
   <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
   <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(articleLd)}></script>
 </Layout>
 
 <style>

@@ -27,7 +27,7 @@ const RELEASES = [
       'Sign-in with AEGIS device-link flow (Cursor/Warp-style OAuth): Cockpit → browser → aegistraces.com → local gateway callback. No key-paste required for existing paid customers.',
       'Open-core license enforcement: gateway hot-swaps tier on activation; 24h revalidation with 7-day grace period; deactivation removes tier immediately.',
       'Stripe subscription flow + Billing Portal: manage subscription without a support ticket.',
-      'arXiv:2603.12621 v2 paper: 3-layer cost-aware cascade (rules + XGBoost + LLM judge) reaches 99.9% block rate at 1.06 ms P50 latency and $0.05 total cost on 5,525-record ToolGuard-Bench. Adversarial ≥ 97.5% under 10 obfuscation transforms.',
+      'arXiv:2603.12621 v2 paper: 3-layer cost-aware cascade (rules + XGBoost + LLM judge) reported 99.9% block rate at 1.06 ms P50 latency on the 5,525-record ToolGuard-Bench. WITHDRAWN — auditing that benchmark showed it encoded its own labels; see the correction entry above.',
       'CI matrix rebuild: macOS ARM + Windows + Linux all building unsigned in GitHub Actions; workflow_dispatch supports backfill to existing tags.',
     ],
   },
@@ -81,7 +81,7 @@ const itemListLd = {
 
 <Layout
   title="AEGIS Changelog — Releases, benchmarks, and shipped features"
-  description="Public changelog for AEGIS: every release tagged, dated, and linked to its GitHub tag + benchmark numbers. Latest: v0.2.0 (cross-platform installers + license activation + arXiv v2 paper with 99.9% block rate on ToolGuard-Bench)."
+  description="Public changelog for AEGIS: every release tagged, dated, and linked to its GitHub tag. Includes the correction withdrawing the ToolGuard-Bench numbers after an audit of how that benchmark was built."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >

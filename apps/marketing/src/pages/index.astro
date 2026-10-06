@@ -4,6 +4,7 @@ import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import DecisionLog from '@/components/DecisionLog.astro';
 import HeroAnimation from '@/components/HeroAnimation.astro';
+import HeroDecision from '@/components/HeroDecision.astro';
 import CockpitMockup from '@/components/CockpitMockup.astro';
 import CompatibleStacks from '@/components/CompatibleStacks.astro';
 import VerticalTabs    from '@/components/VerticalTabs.astro';
@@ -75,42 +76,62 @@ const softwareLd = {
         <div class="hero-grid">
           <div class="hero-text">
             <p class="eyebrow">
-              Open-source · MIT · v0.2.0 ·
+              Open-source · MIT ·
               <a href="https://arxiv.org/abs/2603.12621" class="hero-paper-link">arXiv:2603.12621 v2</a>
             </p>
-            <h1>The runtime <em>safety layer</em> for AI agents.</h1>
+
+            <!-- Two-tone headline: the grey half is what every scanner
+                 already does, the black half is what this does instead.
+                 The contrast IS the positioning, so it is carried by the
+                 headline rather than by a feature bullet further down. -->
+            <h1><span class="h1-dim">Not what the call says.</span><br />Who authorised it.</h1>
+
             <p class="lede">
-              Every tool call — classified, gated, audited. Zero code change.
+              <strong>AEGIS</strong> sits between your agent’s tool-call decision and its
+              execution — allow, block, or hold for a human.
+              <strong>Two lines, 14 frameworks, every decision signed.</strong>
             </p>
-            <p class="hero-stat">
-              <strong>99.9%</strong> block rate at
-              <strong>1.06&nbsp;ms</strong> median latency and
-              <strong>$0.05</strong> per run on the 5,525-record
-              <a href="/guides/agent-tool-call-risks">ToolGuard-Bench</a>.
-              Full ablation + adversarial numbers in the
-              <a href="https://arxiv.org/abs/2603.12621">v2 paper</a>.
-            </p>
-            <div class="hero-cta dual">
-              <a href="/download" class="btn-dual primary">
-                <span class="btn-dual-eyebrow">Self-host</span>
-                <span class="btn-dual-label">Download</span>
-                <span class="btn-dual-fine">Free · MIT · macOS / Windows / Linux</span>
-              </a>
-              <a href="https://aegis-demo-dusky.vercel.app" class="btn-dual" target="_blank" rel="noopener">
-                <span class="btn-dual-eyebrow">No install</span>
-                <span class="btn-dual-label">Try live demo →</span>
-                <span class="btn-dual-fine">Real Cockpit UI · sample data · 30s</span>
-              </a>
+
+            <!-- A developer-tool CTA is a command, not a button. The
+                 reference sites both lead with the single action a reader
+                 can take without leaving the page. -->
+            <div class="hero-install">
+              <code id="install-cmd">pip install agentguard &amp;&amp; agentguard init</code>
+              <button type="button" class="install-copy" data-copy="pip install agentguard &amp;&amp; agentguard init">Copy</button>
             </div>
+            <p class="hero-install-note">
+              It installs the gateway, patches the SDK you already use, and starts logging.
+            </p>
+
             <p class="hero-trust">
-              <a href="/tour">Watch the 90-second tour →</a>
-              &nbsp;·&nbsp; <a href="/pricing">See pricing</a>
+              <a href="/download">Self-host →</a>
+              &nbsp;·&nbsp; <a href="https://aegis-demo-dusky.vercel.app" target="_blank" rel="noopener">Live demo</a>
+              &nbsp;·&nbsp; <a href="/docs">Docs</a>
             </p>
           </div>
+
           <div class="hero-visual">
-            <HeroAnimation />
+            <HeroDecision />
+            <p class="hero-visual-note">
+              Works with LangChain, CrewAI, LlamaIndex and the Claude Agent SDK —
+              Python, JavaScript, Go. Self-hosted or managed.
+            </p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ── THE FINDING (replaces the withdrawn benchmark claim) ────── -->
+    <section class="finding">
+      <div class="container">
+        <p class="finding-stat"><strong>0.4%</strong></p>
+        <p class="finding-body">
+          of real agent-emitted attacks are caught by content patterns — SQL
+          injection, path traversal, shell injection, prompt injection — because a
+          successful indirect injection produces a call that is syntactically
+          ordinary. <a href="https://arxiv.org/abs/2603.12621">We measured it, on our own detector.</a>
+          Authority is what separates the classes, so that is what AEGIS enforces.
+        </p>
       </div>
     </section>
 
@@ -477,12 +498,120 @@ client = openai.OpenAI(
 
   <style>
     /* ── Hero ─────────────────────────────────────────────────────── */
-    .hero { padding: 4rem 0 3rem; }
+    /* Hero, rebuilt on the grammar of the reference sites: a large
+       two-tone headline carrying the positioning, one developer-native
+       action, and a working product beside it rather than a decorated
+       screenshot. */
+    .hero { padding: 5.5rem 0 4rem; }
+    .hero h1 {
+      font-family: var(--font-sans);
+      font-style: normal;
+      font-weight: 620;
+      font-size: clamp(2.15rem, 4.1vw, 3.05rem);
+      line-height: 1.06;
+      letter-spacing: -0.028em;
+      margin: 0.6rem 0 1.1rem;
+      /* Wide enough that neither clause orphans its last word; the
+         line break between them is explicit in the markup. */
+      max-width: 24ch;
+    }
+    /* The half everyone else also does. Grey is the argument. */
+    .hero h1 .h1-dim { color: var(--muted); }
+    .hero .lede {
+      font-size: 1.06rem;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 46ch;
+      margin: 0 0 1.9rem;
+    }
+    .hero .lede strong { color: var(--text); font-weight: 580; }
+
+    .hero-install {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #0e0e0e;
+      border-radius: 10px;
+      padding: 0.85rem 0.85rem 0.85rem 1.1rem;
+      max-width: 34rem;
+    }
+    .hero-install code {
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+      color: #f4f4f4;
+      white-space: nowrap;
+      overflow-x: auto;
+      flex: 1 1 auto;
+    }
+    .hero-install code::before { content: "$ "; color: #6f8fd0; }
+    .install-copy {
+      flex: none;
+      font: inherit;
+      font-size: 0.8rem;
+      color: #f4f4f4;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 7px;
+      padding: 0.34rem 0.7rem;
+      cursor: pointer;
+    }
+    .install-copy:hover { background: rgba(255, 255, 255, 0.17); }
+    .install-copy[data-copied] { color: #7fd6a8; border-color: rgba(127, 214, 168, 0.4); }
+
+    .hero-install-note {
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin: 0.75rem 0 0;
+    }
+    .hero-visual-note {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      text-align: center;
+      margin: 0.9rem auto 0;
+      max-width: 36ch;
+    }
+
+    /* The finding band. It replaces a withdrawn benchmark claim, so it
+       states one number, says what it is a number ABOUT, and links the
+       paper that reports it against us. */
+    .finding {
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      padding: 3rem 0;
+    }
+    .finding .container {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0 2.5rem;
+      align-items: start;
+    }
+    .finding-stat {
+      margin: 0;
+      font-size: clamp(2.6rem, 6vw, 4rem);
+      font-weight: 640;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .finding-body {
+      margin: 0;
+      max-width: 62ch;
+      font-size: 1rem;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+    .finding-body a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+    @media (max-width: 720px) {
+      .finding .container { grid-template-columns: 1fr; gap: 0.5rem; }
+    }
+
     .hero-grid {
       display: grid;
-      grid-template-columns: 1fr 1.15fr;
-      gap: 3rem;
-      align-items: center;
+      grid-template-columns: 1.14fr 1fr;
+      gap: 4rem;
+      /* Top-aligned, not centred: the card is evidence for the headline,
+         so it should start where the headline starts. */
+      align-items: start;
     }
     .eyebrow {
       font-size: 0.78rem;
@@ -497,7 +626,6 @@ client = openai.OpenAI(
       line-height: 1.05;
       margin: 0.4rem 0 1rem;
     }
-    .hero h1 em { font-style: italic; color: var(--accent); }
     .hero .lede {
       font-size: 1.15rem;
       color: var(--muted);
@@ -553,7 +681,7 @@ client = openai.OpenAI(
     .btn-dual:hover { border-color: rgba(10, 10, 10, 0.28); background: var(--surface-2); }
     .btn-dual:active { transform: translateY(1px); }
     .btn-dual.primary { background: var(--surface-2); border-color: rgba(10, 10, 10, 0.18); }
-    .btn-dual.primary:hover { border-color: rgba(10, 10, 10, 0.32); background: #e6dec5; }
+    .btn-dual.primary:hover { border-color: rgba(10, 10, 10, 0.32); background: #f0f0f0; }
     .btn-dual-eyebrow {
       font-size: 0.7rem;
       letter-spacing: 0.1em;
@@ -1204,3 +1332,25 @@ client = openai.OpenAI(
     .cta-buttons { display: flex; gap: 0.7rem; flex-wrap: wrap; }
   </style>
 </Layout>
+
+<script>
+  // The copied string lives on the button, not in this script, so what a
+  // reader sees and what lands on their clipboard cannot diverge.
+  document.querySelectorAll('.install-copy').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cmd = btn.getAttribute('data-copy') || '';
+      try {
+        await navigator.clipboard.writeText(cmd);
+      } catch {
+        return; // clipboard blocked (http, permissions) — leave the label alone
+      }
+      const original = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.setAttribute('data-copied', '');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.removeAttribute('data-copied');
+      }, 1600);
+    });
+  });
+</script>

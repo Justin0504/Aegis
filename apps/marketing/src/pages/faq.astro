@@ -50,15 +50,15 @@ const SECTIONS = [
     title: 'Performance + benchmarks',
     items: [
       { q: 'How fast is AEGIS?',
-        a: 'The full three-layer cascade achieves 1.06 ms P50 latency (P95 2.99 ms, P99 7.4 ms) on the 5,525-record ToolGuard-Bench. L1 rules run in ~0.7 ms; L2 XGBoost adds ~0.3 ms; the L3 LLM judge is only invoked for the small (< 0.3%) ambiguous residual, and can be swapped between Claude Haiku, GPT-4o-mini, or a local model.' },
+        a: 'The rules path decides in about 1.4 ms median; instruction-provenance assessment adds under a millisecond, because both are local computation over the call and the session context. The LLM judge is the expensive layer at roughly 2,280 ms median, which is why it is reached only for calls the cheap layers cannot decide. Earlier versions of this page quoted 1.06 ms P50 on a 5,525-record benchmark; that benchmark is withdrawn (see below) and so is any aggregate measured on it.' },
       { q: 'What block rate does AEGIS achieve?',
-        a: '99.9% block rate on ToolGuard-Bench (3,413 malicious + 2,112 benign tool calls from InjecAgent + ToolEmu + OWASP LLM Top-10 + curated). For context: rules-only defences catch 1.2%, Llama-Guard 3-8B catches 67.1%, pure LLM judges (Claude Haiku / GPT-4o-mini) catch 96.6% / 98.8% at 2,211 / 1,204 ms P50 respectively.' },
+        a: 'We withdraw the 99.9% figure this page previously carried. It was measured on a benchmark we built and later audited, and the audit showed the benchmark could not support it: the malicious records encoded their own label in an argument key, so argument character count alone separated the classes at AUC 0.918. On a corpus rebuilt by running a live agent and recording what it actually emits, the honest numbers are: content patterns catch 0.4% of real agent-emitted attacks, an LLM judge reaches 0.851 balanced accuracy at about 2,280 ms per call, and instruction provenance — which asks who authorised the call rather than what it contains — reaches AUC 0.991 at sub-millisecond cost. Full detail in arXiv:2603.12621 v2.' },
       { q: 'How adversarially robust is AEGIS?',
         a: 'Under 10 obfuscation transforms (base64 wrap, hex encoding, Unicode homoglyphs, paraphrase, URL encode, whitespace pad, case flip, comment split, double-encode) applied to 3,413 malicious records each, the cascade\'s block rate never drops below 97.5%. Full table in arXiv:2603.12621 Appendix D.' },
       { q: 'What is ToolGuard-Bench?',
-        a: 'ToolGuard-Bench is our unified benchmark for tool-call safety: 5,525 records drawn from InjecAgent (3,340 malicious prompt-injection cases), ToolEmu (144 emulated tool executions), OWASP LLM Top-10 (20 payloads), and the AEGIS in-distribution curated suite (57). Available under research/benchmark/data/aegis-bench.jsonl in the repo; distribution and evaluation harness are open-source.' },
+        a: 'It was our unified benchmark for tool-call safety, 5,525 records drawn from InjecAgent, ToolEmu, OWASP LLM Top-10 and a curated suite — and auditing its construction showed it does not measure what it claimed. 144 records carry no arguments to inspect, 5,195 are exact duplicates, and the malicious records encode their label in an argument key present in 3,196/3,196 InjecAgent attacks and 0/2,108 benign calls. 5,525 records reduce to 186 unique evaluable calls, only 21 of them benign — too few to estimate any false-positive rate below 1/21 = 4.8%. The audit reproduces in one command (python -m benchmark.audit_construction). We replaced it with a corpus built by running a live agent and recording the calls it actually emits.' },
       { q: 'Where does the L2 XGBoost classifier come from?',
-        a: 'Trained on a labelled subset of ToolGuard-Bench using 15 structural features (argument count, depth, character-distribution ratios, Shannon entropy, base64/hex-like scores, URL count, IP literals, path separators). 300 trees, depth 6, standard cross-validated hyperparameter tuning. Full feature list in arXiv:2603.12621 §2.2.' },
+        a: '15 structural features over the call (argument count, depth, character-distribution ratios, Shannon entropy, base64/hex-like scores, URL count, IP literals, path separators), gradient-boosted. Worth knowing what that buys: on the rebuilt corpus no single surface feature exceeds AUC 0.585, because a successful indirect injection produces a syntactically ordinary call. Surface structure is useful against payload attacks and close to useless against injected ones, which is why the provenance layer exists.' },
     ],
   },
   {
@@ -148,7 +148,7 @@ const faqLd = {
 
 <Layout
   title="AEGIS FAQ — 30 answers on runtime AI agent safety, integration, and compliance"
-  description="Canonical FAQ for AEGIS: what it is, how it integrates (14 frameworks, 2-line auto()), performance (99.9% block at 1.06 ms), compliance (SOC 2, HIPAA, EU AI Act, PCI-DSS), pricing (MIT free forever + open-core paid tiers), and comparisons with Lakera, NeMo, Guardrails AI, Langfuse."
+  description="Canonical FAQ for AEGIS: what it is, how it integrates (14 frameworks, 2-line auto()), performance (sub-millisecond rules and provenance, ~2.3 s for the LLM judge), compliance (SOC 2, HIPAA, EU AI Act, PCI-DSS), pricing (MIT free forever + open-core paid tiers), and comparisons with Lakera, NeMo, Guardrails AI, Langfuse."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >

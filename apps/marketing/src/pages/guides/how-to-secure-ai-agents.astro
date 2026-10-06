@@ -116,6 +116,55 @@ const faqLd = {
     cssSelector: ['.g-tldr p', '.step-body', '.faq-item p'],
   },
 };
+
+// Course schema — Google surfaces Course-typed pages in its own
+// "Courses" rich result panel + Learn tab. The six steps become
+// CourseInstance modules; totalTime is the aggregate estimate.
+// Answer engines answering "learn how to secure an AI agent" or
+// "AI agent security tutorial" preferentially cite Course-typed
+// pages over generic HowTo.
+const courseLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Course',
+  '@id': `${canonicalUrl}#course`,
+  name: 'How to Secure an AI Agent',
+  description: 'A six-step practical course on deploying runtime safety on an LLM tool-using agent. Covers the tool-call surface, gateway instrumentation, a three-layer classification cascade, human-in-the-loop approval, cryptographic audit, and alerting.',
+  provider: {
+    '@type': 'Organization',
+    name: 'AEGIS',
+    url: 'https://aegistraces.com',
+    sameAs: ['https://github.com/Justin0504/Aegis', 'https://arxiv.org/abs/2603.12621'],
+  },
+  educationalLevel: 'Intermediate',
+  timeRequired: 'PT100M',
+  inLanguage: 'en-US',
+  isAccessibleForFree: true,
+  learningResourceType: 'Guide',
+  teaches: [
+    'AI agent runtime safety',
+    'Prompt-injection defence',
+    'Tool-call gateway design',
+    'Cryptographic audit chains',
+    'EU AI Act + HIPAA + SOC 2 compliance evidence',
+  ],
+  hasCourseInstance: {
+    '@type': 'CourseInstance',
+    courseMode: 'Online',
+    inLanguage: 'en-US',
+    courseWorkload: 'PT100M',
+    instructor: {
+      '@type': 'Organization',
+      name: 'AEGIS',
+      url: 'https://aegistraces.com',
+    },
+  },
+  syllabusSections: STEPS.map((s, i) => ({
+    '@type': 'Syllabus',
+    name: `Step ${i + 1}: ${s.title}`,
+    description: s.body,
+    timeRequired: `PT${s.duration.replace(' min', 'M')}`,
+  })),
+};
 ---
 
 <Layout
@@ -206,6 +255,7 @@ const faqLd = {
 
   <script type="application/ld+json" set:html={JSON.stringify(howToLd)}></script>
   <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(courseLd)}></script>
 </Layout>
 
 <style>

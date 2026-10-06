@@ -1,0 +1,180 @@
+---
+// /roadmap
+//
+// Public roadmap = trust signal for buyers + freshness signal for
+// answer engines. Every shipped/planned item is a small anchor URL
+// with a datePublished / plannedReleaseDate; the "shipped" side
+// mirrors /changelog and cross-links back so both surfaces stay
+// synchronised.
+
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+
+const canonicalUrl = 'https://aegistraces.com/roadmap';
+
+// Ordered oldest-to-newest quarter. `state` = shipped | in-progress | planned.
+const QUARTERS = [
+  {
+    id: 'q3-2026',
+    label: 'Q3 2026',
+    state: 'shipped',
+    items: [
+      { title: 'arXiv v2: 3-layer cost-aware cascade paper',
+        body: 'Cascade design, an audit of the benchmark we had used to validate it, and a corpus rebuilt by running a live agent. Content patterns catch 0.4% of real agent-emitted attacks; instruction provenance reaches AUC 0.991 against a control where benign calls also draw on tool output.' },
+      { title: 'Cross-platform installers (macOS ARM + Windows + Linux)',
+        body: 'GitHub Actions matrix build → GitHub Releases. Cmux-style designed .dmg for macOS; .msi for Windows; .deb for Linux amd64 + arm64.' },
+      { title: 'Sign-in with AEGIS device-link flow',
+        body: 'Cursor/Warp-style OAuth: Cockpit → default browser → aegistraces.com → local gateway callback. No manual license-key paste.' },
+      { title: 'Open-core license enforcement',
+        body: 'Gateway hot-swaps tier on activation; 24h revalidation with 7-day grace period. Stripe subscription + Billing Portal self-serve.' },
+    ],
+  },
+  {
+    id: 'q4-2026',
+    label: 'Q4 2026',
+    state: 'in-progress',
+    items: [
+      { title: 'macOS + Windows code-signing',
+        body: 'Apple Developer Program ($99/yr) + Windows EV certificate ($260/yr) → signed installers, no Gatekeeper / SmartScreen warnings on first launch.' },
+      { title: 'ISO 27001 evidence pack',
+        body: 'Enterprise-tier addition to existing SOC 2 Type II. Ships as a signed JSON pack alongside the EU AI Act Article 12–15 evidence.' },
+      { title: 'Multi-lingual PII + content-safety detectors',
+        body: 'Expand the current English-centric detector catalogue to cover the top 10 EU + APAC languages. Feeds into the L1 rules and L2 XGBoost features.' },
+      { title: 'MCP audit server (v1)',
+        body: 'AEGIS gateway ships an MCP endpoint at /mcp-audit that other Claude / GPT agents can call to inspect their own trace history. Dogfooding surface.' },
+      { title: 'Agent behavioural baseline v2',
+        body: 'Per-agent z-score anomaly detection over the L2 feature space (already shipping); v2 adds delegation-aware baselining across multi-agent handoffs.' },
+    ],
+  },
+  {
+    id: 'q1-2027',
+    label: 'Q1 2027',
+    state: 'planned',
+    items: [
+      { title: 'Learning-based L2 fine-tuning UI',
+        body: 'Let operators re-train the L2 XGBoost classifier on their own labelled traces without leaving Cockpit. Model persistence + policy versioning.' },
+      { title: 'Reasoning-chain verification (v1)',
+        body: 'Consistency check between the LLM\'s chain-of-thought and its actual tool call — a new detector class that catches "the model said A, then called B" divergence.' },
+      { title: 'Multi-agent cascade analysis',
+        body: 'Track risk propagation when one agent\'s output becomes another\'s input. First-class delegation IDs already ship; cascade-level risk scoring is the next layer.' },
+      { title: 'Adaptive trust scoring',
+        body: 'Adjust per-agent approval thresholds automatically based on behavioural history. Requires the baseline v2 to land first.' },
+    ],
+  },
+];
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  '@id': `${canonicalUrl}#roadmap`,
+  name: 'AEGIS Public Roadmap',
+  description: 'Quarter-by-quarter breakdown of shipped, in-progress, and planned AEGIS features.',
+  numberOfItems: QUARTERS.flatMap((q) => q.items).length,
+  itemListElement: QUARTERS.flatMap((q, qi) =>
+    q.items.map((it, ii) => ({
+      '@type': 'ListItem',
+      position: qi * 100 + ii + 1,
+      item: {
+        '@type': 'CreativeWork',
+        name: it.title,
+        description: it.body,
+        temporalCoverage: q.label,
+        creativeWorkStatus: q.state,
+      },
+    })),
+  ),
+};
+---
+
+<Layout
+  title="AEGIS Public Roadmap — What's shipped, in progress, and planned"
+  description="Public quarterly roadmap for AEGIS. Shipped Q3 2026: arXiv v2 cascade paper + cross-platform installers + Sign-in device-link + license enforcement. Q4 2026 in progress: code-signing + ISO 27001 + multi-lingual detectors. Q1 2027 planned: learning-based L2 + reasoning-chain verification."
+  canonical={canonicalUrl}
+  ogImage="/og-image.png"
+>
+  <Header />
+  <main>
+    <section class="rm-hero">
+      <div class="container container-narrow">
+        <p class="eyebrow">Public roadmap · updated 2026-09</p>
+        <h1>AEGIS roadmap</h1>
+        <p class="lede">
+          What's shipped, what's landing this quarter, what's planned next.
+          Public because operators of regulated deployments need to plan
+          around it. Cross-references
+          <a href="/changelog">/changelog</a> (shipped detail),
+          <a href="https://github.com/Justin0504/Aegis/releases">GitHub Releases</a>,
+          and <a href="https://arxiv.org/abs/2603.12621">arXiv:2603.12621</a>
+          for the research anchor.
+        </p>
+      </div>
+    </section>
+
+    {QUARTERS.map((q) => (
+      <section class={`rm-quarter rm-${q.state}`} id={q.id}>
+        <div class="container container-narrow">
+          <header class="rm-quarter-head">
+            <h2>{q.label}</h2>
+            <span class={`rm-tag rm-tag-${q.state}`}>
+              {q.state === 'shipped' && '✓ Shipped'}
+              {q.state === 'in-progress' && '⟳ In progress'}
+              {q.state === 'planned' && '◇ Planned'}
+            </span>
+          </header>
+          <ul class="rm-items">
+            {q.items.map((it) => (
+              <li class="rm-item">
+                <h3>{it.title}</h3>
+                <p>{it.body}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    ))}
+
+    <section class="rm-cta">
+      <div class="container container-narrow">
+        <h2>Follow along</h2>
+        <div class="feeds">
+          <a class="feed-btn" href="/changelog">Full changelog</a>
+          <a class="feed-btn" href="/atom.xml">Atom feed</a>
+          <a class="feed-btn" href="/feed.json">JSON Feed</a>
+          <a class="feed-btn" href="https://github.com/Justin0504/Aegis/releases">GitHub Releases</a>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script type="application/ld+json" set:html={JSON.stringify(itemListLd)}></script>
+</Layout>
+
+<style>
+  main { background: hsl(42 45% 92%); }
+  .rm-hero { padding: 64px 0 32px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 46px; font-weight: 400; margin: 0 0 12px; line-height: 1.1; }
+  .lede { font-size: 15.5px; line-height: 1.6; color: hsl(20 10% 30%); max-width: 720px; }
+  .lede a { color: hsl(20 40% 30%); }
+
+  .rm-quarter { padding: 8px 0 16px; scroll-margin-top: 60px; }
+  .rm-quarter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 8px 0 14px; flex-wrap: wrap; }
+  .rm-quarter-head h2 { margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; color: hsl(20 30% 20%); }
+  .rm-tag { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .rm-tag-shipped { background: hsl(150 30% 92%); color: hsl(150 40% 25%); }
+  .rm-tag-in-progress { background: hsl(35 65% 92%); color: hsl(30 55% 30%); }
+  .rm-tag-planned { background: hsl(220 30% 92%); color: hsl(220 30% 30%); }
+
+  .rm-items { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .rm-item { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 14px 16px; }
+  .rm-item h3 { margin: 0 0 4px; font-size: 15.5px; font-weight: 600; color: hsl(20 25% 20%); }
+  .rm-item p { margin: 0; font-size: 13.5px; line-height: 1.55; color: hsl(20 10% 30%); }
+
+  .rm-cta { padding: 40px 0 80px; }
+  .rm-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 22px; margin: 0 0 12px; color: hsl(20 30% 20%); }
+  .feeds { display: flex; gap: 8px; flex-wrap: wrap; }
+  .feed-btn { padding: 8px 14px; background: white; border: 1px solid hsl(42 20% 82%); border-radius: 6px; font-size: 13px; color: hsl(20 30% 25%); text-decoration: none; }
+  .feed-btn:hover { background: hsl(42 30% 96%); }
+</style>

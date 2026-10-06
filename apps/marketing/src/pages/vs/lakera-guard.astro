@@ -78,6 +78,36 @@ const productLd = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
 };
 
+// TechArticle wrapper so answer engines rank this as a citable
+// article, not just a marketing product page. Google's "About this
+// result" panel + Perplexity + Bing Copilot preferentially cite
+// Article-typed pages when answering "X vs Y" queries.
+const articleLd = {
+  '@context': 'https://schema.org',
+  '@type': 'TechArticle',
+  '@id': `${canonicalUrl}#article`,
+  headline: 'AEGIS vs Lakera Guard — Open-source runtime firewall vs managed content-safety API',
+  description: 'Head-to-head comparison of AEGIS and Lakera Guard: licensing, deployment, detection technique, audit chain, pricing, and detector maturity. Facts cross-referenced against public docs.',
+  url: canonicalUrl,
+  datePublished: '2026-09-05',
+  dateModified: '2026-09-06',
+  author: {
+    '@type': 'Organization',
+    name: 'AEGIS',
+    url: 'https://aegistraces.com',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'AEGIS',
+    url: 'https://aegistraces.com',
+  },
+  about: [
+    { '@type': 'SoftwareApplication', name: 'AEGIS' },
+    { '@type': 'SoftwareApplication', name: 'Lakera Guard' },
+  ],
+  isBasedOn: 'https://arxiv.org/abs/2603.12621',
+};
+
 const faqLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -246,6 +276,7 @@ const faqLd = {
 
   <script type="application/ld+json" set:html={JSON.stringify(productLd)}></script>
   <script type="application/ld+json" set:html={JSON.stringify(faqLd)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(articleLd)}></script>
 </Layout>
 
 <style>

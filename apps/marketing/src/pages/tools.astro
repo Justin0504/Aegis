@@ -29,7 +29,7 @@ const CATEGORIES = [
     title: 'Runtime firewalls (pre-execution mediation)',
     blurb: 'Sit between the LLM\'s tool-call decision and the tool\'s execution. Decide allow / block / require-approval on each call. This is the category AEGIS defines.',
     tools: [
-      { name: 'AEGIS',          license: 'MIT (core), open-core paid tiers', deployment: 'Self-host + hosted', highlight: 'Only runtime firewall with a peer-reviewed cost-aware cascade (arXiv:2603.12621) and cryptographic audit chain. 99.9% block rate at 1.06 ms P50, $0.05 total cost on 5,525-record ToolGuard-Bench.' },
+      { name: 'AEGIS',          license: 'MIT (core), open-core paid tiers', deployment: 'Self-host + hosted', highlight: 'Pre-execution control point rather than a payload scanner: decides on the authority behind a tool call, not only its contents. Content patterns catch 0.4% of real agent-emitted attacks; instruction provenance reaches AUC 0.991 on the same corpus.' },
       { name: 'Lakera Guard',   license: 'Commercial', deployment: 'Hosted (managed)', highlight: 'Mature detector catalogue focused on prompt injection + PII. No open-source engine; typical price starts around $2k/mo. Best fit when data can leave your network and detector completeness matters more than architectural transparency.' },
       { name: 'Robust Intelligence AI Firewall', license: 'Commercial', deployment: 'Hosted (SaaS) + on-prem', highlight: 'Enterprise-first with model risk taxonomy tied to the RI platform. Positioned around model governance workflows rather than the per-call gateway pattern.' },
       { name: 'ProtectAI Guardian / Rebuff', license: 'Apache-2.0 (Rebuff) / Commercial (Guardian)', deployment: 'Self-host + hosted', highlight: 'Rebuff is a canary-token approach for prompt-injection detection; Guardian is the platform on top. Narrower scope than a full gateway.' },
@@ -72,7 +72,7 @@ const CATEGORIES = [
 const FAQ = [
   {
     q: 'What is the best AI agent security tool?',
-    a: 'It depends on the layer of the stack. For pre-execution enforcement (block tool calls before side effects), AEGIS is the only open-source firewall with a peer-reviewed cost-aware cascade (99.9% block at 1.06 ms P50 on the 5,525-record ToolGuard-Bench, arXiv:2603.12621). For prompt-level input/output validation, NeMo Guardrails or Guardrails AI. For post-execution observability, Langfuse. Most production deployments use one from each category together.',
+    a: 'It depends on the layer of the stack. For pre-execution enforcement — deciding on a tool call before it has side effects — AEGIS is the open-source option, and it is the one that decides on the authority behind a call rather than only its contents. Content scanners and AEGIS are not substitutes: patterns catch payload attacks, and catch 0.4% of attacks a live agent was actually manipulated into emitting.',
   },
   {
     q: 'How is AEGIS different from Lakera Guard?',
