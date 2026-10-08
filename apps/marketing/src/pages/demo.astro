@@ -168,10 +168,10 @@ const PACKS = [
 
             <!-- Router -->
             <g transform="translate(175 100)">
-              <rect width="120" height="82" rx="8" fill="hsl(36 25% 90%)" stroke="hsl(36 35% 60%)"/>
-              <text x="60" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="hsl(36 50% 25%)" font-family="var(--font-mono)">router</text>
-              <text x="60" y="42" text-anchor="middle" font-size="10" fill="hsl(36 35% 35%)">classify_intent</text>
-              <text x="60" y="62" text-anchor="middle" font-size="9" fill="hsl(36 30% 45%)">→ 3 handoffs</text>
+              <rect width="120" height="82" rx="8" fill="var(--surface)" stroke="var(--hairline-strong)"/>
+              <text x="60" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)" font-family="var(--font-mono)">router</text>
+              <text x="60" y="42" text-anchor="middle" font-size="10" fill="var(--text)">classify_intent</text>
+              <text x="60" y="62" text-anchor="middle" font-size="9" fill="var(--muted)">→ 3 handoffs</text>
             </g>
             <path d="M298 130 Q 340 95 380 78" stroke="var(--muted)" stroke-width="1.2" fill="none" marker-end="url(#arr2)" style="color:var(--muted)"/>
             <path d="M298 141 L 380 141" stroke="var(--muted)" stroke-width="1.2" fill="none" marker-end="url(#arr2)" style="color:var(--muted)"/>
@@ -348,7 +348,7 @@ const PACKS = [
     .hero { padding: 5rem 0 2.5rem; }
     .eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.4rem; }
     .hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.05; margin: 0.4rem 0 1rem; max-width: 16ch; }
-    .hero h1 em { font-style: italic; color: var(--accent); }
+    .hero h1 em { font-style: normal; color: var(--muted); }
     .hero .lede { color: var(--muted); font-size: 1.1rem; margin: 0 0 1.8rem; max-width: 60ch; }
     .hero-cta { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
@@ -362,7 +362,7 @@ const PACKS = [
       background: hsl(var(--ring) / 0.06); padding: 0.45rem 0.7rem;
       border-radius: 6px; line-height: 1; font-weight: 600; flex-shrink: 0; margin-top: 0.2rem;
     }
-    .step h2 { font-family: var(--font-serif); font-size: clamp(1.6rem, 2.6vw, 2.1rem); line-height: 1.15; margin: 0 0 0.6rem; max-width: 20ch; }
+    .step h2 { font-family: var(--font-sans); font-weight: 600; font-size: clamp(1.6rem, 2.6vw, 2.1rem); line-height: 1.15; margin: 0 0 0.6rem; max-width: 20ch; }
     .step-lede { color: var(--muted); font-size: 0.96rem; margin: 0; max-width: 56ch; }
 
     /* ── terminal (step 1) ───────────────────────────── */
@@ -371,13 +371,13 @@ const PACKS = [
       border-radius: 10px; overflow: hidden;
     }
     .terminal-chrome {
-      background: hsl(36 25% 88%); padding: 0.5rem 0.7rem;
+      background: var(--surface); padding: 0.5rem 0.7rem;
       display: flex; align-items: center; gap: 0.4rem;
       border-bottom: 1px solid var(--hairline);
     }
     .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
     .dot.r { background: #ed6a5e; } .dot.y { background: #f4be4f; } .dot.g { background: #61c554; }
-    .terminal-chrome .path { margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem; color: hsl(36 25% 35%); }
+    .terminal-chrome .path { margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text); }
     .terminal pre {
       margin: 0; padding: 1.1rem 1.2rem;
       font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.55;
@@ -388,7 +388,7 @@ const PACKS = [
     .t-muted  { color: var(--muted); }
     .t-bold   { font-weight: 700; }
     .t-ok     { color: hsl(140 50% 35%); font-weight: 600; }
-    .t-warn   { color: hsl(36 65% 38%); font-weight: 600; }
+    .t-warn   { color: var(--muted); font-weight: 600; }
 
     /* ── graph (step 2) ──────────────────────────────── */
     .graph {
@@ -432,7 +432,7 @@ const PACKS = [
       border-radius: 12px; padding: 1.3rem 1.2rem 1.1rem;
       border-left: 4px solid var(--tone, var(--accent));
     }
-    .pack-head h3 { font-family: var(--font-serif); font-size: 1.1rem; margin: 0 0 0.4rem; }
+    .pack-head h3 { font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; margin: 0 0 0.4rem; }
     .pack-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.7rem; }
     .pack-tag {
       font-family: var(--font-mono); font-size: 0.7rem;
@@ -458,7 +458,7 @@ const PACKS = [
 
     /* ── CTA ─────────────────────────────────────────── */
     .cta-strip { padding: 4.5rem 0; border-top: 1px solid var(--hairline); background: var(--surface); text-align: center; }
-    .cta-strip h2 { font-family: var(--font-serif); margin: 0 0 0.4rem; }
+    .cta-strip h2 { font-family: var(--font-sans); font-weight: 600; margin: 0 0 0.4rem; }
     .cta-strip .muted { color: var(--muted); font-size: 0.95rem; margin: 0 0 1.3rem; }
     .cta-buttons { display: flex; gap: 0.7rem; flex-wrap: wrap; justify-content: center; }
   </style>

@@ -115,14 +115,14 @@ if (redirectUrl) return Astro.redirect(redirectUrl, 302);
 ---
 <Layout title="Sign-in error — AEGIS" description="Desktop sign-in failed.">
   <main style="min-height:60vh;display:grid;place-items:center;padding:40px 20px;">
-    <div style="max-width:440px;padding:32px;background:hsl(42 45% 96%);border:1px solid hsl(42 30% 82%);border-radius:12px;text-align:center;">
-      <h1 style="margin:0 0 8px;font-family:'Instrument Serif',Georgia,serif;font-size:28px;font-weight:400;">Sign-in didn't complete</h1>
-      <p style="color:hsl(20 10% 40%);font-size:14px;line-height:1.55;">
+    <div style="max-width:440px;padding:32px;background:var(--bg);border:1px solid var(--hairline);border-radius:12px;text-align:center;">
+      <h1 style="margin:0 0 8px;font-family:var(--font-sans);font-size:28px;font-weight:400;">Sign-in didn't complete</h1>
+      <p style="color:var(--muted);font-size:14px;line-height:1.55;">
         {error === 'missing_params'  && 'The sign-in link was missing required parameters. Start again from Cockpit → Settings.'}
         {error === 'unsafe_callback' && 'The callback URL was rejected. Only local (127.0.0.1) callbacks from the AEGIS desktop app are accepted.'}
         {error === 'lookup_failed'   && 'We could not look up your license just now. Please try again in a minute.'}
       </p>
-      <a href="/account" style="display:inline-block;margin-top:16px;padding:8px 16px;background:hsl(20 45% 30%);color:white;text-decoration:none;border-radius:6px;font-size:14px;">Go to your account</a>
+      <a href="/account" style="display:inline-block;margin-top:16px;padding:8px 16px;background:var(--text);color:white;text-decoration:none;border-radius:6px;font-size:14px;">Go to your account</a>
     </div>
   </main>
 </Layout>

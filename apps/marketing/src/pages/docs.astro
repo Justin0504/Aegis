@@ -2,7 +2,6 @@
 import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
-import PhotoBand from '@/components/PhotoBand.astro';
 
 // Until docs.aegistraces.com (Mintlify / Docusaurus) launches, /docs is a
 // single curated landing page that gives the same five answers any
@@ -110,13 +109,6 @@ const quickRefs = [
   <Header current="docs" />
 
   <main>
-    <PhotoBand
-      src="/images/metal-detail.jpg"
-      alt="Brushed metal detail — industrial, precise"
-      credit="Shubham Dhage / Unsplash"
-      position="center 45%"
-      height="clamp(180px, 24vw, 280px)"
-    />
 
     <section class="head">
       <div class="container container-narrow">
@@ -282,7 +274,7 @@ const quickRefs = [
       border-radius: 10px;
     }
     .concept-n {
-      font-family: var(--font-serif);
+      font-family: var(--font-sans); font-weight: 600;
       font-size: 1.6rem;
       color: var(--muted);
       line-height: 1;

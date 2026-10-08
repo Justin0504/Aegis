@@ -8,8 +8,8 @@
   <svg viewBox="0 0 760 280" preserveAspectRatio="xMidYMid meet" role="img">
     <defs>
       <linearGradient id="gw" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="hsl(36 55% 32%)"/>
-        <stop offset="1" stop-color="hsl(36 35% 22%)"/>
+        <stop offset="0" stop-color="var(--text)"/>
+        <stop offset="1" stop-color="var(--text)"/>
       </linearGradient>
       <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
         <path d="M0 0L10 5L0 10z" fill="currentColor"/>
@@ -19,7 +19,7 @@
     <!-- Agent node -->
     <g transform="translate(20 110)">
       <rect width="120" height="60" rx="8" fill="var(--bg)" stroke="var(--hairline-strong)"/>
-      <text x="60" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="var(--font-serif)">your agent</text>
+      <text x="60" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="var(--font-sans)">your agent</text>
       <text x="60" y="46" text-anchor="middle" font-size="10" fill="var(--muted)">Anthropic / OpenAI / LangChain</text>
     </g>
 
@@ -29,25 +29,25 @@
     <!-- Gateway block (with 4 detector lanes) -->
     <g transform="translate(220 60)">
       <rect width="320" height="160" rx="10" fill="url(#gw)" />
-      <text x="160" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--bg)" font-family="var(--font-serif)" letter-spacing="0.04em">AEGIS GATEWAY</text>
+      <text x="160" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--bg)" font-family="var(--font-sans)" letter-spacing="0.04em">AEGIS GATEWAY</text>
 
       <!-- 4 detector chips -->
       <g font-family="var(--font-mono)" font-size="10">
-        <rect x="20"  y="48"  width="130" height="36" rx="6" fill="hsl(36 25% 90%)" opacity="0.92"/>
-        <text x="85" y="65" text-anchor="middle" fill="hsl(36 50% 20%)" font-weight="600">L1 · rules</text>
-        <text x="85" y="78" text-anchor="middle" fill="hsl(36 30% 35%)" font-size="9">SQL / FS / cmd inj.</text>
+        <rect x="20"  y="48"  width="130" height="36" rx="6" fill="var(--surface)" opacity="0.92"/>
+        <text x="85" y="65" text-anchor="middle" fill="var(--text)" font-weight="600">L1 · rules</text>
+        <text x="85" y="78" text-anchor="middle" fill="var(--text)" font-size="9">SQL / FS / cmd inj.</text>
 
-        <rect x="170" y="48"  width="130" height="36" rx="6" fill="hsl(36 25% 90%)" opacity="0.92"/>
-        <text x="235" y="65" text-anchor="middle" fill="hsl(36 50% 20%)" font-weight="600">L2 · ML</text>
-        <text x="235" y="78" text-anchor="middle" fill="hsl(36 30% 35%)" font-size="9">Mahalanobis / IF / HST</text>
+        <rect x="170" y="48"  width="130" height="36" rx="6" fill="var(--surface)" opacity="0.92"/>
+        <text x="235" y="65" text-anchor="middle" fill="var(--text)" font-weight="600">L2 · ML</text>
+        <text x="235" y="78" text-anchor="middle" fill="var(--text)" font-size="9">Mahalanobis / IF / HST</text>
 
-        <rect x="20"  y="96" width="130" height="36" rx="6" fill="hsl(36 25% 90%)" opacity="0.92"/>
-        <text x="85" y="113" text-anchor="middle" fill="hsl(36 50% 20%)" font-weight="600">L3 · LLM judge</text>
-        <text x="85" y="126" text-anchor="middle" fill="hsl(36 30% 35%)" font-size="9">borderline calls</text>
+        <rect x="20"  y="96" width="130" height="36" rx="6" fill="var(--surface)" opacity="0.92"/>
+        <text x="85" y="113" text-anchor="middle" fill="var(--text)" font-weight="600">L3 · LLM judge</text>
+        <text x="85" y="126" text-anchor="middle" fill="var(--text)" font-size="9">borderline calls</text>
 
-        <rect x="170" y="96" width="130" height="36" rx="6" fill="hsl(36 25% 90%)" opacity="0.92"/>
-        <text x="235" y="113" text-anchor="middle" fill="hsl(36 50% 20%)" font-weight="600">DSL · policy</text>
-        <text x="235" y="126" text-anchor="middle" fill="hsl(36 30% 35%)" font-size="9">per-tenant overlay</text>
+        <rect x="170" y="96" width="130" height="36" rx="6" fill="var(--surface)" opacity="0.92"/>
+        <text x="235" y="113" text-anchor="middle" fill="var(--text)" font-weight="600">DSL · policy</text>
+        <text x="235" y="126" text-anchor="middle" fill="var(--text)" font-size="9">per-tenant overlay</text>
       </g>
 
       <!-- decision label -->
@@ -60,7 +60,7 @@
     <!-- Tool -->
     <g transform="translate(620 110)">
       <rect width="120" height="60" rx="8" fill="var(--bg)" stroke="var(--hairline-strong)"/>
-      <text x="60" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="var(--font-serif)">tool</text>
+      <text x="60" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)" font-family="var(--font-sans)">tool</text>
       <text x="60" y="46" text-anchor="middle" font-size="10" fill="var(--muted)">DB / shell / email / HTTP</text>
     </g>
 

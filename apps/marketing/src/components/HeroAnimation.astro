@@ -303,10 +303,10 @@
     aspect-ratio: 5 / 4;
     background:
       radial-gradient(60% 80% at 25% 20%, hsl(155 22% 80%) 0%, transparent 70%),
-      radial-gradient(50% 70% at 80% 25%, hsl( 45 35% 86%) 0%, transparent 70%),
+      radial-gradient(50% 70% at 80% 25%, var(--hairline) 0%, transparent 70%),
       radial-gradient(60% 70% at 65% 90%, hsl(195 25% 78%) 0%, transparent 70%),
       radial-gradient(40% 50% at 10% 90%, hsl(  6 30% 82%) 0%, transparent 70%),
-      hsl(45 30% 86%);
+      var(--hairline);
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 22px 60px rgba(10, 10, 10, 0.14), 0 4px 12px rgba(10, 10, 10, 0.06);
@@ -491,8 +491,8 @@
   .term-head {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.55rem 0.85rem;
-    background: hsl(45 22% 96%);
-    border-bottom: 1px solid hsl(45 22% 90%);
+    background: var(--bg);
+    border-bottom: 1px solid var(--surface);
   }
   .term-dot { width: 10px; height: 10px; border-radius: 50%; }
   .term-dot.r { background: #ff5f57; }
@@ -536,7 +536,7 @@
     line-height: 1;
   }
   .tool-chip.more {
-    background: hsl(45 22% 90%);
+    background: var(--surface);
     color: rgba(10,10,10,0.55);
     font-size: 0.6rem;
     font-family: ui-monospace, monospace;
@@ -599,7 +599,7 @@
     color: rgba(10,10,10,0.5); margin: 0 0 0.5rem; font-weight: 500;
   }
   .policy-nl {
-    background: hsl(45 22% 96%);
+    background: var(--bg);
     border-radius: 8px;
     padding: 0.7rem 0.85rem;
     margin: 0 0 0.55rem;
@@ -686,7 +686,7 @@
   .feed-row {
     display: flex; align-items: center; gap: 0.55rem;
     padding: 0.5rem 0.6rem;
-    background: hsl(45 22% 97%);
+    background: var(--bg);
     border-radius: 8px;
     margin-bottom: 0.35rem;
     font-size: 0.82rem;
@@ -807,7 +807,7 @@
   .tree-root .tree-label { font-weight: 700; color: #f5efde; }
   .tree-mid { display: flex; gap: 1.4rem; }
   .tree-node {
-    background: hsl(45 22% 96%);
+    background: var(--bg);
     border-radius: 6px;
     padding: 0.3rem 0.7rem;
     font-family: ui-monospace, monospace;
@@ -1071,7 +1071,7 @@
     margin: 0.2rem 0;
   }
   .wf-node {
-    background: hsl(45 22% 95%);
+    background: var(--bg);
     padding: 0.2rem 0.45rem;
     border-radius: 4px;
     font-family: ui-monospace, monospace;

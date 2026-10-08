@@ -234,7 +234,7 @@ if (supabase) {
     .eyebrow { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 0.6rem; }
     .acct-hero { padding: 3.5rem 0 2rem; }
     .acct-hero h1 {
-      font-family: var(--font-serif); font-weight: 400;
+      font-family: var(--font-sans); font-weight: 600;
       font-size: clamp(1.8rem, 3.5vw, 2.6rem);
       letter-spacing: -0.01em; margin: 0 0 0.5rem;
     }
@@ -249,7 +249,7 @@ if (supabase) {
       margin-bottom: 1rem;
     }
     .card-h {
-      font-family: var(--font-serif); font-weight: 400;
+      font-family: var(--font-sans); font-weight: 600;
       font-size: 1.25rem; letter-spacing: -0.005em;
       margin: 0 0 1rem;
     }
@@ -275,7 +275,7 @@ if (supabase) {
     }
     .chip-active   { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
     .chip-trialing { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }
-    .chip-past_due { color: hsl(36 45% 30%);  background: hsl(36 45% 92%); }
+    .chip-past_due { color: var(--text);  background: var(--surface); }
     .chip-owner    { color: color-mix(in oklab, var(--accent-warn) 90%, var(--text)); background: color-mix(in oklab, var(--accent-warn) 20%, var(--surface)); }
     .chip-admin    { color: hsl(220 45% 32%); background: hsl(220 45% 92%); }
     .chip-member   { color: hsl(150 30% 32%); background: hsl(150 30% 92%); }

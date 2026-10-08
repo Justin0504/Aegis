@@ -210,7 +210,7 @@ docker compose -f docker/compose.yml up -d
     }
     .lk-copy:hover { background: #f8f8f8; }
     .eyebrow { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
-    h1 em { font-style: italic; color: var(--accent); }
+    h1 em { font-style: normal; color: var(--muted); }
     .lede { font-size: 1.1rem; color: var(--muted); margin: 1rem 0 0; max-width: 60ch; }
     .lede.small { font-size: 0.9rem; margin-top: 0.6rem; }
 
@@ -225,10 +225,10 @@ docker compose -f docker/compose.yml up -d
       flex-direction: column;
     }
     .card header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.4rem; }
-    .card h2 { font-family: var(--font-serif); font-size: 1.3rem; margin: 0; }
+    .card h2 { font-family: var(--font-sans); font-weight: 600; font-size: 1.3rem; margin: 0; }
     .badge { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.18rem 0.5rem; border-radius: 99px; white-space: nowrap; }
     .badge.ok   { background: hsl(140 30% 90%); color: hsl(140 40% 25%); }
-    .badge.wip  { background: hsl(36 60% 90%);  color: hsl(36 60% 30%); }
+    .badge.wip  { background: var(--surface);  color: var(--text); }
     .badge.nope { background: hsl(0 30% 92%);   color: hsl(0 40% 32%); }
     .card p { color: var(--muted); font-size: 0.92rem; margin: 0.4rem 0 1rem; }
     .card .btn { justify-content: center; }
@@ -236,11 +236,11 @@ docker compose -f docker/compose.yml up -d
     .card.not-applicable, .card.building { opacity: 0.78; }
 
     .alt-install { padding: 3rem 0; border-top: 1px solid var(--hairline); background: var(--surface); }
-    .alt-install h2 { font-family: var(--font-serif); margin-bottom: 0.6rem; }
+    .alt-install h2 { font-family: var(--font-sans); font-weight: 600; margin-bottom: 0.6rem; }
     .alt-install pre { background: var(--bg); }
 
     .below { padding: 3rem 0 5rem; border-top: 1px solid var(--hairline); }
-    .below h3 { font-family: var(--font-serif); font-size: 1.4rem; margin: 0 0 1rem; }
+    .below h3 { font-family: var(--font-sans); font-weight: 600; font-size: 1.4rem; margin: 0 0 1rem; }
     .below ul { padding-left: 1.2rem; }
     .below li { margin: 0.4rem 0; color: var(--text); }
     .below li strong { font-weight: 600; }

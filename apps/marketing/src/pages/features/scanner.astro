@@ -2,7 +2,6 @@
 import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
-import PhotoBand from '@/components/PhotoBand.astro';
 
 // HowTo — scanning an existing agent repo is a 3-step recipe that
 // AI answer engines get asked about constantly ("how do I discover
@@ -52,13 +51,6 @@ const howToLd = {
 >
   <Header />
   <main>
-    <PhotoBand
-      src="/images/beams-light.jpg"
-      alt="Wooden beams with diagonal light and shadow"
-      credit="Declan Sun / Unsplash"
-      position="center 40%"
-      height="clamp(180px, 22vw, 260px)"
-    />
 
     <section class="hero">
       <div class="container">
@@ -230,31 +222,31 @@ WORKFLOW GRAPH (langgraph):
   <style>
     .hero { padding: 5rem 0 2rem; }
     .eyebrow { font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
-    h1 em { font-style: italic; color: var(--accent); }
+    h1 em { font-style: normal; color: var(--muted); }
     .lede { max-width: 56ch; color: var(--muted); font-size: 1.12rem; margin: 1.2rem 0 1.8rem; }
     .hero-cta { display: flex; gap: 0.7rem; flex-wrap: wrap; }
 
     .demo { padding: 3rem 0; background: var(--surface); border-top: 1px solid var(--hairline); }
-    .demo h2 { font-family: var(--font-serif); margin: 0 0 1rem; }
+    .demo h2 { font-family: var(--font-sans); font-weight: 600; margin: 0 0 1rem; }
     .demo pre { background: var(--bg); }
     .demo .muted { font-size: 0.92rem; margin-top: 1rem; }
 
     .how { padding: 3.5rem 0; }
-    .how h2 { font-family: var(--font-serif); margin: 0 0 1.4rem; }
+    .how h2 { font-family: var(--font-sans); font-weight: 600; margin: 0 0 1.4rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; }
     .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 1.2rem 1.2rem; }
-    .card h3 { font-family: var(--font-serif); font-size: 1.1rem; margin: 0 0 0.4rem; }
+    .card h3 { font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; margin: 0 0 0.4rem; }
     .card p { color: var(--text); font-size: 0.94rem; margin: 0.4rem 0; }
     .card .hint { color: var(--muted); font-size: 0.86rem; margin-top: 0.6rem; }
 
     .signatures { padding: 3rem 0; background: var(--surface); border-top: 1px solid var(--hairline); }
-    .signatures h2 { font-family: var(--font-serif); margin: 0 0 1.2rem; }
+    .signatures h2 { font-family: var(--font-sans); font-weight: 600; margin: 0 0 1.2rem; }
     table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
     th { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--hairline-strong); }
     td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--hairline); vertical-align: top; }
 
     .cta-strip { padding: 3rem 0 5rem; border-top: 1px solid var(--hairline); }
-    .cta-strip h2 { font-family: var(--font-serif); margin: 0 0 0.6rem; }
+    .cta-strip h2 { font-family: var(--font-sans); font-weight: 600; margin: 0 0 0.6rem; }
     .cta-buttons { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-top: 1rem; }
     .muted { color: var(--muted); }
   </style>

@@ -54,7 +54,7 @@ const rows: Row[] = [
 <style>
   .dlog {
     margin: 0;
-    background: hsl(38 35% 97%);
+    background: var(--bg);
     border: 1px solid var(--hairline);
     border-radius: 12px;
     overflow: hidden;
@@ -68,10 +68,10 @@ const rows: Row[] = [
     align-items: center;
     gap: 1rem;
     padding: 0.7rem 1rem;
-    background: hsl(38 32% 94%);
+    background: var(--bg);
     border-bottom: 1px solid var(--hairline);
     font-size: 0.78rem;
-    color: hsl(36 18% 36%);
+    color: var(--text);
   }
   .live {
     display: inline-flex;
@@ -98,7 +98,7 @@ const rows: Row[] = [
   }
   .path {
     flex: 1;
-    color: hsl(36 22% 30%);
+    color: var(--text);
   }
   .meta {
     color: var(--muted);
@@ -134,15 +134,15 @@ const rows: Row[] = [
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: hsl(36 22% 22%);
+    color: var(--text);
   }
   .agent {
     color: hsl(220 30% 35%);
     font-weight: 600;
   }
-  .sep { color: hsl(36 15% 60%); }
+  .sep { color: var(--hairline-strong); }
   .tool {
-    color: hsl(36 22% 22%);
+    color: var(--text);
     font-weight: 500;
   }
   .arg {
@@ -172,7 +172,7 @@ const rows: Row[] = [
     font-weight: 500;
   }
   .pill-allow   { background: hsl(140 32% 90%); color: hsl(140 45% 22%); }
-  .pill-pending { background: hsl(36 55% 90%);  color: hsl(36 55% 28%); }
+  .pill-pending { background: var(--surface);  color: var(--text); }
   .pill-block   { background: hsl(0 32% 92%);   color: hsl(0 45% 32%); }
 
   .reason {

@@ -48,7 +48,7 @@ const { src, alt, url = 'cockpit.aegistraces.com', caption, placeholder = false 
     box-shadow: 0 6px 28px hsla(36, 30%, 25%, 0.10);
   }
   .chrome {
-    background: hsl(36 25% 88%);
+    background: var(--surface);
     padding: 0.5rem 0.7rem;
     display: flex;
     align-items: center;
@@ -63,9 +63,9 @@ const { src, alt, url = 'cockpit.aegistraces.com', caption, placeholder = false 
     margin-left: auto;
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: hsl(36 25% 35%);
+    color: var(--text);
     padding: 0.18rem 0.7rem;
-    background: hsl(36 30% 94%);
+    background: var(--bg);
     border-radius: 4px;
   }
 
@@ -75,13 +75,13 @@ const { src, alt, url = 'cockpit.aegistraces.com', caption, placeholder = false 
     aspect-ratio: 16 / 9;
     background:
       repeating-linear-gradient(45deg,
-        hsl(36 28% 96%) 0 12px,
-        hsl(36 28% 94%) 12px 24px);
+        var(--bg) 0 12px,
+        var(--bg) 12px 24px);
     display: flex; align-items: center; justify-content: center;
   }
-  .ph-inner { text-align: center; color: hsl(36 22% 40%); padding: 1rem 2rem; }
-  .ph-icon { color: hsl(36 35% 45%); margin-bottom: 0.6rem; }
-  .ph-label { font-family: var(--font-serif); font-size: 1.1rem; margin: 0 0 0.4rem; }
+  .ph-inner { text-align: center; color: var(--muted); padding: 1rem 2rem; }
+  .ph-icon { color: var(--muted); margin-bottom: 0.6rem; }
+  .ph-label { font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; margin: 0 0 0.4rem; }
   .ph-hint { font-size: 0.84rem; color: var(--muted); margin: 0; }
   .ph-hint code { font-family: var(--font-mono); font-size: 0.78rem; }
 

@@ -649,11 +649,11 @@ client = openai.OpenAI(
       border-radius: 4px;
       font-size: 0.92rem;
       line-height: 1.55;
-      color: hsl(20 10% 25%);
+      color: var(--text);
       max-width: 46ch;
     }
     .hero-stat strong { color: hsl(150 40% 25%); }
-    .hero-stat a { color: hsl(20 30% 30%); text-decoration: underline; text-decoration-color: var(--hairline); }
+    .hero-stat a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline); }
     .hero-trust { color: var(--muted); font-size: 0.82rem; margin: 1rem 0 0; }
     .hero-trust a { color: var(--text); text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
     .hero-trust a:hover { text-decoration-color: var(--accent); }
@@ -717,7 +717,7 @@ client = openai.OpenAI(
       font-weight: 500;
     }
     main h2 {
-      font-family: var(--font-serif);
+      font-family: var(--font-sans); font-weight: 600;
       font-size: clamp(1.7rem, 2.6vw, 2.2rem);
       line-height: 1.15;
       margin: 0 0 1.8rem;
@@ -744,9 +744,9 @@ client = openai.OpenAI(
       padding: 1.2rem;
       background:
         radial-gradient(70% 80% at 20% 20%, hsl(155 22% 80%) 0%, transparent 70%),
-        radial-gradient(50% 70% at 80% 30%, hsl( 45 35% 86%) 0%, transparent 70%),
+        radial-gradient(50% 70% at 80% 30%, var(--hairline) 0%, transparent 70%),
         radial-gradient(60% 70% at 60% 90%, hsl(195 25% 78%) 0%, transparent 70%),
-        hsl(45 30% 86%);
+        var(--hairline);
       overflow: hidden;
     }
     .preview-frame::after {
@@ -801,7 +801,7 @@ client = openai.OpenAI(
       font-weight: 500;
     }
     .bento-text h3 {
-      font-family: var(--font-serif);
+      font-family: var(--font-sans); font-weight: 600;
       font-size: 2.25rem;        /* was 1.85 */
       line-height: 1.15;
       margin: 0;
@@ -837,47 +837,47 @@ client = openai.OpenAI(
     .canvas-1 {
       background:
         radial-gradient(60% 80% at 20% 30%, hsl(155 22% 80%) 0%, transparent 70%),
-        radial-gradient(50% 70% at 80% 20%, hsl( 45 35% 85%) 0%, transparent 70%),
+        radial-gradient(50% 70% at 80% 20%, var(--hairline) 0%, transparent 70%),
         radial-gradient(70% 70% at 60% 90%, hsl(195 25% 78%) 0%, transparent 70%),
         radial-gradient(40% 50% at 10% 90%, hsl(  6 30% 80%) 0%, transparent 70%),
-        hsl(45 30% 86%);
+        var(--hairline);
     }
     .canvas-2 {
       background:
         radial-gradient(60% 80% at 30% 80%, hsl(220 25% 80%) 0%, transparent 70%),
-        radial-gradient(50% 60% at 80% 30%, hsl( 30 40% 86%) 0%, transparent 70%),
+        radial-gradient(50% 60% at 80% 30%, var(--hairline) 0%, transparent 70%),
         radial-gradient(70% 60% at 15% 20%, hsl(170 22% 80%) 0%, transparent 70%),
         radial-gradient(40% 50% at 85% 85%, hsl(  0 30% 82%) 0%, transparent 70%),
-        hsl(40 28% 87%);
+        var(--hairline);
     }
     .canvas-3 {
       background:
         radial-gradient(70% 70% at 20% 30%, hsl(  6 35% 80%) 0%, transparent 70%),
-        radial-gradient(60% 60% at 80% 20%, hsl( 45 40% 85%) 0%, transparent 70%),
+        radial-gradient(60% 60% at 80% 20%, var(--hairline) 0%, transparent 70%),
         radial-gradient(60% 60% at 70% 90%, hsl(150 25% 80%) 0%, transparent 70%),
         radial-gradient(40% 50% at 10% 90%, hsl(280 20% 82%) 0%, transparent 70%),
-        hsl(35 30% 86%);
+        var(--hairline);
     }
     .canvas-4 {
       background:
         radial-gradient(60% 80% at 30% 30%, hsl(195 30% 78%) 0%, transparent 70%),
         radial-gradient(50% 60% at 80% 70%, hsl(280 20% 82%) 0%, transparent 70%),
         radial-gradient(70% 60% at 70% 20%, hsl(155 22% 80%) 0%, transparent 70%),
-        radial-gradient(40% 50% at 15% 85%, hsl( 45 35% 85%) 0%, transparent 70%),
+        radial-gradient(40% 50% at 15% 85%, var(--hairline) 0%, transparent 70%),
         hsl(220 22% 86%);
     }
     .canvas-5 {
       background:
-        radial-gradient(65% 80% at 20% 70%, hsl( 30 40% 86%) 0%, transparent 70%),
+        radial-gradient(65% 80% at 20% 70%, var(--hairline) 0%, transparent 70%),
         radial-gradient(55% 60% at 80% 30%, hsl(150 22% 80%) 0%, transparent 70%),
         radial-gradient(60% 60% at 70% 90%, hsl(  6 30% 80%) 0%, transparent 70%),
         radial-gradient(40% 50% at 15% 15%, hsl(220 22% 82%) 0%, transparent 70%),
-        hsl(40 26% 87%);
+        var(--hairline);
     }
     .canvas-6 {
       background:
         radial-gradient(60% 75% at 30% 25%, hsl(155 25% 78%) 0%, transparent 70%),
-        radial-gradient(50% 60% at 75% 75%, hsl( 45 38% 85%) 0%, transparent 70%),
+        radial-gradient(50% 60% at 75% 75%, var(--hairline) 0%, transparent 70%),
         radial-gradient(70% 60% at 70% 20%, hsl(280 18% 82%) 0%, transparent 70%),
         radial-gradient(40% 50% at 10% 80%, hsl(195 25% 80%) 0%, transparent 70%),
         hsl(150 18% 86%);
@@ -886,9 +886,9 @@ client = openai.OpenAI(
       background:
         radial-gradient(60% 80% at 25% 30%, hsl(280 26% 80%) 0%, transparent 70%),
         radial-gradient(55% 65% at 75% 25%, hsl(  6 35% 82%) 0%, transparent 70%),
-        radial-gradient(70% 65% at 65% 85%, hsl( 45 38% 86%) 0%, transparent 70%),
+        radial-gradient(70% 65% at 65% 85%, var(--hairline) 0%, transparent 70%),
         radial-gradient(40% 50% at 10% 90%, hsl(195 28% 80%) 0%, transparent 70%),
-        hsl(45 25% 87%);
+        var(--hairline);
     }
     /* Memory & cross-agent mock — stacked event cards on the canvas */
     .mx-mock {
@@ -914,7 +914,7 @@ client = openai.OpenAI(
       padding: 0.6rem 0.75rem;
       border-radius: 0 8px 8px 0;
       margin-bottom: 0.55rem;
-      background: hsl(45 22% 97%);
+      background: var(--bg);
     }
     .mx-event:last-of-type { margin-bottom: 0.8rem; }
     .mx-crit { border-left-color: #DC2626; }
@@ -932,7 +932,7 @@ client = openai.OpenAI(
       vertical-align: 1px;
     }
     .mx-crit .mx-sev { background: hsl(0  60% 95%); color: #B91C1C; }
-    .mx-high .mx-sev { background: hsl(20 60% 95%); color: #C2410C; }
+    .mx-high .mx-sev { background: var(--bg); color: #C2410C; }
     .mx-kind {
       font-size: 0.74rem;
       font-weight: 600;
@@ -945,7 +945,7 @@ client = openai.OpenAI(
       margin: 0.35rem 0 0;
     }
     .mx-body code {
-      background: hsl(45 25% 90%);
+      background: var(--surface);
       padding: 0.04rem 0.3rem;
       border-radius: 3px;
       font-size: 0.78rem;
@@ -1004,7 +1004,7 @@ client = openai.OpenAI(
     .scan-head {
       display: flex; align-items: center; gap: 0.4rem;
       padding: 0.55rem 0.8rem;
-      background: hsl(45 22% 95%);
+      background: var(--bg);
       border-bottom: 1px solid var(--hairline);
     }
     .scan-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -1051,7 +1051,7 @@ client = openai.OpenAI(
       padding: 0.9rem 1.1rem 1.1rem;
       border-top: 1px solid var(--hairline);
       margin-top: 0.6rem;
-      background: hsl(45 22% 97%);
+      background: var(--bg);
     }
     .wf-label {
       font-size: 0.7rem;
@@ -1182,7 +1182,7 @@ client = openai.OpenAI(
       margin: 0 0 0.5rem;
     }
     .policy-nl {
-      background: hsl(45 22% 95%);
+      background: var(--bg);
       border: 1px solid var(--hairline);
       border-radius: 8px;
       padding: 0.7rem 0.85rem;
@@ -1267,9 +1267,9 @@ client = openai.OpenAI(
       margin-bottom: 0.6rem;
     }
     .snippet code { font-size: 0.86rem; line-height: 1.7; }
-    .snippet .env-key { color: hsl(36 55% 30%); font-weight: 600; }
+    .snippet .env-key { color: var(--text); font-weight: 600; }
     .snippet .env-val { color: hsl(220 30% 30%); }
-    .snippet .comment { color: hsl(36 18% 50%); font-style: italic; }
+    .snippet .comment { color: var(--muted); font-style: italic; }
     @media (max-width: 720px) {
       .snippet-grid { grid-template-columns: 1fr; }
     }

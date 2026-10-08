@@ -249,41 +249,41 @@ const itemListLd = {
 </Layout>
 
 <style>
-  main { background: hsl(42 45% 92%); }
+  main { background: var(--surface); }
   .tools-hero { padding: 64px 0 40px; }
-  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
-  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
-  .lede { font-size: 17px; line-height: 1.55; color: hsl(20 10% 30%); max-width: 640px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-family: var(--font-sans); font-size: 44px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
+  .lede { font-size: 17px; line-height: 1.55; color: var(--text); max-width: 640px; }
 
   .tools-tldr { padding: 32px 0 24px; }
   .tldr-h { font-size: 20px; margin: 0 0 12px; }
   .tldr-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-  .tldr-list li { padding: 12px 16px; background: hsl(42 30% 96%); border: 1px solid hsl(42 20% 82%); border-radius: 8px; font-size: 14.5px; line-height: 1.55; }
-  .tldr-list strong { color: hsl(20 40% 25%); }
+  .tldr-list li { padding: 12px 16px; background: var(--bg); border: 1px solid var(--hairline); border-radius: 8px; font-size: 14.5px; line-height: 1.55; }
+  .tldr-list strong { color: var(--text); }
 
   .tools-cat { padding: 40px 0 16px; }
-  .tools-cat h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 6px; }
-  .cat-blurb { color: hsl(20 10% 40%); font-size: 14.5px; margin: 0 0 20px; max-width: 720px; line-height: 1.5; }
+  .tools-cat h2 { font-family: var(--font-sans); font-weight: 600; font-size: 28px; margin: 0 0 6px; }
+  .cat-blurb { color: var(--muted); font-size: 14.5px; margin: 0 0 20px; max-width: 720px; line-height: 1.5; }
   .tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-  .tool-card { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 16px; }
-  .tool-card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; color: hsl(20 25% 20%); }
-  .tool-card .meta { font-size: 11px; color: hsl(20 15% 50%); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
-  .tool-card .hl { margin: 0; font-size: 13.5px; line-height: 1.55; color: hsl(20 10% 25%); }
+  .tool-card { background: white; border: 1px solid var(--hairline); border-radius: 8px; padding: 16px; }
+  .tool-card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; color: var(--text); }
+  .tool-card .meta { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
+  .tool-card .hl { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text); }
 
   .tools-faq { padding: 48px 0 16px; }
-  .tools-faq h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 16px; }
-  .tools-faq-item { border-bottom: 1px solid hsl(42 20% 82%); padding: 12px 0; }
-  .tools-faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: hsl(20 30% 25%); list-style: none; padding: 4px 0; }
+  .tools-faq h2 { font-family: var(--font-sans); font-weight: 600; font-size: 28px; margin: 0 0 16px; }
+  .tools-faq-item { border-bottom: 1px solid var(--hairline); padding: 12px 0; }
+  .tools-faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text); list-style: none; padding: 4px 0; }
   .tools-faq-item summary::-webkit-details-marker { display: none; }
-  .tools-faq-item summary::before { content: '+ '; color: hsl(20 40% 40%); font-weight: 600; margin-right: 6px; }
+  .tools-faq-item summary::before { content: '+ '; color: var(--muted); font-weight: 600; margin-right: 6px; }
   .tools-faq-item[open] summary::before { content: '– '; }
-  .tools-faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: hsl(20 10% 30%); }
+  .tools-faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: var(--text); }
 
   .tools-cta { padding: 40px 0 80px; text-align: center; }
-  .tools-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 8px; }
-  .tools-cta p { color: hsl(20 10% 40%); font-size: 14px; margin: 0 0 20px; }
+  .tools-cta h2 { font-family: var(--font-sans); font-weight: 600; font-size: 28px; margin: 0 0 8px; }
+  .tools-cta p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
   .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .btn, .btn-secondary { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
-  .btn { background: hsl(20 45% 20%); color: white; }
-  .btn-secondary { background: transparent; color: hsl(20 30% 25%); border: 1px solid hsl(42 20% 70%); }
+  .btn { background: var(--text); color: white; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--hairline-strong); }
 </style>

@@ -87,7 +87,7 @@
     box-shadow: 0 4px 24px hsla(36, 30%, 30%, 0.08);
   }
   .chrome {
-    background: hsl(36 25% 88%);
+    background: var(--surface);
     padding: 0.5rem 0.7rem;
     display: flex;
     align-items: center;
@@ -102,9 +102,9 @@
     margin-left: auto;
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: hsl(36 25% 35%);
+    color: var(--text);
     padding: 0.18rem 0.7rem;
-    background: hsl(36 30% 94%);
+    background: var(--bg);
     border-radius: 4px;
   }
 
@@ -115,7 +115,7 @@
     background: var(--bg);
   }
   .sidebar {
-    background: hsl(36 28% 94%);
+    background: var(--bg);
     border-right: 1px solid var(--hairline);
     padding: 0.8rem 0.5rem;
     display: flex;
@@ -126,7 +126,7 @@
     font-size: 0.84rem;
     padding: 0.42rem 0.7rem;
     border-radius: 5px;
-    color: hsl(36 15% 30%);
+    color: var(--text);
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -139,7 +139,7 @@
   }
   .badge {
     margin-left: auto;
-    background: hsl(36 60% 50%);
+    background: var(--muted);
     color: var(--bg);
     font-size: 0.7rem;
     padding: 0 0.4rem;
@@ -154,14 +154,14 @@
     margin-bottom: 1rem;
   }
   .stat {
-    background: hsl(36 25% 96%);
+    background: var(--bg);
     border: 1px solid var(--hairline);
     border-radius: 6px;
     padding: 0.6rem 0.7rem;
   }
-  .num { font-family: var(--font-serif); font-size: 1.4rem; line-height: 1; }
+  .num { font-family: var(--font-sans); font-weight: 600; font-size: 1.4rem; line-height: 1; }
   .num.green { color: hsl(140 40% 35%); }
-  .num.amber { color: hsl(36 60% 40%); }
+  .num.amber { color: var(--muted); }
   .num.red   { color: hsl(0 50% 45%); }
   .lab { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; letter-spacing: 0.03em; text-transform: uppercase; }
 
@@ -176,11 +176,11 @@
   .table-head { color: var(--muted); font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid var(--hairline); }
   .row { border-bottom: 1px solid var(--hairline); }
   .row:last-child { border-bottom: 0; }
-  .row .col-tool, .row .col-p { color: hsl(36 15% 30%); }
+  .row .col-tool, .row .col-p { color: var(--text); }
 
   .pill { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 99px; font-family: var(--font-sans); letter-spacing: 0.03em; }
   .pill.green { background: hsl(140 30% 90%); color: hsl(140 40% 25%); }
-  .pill.amber { background: hsl(36 60% 90%); color: hsl(36 60% 30%); }
+  .pill.amber { background: var(--surface); color: var(--text); }
   .pill.red   { background: hsl(0 30% 92%); color: hsl(0 40% 35%); }
 
   @media (max-width: 720px) {

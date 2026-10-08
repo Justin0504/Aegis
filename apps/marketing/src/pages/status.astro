@@ -113,13 +113,13 @@ const incidents: Array<{
     .lede.small { color: var(--muted); font-size: 0.95rem; margin-top: 1rem; }
 
     .components { padding: 2rem 0; }
-    .components h2 { font-family: var(--font-serif); font-size: 1.3rem; margin: 0 0 1rem; }
+    .components h2 { font-family: var(--font-sans); font-weight: 600; font-size: 1.3rem; margin: 0 0 1rem; }
     .comp-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
     .comp { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.8rem; align-items: center; padding: 0.7rem 1rem; background: var(--surface); }
     .comp + .comp { border-top: 1px solid var(--hairline); }
     .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
     .dot.operational { background: hsl(140 40% 45%); box-shadow: 0 0 0 3px hsl(140 40% 90%); }
-    .dot.launching   { background: hsl(36 70% 50%); box-shadow: 0 0 0 3px hsl(36 70% 90%); }
+    .dot.launching   { background: var(--muted); box-shadow: 0 0 0 3px var(--surface); }
     .name { font-weight: 500; }
     .state { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
     .detail { font-size: 0.86rem; color: var(--muted); }
@@ -129,17 +129,17 @@ const incidents: Array<{
     }
 
     .incidents { padding: 2.5rem 0; border-top: 1px solid var(--hairline); }
-    .incidents h2 { font-family: var(--font-serif); font-size: 1.3rem; margin: 0 0 1rem; }
+    .incidents h2 { font-family: var(--font-sans); font-weight: 600; font-size: 1.3rem; margin: 0 0 1rem; }
     .incident { padding: 1rem 0; border-top: 1px solid var(--hairline); }
     .incident header { display: flex; gap: 0.8rem; align-items: baseline; justify-content: space-between; }
-    .incident h3 { font-family: var(--font-serif); font-size: 1.1rem; margin: 0; }
+    .incident h3 { font-family: var(--font-sans); font-weight: 600; font-size: 1.1rem; margin: 0; }
     .pill { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.18rem 0.5rem; border-radius: 99px; }
     .pill.resolved      { background: hsl(140 30% 90%); color: hsl(140 40% 25%); }
-    .pill.investigating, .pill.identified, .pill.monitoring { background: hsl(36 60% 90%); color: hsl(36 60% 30%); }
+    .pill.investigating, .pill.identified, .pill.monitoring { background: var(--surface); color: var(--text); }
     .meta { font-size: 0.82rem; color: var(--muted); margin: 0.3rem 0; }
 
     .below { padding: 2.5rem 0 5rem; border-top: 1px solid var(--hairline); }
-    .below h2 { font-family: var(--font-serif); font-size: 1.3rem; margin: 0 0 1rem; }
+    .below h2 { font-family: var(--font-sans); font-weight: 600; font-size: 1.3rem; margin: 0 0 1rem; }
     .below ul { padding-left: 1.2rem; }
     .below li { margin: 0.4rem 0; }
     .below li strong { font-weight: 600; }

@@ -211,42 +211,42 @@ const faqLd = {
 </Layout>
 
 <style>
-  main { background: hsl(42 45% 92%); }
+  main { background: var(--surface); }
   .g-hero { padding: 64px 0 32px; }
-  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: hsl(20 15% 40%); margin: 0 0 12px; }
-  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: 44px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
-  .lede { font-size: 16.5px; line-height: 1.6; color: hsl(20 10% 30%); max-width: 720px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-family: var(--font-sans); font-size: 44px; font-weight: 400; margin: 0 0 16px; line-height: 1.1; }
+  .lede { font-size: 16.5px; line-height: 1.6; color: var(--text); max-width: 720px; }
 
   .g-projects { padding: 24px 0 16px; }
-  .g-projects h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 30px; margin: 0 0 20px; }
+  .g-projects h2 { font-family: var(--font-sans); font-weight: 600; font-size: 30px; margin: 0 0 20px; }
   .project-list { display: grid; gap: 14px; }
-  .project { background: white; border: 1px solid hsl(42 20% 82%); border-radius: 8px; padding: 18px; }
+  .project { background: white; border: 1px solid var(--hairline); border-radius: 8px; padding: 18px; }
   .project-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 10px; flex-wrap: wrap; }
-  .project-head h3 { margin: 0; font-size: 18px; color: hsl(20 30% 20%); font-weight: 600; }
-  .project-meta { margin: 0; font-size: 11px; color: hsl(20 15% 50%); text-transform: uppercase; letter-spacing: 0.05em; }
-  .license { color: hsl(20 40% 35%); font-weight: 600; }
-  .project-scope, .project-when, .project-caveat { margin: 6px 0; font-size: 13.5px; line-height: 1.55; color: hsl(20 10% 25%); }
-  .project-scope { color: hsl(20 30% 30%); }
+  .project-head h3 { margin: 0; font-size: 18px; color: var(--text); font-weight: 600; }
+  .project-meta { margin: 0; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .license { color: var(--text); font-weight: 600; }
+  .project-scope, .project-when, .project-caveat { margin: 6px 0; font-size: 13.5px; line-height: 1.55; color: var(--text); }
+  .project-scope { color: var(--text); }
   .project-when { padding: 8px 12px; background: hsl(150 25% 94%); border-left: 3px solid hsl(150 40% 35%); border-radius: 4px; }
-  .project-caveat { padding: 8px 12px; background: hsl(42 30% 96%); border-left: 3px solid hsl(20 45% 40%); border-radius: 4px; }
+  .project-caveat { padding: 8px 12px; background: var(--bg); border-left: 3px solid var(--muted); border-radius: 4px; }
   .project-repo { margin: 10px 0 0; font-size: 12px; }
-  .project-repo a { color: hsl(20 30% 30%); text-decoration: none; font-family: ui-monospace, monospace; }
+  .project-repo a { color: var(--text); text-decoration: none; font-family: ui-monospace, monospace; }
   .project-repo a:hover { text-decoration: underline; }
 
   .g-faq { padding: 48px 0 16px; }
-  .g-faq h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 30px; margin: 0 0 16px; }
-  .faq-item { border-bottom: 1px solid hsl(42 20% 82%); padding: 12px 0; }
-  .faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: hsl(20 30% 25%); list-style: none; padding: 4px 0; }
+  .g-faq h2 { font-family: var(--font-sans); font-weight: 600; font-size: 30px; margin: 0 0 16px; }
+  .faq-item { border-bottom: 1px solid var(--hairline); padding: 12px 0; }
+  .faq-item summary { cursor: pointer; font-size: 15px; font-weight: 500; color: var(--text); list-style: none; padding: 4px 0; }
   .faq-item summary::-webkit-details-marker { display: none; }
-  .faq-item summary::before { content: '+ '; color: hsl(20 40% 40%); font-weight: 600; margin-right: 6px; }
+  .faq-item summary::before { content: '+ '; color: var(--muted); font-weight: 600; margin-right: 6px; }
   .faq-item[open] summary::before { content: '– '; }
-  .faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: hsl(20 10% 30%); }
+  .faq-item p { margin: 8px 0 0; padding: 0 0 6px 16px; font-size: 14px; line-height: 1.6; color: var(--text); }
 
   .g-cta { padding: 40px 0 80px; text-align: center; }
-  .g-cta h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 8px; }
-  .g-cta p { color: hsl(20 10% 40%); font-size: 14px; margin: 0 0 20px; }
+  .g-cta h2 { font-family: var(--font-sans); font-weight: 600; font-size: 28px; margin: 0 0 8px; }
+  .g-cta p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
   .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .btn, .btn-secondary { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; }
-  .btn { background: hsl(20 45% 20%); color: white; }
-  .btn-secondary { background: transparent; color: hsl(20 30% 25%); border: 1px solid hsl(42 20% 70%); }
+  .btn { background: var(--text); color: white; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--hairline-strong); }
 </style>
