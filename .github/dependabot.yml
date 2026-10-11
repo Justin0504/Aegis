@@ -1,0 +1,17 @@
+version: 2
+updates:
+  # Keep npm dependencies current across the monorepo.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-deps:
+        patterns:
+          - "*"
+
+  # Keep GitHub Actions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
