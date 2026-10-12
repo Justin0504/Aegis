@@ -73,7 +73,7 @@
 \begin{abstract}
 AI agents increasingly execute tool calls---database queries, shell commands, file operations, and HTTP requests---yet most agent frameworks forward these calls to execution with no pre-execution mediation. Post-execution observability can record what an agent did; it cannot stop it.
 
-We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 14 agent frameworks across Python, JavaScript, and Go. Each intercepted call passes a cost-aware cascade---pattern rules, a supervised classifier, and an LLM judge---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain.
+We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 14 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain.
 
 The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then submit input that genuinely fools the agent into emitting a destructive query and watch the block return \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
 
@@ -91,10 +91,12 @@ This version also corrects our earlier evaluation. The 99.9\% block rate and 0.0
     \caption{\system on the tool-execution path, drawn as the loop it is.
 Outbound, the SDK intercepts \texttt{tool\_use} across 14 frameworks and
 the Gateway applies layers ordered by \emph{observation scope} rather
-than only by cost: L1 sees the call string, L2 a 15-dimensional surface
-encoding, L3 the full context. L$_\mathrm{p}$ (dashed) is the
+than only by cost: L1 sees the call string, L2 the agent's own history,
+L$_\mathrm{p}$ the conversation's trust channels, and the alignment auditor
+(L3) the user's stated task. L$_\mathrm{p}$ (dashed) is the
 instruction-provenance layer of \S\ref{sec:eval}, optional and toggleable
-during the demonstration. Inbound is what distinguishes a control point
+during the demonstration; L3 is not an inline stage of the check but an
+SDK-side pre-check and a post-hoc trace judge. Inbound is what distinguishes a control point
 from a monitor: \texttt{allow} lets the tool run, \texttt{block} returns
 a refusal \emph{in the slot a tool result would occupy}---which is why a
 blocked agent explains itself and continues rather than failing
@@ -212,10 +214,11 @@ agentguard.auto()  # patches every detected SDK in-process
 \end{lstlisting}
 
 \noindent \texttt{auto()} wraps the request method of each model client
-it finds---Anthropic and OpenAI (sync and async), LangChain, LangGraph,
-CrewAI, AutoGen, Gemini, Bedrock, Mistral, LiteLLM, LlamaIndex,
-Pydantic~AI, smolagents~\cite{smolagents2024}, the Claude Agent SDK, and
-a generic HTTP-tool shim---and exposes two hooks. On the \emph{response}
+it finds---Anthropic and OpenAI (sync and async), LangChain and LangGraph
+(through \texttt{langchain\_core} tools), CrewAI, AutoGen, Gemini, Bedrock,
+Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents~\cite{smolagents2024},
+the Claude Agent SDK, and a generic HTTP-tool shim; fourteen targets---and
+exposes two hooks. On the \emph{response}
 side it extracts every \texttt{tool\_use} block, sends
 \texttt{(tool\_name, arguments, session\_id)} to the Gateway, and
 suspends dispatch until a decision returns. On the \emph{request} side,
@@ -229,15 +232,21 @@ LangChain.
 \paragraph{MCP proxy.}
 For agents that reach tools over the Model Context Protocol, a stdio or
 HTTP proxy sits between the host and the MCP server, forwards
-\texttt{tools/call} requests through the same check, and rewrites
-refused calls into tool errors. Nothing in the host changes.
+\texttt{tools/call} requests through schema validation, L1 and the policy
+DSL in-process, with the kill switch, and rewrites refused calls into tool
+errors. Nothing in the host changes.
 
-\paragraph{HTTP proxy.}
+\paragraph{Egress proxy.}
 For stacks where neither is available, the gateway accepts the model
 provider's own API surface at \texttt{/api/v1/proxy}, so pointing
 \texttt{OPENAI\_BASE\_URL} or its equivalent at \system is a complete
-integration. All three paths converge on one decision endpoint, so a
-policy written once applies regardless of how a call arrived.
+integration. The proxy decides inline: it runs the detector chain of
+\S\ref{sec:pipeline} and the tenant's policy over every tool call in the
+model's response, and because an inline HTTP response cannot be held
+for a person, a \texttt{pending} decision is treated as \texttt{block} and
+the audit record says so. A policy is written once and applies on all
+three paths; the behavioural and provenance layers below run on the SDK
+path, which reaches the full \texttt{/api/v1/check} pipeline.
 
 \subsection{The Decision Pipeline}
 \label{sec:pipeline}
@@ -250,10 +259,10 @@ see the conversation can resolve.
 
 \paragraph{Extraction.}
 Arguments are walked recursively (depth limit 32, 10{,}000-string cap)
-and every string-bearing leaf is collected. This is what L1 and L2 see.
+and every string-bearing leaf is collected. This is what L1 sees.
 
 \paragraph{L1: pattern rules ($<$1\,ms).}
-22 patterns across 7 categories (Table~\ref{tab:patterns}) are matched
+28 risk patterns in 11 types (Table~\ref{tab:patterns}) are matched
 against the extracted strings. A hit is an immediate block with a named
 reason. L1 is the right tool for a \emph{payload} that is itself
 hostile---a SQL statement with a stacked \texttt{DROP}, a path with
@@ -261,18 +270,36 @@ hostile---a SQL statement with a stacked \texttt{DROP}, a path with
 \S\ref{sec:eval} shows, nearly inert against a call whose arguments are
 ordinary.
 
-\paragraph{L2: surface classifier ($<$10\,ms).}
-The same strings are encoded into a 15-dimensional surface vector
-(Table~\ref{tab:features}): argument count and depth, character-class
-ratios, Shannon entropy, URL and IP-literal counts, base64/hex
-likelihood. A gradient-boosted classifier scores the vector and two
-thresholds route it: confident-benign calls are allowed, confident-
-malicious calls are blocked, and the ambiguous band escalates. An
-unsupervised Isolation Forest~\cite{zhao2019pyod} variant serves
-deployments without labels. L2 generalises L1's notion of
-``suspicious-looking'' and inherits its limitation: on the rebuilt corpus
-no single surface feature exceeds AUC 0.585, because a successful
-injection does not make the call look unusual.
+\paragraph{L2: behavioural anomaly (in-process).}
+Rather than a second look at the call string, L2 scores the call against
+the agent's own history. A 16-dimensional behaviour vector---tool novelty,
+frequency and recency; argument drift (Jaccard distance, length $z$-score,
+key-count ratio); hour and interval deviation; burst ratio; sequence
+surprise under a PPM-C model and bigram unlikeliness; cost $z$-score; risk
+ordinal and high-risk rate---is scored by an Isolation
+Forest~\cite{zhao2019pyod}, half-space trees and Mahalanobis distance,
+calibrated into conformal $p$-values, with ADWIN~\cite{bifet2007adwin}
+flagging drift so thresholds adapt rather than decay. A new agent is
+cold-started from its tenant's aggregate baseline, and operator
+approve/reject feedback is folded back into the scorer. L2 can escalate
+or block an otherwise-allowed call and never relaxes one. It catches an
+agent behaving unlike itself; it does not catch a single ordinary-looking
+call, and \S\ref{sec:eval} measures that limit directly: on the rebuilt
+corpus no surface feature of the call (Table~\ref{tab:features}) exceeds
+AUC 0.585, because a successful injection does not make the call look
+unusual.
+
+\paragraph{Detector chain (proxy path).}
+On the egress proxy the same facts are produced by a registry of
+pluggable detectors keyed to an ATT\&CK-style agent threat ontology:
+indirect prompt injection, data exfiltration, sensitive-context
+exfiltration by taint tracking (the agent read a secret, then calls
+outward), memory poisoning (instruction-shaped writes to scratchpads and
+vector stores), reconnaissance, lateral movement, tool scope against an
+agent's declared tool list, budget, cross-agent correlation and PII, with
+the L1 classifier and the L2 stack wrapped as detectors of the same
+interface. Operators register their own, and a coverage map reports
+which ontology techniques the deployed set actually covers.
 
 \paragraph{L$_\mathrm{p}$: instruction provenance ($<$1\,ms).}
 \label{sec:provenance}
@@ -320,19 +347,24 @@ launder an injected instruction into an authority.
     \label{fig:provenance}
 \end{figure*}
 
-\paragraph{L3: LLM judge (1--2\,s).}
-A frontier model receives the tool name, arguments and the user's task
-and returns a decision with rationale. It is the only layer that reads
-the full conversation, and the only configuration meaningfully above
-chance on real injected calls before L$_\mathrm{p}$ existed
-(\S\ref{sec:eval}). Its cost is roughly $1600\times$ the rules path, so
-it is reached only for calls the cheaper layers cannot decide.
+\paragraph{L3: alignment auditor (1--2\,s).}
+A frontier model receives the tool name, arguments and the user's stated
+task and returns whether the call serves that task, with a rationale. In
+the shipping gateway this is not an inline stage of the check: the SDK
+may call the auditor (\texttt{/api/v1/alignment/check}) before the check
+and attach its verdict, which the policy can match on
+(\texttt{alignment.score}); and a trace judge scores recorded traces after
+the fact. The judge of \S\ref{sec:eval} is the evaluation harness's own,
+run as a detector over the corpus; it makes the same comparison, and it
+is the only configuration meaningfully above chance on real injected calls
+before L$_\mathrm{p}$ existed. Its cost is roughly $1600\times$ the rules
+path.
 
 \paragraph{Policy.}
 \begin{sloppypar}
 The layers emit facts; a declarative policy turns facts into a decision.
 Policies are written in a small DSL over dotted field paths---
-\texttt{tool.name}, \texttt{classifier.\allowbreak category}, \texttt{anomaly.score},
+\texttt{tool.name}, \texttt{classifier.\allowbreak category}, \texttt{anomaly.score}, \texttt{alignment.score},
 \texttt{provenance.\allowbreak authorised\_by}---\allowbreak with \texttt{all}, \texttt{any} and
 \texttt{not} composition, and comparators including regular expressions.
 The DSL is \emph{fail-safe}: a rule can tighten a decision (allow $\to$
@@ -359,7 +391,7 @@ suspends until a person decides.
 \begin{table}[t]
 \centering
 \footnotesize
-\caption{L2 feature vector (15 dimensions). Features are extracted from tool arguments in $<$10\,ms.}
+\caption{The fifteen content features used as the \emph{content} block in \S\ref{sec:authority}. They describe the call string only; on agent-emitted attacks none exceeds AUC 0.585.}
 \vspace{-0.1in}
 \label{tab:features}
 \setlength{\tabcolsep}{3pt}
@@ -390,21 +422,22 @@ suspends until a person decides.
 \begin{table}[t]
 \centering
 \footnotesize
-\caption{Detection pattern coverage (22 patterns, 7 categories).}
+\caption{L1 risk patterns as shipped (28 entries, 11 risk types). PII (11 types) is detected separately, in traces and by the proxy's detector chain.}
 \vspace{-0.1in}
 \label{tab:patterns}
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{lrl}
 \toprule
-\textbf{Category} & \textbf{\#} & \textbf{Techniques Covered} \\
+\textbf{Risk type} & \textbf{\#} & \textbf{Techniques covered} \\
 \midrule
-SQL Injection       & 7 & \makecell[tl]{OR/UNION, blind (pg\_sleep, WAITFOR,\\BENCHMARK, SLEEP), hex, CONCAT, stacked} \\
-Path Traversal      & 4 & \makecell[tl]{../, URL-encoded, double-encoded,\\null byte} \\
-Shell Injection     & 4 & \makecell[tl]{Metachar, curl/wget+URL,\\\$\{IFS\} splitting, process subst.} \\
-Prompt Injection    & 3 & \makecell[tl]{17 sub-patterns: ignore/forget/\\jailbreak/DAN/bypass/roleplay} \\
-Sensitive Files     & 2 & \makecell[tl]{14 paths: passwd, shadow, .ssh,\\.aws, .kube, .terraform, .env} \\
-Data Exfiltration   & 1 & Payload $>$5KB + external URL \\
-PII Leakage         & 1 & \makecell[tl]{11 types: email, SSN, credit card,\\API key, JWT, DB URI, AWS ARN} \\
+SQL injection       & 7 & \makecell[tl]{OR/UNION, blind (pg\_sleep, WAITFOR,\\BENCHMARK, SLEEP), hex, CONCAT, stacked} \\
+Path traversal      & 4 & \makecell[tl]{../, URL-encoded, double-encoded,\\null byte} \\
+Shell injection     & 4 & \makecell[tl]{Metachar, curl/wget+URL,\\\$\{IFS\} splitting, process subst.} \\
+Sensitive files     & 1 & \makecell[tl]{11 paths: passwd, shadow, .ssh,\\.aws, .kube, .terraform, .env} \\
+Prompt injection    & 1 & \makecell[tl]{17 sub-patterns: ignore/forget/\\jailbreak/DAN/bypass/roleplay} \\
+Data exfiltration   & 2 & Large payload; payload + external URL \\
+Plaintext URL       & 1 & Unencrypted endpoint in arguments \\
+Supply chain        & 8 & \makecell[tl]{Source-map leak (3), unsafe\\publish (3), secret in build (2)} \\
 \bottomrule
 \end{tabular}
 \vspace{-0.15in}
@@ -420,7 +453,11 @@ further controls contain an agent rather than a call. A \emph{kill
 switch} revokes an agent's access after a configurable violation count,
 so an agent that is being repeatedly manipulated is stopped rather than
 argued with one call at a time. A \emph{budget guard} bounds spend per
-session and per agent and holds calls that would exceed it.
+session and per agent and holds calls that would exceed it. For actions
+that cannot be undone---sending mail, moving money, posting publicly---an
+\emph{effect outbox} holds an allowed call for a configurable window in
+which an operator can still cancel it, so even an allowed irreversible
+action keeps a pre-execution interval.
 
 \subsection{Audit and Integrity}
 \label{sec:audit}
@@ -437,6 +474,8 @@ session and per agent and holds calls that would exceed it.
     \label{fig:audit}
 \end{figure}
 
+Agents carry an identity card---an EdDSA-signed JWT minted by the gateway
+and bound to the agent's registry status---which the proxy path verifies.
 Every decision, with the facts that produced it, becomes a trace. Traces
 are signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and
 linked into a SHA-256 hash chain in which each record commits to its
@@ -454,16 +493,13 @@ expects (SOC~2 control evidence, EU AI Act Article 12 record-keeping).
 \subsection{Behavioural Monitoring}
 \label{sec:anomaly}
 
-Per-call decisions are complemented by signals over time. Each agent
-accumulates a behaviour profile; a sliding-window detector scores calls
-against it with Isolation Forest, half-space trees and Mahalanobis
-distance, and ADWIN~\cite{bifet2007adwin} flags distribution drift so
-thresholds adapt rather than decay. Conformal calibration converts raw
-anomaly scores into $p$-values with a coverage guarantee, so an
-operator's ``escalate the top 1\%'' means what it says. A sequence
-detector scores the \emph{order} of calls, and a cross-agent correlator
-watches for the coordinated patterns---one agent reading what another
-just wrote to a shared sink---that no single-agent view can see.
+Per-call decisions are complemented by signals over time. The L2 stack
+above is per agent; two detectors look across agents. A cross-agent
+correlator watches for the coordinated patterns---one agent reading what
+another just wrote to a shared sink---that no single-agent view can see,
+and a lateral-movement detector surfaces compromise propagating across
+sessions. Each agent's profile, anomaly timeline and the operator's
+feedback on past alerts are visible in the Cockpit.
 
 \subsection{Recovery}
 \label{sec:recovery}
@@ -495,7 +531,9 @@ DSL and natural-language input; coverage of which tools and sinks a
 policy actually touches; rollback history; scan results; and the
 exportable audit log with its verification status. It runs locally
 beside the gateway and needs no network beyond the agent's own model
-calls.
+calls. Multi-tenant deployments add OIDC/SAML single sign-on, SCIM
+provisioning and role-based access, and decisions export over OTLP and
+webhooks.
 
 \begin{figure}[t]
     \centering
@@ -589,8 +627,9 @@ The session is adversarial by design. Attendees are invited to:
 \item \textbf{Try to make the agent emit an attack that L1 cannot see.}
       This is the case \S\ref{sec:eval} shows is the hard one, and the
       demo does not hide it: an indirect injection that causes an
-      ordinary-looking call passes L1 and L2, and the attendee watches
-      the decision fall through to the judge.
+      ordinary-looking call passes L1 and L2; with L$_\mathrm{p}$ toggled
+      off it is allowed, and with it on the attendee watches provenance
+      catch what content inspection could not.
 \item \textbf{Verify the audit trail.} Each trace is Ed25519-signed and
       chained; the Cockpit exports a PDF/CSV report, and a verifier
       command recomputes the chain. Attendees are encouraged to edit a
@@ -601,8 +640,8 @@ The session is adversarial by design. Attendees are invited to:
 
 \subsection{Practical requirements}
 
-One laptop suffices; two make S3 better. The gateway is a single Go
-binary, the Cockpit a Next.js app, and both run locally---no GPU, and no
+One laptop suffices; two make S3 better. The gateway is a single
+Node.js service, the Cockpit a Next.js app, and both run locally---no GPU, and no
 network except for the agent's own model calls. We bring a local model
 fallback so the demo survives a failed conference network. Total setup
 time from a cold machine is under two minutes.
@@ -726,7 +765,7 @@ locally, not a reimplementation. The keyword blacklist is at chance.
 \system reports an 84.4\% block rate, but blocks 73.9\% of legitimate
 calls for the same reason; decomposing its block reasons, JSON-Schema
 policy validation rejecting a missing \texttt{reason} property accounts
-for 199/237 malicious and 312/426 benign blocks, and the 22 detection
+for 199/237 malicious and 312/426 benign blocks, and the detection
 patterns---the part of the system that is actually a detector---fire on
 \textbf{one} malicious record. Run family by family against the 237
 attack calls: SQL injection 0.0\%, path traversal 0.0\%, sensitive-file

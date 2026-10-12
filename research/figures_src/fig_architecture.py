@@ -115,8 +115,8 @@ def build() -> Scene:
     lx0 = GW_X + 16
     layers = [
         ("L1  rules", "blue", ICONS["regex"], "call string", "<1 ms", False),
-        ("L2  classifier", "slate", ICONS["tree"], "15 features", "<10 ms", False),
-        ("L3  judge", "purple", ICONS["brain"], "full context", "1\u20132 s", False),
+        ("L2  behaviour", "slate", ICONS["tree"], "agent history", "in-process", False),
+        ("L3  auditor", "purple", ICONS["brain"], "stated task", "1\u20132 s", False),
         ("Lp  provenance", "mint", ICONS["route"], "channel split",
          "<1 ms \u00b7 optional", True),   # accent-marked below: proposed
     ]

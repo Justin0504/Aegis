@@ -9,7 +9,7 @@ Replace the file, keep the name, and nothing in the LaTeX changes.
 
 | id | file you deliver (`images/`) | canvas (units) | printed at | slot in paper |
 |---|---|---|---|---|
-| F1 | `architecture.{svg,pdf,png}` | 1000 × ~620 | `\textwidth` | Fig. 1, §2 System Architecture |
+| F1 | `architecture.{svg,pdf,png}` | 1000 × ~620 | `\textwidth` | Fig. 1, §2 System Architecture (card labels updated 2026-10-12 — read the F1 table carefully) |
 | F2 | `provenance_mechanism.{svg,pdf,png}` | 1000 × 560 | `\textwidth` | §2.3 L_p / §4.4 — the paper's core new idea |
 | F3 | `rollout_construction.{svg,pdf,png}` | 1000 × 420 | `\textwidth` | §4.2 Mechanism: instantiation by rollout |
 | F5 | `audit_chain.{svg,pdf,png}` | 500 × 300 | `\columnwidth` | §2.5 Audit and Integrity |
@@ -41,8 +41,12 @@ caption *untrusted principal*; accent-bordered card `two lines` + mono
 `agentguard.auto()`; `14 frameworks · Python · JS · Go`; arrow → gateway.
 
 **Interposition** (x ≈ 170–250, new vs the reference): three short
-labelled stubs `SDK auto()` / `MCP proxy` / `HTTP proxy` merging into the
-single arrow into the gateway.
+labelled stubs `SDK auto()` / `MCP proxy` / `egress proxy` merging into the
+single arrow into the gateway. Only the SDK stub is drawn solid: the MCP
+proxy runs schema + L1 + policy in-process, and the egress proxy runs the
+detector chain + policy inline and cannot hold a `pending` call (it blocks
+and audits it). Draw those two stubs dashed, with a 2-word mono note each:
+`L1 + policy` and `detectors + policy, no hold`.
 
 **Aegis Gateway** (dashed group, x 260–800): title, subtitle *the call has
 not run yet*; a row of **five** equal cards, each with icon, name, a mono
@@ -51,10 +55,18 @@ chip stating what it **sees**, and cost:
 | card | sees | cost |
 |---|---|---|
 | `L1  rules` | `call string` | `<1 ms` |
-| `L2  classifier` | `15 features` | `<10 ms` |
+| `L2  behaviour` | `agent history` | `in-process` |
 | `Lp  provenance` (accent, dashed border) | `channel split` | `<1 ms` |
-| `L3  judge` | `full context` | `1–2 s` |
+| `L3  auditor` | `stated task` | `1–2 s · SDK-side` |
 | `Policy DSL` | `all facts` | `const` |
+
+L2 is the behavioural anomaly stack (16 features of the agent's own
+history, Isolation Forest / half-space trees / Mahalanobis, conformal,
+ADWIN) — **not** a content classifier; do not write "15 features" or
+"classifier" on it. L3 is the alignment auditor the SDK can call before
+the check (its score becomes a policy fact) plus a post-hoc trace judge;
+it is not an inline stage of `/check`, so draw it with a dashed border
+like Lp and add the tiny mono note `pre-check via SDK · post-hoc on traces`.
 
 Order is by observation scope. Under Lp a tiny mono note: `per-session
 context ledger`. Then the **decision** row: pills `allow` (green) `block`

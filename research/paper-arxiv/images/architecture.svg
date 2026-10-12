@@ -28,16 +28,16 @@
 <line x1="341" y1="144" x2="351" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
 <rect x="352" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
 <g transform="translate(362,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 20a2 2 0 1 0-4 0a2 2 0 0 0 4 0M16 4a2 2 0 1 0-4 0a2 2 0 0 0 4 0m0 16a2 2 0 1 0-4 0a2 2 0 0 0 4 0m-5-8a2 2 0 1 0-4 0a2 2 0 0 0 4 0m10 0a2 2 0 1 0-4 0a2 2 0 0 0 4 0M5.058 18.306l2.88-4.606m2.123-3.397l2.877-4.604m-2.873 8.006l2.876 4.6M15.063 5.7l2.881 4.61"/></svg></svg></g>
-<text x="384" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L2  classifier</text>
+<text x="384" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L2  behaviour</text>
 <rect x="361" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="422.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">15 features</text>
-<text x="364" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">&lt;10 ms</text>
+<text x="422.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agent history</text>
+<text x="364" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">in-process</text>
 <line x1="493" y1="144" x2="503" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
 <rect x="504" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
 <g transform="translate(514,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3m.7 1h4.6"/></svg></svg></g>
-<text x="536" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L3  judge</text>
+<text x="536" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L3  auditor</text>
 <rect x="513" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="574.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">full context</text>
+<text x="574.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">stated task</text>
 <text x="516" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1–2 s</text>
 <line x1="645" y1="144" x2="655" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
 <rect x="656" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#D3E5FF" stroke-width="1.0" stroke-dasharray="5 4"/>
