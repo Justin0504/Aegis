@@ -169,6 +169,7 @@ failure on purpose.
 \item A \textbf{live, adversarial demonstration} in which attendees drive
       the agent, attempt evasion, exercise the approval path across two
       people, and install the system themselves.
+\item A \textbf{compatibility matrix} (Appendix~\ref{app:compat}): nineteen harnesses---open-source frameworks, lightweight and self-hosted agents, closed harnesses including the OpenAI Agents SDK and the Claude Agent SDK, and the MCP and egress-proxy transports---driving the shipping gateway through the same three scenarios, with the eight defects the exercise found and fixed.
 \item An \textbf{honest scoping of what the cascade catches}, including a
       reproducible audit that withdraws this paper's earlier headline
       numbers and a measurement of what payload inspection achieves
@@ -443,21 +444,7 @@ Supply chain        & 8 & \makecell[tl]{Source-map leak (3), unsafe\\publish (3)
 \vspace{-0.15in}
 \end{table}
 
-\subsection{Human-in-the-Loop and Containment}
-\label{sec:hitl}
-
-A \texttt{pending} decision places the call, its arguments, every layer's
-facts and the matched rule in an approval queue; the agent polls and
-resumes within one cycle (2\,s) of a human choosing Allow or Block. Two
-further controls contain an agent rather than a call. A \emph{kill
-switch} revokes an agent's access after a configurable violation count,
-so an agent that is being repeatedly manipulated is stopped rather than
-argued with one call at a time. A \emph{budget guard} bounds spend per
-session and per agent and holds calls that would exceed it. For actions
-that cannot be undone---sending mail, moving money, posting publicly---an
-\emph{effect outbox} holds an allowed call for a configurable window in
-which an operator can still cancel it, so even an allowed irreversible
-action keeps a pre-execution interval.
+\input{sections/risk_control}
 
 \subsection{Audit and Integrity}
 \label{sec:audit}
@@ -490,17 +477,6 @@ edit one record and watch it fail (Figure~\ref{fig:audit}). Compliance evidence 
 traces, policies and verification results into the artefacts an audit
 expects (SOC~2 control evidence, EU AI Act Article 12 record-keeping).
 
-\subsection{Behavioural Monitoring}
-\label{sec:anomaly}
-
-Per-call decisions are complemented by signals over time. The L2 stack
-above is per agent; two detectors look across agents. A cross-agent
-correlator watches for the coordinated patterns---one agent reading what
-another just wrote to a shared sink---that no single-agent view can see,
-and a lateral-movement detector surfaces compromise propagating across
-sessions. Each agent's profile, anomaly timeline and the operator's
-feedback on past alerts are visible in the Cockpit.
-
 \subsection{Recovery}
 \label{sec:recovery}
 
@@ -511,15 +487,13 @@ reverts a call together with the calls that depended on its output.
 Reversibility is scored per tool so the policy can be stricter where
 undo is impossible.
 
-\subsection{Pre-Deployment Scanning}
-\label{sec:predeploy}
+\input{sections/fallback}
 
-Before an agent runs, a static scan parses its repository, enumerates
-every model call and tool definition, infers the workflow graph, and
-applies the same policy packs to what the agent \emph{could} do; a code
-shield checks generated code against a separate rule set. The scan diff
-between two revisions shows an operator what new capability a change
-introduced.
+\input{sections/static}
+
+\input{sections/judge}
+
+\input{sections/connectors}
 
 \subsection{Compliance Cockpit}
 \label{sec:cockpit}
@@ -558,13 +532,14 @@ scratch file system, and a shell tool. \system is enabled by adding one
 line to the agent, shown in full:
 
 \begin{center}\small
-\texttt{import agentguard; agentguard.auto()}
+\texttt{import agentguard; agentguard.auto(blocking\_mode=True)}
 \end{center}
 
 \noindent
-No other change is made. The SDK monkey-patches the framework's
-tool-dispatch entry point, so the agent code, the prompts, and the tool
-definitions are untouched---which is the property we most want attendees
+No other change is made (\texttt{auto()} without the flag observes and
+audits but never blocks; the flag is the firewall). The SDK monkey-patches
+the framework's tool-dispatch entry point, so the agent code, the prompts,
+and the tool definitions are untouched---which is the property we most want attendees
 to check, and the first thing we invite them to verify by diffing the
 agent source against its upstream version.
 
@@ -645,6 +620,8 @@ Node.js service, the Cockpit a Next.js app, and both run locally---no GPU, and n
 network except for the agent's own model calls. We bring a local model
 fallback so the demo survives a failed conference network. Total setup
 time from a cold machine is under two minutes.
+
+\input{sections/compat}
 
 \section{Evaluation}
 \label{sec:eval}
@@ -916,31 +893,8 @@ the rollout harness, the corrected benchmark, and
 \newpage
 \appendix
 
-\section{Additional Dashboard Views}
-\label{app:audit}
+\input{sections/appendix_compat}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\columnwidth]{images/blockdemo-in-testagent.png}
-    \vspace{-0.2in}
-    \caption{Live interception: a SQL injection attack is blocked before execution. The agent gracefully explains why the request was rejected.}
-    \label{fig:blocked}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\columnwidth]{images/pending.png}
-    \vspace{-0.2in}
-    \caption{Human-in-the-loop: a high-risk shell command is held pending for reviewer approval.}
-    \label{fig:pending-detail}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\columnwidth]{images/trace.png}
-    \vspace{-0.2in}
-    \caption{Forensic trace detail with full arguments, risk signals, classification, and session context.}
-    \label{fig:trace-detail}
-\end{figure}
+\input{sections/appendix_ui}
 
 \end{document}

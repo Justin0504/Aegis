@@ -29,7 +29,8 @@ import {
   ProxyAdapter,
 } from '../adapter';
 
-const UPSTREAM_BASE = 'https://api.openai.com';
+// Override for self-hosted OpenAI-compatible upstreams (vLLM, Ollama, LiteLLM).
+const UPSTREAM_BASE = (process.env.AEGIS_PROXY_OPENAI_UPSTREAM ?? 'https://api.openai.com').replace(/\/$/, '');
 const HOP_BY_HOP = new Set([
   'host', 'connection', 'content-length', 'transfer-encoding',
   'keep-alive', 'te', 'trailer', 'upgrade', 'proxy-connection',

@@ -463,7 +463,16 @@ export class CheckAPI {
         const requiresHumanReview = classification.category === 'communication'
 
         // ── BLOCKING MODE: hold for human review ─────────────────────────────
-        if (body.blocking && (isRisky || requiresHumanReview)) {
+        // Blocking-mode gate. A failed validation, a DSL `block` or an anomaly
+        // `block` is a hard decision and returns `block` immediately (the fast
+        // path below) — a firewall that holds a SQL injection for a human to
+        // look at is not a firewall. Only genuinely undecided calls are held: a
+        // DSL rule that says `pending`, an anomaly `escalate`, or a communication
+        // tool, which always gets a person.
+        const hardBlock = !validation.passed || dslBlocks || anomalyResult?.decision === 'block'
+        const needsHuman = dslPending || anomalyResult?.decision === 'escalate' || requiresHumanReview
+        void isRisky
+        if (body.blocking && !hardBlock && needsHuman) {
           const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min
 
           this.db.prepare(`

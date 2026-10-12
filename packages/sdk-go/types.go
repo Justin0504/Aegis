@@ -4,35 +4,43 @@ import "time"
 
 // GatewayTrace is the payload sent to POST /api/v1/traces.
 type GatewayTrace struct {
-	AgentID         string      `json:"agent_id"`
-	SessionID       string      `json:"session_id,omitempty"`
-	ToolName        string      `json:"tool_name"`
-	ToolCall        interface{} `json:"tool_call,omitempty"`
-	Observation     interface{} `json:"observation,omitempty"`
-	HashChain       string      `json:"hash_chain"`
-	Timestamp       time.Time   `json:"timestamp"`
-	DurationMs      int64       `json:"duration_ms"`
-	Model           string      `json:"model,omitempty"`
-	InputTokens     int         `json:"input_tokens,omitempty"`
-	OutputTokens    int         `json:"output_tokens,omitempty"`
-	CostUsd         float64     `json:"cost_usd,omitempty"`
-	RiskLevel       string      `json:"risk_level,omitempty"`
-	Blocked         bool        `json:"blocked"`
-	BlockReason     string      `json:"block_reason,omitempty"`
-	PIIDetected     int         `json:"pii_detected,omitempty"`
-	EvalScore       *int        `json:"eval_score,omitempty"`
+	AgentID      string      `json:"agent_id"`
+	SessionID    string      `json:"session_id,omitempty"`
+	ToolName     string      `json:"tool_name"`
+	ToolCall     interface{} `json:"tool_call,omitempty"`
+	Observation  interface{} `json:"observation,omitempty"`
+	HashChain    string      `json:"hash_chain"`
+	Timestamp    time.Time   `json:"timestamp"`
+	DurationMs   int64       `json:"duration_ms"`
+	Model        string      `json:"model,omitempty"`
+	InputTokens  int         `json:"input_tokens,omitempty"`
+	OutputTokens int         `json:"output_tokens,omitempty"`
+	CostUsd      float64     `json:"cost_usd,omitempty"`
+	RiskLevel    string      `json:"risk_level,omitempty"`
+	Blocked      bool        `json:"blocked"`
+	BlockReason  string      `json:"block_reason,omitempty"`
+	PIIDetected  int         `json:"pii_detected,omitempty"`
+	EvalScore    *int        `json:"eval_score,omitempty"`
 }
 
 // CheckRequest is the payload for POST /api/v1/check (blocking mode).
+// The gateway reads the call's arguments from `arguments`; `blocking: true`
+// asks it to hold undecided calls for a person instead of auto-deciding.
 type CheckRequest struct {
-	AgentID  string      `json:"agent_id"`
-	ToolName string      `json:"tool_name"`
-	ToolCall interface{} `json:"tool_call"`
+	AgentID   string      `json:"agent_id"`
+	ToolName  string      `json:"tool_name"`
+	Arguments interface{} `json:"arguments"`
+	Blocking  bool        `json:"blocking"`
 }
 
-// CheckResponse is the response from /api/v1/check.
+// CheckResponse is the response from /api/v1/check. The gateway speaks in
+// decisions (allow / block / pending); Allowed is derived from Decision so
+// older callers keep working.
 type CheckResponse struct {
+	Decision  string `json:"decision"`
+	CheckID   string `json:"check_id,omitempty"`
 	Allowed   bool   `json:"allowed"`
 	RiskLevel string `json:"risk_level"`
 	Reason    string `json:"reason,omitempty"`
+	Error     string `json:"error,omitempty"`
 }

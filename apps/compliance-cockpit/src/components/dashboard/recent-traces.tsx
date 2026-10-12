@@ -37,7 +37,7 @@ export function RecentTraces() {
             </p>
           </div>
           <Badge className={getStatusColor(trace.approval_status || 'PENDING')}>
-            {trace.approval_status || 'PENDING'}
+            {trace.approval_status || 'UNREVIEWED'}
           </Badge>
         </div>
       ))}

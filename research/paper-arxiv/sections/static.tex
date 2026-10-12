@@ -1,0 +1,21 @@
+\subsection{Static Analysis Before Deployment}
+\label{sec:predeploy}
+
+Runtime mediation decides calls as they happen; a static scan decides
+what an agent \emph{could} do before it runs, and the two share a policy
+vocabulary. The pre-deployment scanner parses an agent's repository with
+an AST and taint-tracking scanner (we integrate agent-audit rather than
+maintain a second regex scanner), enumerates every model call, tool
+definition and MCP server configuration, and applies 53 rules mapped to
+the OWASP Agentic Top~10, so a finding carries the same category an
+auditor will ask about. Scans are kept as history, and a scan-to-scan
+diff partitions findings into \emph{added}, \emph{fixed} and
+\emph{persisting}, which is the form in which a reviewer wants to see a
+pull request: not ``this agent has twelve findings'' but ``this change
+introduced one''. A code shield applies a small set of high-precision
+rules to code an agent is about to commit, execute or hand back, in the
+spirit of LlamaFirewall's CodeShield but kept deliberately narrow; and
+the runtime's L1 patterns include a supply-chain family (source-map leak,
+unsafe publish, secret in a build artefact) that fires on the publish and
+build tool calls an agent makes, so the static and dynamic views meet
+at the same boundary.

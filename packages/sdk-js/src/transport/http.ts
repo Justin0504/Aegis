@@ -324,6 +324,16 @@ export class HttpTransport {
     }
   }
 
+  /** GET /api/v1/check/:id/decision — used while a call is held for a person. */
+  async pollDecision(checkId: string): Promise<CheckResponse | null> {
+    const res = await fetch(`${this.settings.gatewayUrl}/api/v1/check/${encodeURIComponent(checkId)}/decision`, {
+      method: 'GET',
+      headers: buildHeaders(this.config),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as CheckResponse;
+  }
+
   async flush(): Promise<void> {
     if (this.queue.length === 0) return;
     const batch = this.queue.splice(0, this.settings.batchSize);

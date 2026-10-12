@@ -1,0 +1,48 @@
+\subsection{Connectors}
+\label{sec:connectors}
+
+\system is meant to sit inside an existing stack rather than replace
+one, so most of its surface is connectors (Table~\ref{tab:connectors}).
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Where \system attaches. Inbound connectors deliver tool calls to the
+decision point; outbound connectors deliver decisions and evidence to the
+operator's systems. Every row is exercised by the gateway's test suite; the
+inbound rows are additionally exercised live in Appendix~\ref{app:compat}.}
+\label{tab:connectors}
+\begin{tabular}{lp{0.62\columnwidth}}
+\toprule
+\textbf{Inbound} & \\
+\midrule
+Python SDK & \texttt{auto()} patches 14 targets: Anthropic, OpenAI (chat and Responses), LangChain/LangGraph, CrewAI, AutoGen, Gemini, Bedrock, Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents, Claude Agent SDK (PreToolUse hook), HTTP-tool shim \\
+JS/TS SDK & Anthropic, OpenAI, LangChain; CommonJS build patched \\
+Go SDK & \texttt{Wrap(tool, args, fn)}: explicit check, hold, trace \\
+MCP proxy & stdio proxy for any MCP server (Claude Desktop, Cursor); refusals are tool errors \\
+Egress proxy & provider-shaped endpoints for OpenAI, Anthropic, Gemini, Mistral; self-hosted upstreams (vLLM, Ollama) by one variable \\
+\midrule
+\textbf{Outbound} & \\
+\midrule
+SIEM sinks & declarative \texttt{http} / \texttt{syslog} / \texttt{stdout} sinks with field-mapping templates (Splunk HEC, Datadog, Sumo, QRadar, Graylog), bounded DLQ and retry \\
+Alerts & webhooks, Slack, PagerDuty on block, pending, anomaly \\
+Traces & OTLP export to any OpenTelemetry backend, GenAI semantic conventions \\
+Evidence & signed compliance bundles mapping SOC~2, ISO~27001, NIST AI RMF and EU AI Act controls to live evidence; evidence packs for audits \\
+\midrule
+\textbf{Identity} & \\
+\midrule
+People & OIDC and SAML single sign-on, SCIM~2.0 provisioning, role-based access \\
+Agents & registry with declared tool scope, status and budget; EdDSA-signed identity cards \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two design rules hold across the table. First, a connector is
+configuration, not code: a tenant adds a Splunk sink or a PagerDuty
+destination by writing a config row, and the gateway picks it up on the
+next event without a release. Second, nothing outbound is on the
+decision path: sinks, alerts and exports are fire-and-forget with their
+own queues and dead-letter handling, so a slow SIEM cannot slow an agent.
+The gateway runs as one Node.js service with SQLite or PostgreSQL behind
+it, and ships with Docker Compose, a Helm chart and one-click
+configurations for the common hosts.

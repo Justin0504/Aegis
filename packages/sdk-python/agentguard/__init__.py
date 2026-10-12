@@ -143,6 +143,7 @@ def auto(
     anthropic_async_ok = instrument.patch_anthropic_async()
     openai_ok          = instrument.patch_openai()
     openai_async_ok    = instrument.patch_openai_async()
+    openai_responses_ok = instrument.patch_openai_responses()
     langgraph_ok       = instrument.patch_langgraph()
     crewai_ok          = instrument.patch_crewai()
     gemini_ok          = instrument.patch_gemini()

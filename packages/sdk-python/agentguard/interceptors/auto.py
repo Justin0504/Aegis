@@ -183,7 +183,7 @@ class AutoInstrument:
 
     def _build_check_payload(self, tool_name: str, arguments: dict) -> bytes:
         cfg = self._guard.config
-        agent_id = str(self._guard._agent_uuid)
+        agent_id = self._guard.config.agent_id or str(self._guard._agent_uuid)
         payload: Dict[str, Any] = {
             "agent_id":                agent_id,
             "tool_name":               tool_name,
@@ -678,6 +678,103 @@ class AutoInstrument:
             print(f"[AEGIS] OpenAI sync auto-patch failed: {e}")
             return False
 
+    # ── OpenAI Responses API (used by the OpenAI Agents SDK) ─────────────────
+    def patch_openai_responses(self) -> bool:
+        """Patches openai.resources.responses.Responses.create / AsyncResponses.create.
+
+        The Agents SDK talks to the Responses API by default; a tool call
+        arrives as an output item of type `function_call` (name, arguments,
+        call_id) and its result comes back as an input item of type
+        `function_call_output` (call_id, output). The compatibility matrix
+        showed the chat-completions patch alone leaves this path unguarded."""
+        try:
+            import openai.resources.responses as _mod  # type: ignore
+        except Exception as e:
+            print(f"[AEGIS] OpenAI Responses auto-patch skipped: {e}")
+            return False
+        instrument = self
+        import json as _j
+
+        def _collect_results(kwargs):
+            inp = kwargs.get("input")
+            if not isinstance(inp, list):
+                return
+            for item in inp:
+                if isinstance(item, dict) and item.get("type") == "function_call_output":
+                    cid = item.get("call_id")
+                    with instrument._lock:
+                        pending = instrument._pending.pop(cid, None)
+                    if pending:
+                        instrument._send_trace(
+                            tool_name=pending["tool_name"], input_prompt=pending["input_prompt"],
+                            arguments=pending["arguments"], result=item.get("output", ""),
+                            start_time=pending["start_time"], error=None,
+                            token_usage=pending.get("token_usage"),
+                        )
+
+        def _last_prompt(kwargs):
+            inp = kwargs.get("input")
+            if isinstance(inp, str):
+                return inp
+            if isinstance(inp, list):
+                for item in reversed(inp):
+                    if isinstance(item, dict) and item.get("role") == "user":
+                        c = item.get("content")
+                        return c if isinstance(c, str) else _j.dumps(c)[:500]
+            return ""
+
+        def _calls(response):
+            for item in getattr(response, "output", None) or []:
+                if getattr(item, "type", None) == "function_call":
+                    try:
+                        args = _j.loads(getattr(item, "arguments", "") or "{}")
+                    except Exception:
+                        args = {}
+                    yield item, args
+
+        def _register(response, last_prompt):
+            usage = getattr(response, "usage", None)
+            token_usage = {"input_tokens": getattr(usage, "input_tokens", 0),
+                           "output_tokens": getattr(usage, "output_tokens", 0),
+                           "model": getattr(response, "model", None)} if usage else {}
+            for item, args in _calls(response):
+                with instrument._lock:
+                    instrument._pending[getattr(item, "call_id", None) or item.id] = {
+                        "tool_name": item.name, "input_prompt": last_prompt or item.name,
+                        "arguments": args, "start_time": time.time(), "token_usage": token_usage,
+                    }
+
+        ok = False
+        try:
+            original = _mod.Responses.create
+
+            def patched_create(self_r, **kwargs):
+                _collect_results(kwargs)
+                response = original(self_r, **kwargs)
+                for item, args in _calls(response):
+                    instrument._check_block(item.name, args)
+                _register(response, _last_prompt(kwargs))
+                return response
+            _mod.Responses.create = patched_create
+            ok = True
+        except Exception as e:
+            print(f"[AEGIS] OpenAI Responses sync auto-patch failed: {e}")
+        try:
+            original_async = _mod.AsyncResponses.create
+
+            async def patched_async_create(self_r, **kwargs):
+                _collect_results(kwargs)
+                response = await original_async(self_r, **kwargs)
+                for item, args in _calls(response):
+                    await instrument._async_check_block(item.name, args)
+                _register(response, _last_prompt(kwargs))
+                return response
+            _mod.AsyncResponses.create = patched_async_create
+            ok = True
+        except Exception as e:
+            print(f"[AEGIS] OpenAI Responses async auto-patch failed: {e}")
+        return ok
+
     # ── OpenAI async ────────────────────────────────────────────────────────
 
     def patch_openai_async(self) -> bool:
@@ -761,7 +858,13 @@ class AutoInstrument:
                     input_str = str(input)
                     args = {"input": input_str}
 
-                instrument._check_block(tool_name, args)
+                try:
+                    instrument._check_block(tool_name, args)
+                except AgentGuardBlockedError as e:
+                    # LangGraph's ToolNode converts ToolException into an error
+                    # ToolMessage the model sees — the in-band refusal.
+                    from langchain_core.tools import ToolException
+                    raise ToolException(str(e)) from e
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -799,7 +902,11 @@ class AutoInstrument:
                     input_str = str(input)
                     args = {"input": input_str}
 
-                await instrument._async_check_block(tool_name, args)
+                try:
+                    await instrument._async_check_block(tool_name, args)
+                except AgentGuardBlockedError as e:
+                    from langchain_core.tools import ToolException
+                    raise ToolException(str(e)) from e
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1061,7 +1168,7 @@ class AutoInstrument:
         patched_any = False
         try:
             import llama_index.core.tools.function_tool as _mod
-            original_call = _mod.FunctionTool._call
+            original_call = getattr(_mod.FunctionTool, '_call', None) or _mod.FunctionTool.call
             instrument = self
 
             def patched_call(self_tool, *args, **kwargs):
@@ -1083,14 +1190,14 @@ class AutoInstrument:
                         start_time=start, error=error,
                     )
 
-            _mod.FunctionTool._call = patched_call
+            setattr(_mod.FunctionTool, '_call' if hasattr(_mod.FunctionTool, '_call') else 'call', patched_call)
             patched_any = True
         except Exception as e:
             print(f"[AEGIS] LlamaIndex sync auto-patch failed: {e}")
 
         try:
             import llama_index.core.tools.function_tool as _mod
-            original_acall = _mod.FunctionTool._acall
+            original_acall = getattr(_mod.FunctionTool, '_acall', None) or _mod.FunctionTool.acall
             instrument = self
 
             async def patched_acall(self_tool, *args, **kwargs):
@@ -1112,7 +1219,7 @@ class AutoInstrument:
                         start_time=start, error=error,
                     )
 
-            _mod.FunctionTool._acall = patched_acall
+            setattr(_mod.FunctionTool, '_acall' if hasattr(_mod.FunctionTool, '_acall') else 'acall', patched_acall)
         except Exception as e:
             print(f"[AEGIS] LlamaIndex async auto-patch failed: {e}")
 
@@ -1157,58 +1264,36 @@ class AutoInstrument:
     # ── Pydantic-AI ─────────────────────────────────────────────────────────
 
     def patch_pydantic_ai(self) -> bool:
-        """Patches pydantic_ai.Agent.run + run_sync — traces every tool the
-        agent triggers. Pydantic-AI registers tools via @agent.tool; the
-        framework dispatches them inside Agent.run, so wrapping Agent.run
-        gives us per-tool traces via the inner tool-call hook."""
+        """Patches the toolset dispatch (FunctionToolset.call_tool) so the
+        gateway sees the TOOL call — name and arguments — not the user prompt.
+
+        Earlier versions wrapped Agent.run and sent the prompt as if it were
+        a tool argument, which both mis-identified the tool (`pydantic_ai:…`)
+        and scanned the wrong text; the compatibility matrix caught it."""
         try:
-            import pydantic_ai as _pa  # type: ignore
-            agent_cls = _pa.Agent
-            original_run = agent_cls.run
-            original_run_sync = getattr(agent_cls, 'run_sync', None)
+            import pydantic_ai.toolsets.function as _fn  # type: ignore
+            toolset_cls = _fn.FunctionToolset
+            original_call = toolset_cls.call_tool
             instrument = self
 
-            async def patched_run(self_agent, user_prompt: str = '', **kw):
+            async def patched_call_tool(self_ts, name, tool_args, ctx, tool):
+                args = dict(tool_args) if isinstance(tool_args, dict) else {"input": str(tool_args)}
+                await instrument._async_check_block(name, args)
                 start = time.time()
                 error: Optional[str] = None
                 result = None
-                tool_name = f"pydantic_ai:{getattr(self_agent, 'name', 'agent')}"
-                args = {'user_prompt': str(user_prompt)[:500]}
-                await instrument._async_check_block(tool_name, args)
                 try:
-                    result = await original_run(self_agent, user_prompt, **kw)
+                    result = await original_call(self_ts, name, tool_args, ctx, tool)
                     return result
                 except Exception as e:
                     error = str(e); raise
                 finally:
                     instrument._send_trace(
-                        tool_name=tool_name, input_prompt=str(user_prompt)[:500],
-                        arguments=args, result=str(result)[:500] if result else None,
+                        tool_name=name, input_prompt=name, arguments=args,
+                        result=str(result)[:500] if result is not None else None,
                         start_time=start, error=error,
                     )
-
-            def patched_run_sync(self_agent, user_prompt: str = '', **kw):
-                start = time.time()
-                error: Optional[str] = None
-                result = None
-                tool_name = f"pydantic_ai:{getattr(self_agent, 'name', 'agent')}"
-                args = {'user_prompt': str(user_prompt)[:500]}
-                instrument._check_block(tool_name, args)
-                try:
-                    result = original_run_sync(self_agent, user_prompt, **kw) if original_run_sync else None
-                    return result
-                except Exception as e:
-                    error = str(e); raise
-                finally:
-                    instrument._send_trace(
-                        tool_name=tool_name, input_prompt=str(user_prompt)[:500],
-                        arguments=args, result=str(result)[:500] if result else None,
-                        start_time=start, error=error,
-                    )
-
-            agent_cls.run = patched_run
-            if original_run_sync:
-                agent_cls.run_sync = patched_run_sync
+            toolset_cls.call_tool = patched_call_tool
             return True
         except Exception as e:
             print(f"[AEGIS] Pydantic-AI auto-patch failed: {e}")

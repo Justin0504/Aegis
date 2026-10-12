@@ -1,0 +1,20 @@
+{
+  "name": "js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@justinnn/agentguard": "file:../../../packages/sdk-js",
+    "openai": "^7.32.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}

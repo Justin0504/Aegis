@@ -4,11 +4,11 @@ import { useEffect } from 'react'
 import { XCircle, Clock, X } from 'lucide-react'
 import type { BlockAlert } from '@/hooks/useTraceStream'
 
-const RISK_STYLE: Record<string, { bar: string; icon: string; badge: string }> = {
-  CRITICAL: { bar: 'hsl(0 14% 46%)',   icon: 'hsl(0 14% 46%)',   badge: 'hsl(0 10% 94%)' },
-  HIGH:     { bar: 'hsl(25 18% 44%)',  icon: 'hsl(25 18% 44%)',  badge: 'hsl(25 12% 94%)' },
-  MEDIUM:   { bar: 'hsl(0 0% 44%)',  icon: 'hsl(0 0% 44%)',  badge: 'hsl(var(--secondary))' },
-  LOW:      { bar: 'hsl(150 14% 40%)', icon: 'hsl(150 14% 40%)', badge: 'hsl(150 10% 94%)' },
+// Decision colour, not risk colour: a toast exists to say what the gateway
+// did. Red = blocked before execution, amber = held for a person.
+const DECISION_STYLE = {
+  block:   { rail: 'hsl(0 100% 42%)',  chip: 'hsl(0 100% 42% / 0.08)',  title: 'Blocked before execution' },
+  pending: { rail: 'hsl(40 100% 33%)', chip: 'hsl(40 100% 33% / 0.10)', title: 'Held for approval' },
 }
 
 const AUTO_DISMISS_MS = 8000
@@ -35,61 +35,61 @@ export function BlockAlertToast({ alerts, dismissAlert }: Props) {
       style={{ maxWidth: 360 }}
     >
       {alerts.map((alert) => {
-        const style  = RISK_STYLE[alert.risk_level] ?? RISK_STYLE.HIGH
         const isBlock = alert.event === 'block'
+        const style   = isBlock ? DECISION_STYLE.block : DECISION_STYLE.pending
 
         return (
           <div
             key={alert.id}
-            className="pointer-events-auto rounded-xl shadow-lg border overflow-hidden"
+            className="pointer-events-auto rounded-xl border overflow-hidden"
             style={{
               background: 'hsl(var(--card))',
               borderColor: 'hsl(var(--border))',
-              borderLeft:  `4px solid ${style.bar}`,
-              animation:   'slideInRight 0.2s ease-out',
+              boxShadow: '0 8px 24px -12px rgb(0 0 0 / 0.18), 0 1px 2px rgb(0 0 0 / 0.04)',
+              animation: 'slideInRight 0.18s ease-out',
             }}
           >
-            <div className="flex items-start gap-3 px-4 py-3">
-              {/* Icon */}
-              {isBlock
-                ? <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: style.icon }} />
-                : <Clock   className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: style.icon }} />
-              }
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: 'hsl(0 0% 15%)' }}>
-                  {isBlock ? '🚫 Blocked' : '⏳ Pending Approval'}
-                </p>
-                <p className="text-xs font-mono truncate mt-0.5" style={{ color: 'hsl(0 0% 35%)' }}>
-                  {alert.tool_name}
-                </p>
-                {alert.reason && (
-                  <p className="text-[11px] mt-1 line-clamp-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                    {alert.reason}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 mt-2">
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase"
-                    style={{ background: style.badge, color: style.icon }}
+            <div className="flex items-stretch">
+              <div style={{ width: 3, background: style.rail }} />
+              <div className="flex-1 min-w-0 px-3.5 py-3">
+                <div className="flex items-start gap-2.5">
+                  {isBlock
+                    ? <XCircle className="h-4 w-4 flex-shrink-0 mt-[1px]" style={{ color: style.rail }} />
+                    : <Clock   className="h-4 w-4 flex-shrink-0 mt-[1px]" style={{ color: style.rail }} />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium leading-tight" style={{ color: 'hsl(var(--foreground))' }}>
+                      {style.title}
+                    </p>
+                    <p className="text-[12px] font-mono truncate mt-1" style={{ color: 'hsl(var(--foreground))' }}>
+                      {alert.tool_name}
+                    </p>
+                    {alert.reason && (
+                      <p className="text-[11.5px] mt-1 line-clamp-2 leading-snug" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        {alert.reason}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span
+                        className="text-[10px] font-semibold tracking-wide px-1.5 py-[2px] rounded-md"
+                        style={{ background: style.chip, color: style.rail }}
+                      >
+                        {alert.risk_level}
+                      </span>
+                      <span className="text-[10.5px] font-mono truncate" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                        {alert.category} · {alert.agent_id}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissAlert(alert.id)}
+                    aria-label="Dismiss"
+                    className="flex-shrink-0 rounded-md p-1 hover:bg-[hsl(var(--secondary))] transition-colors"
+                    style={{ color: 'hsl(var(--muted-foreground))' }}
                   >
-                    {alert.risk_level}
-                  </span>
-                  <span className="text-[10px]" style={{ color: 'hsl(0 0% 60%)' }}>
-                    {alert.category} · {alert.agent_id}
-                  </span>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
-
-              {/* Dismiss */}
-              <button
-                onClick={() => dismissAlert(alert.id)}
-                className="flex-shrink-0 rounded p-0.5 hover:opacity-60 transition-opacity"
-                style={{ color: 'hsl(var(--muted-foreground))' }}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
             </div>
           </div>
         )

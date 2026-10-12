@@ -149,23 +149,22 @@
   html { color-scheme: light dark; }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
     font-variant-numeric: tabular-nums;
     line-height: 1.55;
   }
-  /* Big section titles use Tiempos-like serif (Claude landing aesthetic). */
+  /* Titles are the same face as the body, set by weight and tracking. */
   h1, h2 {
-    font-family: var(--font-serif), ui-serif, Georgia, serif;
-    font-weight: 400;
-    letter-spacing: -0.012em;
-    line-height: 1.18;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
   }
-  /* Dense panel/card titles stay sans for legibility. */
   h3, h4 {
-    font-family: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
     letter-spacing: -0.012em;
     font-weight: 600;
   }

@@ -21,6 +21,10 @@ export interface AgentGuardConfig {
   blockingMode?: boolean;
   /** Timeout for blocking checks in ms (default: 3000) */
   blockingTimeoutMs?: number;
+  /** How long a `pending` call waits for a human decision before it is treated as blocked (default: 300000). */
+  humanApprovalTimeoutMs?: number;
+  /** Poll interval while a call is pending (default: 1000). */
+  pollIntervalMs?: number;
   /**
    * Fail-open: if gateway is unreachable during a blocking check, allow the call.
    * Set to false for strict enforcement. Default: true
@@ -73,6 +77,8 @@ export interface TraceInput {
 }
 
 export interface CheckRequest {
+  /** Ask the gateway to hold undecided calls for a person instead of auto-deciding. */
+  blocking?: boolean;
   agent_id: string;
   tool_name: string;
   arguments: Record<string, unknown>;

@@ -33,6 +33,8 @@ export class AgentGuard {
       flushIntervalMs: 2000,
       blockingMode: false,
       blockingTimeoutMs: 3000,
+      humanApprovalTimeoutMs: 300_000,
+      pollIntervalMs: 1_000,
       failOpen: true,
       debug: false,
       // Identity headers default to empty strings; HttpTransport's
@@ -113,6 +115,7 @@ export class AgentGuard {
   async check(toolName: string, args: Record<string, unknown>): Promise<CheckResponse | null> {
     try {
       const req: CheckRequest = {
+        blocking: true,
         agent_id: this.agentId,
         tool_name: toolName,
         arguments: args,
@@ -179,10 +182,30 @@ export class AgentGuard {
       }
       return; // fail-open: allow
     }
-    if (check.decision !== 'allow') {
+    let decision = check.decision;
+    let reason = check.reason ?? 'Policy violation';
+    if (decision === 'pending' && check.check_id) {
+      // The turn suspends here until a person decides in the Cockpit.
+      const deadline = Date.now() + (this.config.humanApprovalTimeoutMs ?? 300_000);
+      const interval = this.config.pollIntervalMs ?? 1_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, interval));
+        const d = await this.transport.pollDecision(check.check_id).catch(() => null);
+        if (d && (d.decision === 'allow' || d.decision === 'block')) {
+          decision = d.decision;
+          reason = d.reason ?? (d.decision === 'block' ? 'Rejected by human reviewer' : reason);
+          break;
+        }
+      }
+      if (decision === 'pending') {
+        decision = 'block';
+        reason = 'Human approval timed out';
+      }
+    }
+    if (decision !== 'allow') {
       throw new AgentGuardBlockedError(
         toolName,
-        check.reason ?? 'Policy violation',
+        reason,
         (check.risk_level ?? 'MEDIUM') as import('./types').RiskLevel,
         check.check_id ?? ''
       );

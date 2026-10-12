@@ -115,21 +115,21 @@ class LLMInterceptor:
                 "method": "chat.completions.create",
                 "timestamp": datetime.utcnow().isoformat(),
                 "args": args,
-                "kwargs": self._sanitize_kwargs(kwargs),
+                "kwargs": interceptor._sanitize_kwargs(kwargs),
             }
 
             try:
                 result = original_create(self, *args, **kwargs)
                 call_data["duration_ms"] = (time.time() - start_time) * 1000
                 call_data["success"] = True
-                call_data["response"] = self._extract_openai_response(result)
+                call_data["response"] = interceptor._extract_openai_response(result)
             except Exception as e:
                 call_data["duration_ms"] = (time.time() - start_time) * 1000
                 call_data["success"] = False
                 call_data["error"] = str(e)
                 raise
             finally:
-                self.captured_calls.append(call_data)
+                interceptor.captured_calls.append(call_data)
 
             return result
 
@@ -296,7 +296,11 @@ class LLMInterceptor:
 
             claude_agent_sdk.run = wrapped_run
 
-        except ImportError:
+        except (ImportError, AttributeError):
+            # claude_agent_sdk >= 0.1 exposes query()/ClaudeSDKClient, not run();
+            # the supported integration is the PreToolUse hook in
+            # agentguard.integrations.claude_agent_sdk. Never let a missing
+            # attribute take down auto() for every other framework.
             pass
 
     def clear_captured_calls(self):

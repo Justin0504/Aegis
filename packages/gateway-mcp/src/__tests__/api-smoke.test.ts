@@ -136,7 +136,11 @@ describe('gateway API smoke tests', () => {
     expect(body.risk_level).toBe('LOW')
   })
 
-  test('check endpoint returns pending for a high-risk blocking request', async () => {
+  // A failed validation is a hard decision: blocking mode returns `block`
+  // immediately. `pending` is reserved for calls the layers cannot decide
+  // (a DSL rule that says pending, an anomaly escalate, a communication
+  // tool) — see the blocking-mode gate in api/check.ts.
+  test('check endpoint returns block for a high-risk blocking request', async () => {
     const { response, body } = await jsonRequest(harness.baseUrl, '/api/v1/check', {
       method: 'POST',
       body: JSON.stringify({
@@ -148,7 +152,7 @@ describe('gateway API smoke tests', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(body.decision).toBe('pending')
+    expect(body.decision).toBe('block')
     expect(body.category).toBe('database')
     expect(body.risk_level).toBe('HIGH')
     expect(typeof body.check_id).toBe('string')

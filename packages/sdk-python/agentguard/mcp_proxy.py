@@ -38,13 +38,18 @@ GATEWAY_URL = "http://localhost:8080"
 AGENT_ID    = "mcp-proxy"
 
 
+HUMAN_APPROVAL_TIMEOUT_S = 300.0
+
+
 def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str) -> dict:
-    """Synchronous pre-execution check."""
+    """Synchronous pre-execution check. A `pending` decision is held here —
+    the MCP call simply takes longer — until a person decides in the
+    Cockpit or the hold times out (then it is a block)."""
     payload = json.dumps({
         "agent_id":  agent_id,
         "tool_name": tool_name,
         "arguments": arguments,
-        "blocking":  False,
+        "blocking":  True,
     }).encode()
     req = urllib.request.Request(
         f"{gateway_url}/api/v1/check",
@@ -54,10 +59,27 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
     )
     try:
         with urllib.request.urlopen(req, timeout=3) as r:
-            return json.loads(r.read())
+            d = json.loads(r.read())
     except Exception as e:
         # Fail-open: if gateway unreachable, allow the call
         return {"decision": "allow", "reason": f"gateway-error: {e}"}
+    if d.get("decision") == "pending" and d.get("check_id"):
+        import time
+        deadline = time.time() + HUMAN_APPROVAL_TIMEOUT_S
+        while time.time() < deadline:
+            time.sleep(1.0)
+            try:
+                with urllib.request.urlopen(f"{gateway_url}/api/v1/check/{d['check_id']}/decision", timeout=5) as r:
+                    v = json.loads(r.read())
+            except Exception:
+                continue
+            if v.get("decision") in ("allow", "block"):
+                d["decision"] = v["decision"]
+                d["reason"] = v.get("reason") or ("rejected by human reviewer" if v["decision"] == "block" else "approved by " + str(v.get("decided_by", "human")))
+                break
+        else:
+            d["decision"], d["reason"] = "block", "human approval timed out"
+    return d
 
 
 def _send_trace(tool_name: str, arguments: dict, result: Any, gateway_url: str, agent_id: str):
@@ -136,7 +158,10 @@ async def proxy(
             # ── List tools handler ─────────────────────────────────────────
             @server.list_tools()
             async def list_tools() -> list[Tool]:
-                return upstream_tools
+                # The proxy relays text content; dropping outputSchema keeps
+                # strict clients from rejecting results that carry none.
+                return [Tool(name=t.name, description=t.description, inputSchema=t.inputSchema)
+                        for t in upstream_tools]
 
             # ── Call tool handler ──────────────────────────────────────────
             @server.call_tool()
@@ -158,7 +183,9 @@ async def proxy(
                         f"Reason: {reason}"
                     )
                     print(f"[AEGIS] BLOCK {name} ({risk_level}) — {reason}", file=sys.stderr)
-                    return [TextContent(type="text", text=msg)]
+                    # Raise, so the host receives an MCP tool error (isError) —
+                    # the same shape as any failed tool, which hosts already handle.
+                    raise RuntimeError(msg)
 
                 if decision == "pending":
                     msg = (
@@ -167,7 +194,7 @@ async def proxy(
                         f"Open the AEGIS dashboard to approve or reject."
                     )
                     print(f"[AEGIS] PENDING {name} — check dashboard", file=sys.stderr)
-                    return [TextContent(type="text", text=msg)]
+                    raise RuntimeError(msg)
 
                 # Forward to upstream
                 upstream_result = await session.call_tool(name, arguments)

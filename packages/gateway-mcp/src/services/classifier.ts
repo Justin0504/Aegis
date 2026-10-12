@@ -79,6 +79,9 @@ const RISK_PATTERNS: Array<{
   type: RiskSignal['type']
   severity: RiskSignal['severity']
   test: (values: string[], args: unknown) => string | null
+  /** Tool-name categories this pattern must not fire on: a semicolon is
+   *  syntax in SQL, not a shell metacharacter. */
+  skipFor?: ToolCategory[]
 }> = [
   // ── SQL Injection ──────────────────────────────────────────────────────────
   {
@@ -213,6 +216,7 @@ const RISK_PATTERNS: Array<{
   {
     type: 'shell_injection',
     severity: 'HIGH',
+    skipFor: ['database'],
     test: (vals) => {
       const SHELL = /[;&|`]|\$\(|\|\|/
       const found = vals.find(v => SHELL.test(v))
@@ -462,7 +466,10 @@ export function classifyToolCall(
     signals.push('scan_truncated')
   }
 
+  const nameCategoryEarly = categoryFromName(toolName)
+
   for (const pattern of RISK_PATTERNS) {
+    if (pattern.skipFor && nameCategoryEarly && pattern.skipFor.includes(nameCategoryEarly)) continue
     const detail = pattern.test(stringValues, args)
     if (detail) {
       risks.push({ type: pattern.type, severity: pattern.severity, detail })

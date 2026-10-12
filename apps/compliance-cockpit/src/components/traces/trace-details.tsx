@@ -492,7 +492,7 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
                 variant="outline"
                 className={getStatusColor(trace.approval_status || 'PENDING')}
               >
-                {trace.approval_status || 'PENDING'}
+                {trace.approval_status || 'UNREVIEWED'}
               </Badge>
             </div>
           </div>

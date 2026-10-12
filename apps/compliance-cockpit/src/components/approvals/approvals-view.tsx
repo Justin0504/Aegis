@@ -95,7 +95,7 @@ export function ApprovalsView() {
 
       {/* Trace-level audit log */}
       <div>
-        <p className="text-sm font-semibold mb-3" style={{ color: TEXT }}>Trace Audit Log</p>
+        <p className="text-sm font-semibold mb-3" style={{ color: TEXT }}>Review queue</p>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--card))' }}>
             <Clock className="h-3.5 w-3.5" style={{ color: 'hsl(var(--muted-foreground))' }} />
@@ -195,7 +195,7 @@ export function ApprovalsView() {
                       <span
                         className="w-1.5 h-1.5 rounded-full"
                         style={{ background: dotColor }}
-                        aria-label={isPending ? 'pending' : status}
+                        aria-label={isPending ? 'unreviewed' : status}
                       />
                     </div>
                     <div className="min-w-0 space-y-1">
@@ -208,7 +208,7 @@ export function ApprovalsView() {
                           borderColor: 'hsl(var(--border))',
                           color: isPending ? 'hsl(var(--status-attn))' : isApproved ? 'hsl(var(--status-ok))' : 'hsl(var(--status-drift))',
                         }}>
-                          {isPending ? 'Pending' : status}
+                          {isPending ? 'Unreviewed' : status}
                         </span>
                       </div>
                       <p className="text-xs truncate" style={{ color: TEXT }}>

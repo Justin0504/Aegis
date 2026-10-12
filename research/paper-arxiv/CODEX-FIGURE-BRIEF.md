@@ -92,7 +92,7 @@ icon; nothing coloured except the badge on Audit.
 2. **Behavioural monitoring** — `profile · sliding window` · `IForest · HST · Mahalanobis` · `ADWIN drift · conformal p-values` · `sequence + cross-agent correlator`
 3. **Containment & recovery** — `kill switch (violation count)` · `budget guard` · `snapshot → saga → causal rollback`
 4. **Pre-deploy** — `repo scan → workflow graph` · `same policy packs, statically` · `code shield · scan diff`
-5. **Compliance Cockpit** — `live feed · approvals` · `profiles · coverage · rollbacks` · `audit export + verify`
+5. **Connectors & fallback** — `SIEM sinks · OTLP · webhooks` · `OIDC / SAML / SCIM` · `fail-open|closed · disk queue · offline model`
 
 Thin dashed arrow from the Gateway's right edge down into Audit, labelled
 `every decision, signed`. Bottom strip (y ≈ 605): `Where an attendee acts:`

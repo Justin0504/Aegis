@@ -1,0 +1,46 @@
+\subsection{Human-in-the-Loop, Containment, and Learning}
+\label{sec:hitl}
+
+A \texttt{pending} decision places the call, its arguments, every layer's
+facts and the matched rule in an approval queue; the agent polls and
+resumes within one cycle (2\,s) of a person choosing Allow or Block, and a
+hold that nobody decides expires after ten minutes as a block. Three
+controls contain an \emph{agent} rather than a call. A \emph{kill switch}
+revokes an agent's access after a configurable violation count, so an
+agent that is being repeatedly manipulated is stopped rather than argued
+with one call at a time. A \emph{budget guard} bounds spend per day,
+month, agent and session in dollars, with a configured action of
+\texttt{log}, \texttt{warn} or \texttt{block}. For actions that cannot be
+undone---sending mail, moving money, posting publicly---an \emph{effect
+outbox} holds an allowed call for a configurable window in which an
+operator can still cancel it, so even an allowed irreversible action
+keeps a pre-execution interval.
+
+\paragraph{Learning without a labelled corpus.}
+The behavioural layer (L2) is the part of the system that learns, and it
+is built so that learning cannot make a young deployment \emph{more}
+dangerous. Each agent's profile passes through three cold-start phases.
+While \emph{learning}, the layer only observes. While \emph{graduated},
+its decision is capped at \texttt{flag}: a profile that has seen too few
+calls to know what normal is cannot escalate or block. Only an
+\emph{active} profile may. Before the Isolation Forest has thirty samples
+it is replaced by a weighted fallback over nine fixed signals, and a new
+agent's feature statistics are seeded from its tenant's aggregate
+baseline, so the first call of a new agent is scored against its
+neighbours rather than against nothing. Raw scores are never thresholded
+directly: a split-conformal calibrator turns them into $p$-values at a
+configured miscoverage ($\alpha{=}0.02$ by default), so an operator's
+``escalate the top 2\%'' is a coverage guarantee, and ADWIN detects
+distribution drift and resets the window so thresholds adapt rather than
+decay. Every approve and reject a person makes in the Cockpit flows back
+into the forest's reservoir and the score tracker (active anomaly
+discovery), so the layer converges on the operator's notion of normal
+rather than a vendor's.
+
+\paragraph{Across agents.}
+Two detectors look across agents. A cross-agent correlator watches for
+the coordinated patterns---one agent reading what another just wrote to
+a shared sink---that no single-agent view can see, and a lateral-movement
+detector surfaces compromise propagating across sessions. Each agent's
+profile, anomaly timeline and the operator's feedback on past alerts are
+visible in the Cockpit (Appendix~\ref{app:ui}).

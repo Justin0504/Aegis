@@ -61,19 +61,15 @@ const MUTED     = 'hsl(var(--muted-foreground))'
 const ACTIVE_BG = 'hsl(var(--sidebar-active))'
 
 function AegisLogo() {
-  // Serif wordmark to match the marketing site header
-  // (aegistraces.com uses Instrument Serif regular for the brand).
-  // Rendered as plain <span> not SVG so the browser applies the
-  // system font stack fallback cleanly if Instrument Serif hasn't
-  // loaded yet — no FOUT with a bold sans-serif fallback.
+  // Sans wordmark: weight and tracking carry the identity, same face as the UI.
   return (
     <span
       aria-label="AEGIS"
       style={{
-        fontFamily: 'var(--font-serif), "Instrument Serif", Georgia, serif',
-        fontWeight: 400,
-        fontSize: 24,
-        letterSpacing: '-0.005em',
+        fontFamily: 'var(--font-geist-sans), system-ui, sans-serif',
+        fontWeight: 700,
+        fontSize: 15,
+        letterSpacing: '0.18em',
         lineHeight: 1,
         color: 'hsl(var(--foreground))',
         display: 'inline-block',
@@ -213,12 +209,8 @@ function SidebarContent({ pathname, connected, lastUpdate, notifPermission, requ
         {notifPermission !== 'granted' && (
           <button
             onClick={requestNotifPermission}
-            className="w-full text-left text-[11px] px-2 py-1 rounded border transition-colors hover:opacity-80"
-            style={{
-              background:  'transparent',
-              borderColor: notifPermission === 'denied' ? 'hsl(0 30% 80%)' : BORDER,
-              color:       notifPermission === 'denied' ? 'hsl(0 40% 50%)' : MUTED,
-            }}
+            className="w-full text-left text-[11px] px-2 py-1 rounded-md transition-colors hover:bg-[hsl(var(--secondary))]"
+            style={{ background: 'transparent', color: MUTED }}
             title={notifPermission === 'denied' ? 'Blocked in browser \u2014 enable in System Settings' : 'Get notified even when this tab is in background'}
           >
             {notifPermission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}

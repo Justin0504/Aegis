@@ -1,0 +1,47 @@
+\section{Compatibility Matrix}
+\label{app:compat}
+
+\input{figures/table_compat}
+
+\paragraph{Setup.}
+Two fresh gateways are started from the shipping build (one with the
+OpenAI upstream for the egress proxy, one with a local Ollama upstream),
+at enterprise tier so that no agent is placed in audit-only mode by the
+free-tier cap; one DSL rule is installed, holding \texttt{kubectl delete}
+for approval; and an approver thread plays the second attendee, approving
+any held call three seconds after it appears. Each (harness, scenario)
+runs in its own process because \texttt{agentguard.auto()} patches SDKs
+process-wide. The tools are real (an in-memory SQLite database; a shell
+tool that simulates execution so a successful attack cannot damage the
+test machine---the decision is taken before the tool runs, so simulation
+after it changes nothing measured). Latencies are the SDK's own round
+trip to \texttt{/api/v1/check}, measured by wrapping the HTTP client, and
+so include serialisation and the loopback network.
+
+\paragraph{Reading the S2 column.}
+Where the framework executes tools itself and catches tool errors
+(LangGraph's \texttt{ToolNode}, smolagents, AutoGen, the MCP host, Claude
+Code's hook protocol), the refusal reaches the model natively. Where the
+SDK must raise from inside the model call because the framework offers no
+tool-execution hook (plain SDK loops, LiteLLM, the OpenAI Agents SDK), a
+three-line handler in the agent loop turns the exception into a message
+the model sees; the rows marked \emph{escaped} are frameworks that
+neither catch the exception nor expose a hook, and are the open items.
+In every row the tool did not run: the difference is only in how
+gracefully the agent learned why.
+
+\paragraph{Harness-specific notes.}
+Claude Haiku refused to emit the \texttt{DROP TABLE} payload of the
+original S2 under every framing we tried, direct or through a planted
+runbook, which is itself a defence layer; S2 therefore uses a payload both
+model families reliably emit, a remote install script piped to
+\texttt{sh}. The Claude Agent SDK runs Claude Code's own Bash tool, so its
+scenarios are shell-shaped (\texttt{echo}, \texttt{cat /etc/shadow},
+\texttt{kubectl delete}) and the interposition is a PreToolUse hook that
+denies with the gateway's reason. The MCP proxy row needs no model: the
+transport is what is under test, so the client calls the tool directly
+through the proxy. Qwen3-8B is driven through Ollama's native API with
+thinking disabled, because its OpenAI-compatible endpoint spends the
+token budget on hidden reasoning and returns no tool call; it is checked
+by the ten-line manual integration, which is the path for any stack the
+SDK cannot patch.

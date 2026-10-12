@@ -1,0 +1,59 @@
+\section{Compliance Cockpit}
+\label{app:ui}
+
+The Cockpit is the operator's view of everything in \S\ref{sec:arch}. The
+views below are unretouched screenshots taken against a gateway while
+the compatibility matrix of Appendix~\ref{app:compat} was running, so
+every number on them comes from the calls in Table~\ref{tab:compat}. The
+interface uses one typeface and no colour except where it carries a
+decision: red for a block, amber for a hold, black for the primary
+action.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/overview.png}
+    \caption{Overview: actions, agents, pending holds and blocks over the last 24 hours, the live activity feed, and the tabs for anomalies, alerts, cost and sessions.}
+    \label{fig:ui-overview}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/approvals.png}
+    \caption{Approvals: a held call with the tool, risk, category, the rule that held it, the arguments exactly as the agent emitted them, how long the agent has been waiting, and the two decisions (keyboard: A / B). This is what the second attendee sees in S3.}
+    \label{fig:ui-approvals}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/traces.png}
+    \caption{Traces: every intercepted call with its decision, layer facts and latency; the forensic detail view opens the full arguments, risk signals and session context.}
+    \label{fig:ui-traces}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/dsl.png}
+    \caption{Policy DSL: rules over dotted facts with a dry-run against recent traces, the eight shipped packs, and the natural-language compiler whose output is a rule the operator reads before it runs.}
+    \label{fig:ui-dsl}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/alignment.png}
+    \caption{Alignment auditor: per-call verdicts (score, drift, rationale) and the calibration report of \S\ref{sec:judge}.}
+    \label{fig:ui-alignment}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/audit-log.png}
+    \caption{Audit log: the signed, hash-chained record with verification status and export; editing one record in the export is the attendee activity of \S\ref{sec:demo}.}
+    \label{fig:ui-audit}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/coverage.png}
+    \caption{Coverage: the deployed detectors joined against the agent threat ontology, so an operator sees which techniques nothing currently watches.}
+    \label{fig:ui-coverage}
+\end{figure}

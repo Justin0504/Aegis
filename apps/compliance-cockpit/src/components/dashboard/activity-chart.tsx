@@ -127,7 +127,7 @@ export function ActivityChart() {
           </div>
         ) : (
           <ResponsiveContainer>
-            <ComposedChart data={data} margin={{ top: 6, right: 4, left: -20, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 6, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={BORDER} strokeDasharray="2 4" vertical={false} />
               <XAxis
                 dataKey="label"

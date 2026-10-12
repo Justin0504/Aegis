@@ -1,0 +1,33 @@
+\subsection{Compatibility: One Gateway, Nineteen Ways In}
+\label{sec:compat}
+
+A demonstration that only works with the demonstrator's agent proves
+little, so the same three scenarios---the benign query of S1, a call the
+agent is talked into that L1 catches, and a destructive call a policy
+holds for a second person---are run against nineteen harnesses: plain
+SDK loops in three languages, six open-source frameworks, three
+closed harnesses (the OpenAI Agents SDK on both of its APIs, the Claude
+Agent SDK running the Claude Code runtime, Google's GenAI SDK), an
+RL-trained open-weight model served locally, and the two non-SDK
+transports (the MCP proxy and the egress proxy, the latter against both
+OpenAI and a self-hosted model). Every row uses the integration the
+paper describes and nothing else; the gateway is the shipping build; the
+language-model calls are real. Appendix~\ref{app:compat} gives the matrix
+(Table~\ref{tab:compat}) and the harness code is in the repository.
+
+The exercise was worth more than the table. Running it found, and the
+current version fixes, eight defects that no unit test had caught: the
+Python SDK replaced any human-readable agent id with a random UUID, so
+policies and approvals keyed to the agent's name never matched; the Go
+SDK read a field the gateway does not send and blocked every call; the
+JavaScript SDK treated a held call as a block instead of waiting; the
+Pydantic~AI patch sat at the wrong layer and scanned the user's prompt
+instead of the tool call; the MCP proxy re-advertised output schemas it
+could not satisfy, so strict clients rejected every result; the L1
+shell-metacharacter rule fired on the semicolon of an ordinary SQL
+statement; a free-tier agent cap silently switched new agents to
+audit-only; and blocking mode held failed validations for a person
+rather than blocking them. Each is the kind of gap that appears only
+when a real framework drives the real gateway, which is the argument
+for keeping the matrix in the repository and running it on every
+release.

@@ -2,30 +2,30 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, Clock, Shield, AlertTriangle } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Shield, AlertTriangle, Database, FileText, Globe, Terminal, Mail, BarChart3, HelpCircle } from 'lucide-react'
 import { USE_MOCK, mockPendingChecks, mockTraces } from '@/lib/mock-traces'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
 const TEXT   = 'hsl(var(--foreground))'
 
-const RISK_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  CRITICAL: { bg: 'hsl(0 10% 96%)',  text: 'hsl(0 14% 42%)',  border: 'hsl(0 10% 82%)' },
-  HIGH:     { bg: 'hsl(25 12% 96%)', text: 'hsl(25 18% 40%)', border: 'hsl(25 12% 82%)' },
-  MEDIUM:   { bg: 'hsl(var(--secondary))', text: 'hsl(220 10% 42%)', border: 'hsl(220 14% 88%)' },
-  LOW:      { bg: 'hsl(150 10% 96%)',text: 'hsl(150 14% 38%)',border: 'hsl(150 10% 82%)' },
+// Semantic colour only where it carries meaning: red = will be blocked unless a
+// person allows it; amber = held; everything else is ink on paper.
+const RISK_COLORS: Record<string, { text: string; bg: string }> = {
+  CRITICAL: { text: 'hsl(0 100% 42%)',  bg: 'hsl(0 100% 42% / 0.08)' },
+  HIGH:     { text: 'hsl(0 100% 42%)',  bg: 'hsl(0 100% 42% / 0.08)' },
+  MEDIUM:   { text: 'hsl(40 100% 33%)', bg: 'hsl(40 100% 33% / 0.10)' },
+  LOW:      { text: 'hsl(var(--muted-foreground))', bg: 'hsl(var(--secondary))' },
 }
-
-const CATEGORY_ICON: Record<string, string> = {
-  database: '🗄',
-  file:     '📄',
-  network:  '🌐',
-  shell:    '💻',
-  communication: '✉️',
-  data:     '📊',
-  unknown:  '❓',
+const CATEGORY_ICON: Record<string, typeof Database> = {
+  database: Database,
+  file:     FileText,
+  network:  Globe,
+  shell:    Terminal,
+  communication: Mail,
+  data:     BarChart3,
+  unknown:  HelpCircle,
 }
-
 function timeAgo(ts: string) {
   const diff = Date.now() - new Date(ts).getTime()
   if (diff < 60_000) return `${Math.round(diff / 1000)}s ago`
@@ -46,16 +46,12 @@ function LiveTimer({ since }: { since: string }) {
   const hrs  = Math.floor(diff / 3_600_000)
   const label = hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
   const isLong = diff > 5 * 60_000 // > 5 min
-
   return (
     <span
-      className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded"
-      style={{
-        background: isLong ? 'hsl(0 12% 95%)' : 'hsl(var(--secondary))',
-        color: isLong ? 'hsl(0 14% 46%)' : 'hsl(0 0% 0%)',
-      }}
+      className="text-[11px] font-mono tabular-nums"
+      style={{ color: isLong ? 'hsl(40 100% 33%)' : MUTED }}
     >
-      waiting {label}
+      held {label}
     </span>
   )
 }
@@ -116,82 +112,78 @@ export function PendingChecks() {
       {checks.map((check: any) => {
         const rc = RISK_COLORS[check.risk_level] ?? RISK_COLORS.MEDIUM
         const loading = deciding[check.check_id]
-        const catIcon = CATEGORY_ICON[check.category] ?? '❓'
+        const CatIcon = CATEGORY_ICON[check.category] ?? CATEGORY_ICON.unknown
+        const args = check.arguments && Object.keys(check.arguments).length > 0
+          ? JSON.stringify(check.arguments, null, 2)
+          : null
 
         return (
           <div
             key={check.check_id}
-            className="rounded-lg border p-4"
-            style={{ borderColor: rc.border, background: rc.bg }}
+            className="rounded-xl border"
+            style={{ borderColor: BORDER, background: 'hsl(var(--card))' }}
           >
-            <div className="flex items-start justify-between gap-4">
-              {/* Left: tool info */}
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{catIcon}</span>
-                  <span className="text-sm font-semibold" style={{ color: TEXT }}>
-                    {check.tool_name}
-                  </span>
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ background: `${rc.text}18`, color: rc.text }}
-                  >
-                    {check.risk_level}
-                  </span>
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: 'hsl(var(--secondary))', color: MUTED }}
-                  >
-                    {check.category}
-                  </span>
-                </div>
+            {/* header: what is being asked, and how risky the layers think it is */}
+            <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+              <CatIcon className="h-4 w-4 flex-shrink-0" style={{ color: MUTED }} />
+              <span className="text-[13px] font-mono font-medium" style={{ color: TEXT }}>
+                {check.tool_name}
+              </span>
+              <span
+                className="text-[10px] font-semibold tracking-wide px-1.5 py-[2px] rounded-md"
+                style={{ background: rc.bg, color: rc.text }}
+              >
+                {check.risk_level}
+              </span>
+              <span className="text-[11px]" style={{ color: MUTED }}>{check.category}</span>
+              <span className="ml-auto"><LiveTimer since={check.created_at} /></span>
+            </div>
 
-                {/* Violations / signals */}
-                {check.violations?.length > 0 && (
-                  <div className="flex items-start gap-1.5">
-                    <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: rc.text }} />
-                    <p className="text-xs" style={{ color: rc.text }}>
-                      {check.violations[0]}
-                    </p>
-                  </div>
-                )}
+            {/* why it was held */}
+            {check.violations?.length > 0 && (
+              <p className="px-4 pb-2 text-[13px] leading-snug" style={{ color: TEXT }}>
+                {check.violations[0]}
+              </p>
+            )}
 
-                {/* Arguments preview */}
-                {check.arguments && Object.keys(check.arguments).length > 0 && (
-                  <pre
-                    className="text-[10px] rounded px-2 py-1 max-h-16 overflow-hidden"
-                    style={{ background: 'hsl(var(--secondary))', color: MUTED }}
-                  >
-                    {JSON.stringify(check.arguments, null, 2).slice(0, 200)}
-                  </pre>
-                )}
+            {/* the call, exactly as the agent emitted it */}
+            {args && (
+              <pre
+                className="mx-4 mb-3 text-[11.5px] leading-[1.5] rounded-lg px-3 py-2.5 max-h-32 overflow-auto"
+                style={{ background: 'hsl(var(--secondary))', color: TEXT }}
+              >
+                {args}
+              </pre>
+            )}
 
-                <div className="flex items-center gap-3 text-[10px]" style={{ color: MUTED }}>
-                  <LiveTimer since={check.created_at} />
-                  <span>agent: {String(check.agent_id).substring(0, 10)}…</span>
-                  <span>id: {check.check_id.substring(0, 8)}…</span>
-                </div>
-              </div>
-
-              {/* Right: action buttons */}
-              <div className="flex flex-col gap-2 flex-shrink-0">
-                <button
-                  onClick={() => decide(check.check_id, 'allow')}
-                  disabled={!!loading}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium transition-colors disabled:opacity-40"
-                  style={{ background: 'hsl(150 14% 45% / 0.68)', color: '#fff' }}
-                >
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  {loading === 'allowing' ? '…' : 'Allow'}
-                </button>
+            {/* footer: provenance + the two decisions */}
+            <div
+              className="flex items-center gap-3 px-4 py-2.5 border-t"
+              style={{ borderColor: BORDER }}
+            >
+              <span className="text-[11px] font-mono truncate" style={{ color: MUTED }}>
+                {String(check.agent_id)} · {check.check_id.substring(0, 8)}
+              </span>
+              <div className="ml-auto flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => decide(check.check_id, 'block')}
                   disabled={!!loading}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-medium transition-colors disabled:opacity-40"
-                  style={{ borderColor: 'hsl(0 10% 82%)', color: 'hsl(0 14% 46%)', background: 'hsl(var(--card))' }}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 h-8 rounded-lg border transition-colors hover:bg-[hsl(var(--secondary))] disabled:opacity-40"
+                  style={{ borderColor: BORDER, color: TEXT, background: 'hsl(var(--card))' }}
                 >
                   <XCircle className="h-3.5 w-3.5" />
-                  {loading === 'blocking' ? '…' : 'Block'}
+                  {loading === 'blocking' ? 'Blocking…' : 'Block'}
+                  <kbd className="ml-1 text-[10px] font-mono opacity-50">B</kbd>
+                </button>
+                <button
+                  onClick={() => decide(check.check_id, 'allow')}
+                  disabled={!!loading}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 h-8 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-40"
+                  style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {loading === 'allowing' ? 'Allowing…' : 'Allow'}
+                  <kbd className="ml-1 text-[10px] font-mono opacity-60">A</kbd>
                 </button>
               </div>
             </div>

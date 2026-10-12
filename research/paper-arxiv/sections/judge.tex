@@ -1,0 +1,34 @@
+\subsection{LLM as Judge: Where It Sits, and How It Is Calibrated}
+\label{sec:judge}
+
+A language model is the only component that can read a call against the
+user's stated task and say whether the one serves the other. \system
+uses one in two places, deliberately neither of them inline on the check
+path (\S\ref{sec:pipeline}). The \emph{alignment auditor} receives the
+declared goal and the proposed call and returns a score, a drift flag
+against a configured threshold, the signals it relied on and a rationale;
+the SDK can call it before the check and attach the verdict, which the
+policy DSL matches like any other fact (\texttt{alignment.score}), so the
+operator decides what a low score \emph{does}. The \emph{trace judge}
+scores recorded traces after the fact on eight dimensions---safety,
+helpfulness, correctness, compliance, efficiency, privacy, robustness,
+transparency---and feeds the Cockpit's evaluation views.
+
+\paragraph{Calibration is reported, not assumed.}
+A judge that says ``block, confidence 0.9'' is only useful if 0.9 means
+something. The gateway ships a calibration harness that runs a judge
+over a benchmark, records decision, confidence and latency per case, and
+reports expected calibration error with reliability bins, following the
+binning estimator of Guo et~al.~\cite{guo2017calibration} as used in the
+guard-model literature~\cite{liu2025calibration}, overall and per
+category. The built-in benchmark is small and deliberately mixed: 30
+cases---10 normal, 5 clear blocks, 5 jailbreaks, 3 indirect injections, 2
+PII egress, 5 borderline---so that a judge's calibration on the easy
+cases does not hide its behaviour on the hard ones. Judge adapters for
+Anthropic and OpenAI ship with retry; a mock judge runs the harness
+offline. The same mechanism is what \S\ref{sec:eval} uses to report that
+the judge is the only content-side configuration above chance on
+agent-emitted attacks, at roughly $1600\times$ the cost of the rules
+path---and what motivates L$_\mathrm{p}$, which recovers the comparison
+the judge was making from the conversation's channel split in under a
+millisecond.

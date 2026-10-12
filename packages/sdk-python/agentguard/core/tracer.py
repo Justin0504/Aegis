@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 
 from agentguard_core_schema import (
     AgentActionTrace,
@@ -249,11 +249,13 @@ class AgentGuard:
         self._a2a_stack: List[tuple] = []
 
         # Normalise agent_id to UUID once — reused for every trace
+        # The operator's agent_id ("billing-agent") is the identity the gateway
+        # keys policies, kill switch, profiles and approvals on. Keep it. Only
+        # derive a UUID (stable, from the name) for fields typed as UUID.
         try:
             self._agent_uuid: UUID = UUID(self.config.agent_id)
         except (ValueError, AttributeError):
-            self._agent_uuid = uuid4()
-            self.config.agent_id = str(self._agent_uuid)
+            self._agent_uuid = uuid5(NAMESPACE_URL, f"aegis-agent:{self.config.agent_id}")
 
         # Initialize components
         self._signing_service = self._init_signing_service()
