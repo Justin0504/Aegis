@@ -75,12 +75,21 @@ def cell(r, s, holds):
     lat = f"{statistics.median(ms):.0f}\\,ms" if ms and s != "S3" else ""
     inb = r.get("inband")
     inb_txt = {"native": "in-band", "handler": "handler", "exception": "escaped", "proxy": "inline"}.get(inb, "")
+    if s == "S3":
+        # The S3 outcome is a hold followed by the second attendee's approval.
+        # SDK rows surface it as `pending` (then allow); the Go/JS/MCP rows
+        # report the final allow only; the proxy cannot hold and blocks.
+        if r["harness"].startswith("egress-proxy"):
+            return "\\texttt{block} (proxy cannot hold)"
+        if dec in ("pending", "allow"):
+            return "held → \\texttt{allow}" + (held or ", 3\\,s")
+        return f"\\texttt{{{dec}}}"
     parts = [f"\\texttt{{{dec}}}"]
     if s == "S2" and inb_txt:
         parts.append(inb_txt)
     if lat:
         parts.append(lat)
-    return " · ".join(parts) + held
+    return " · ".join(parts)
 
 
 def main():
