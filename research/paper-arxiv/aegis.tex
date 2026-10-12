@@ -292,7 +292,8 @@ asymmetric by design---it scores how much of the \emph{call} a channel
 explains, not how similar two texts are---which is what makes the
 obvious evasion (copying the user's request into the injection) inert
 (\S\ref{sec:eval}). The result is a verdict in
-\{\texttt{user}, \texttt{untrusted}, \texttt{unclear}, \texttt{unknown}\}.
+\{\texttt{user}, \texttt{untrusted}, \texttt{unclear}, \texttt{unknown}\}
+(Figure~\ref{fig:provenance}).
 \texttt{unknown} is reported, never inferred: a session with no reported
 user turn yields it, and every provenance rule in the shipped policy pack
 requires a decided verdict, so an un-instrumented deployment sees no
@@ -300,6 +301,24 @@ behaviour change rather than a wall of false blocks. Ledgers are
 namespaced by tenant; without that, an attacker who guessed a session id
 could write a \texttt{user} event into another tenant's session and
 launder an injected instruction into an authority.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/provenance_mechanism.pdf}
+    \vspace{-0.12in}
+    \caption{Instruction provenance on a record from the corpus of
+    \S\ref{sec:eval}. \emph{Left:} the per-session context ledger, every
+    span tagged by the channel it arrived through. \emph{Centre:} the call
+    the agent emitted and its vocabulary, each token coloured by the channel
+    that explains it---nothing the user said is in this call. \emph{Right:}
+    the four grounded features and the verdict. \emph{Bottom:} why the
+    measure is asymmetric: echoing the user's request inside the injection
+    changes nothing, because the licence scores how much of the \emph{call}
+    a channel explains; only carrying the user's words into the call's
+    arguments raises the price (\S\ref{sec:authority}).}
+    \vspace{-0.1in}
+    \label{fig:provenance}
+\end{figure*}
 
 \paragraph{L3: LLM judge (1--2\,s).}
 A frontier model receives the tool name, arguments and the user's task
@@ -406,6 +425,18 @@ session and per agent and holds calls that would exceed it.
 \subsection{Audit and Integrity}
 \label{sec:audit}
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/audit_chain.pdf}
+    \vspace{-0.15in}
+    \caption{Each trace is signed with the agent's Ed25519 key and commits
+    to its predecessor's hash. Editing one field of record $t$ fails
+    verification for $t$ and everything after it; attendees are invited to
+    do exactly this to an exported log.}
+    \vspace{-0.15in}
+    \label{fig:audit}
+\end{figure}
+
 Every decision, with the facts that produced it, becomes a trace. Traces
 are signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and
 linked into a SHA-256 hash chain in which each record commits to its
@@ -416,7 +447,7 @@ external \emph{witnesses} can countersign---so an operator cannot
 quietly rewrite their own history even with the gateway's key. Offline
 verification recomputes the chain and roots from an exported log and
 fails loudly on any discrepancy; the demonstration invites attendees to
-edit one record and watch it fail. Compliance evidence packs assemble
+edit one record and watch it fail (Figure~\ref{fig:audit}). Compliance evidence packs assemble
 traces, policies and verification results into the artefacts an audit
 expects (SOC~2 control evidence, EU AI Act Article 12 record-keeping).
 
@@ -622,9 +653,26 @@ artefact at all.
 \subsection{Mechanism: Instantiation by Rollout}
 \label{sec:instantiate}
 
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/rollout_construction.pdf}
+    \vspace{-0.12in}
+    \caption{How the corpus is built. An InjecAgent case supplies the
+    context but no attacker call; four arms---attack, a length-matched
+    control with the injection replaced by neutral prose, schema-synthesised
+    benign requests with decoy tools, and a two-step benign arm whose calls
+    also carry tool-derived arguments---are rolled out through the same live
+    agent, and a record is labelled by whether the emitted call names a tool
+    on the case's attacker list. Attack success is 95.07\% against 0.285\%
+    in the control arm; the result is 663 agent-emitted calls on which no
+    surface feature exceeds AUC 0.585.}
+    \vspace{-0.1in}
+    \label{fig:instantiate}
+\end{figure*}
+
 If the attacker's call only exists after an agent is compromised, the
 sound way to obtain one is to compromise an agent and record what it
-emits. For each InjecAgent case we reconstruct the agent's context---the
+emits (Figure~\ref{fig:instantiate}). For each InjecAgent case we reconstruct the agent's context---the
 user's instruction, the legitimate first tool call, and the tool response
 carrying the injection---and let a live model (Qwen3-VL-32B-Instruct,
 AWQ 4-bit, served over an OpenAI-compatible endpoint with
@@ -692,11 +740,27 @@ generated the attacks, still missing 21.1\% of them.
 \subsection{Why Authority Separates What Content Cannot}
 \label{sec:authority}
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/capability.pdf}
+    \vspace{-0.15in}
+    \caption{Tables~\ref{tab:results} and \ref{tab:provenance} as a
+    picture. (a)~Every content-only detector sits on the chance line; only
+    the judge, which reads the task, is above it---at 2{,}280\,ms.
+    (b)~Content and taint lie inside each other's spread; grounded
+    instruction provenance is a step, not an increment, and the adaptive
+    attacker (\textcolor{red}{$\blacktriangledown$}) lowers it to 0.933,
+    not to the content level. The hatched bar is the definitional pair,
+    reported and excluded.}
+    \vspace{-0.15in}
+    \label{fig:capability}
+\end{figure}
+
 \input{figures/table_provenance}
 
 \begin{sloppypar}
 The question is whether the judge's advantage is \emph{reading the task}
-or \emph{being a large model}. Table~\ref{tab:provenance} answers it with
+or \emph{being a large model}. Table~\ref{tab:provenance} and Figure~\ref{fig:capability} answer it with
 feature blocks evaluated against the two-step benign arm, where both
 classes carry tool-derived arguments. Content features reach 0.687. Data
 provenance---\allowbreak the five taint features that track where each argument's
