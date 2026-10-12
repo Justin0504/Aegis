@@ -643,6 +643,9 @@ class AutoInstrument:
                             )
 
                 response = original(self_comp, **kwargs)
+                if kwargs.get("stream"):
+                    lp = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+                    return instrument._wrap_openai_stream(response, lp if isinstance(lp, str) else "", is_async=False)
                 choice   = response.choices[0] if response.choices else None
                 if choice and getattr(choice, "finish_reason", None) == "tool_calls":
                     last_prompt = next(
@@ -677,6 +680,142 @@ class AutoInstrument:
         except Exception as e:
             print(f"[AEGIS] OpenAI sync auto-patch failed: {e}")
             return False
+
+
+    # ── streaming support for the OpenAI chat patches ─────────────────────────
+    def _wrap_openai_stream(self, stream, last_prompt: str, is_async: bool):
+        """Yield chunks unchanged, accumulate tool_call fragments, and run the
+        blocking check once the stream ends — the framework only dispatches
+        tools after the last chunk, so a block raised here still precedes
+        execution."""
+        instrument = self
+        import json as _j
+        calls: dict = {}
+
+        def _accumulate(chunk):
+            try:
+                delta = chunk.choices[0].delta if chunk.choices else None
+            except Exception:
+                return
+            for tc in (getattr(delta, "tool_calls", None) or []):
+                slot = calls.setdefault(tc.index, {"id": None, "name": "", "args": ""})
+                if getattr(tc, "id", None):
+                    slot["id"] = tc.id
+                fn = getattr(tc, "function", None)
+                if fn is not None:
+                    if getattr(fn, "name", None):
+                        slot["name"] += fn.name
+                    if getattr(fn, "arguments", None):
+                        slot["args"] += fn.arguments
+
+        def _finish_sync():
+            for slot in calls.values():
+                try:
+                    args = _j.loads(slot["args"] or "{}")
+                except Exception:
+                    args = {}
+                instrument._check_block(slot["name"], args)
+                with instrument._lock:
+                    instrument._pending[slot["id"]] = {"tool_name": slot["name"], "input_prompt": last_prompt or slot["name"],
+                                                       "arguments": args, "start_time": time.time(), "token_usage": {}}
+
+        async def _finish_async():
+            for slot in calls.values():
+                try:
+                    args = _j.loads(slot["args"] or "{}")
+                except Exception:
+                    args = {}
+                await instrument._async_check_block(slot["name"], args)
+                with instrument._lock:
+                    instrument._pending[slot["id"]] = {"tool_name": slot["name"], "input_prompt": last_prompt or slot["name"],
+                                                       "arguments": args, "start_time": time.time(), "token_usage": {}}
+
+        if is_async:
+            async def agen():
+                async for chunk in stream:
+                    _accumulate(chunk)
+                    yield chunk
+                await _finish_async()
+            return agen()
+
+        def gen():
+            for chunk in stream:
+                _accumulate(chunk)
+                yield chunk
+            _finish_sync()
+        return gen()
+
+    # ── Google GenAI (google-genai, the current SDK) ─────────────────────────
+    def patch_google_genai(self) -> bool:
+        """Patches google.genai Models.generate_content / AsyncModels.generate_content.
+        A tool call is a Part with `function_call` (name, args) on the first
+        candidate; the legacy google.generativeai patch does not see this client."""
+        try:
+            import google.genai.models as _mod  # type: ignore
+        except Exception as e:
+            print(f"[AEGIS] google-genai auto-patch skipped: {e}")
+            return False
+        instrument = self
+
+        def _calls(response):
+            try:
+                parts = response.candidates[0].content.parts or []
+            except Exception:
+                return []
+            out = []
+            for part in parts:
+                fc = getattr(part, "function_call", None)
+                if fc is not None and getattr(fc, "name", None):
+                    out.append((fc.name, dict(fc.args or {})))
+            return out
+
+        def _prompt(kwargs):
+            c = kwargs.get("contents")
+            if isinstance(c, str):
+                return c[:500]
+            try:
+                last = c[-1]
+                txt = " ".join(getattr(p, "text", "") or "" for p in getattr(last, "parts", []) or [])
+                return txt[:500]
+            except Exception:
+                return ""
+
+        def _register(response, last_prompt):
+            for name, args in _calls(response):
+                with instrument._lock:
+                    instrument._pending[f"genai:{name}:{time.time()}"] = {
+                        "tool_name": name, "input_prompt": last_prompt or name, "arguments": args,
+                        "start_time": time.time(), "token_usage": {},
+                    }
+
+        ok = False
+        try:
+            original = _mod.Models.generate_content
+
+            def patched(self_m, *args, **kwargs):
+                response = original(self_m, *args, **kwargs)
+                for name, fargs in _calls(response):
+                    instrument._check_block(name, fargs)
+                _register(response, _prompt(kwargs))
+                return response
+            _mod.Models.generate_content = patched
+            ok = True
+        except Exception as e:
+            print(f"[AEGIS] google-genai sync auto-patch failed: {e}")
+        try:
+            original_async = _mod.AsyncModels.generate_content
+
+            async def patched_async(self_m, *args, **kwargs):
+                response = await original_async(self_m, *args, **kwargs)
+                for name, fargs in _calls(response):
+                    await instrument._async_check_block(name, fargs)
+                _register(response, _prompt(kwargs))
+                return response
+            _mod.AsyncModels.generate_content = patched_async
+            ok = True
+        except Exception as e:
+            print(f"[AEGIS] google-genai async auto-patch failed: {e}")
+        return ok
 
     # ── OpenAI Responses API (used by the OpenAI Agents SDK) ─────────────────
     def patch_openai_responses(self) -> bool:
@@ -803,6 +942,9 @@ class AutoInstrument:
                             )
 
                 response = await original_async(self_comp, **kwargs)
+                if kwargs.get("stream"):
+                    lp = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+                    return instrument._wrap_openai_stream(response, lp if isinstance(lp, str) else "", is_async=True)
                 choice   = response.choices[0] if response.choices else None
                 if choice and getattr(choice, "finish_reason", None) == "tool_calls":
                     last_prompt = next(
@@ -852,8 +994,11 @@ class AutoInstrument:
                 tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
                 if isinstance(input, dict):
                     import json as _j
-                    args = input
-                    input_str = _j.dumps(input)
+                    # LangGraph's ToolNode invokes with the ToolCall envelope
+                    # ({name, args, id, type: "tool_call"}); the call's
+                    # arguments are inside `args`, which is what policies match on.
+                    args = input.get("args") if input.get("type") == "tool_call" and isinstance(input.get("args"), dict) else input
+                    input_str = _j.dumps(args)
                 else:
                     input_str = str(input)
                     args = {"input": input_str}
@@ -896,8 +1041,11 @@ class AutoInstrument:
                 tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
                 if isinstance(input, dict):
                     import json as _j
-                    args = input
-                    input_str = _j.dumps(input)
+                    # LangGraph's ToolNode invokes with the ToolCall envelope
+                    # ({name, args, id, type: "tool_call"}); the call's
+                    # arguments are inside `args`, which is what policies match on.
+                    args = input.get("args") if input.get("type") == "tool_call" and isinstance(input.get("args"), dict) else input
+                    input_str = _j.dumps(args)
                 else:
                     input_str = str(input)
                     args = {"input": input_str}

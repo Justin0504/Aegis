@@ -487,7 +487,12 @@ export class CheckAPI {
             classification.category,
             requiresHumanReview ? 'HIGH' : validation.risk_level,
             JSON.stringify(classification.signals),
-            JSON.stringify(requiresHumanReview ? ['Requires human approval'] : (validation.violations ?? [])),
+            // The reason a person sees in the approval queue: the DSL rule's own
+            // words when a rule held the call, otherwise the validator's.
+            JSON.stringify(requiresHumanReview ? ['Requires human approval']
+              : (dslPending && dslMatch?.reason) ? [dslMatch.reason]
+              : (anomalyResult?.decision === 'escalate') ? [`Behavioural anomaly (score=${anomalyResult.composite_score})`]
+              : (validation.violations ?? [])),
             expiresAt,
           )
 

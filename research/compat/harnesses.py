@@ -26,7 +26,7 @@ from common import (GATEWAY, SCENARIOS, SCENARIOS_BASH, TOOL_SPECS, CheckRecorde
 
 ANTHROPIC_MODEL = "claude-haiku-4-5"
 OPENAI_MODEL = "gpt-4o-mini"
-GEMINI_MODEL = "gemini-2.5-flash-lite"
+GEMINI_MODEL = "gemini-3-flash-preview"
 REC = CheckRecorder().install()
 OUT: dict[str, Any] = {"transcript": [], "inband": "n/a", "escaped": False}
 
@@ -384,6 +384,13 @@ def run_egress_proxy(sc, upstream_tag: str = "openai", model: str = OPENAI_MODEL
         hdr = getattr(resp, "_aegis", None)
         log((m.content or "") + "".join(f"\n<tool_call {tc.function.name} {tc.function.arguments}>" for tc in (m.tool_calls or [])) + f"\n[proxy round trip {dt} ms]")
         if not m.tool_calls:
+            # the proxy rewrites a refused tool call into a text refusal the model/user sees
+            txt = m.content or ""
+            if "AEGIS blocked" in txt:
+                import re as _re
+                mm = _re.search(r"tool call\(s\): ([A-Za-z_]+)\. Reason: (.*)", txt)
+                REC.events.append({"tool": mm.group(1) if mm else "?", "decision": "block", "reason": (mm.group(2) if mm else txt)[:200],
+                                   "sdk_roundtrip_ms": dt, "inline": True})
             break
         messages.append({"role": "assistant", "content": m.content, "tool_calls": [tc.model_dump() for tc in m.tool_calls]})
         for tc in m.tool_calls:

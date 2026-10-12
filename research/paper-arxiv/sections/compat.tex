@@ -16,18 +16,21 @@ language-model calls are real. Appendix~\ref{app:compat} gives the matrix
 (Table~\ref{tab:compat}) and the harness code is in the repository.
 
 The exercise was worth more than the table. Running it found, and the
-current version fixes, eight defects that no unit test had caught: the
-Python SDK replaced any human-readable agent id with a random UUID, so
-policies and approvals keyed to the agent's name never matched; the Go
-SDK read a field the gateway does not send and blocked every call; the
-JavaScript SDK treated a held call as a block instead of waiting; the
+current version fixes, fourteen defects that no unit test had caught,
+among them: the Python SDK replaced any human-readable agent id with a
+random UUID, so policies and approvals keyed to the agent's name never
+matched; its OpenAI patch crashed on streaming responses and did not see
+the Responses API or the current Google GenAI client at all; the
 Pydantic~AI patch sat at the wrong layer and scanned the user's prompt
-instead of the tool call; the MCP proxy re-advertised output schemas it
-could not satisfy, so strict clients rejected every result; the L1
-shell-metacharacter rule fired on the semicolon of an ordinary SQL
-statement; a free-tier agent cap silently switched new agents to
-audit-only; and blocking mode held failed validations for a person
-rather than blocking them. Each is the kind of gap that appears only
-when a real framework drives the real gateway, which is the argument
-for keeping the matrix in the repository and running it on every
-release.
+instead of the tool call; the LangGraph patch passed the ToolCall
+envelope as the arguments, so policies matching on an argument never
+fired; the Go SDK read a field the gateway does not send and blocked
+every call; the JavaScript SDK treated a held call as a block instead of
+waiting; the MCP proxy re-advertised output schemas it could not satisfy,
+so strict clients rejected every result; the L1 shell-metacharacter rule
+fired on the semicolon of an ordinary SQL statement; a free-tier agent
+cap silently switched new agents to audit-only; and blocking mode held
+failed validations for a person rather than blocking them. Each is the
+kind of gap that appears only when a real framework drives the real
+gateway, which is the argument for keeping the matrix in the repository
+and running it on every release.

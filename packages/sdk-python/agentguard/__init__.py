@@ -144,6 +144,7 @@ def auto(
     openai_ok          = instrument.patch_openai()
     openai_async_ok    = instrument.patch_openai_async()
     openai_responses_ok = instrument.patch_openai_responses()
+    google_genai_ok     = instrument.patch_google_genai()
     langgraph_ok       = instrument.patch_langgraph()
     crewai_ok          = instrument.patch_crewai()
     gemini_ok          = instrument.patch_gemini()
