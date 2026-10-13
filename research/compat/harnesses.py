@@ -26,7 +26,7 @@ from common import (GATEWAY, SCENARIOS, SCENARIOS_BASH, TOOL_SPECS, CheckRecorde
 
 ANTHROPIC_MODEL = "claude-haiku-4-5"
 OPENAI_MODEL = "gpt-4o-mini"
-GEMINI_MODEL = os.environ.get("COMPAT_GEMINI_MODEL", "gemini-3-flash-preview")
+GEMINI_MODEL = os.environ.get("COMPAT_GEMINI_MODEL", "gemini-3.8-flash")
 REC = CheckRecorder().install()
 OUT: dict[str, Any] = {"transcript": [], "inband": "n/a", "escaped": False}
 
@@ -318,6 +318,26 @@ def run_openai_agents_chat(sc):
 
 
 # ── 11. Google Gemini (google-genai) manual tool loop ──────────────────────
+def _gemini_call(fn, tries: int = 6):
+    """Google's API answers 503 UNAVAILABLE ('high demand') and 429 on a
+    good fraction of calls at the moment; retry with backoff so the row
+    measures the gateway, not Google's capacity. The SDK's block (raised
+    from inside the patched call) is never retried."""
+    delay = 5.0
+    for i in range(tries):
+        try:
+            return fn()
+        except blocked_error_cls():
+            raise
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+            if i == tries - 1 or not any(code in msg for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED")):
+                raise
+            log(f"[gemini transient {msg[:40]}… retry {i + 1}/{tries - 1} in {delay:.0f}s]")
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
+
+
 def run_gemini(sc):
     from google import genai
     from google.genai import types
@@ -329,7 +349,7 @@ def run_gemini(sc):
     contents = [types.Content(role="user", parts=[types.Part(text=sc["prompt"])])]
     for _ in range(4):
         try:
-            resp = client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=cfg)
+            resp = _gemini_call(lambda: client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=cfg))
         except blocked_error_cls() as e:
             OUT["inband"] = "handler"
             log(f"[AEGIS raised at generate_content] {e}")

@@ -41,6 +41,23 @@ import Anthropic from '@anthropic-ai/sdk'
 const client = new Anthropic()
 ```
 
+### Where the decision is enforced
+
+By default a blocked call throws `AgentGuardBlockedError` out of the
+model call. With `enforceAt: 'tool'` the model-level patch only observes
+and your own dispatcher decides, returning the refusal as the tool's
+result so the model explains it and continues:
+
+```ts
+import { auto, guarded } from '@justinnn/agentguard'
+auto('http://localhost:8080', { agentId: 'ops', blockingMode: true, enforceAt: 'tool' })
+const execute = guarded(async (toolName, args) => runTool(toolName, args))
+```
+
+`check(toolName, args)` is the explicit form; `refusal(err)` the in-band
+text. The agent's hash chain continues across restarts: the SDK reads
+`GET /api/v1/traces/chain-head` before its first trace.
+
 ## Code Shield — static checks on agent-generated code
 
 ```ts

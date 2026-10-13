@@ -2,18 +2,21 @@
 \label{app:ui}
 
 The Cockpit is the operator's view of everything in \S\ref{sec:arch}. The
-views below are unretouched screenshots taken against a gateway while
-the compatibility matrix of Appendix~\ref{app:compat} was running, so
-every number on them comes from the calls in Table~\ref{tab:compat}. The
-interface uses one typeface and no colour except where it carries a
-decision: red for a block, amber for a hold, black for the primary
-action.
+views below are unretouched screenshots of the Cockpit attached to the
+gateway database that the compatibility matrix of
+Appendix~\ref{app:compat} produced; the agents, traces and chains on
+them are the matrix's, and the blocks and holds visible on the overview
+and approval views were driven into the same gateway with the matrix's
+S2 and S3 payloads immediately before the capture, so that the queue
+was not empty. The interface uses one typeface and no colour except
+where it carries a decision: red for a block, amber for a hold, black
+for the primary action. The overview is Figure~\ref{fig:dashboard}.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\columnwidth]{images/ui/overview.png}
-    \caption{Overview: actions, agents, pending holds and blocks over the last 24 hours, the live activity feed, and the tabs for anomalies, alerts, cost and sessions.}
-    \label{fig:ui-overview}
+    \includegraphics[width=\columnwidth]{images/ui/violations.png}
+    \caption{Violations: every pre-execution block and hold the gateway recorded, with the rule or risk tier that produced it, the tool, and the agent---the table that §\ref{sec:compat} found was silently empty until the matrix was run.}
+    \label{fig:ui-violations}
 \end{figure}
 
 \begin{figure}[H]

@@ -88,7 +88,18 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
    ("hit-rate stats will undercount" in the gateway log). Fixed by a
    rebuild-on-open migration (`db/database.ts`); if you see that warning
    again, something re-added a constraint.
-8. **Demo model**: `demo/live-agent` defaults to `claude-haiku-4-5`
+8. **Decisions in traces**: the Python SDK now writes the gateway's
+   verdict into each trace (`safety_validation`, `approval_status`:
+   AUTO_APPROVED / APPROVED / REJECTED). The Cockpit's Violations page
+   lists traces with a failed validation while the status bar counts the
+   gateway's `violations` table; after a full matrix run the two agree.
+   The JS SDK has `enforceAt: 'tool'` + `check/guarded/refusal` like
+   Python; `js/agent.cjs` uses them.
+9. **Gemini**: Google's API returns 503/429 on a large fraction of calls;
+   `harnesses.py` retries transient errors (`_gemini_call`) and defaults to
+   `gemini-3.8-flash` (`COMPAT_GEMINI_MODEL` overrides; the key's model
+   list is at `generativelanguage.googleapis.com/v1beta/models`).
+10. **Demo model**: `demo/live-agent` defaults to `claude-haiku-4-5`
    (`AEGIS_DEMO_MODEL` overrides). Sonnet 4.5 declines the S2 payload on
    its own; Haiku emits it 5/5 with the neutral system prompt and ~1/3
    with a prompt that names the firewall. Do not put "AEGIS" or

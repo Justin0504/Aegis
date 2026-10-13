@@ -36,7 +36,7 @@ ROWS = [
     ("openai-agents",      "Closed harness", "OpenAI Agents SDK (Responses API)", "SDK auto()",       "GPT-4o-mini"),
     ("openai-agents-chat", "Closed harness", "OpenAI Agents SDK (chat completions)", "SDK auto()",    "GPT-4o-mini"),
     ("claude-agent-sdk",   "Closed harness", "Claude Agent SDK (Claude Code runtime)", "PreToolUse hook", "Claude Code"),
-    ("gemini",             "Closed harness", "Google GenAI function calling", "SDK auto()",           "Gemini Flash"),
+    ("gemini",             "Closed harness", "Google GenAI function calling", "SDK auto()",           "Gemini 3.8 Flash"),
     ("mcp-proxy",          "Transport", "MCP stdio proxy (Claude Desktop shape)", "MCP proxy",         "--- (host)"),
     ("egress-proxy-openai","Transport", "Egress proxy → OpenAI",            "egress proxy",          "GPT-4o-mini"),
     ("egress-proxy-ollama","Transport", "Egress proxy → Ollama (self-hosted)", "egress proxy",       "Qwen2.5-7B"),

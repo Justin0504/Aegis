@@ -53,6 +53,32 @@ agentguard.auto(
 # Existing Anthropic / OpenAI / supported SDK usage can remain unchanged
 ```
 
+### Where the decision is enforced
+
+`enforce_at="response"` (default): a blocked call raises
+`AgentGuardBlockedError` out of the model call, before any tool runs.
+
+`enforce_at="tool"`: the model-level patch only observes and the
+framework's tool-level patch (LangGraph, CrewAI, AutoGen, LlamaIndex,
+smolagents, Pydantic AI, OpenAI Agents SDK) returns the refusal **as the
+tool's result**, so the model sees why and continues instead of failing.
+A plain loop, LiteLLM or the Google GenAI client has no method to patch
+at the tool; wrap your own dispatcher instead:
+
+```python
+agentguard.auto(url, agent_id="ops", blocking_mode=True, enforce_at="tool")
+execute_tool = agentguard.guarded(execute_tool)   # fn(tool_name, arguments)
+```
+
+`agentguard.check(tool_name, arguments)` / `acheck` is the explicit form
+(returns on allow, blocks while a held call awaits a person, raises on
+block); `agentguard.refusal(err)` is the in-band text.
+
+Every decision is written into the trace the SDK sends
+(`safety_validation`, `approval_status`), and the agent's hash chain
+continues across process restarts (the SDK reads
+`GET /api/v1/traces/chain-head` before its first trace).
+
 ## Features
 
 ### Tracing
