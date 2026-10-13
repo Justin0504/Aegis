@@ -78,8 +78,21 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
 5. ~~Streaming on the Anthropic patch~~ — done 2026-10-13 (events are
    assembled and checked at `message_stop`; verified with a live streamed
    `curl | sh` call). `messages.stream()` (the helper) is untested.
-6. **Go SDK** has no chain resumption yet (`packages/sdk-go`): mirror
-   `chain-head` there (read head before the first trace).
+6. ~~Go SDK chain resumption~~ — done 2026-10-13, and more was wrong:
+   its traces were not in the gateway's schema and `Close()` returned
+   before the final flush, so no Go trace had ever reached the gateway.
+   `types.go` now mirrors `AgentActionTrace`, agent ids map to the same
+   uuid5 as the Python SDK, and chains resume from `chain-head`.
+7. **Violations table** had foreign keys to `policies(id)` and
+   `traces(trace_id)`; every `/check` block or hold failed to insert
+   ("hit-rate stats will undercount" in the gateway log). Fixed by a
+   rebuild-on-open migration (`db/database.ts`); if you see that warning
+   again, something re-added a constraint.
+8. **Demo model**: `demo/live-agent` defaults to `claude-haiku-4-5`
+   (`AEGIS_DEMO_MODEL` overrides). Sonnet 4.5 declines the S2 payload on
+   its own; Haiku emits it 5/5 with the neutral system prompt and ~1/3
+   with a prompt that names the firewall. Do not put "AEGIS" or
+   "compliance" back into the agent's system prompt.
 
 ## Rules
 

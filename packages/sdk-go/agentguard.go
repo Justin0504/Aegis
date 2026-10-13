@@ -15,6 +15,7 @@ package agentguard
 import (
 	"fmt"
 	"os"
+	"sync"
 )
 
 // Config holds AgentGuard connection settings.
@@ -49,9 +50,11 @@ func (e *BlockedError) Error() string {
 
 // AgentGuard is the main SDK handle.
 type AgentGuard struct {
-	cfg       Config
-	transport *transport
-	chain     *hashChain
+	cfg        Config
+	transport  *transport
+	chain      *hashChain
+	agentUUID  string    // the trace schema's agent id: the configured id, or a uuid5 of it
+	resumeOnce sync.Once // chain resumption runs once, before the first trace
 }
 
 // Auto creates an AgentGuard using environment variables:
@@ -82,6 +85,7 @@ func New(cfg Config) *AgentGuard {
 		cfg:       cfg,
 		transport: newTransport(cfg.GatewayURL, cfg.APIKey),
 		chain:     newHashChain(),
+		agentUUID: agentUUID(cfg.AgentID),
 	}
 }
 

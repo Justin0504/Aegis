@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -22,9 +23,10 @@ type transport struct {
 	approvalTimeout time.Duration
 	pollInterval    time.Duration
 
-	mu    sync.Mutex
-	batch []GatewayTrace
-	done  chan struct{}
+	mu      sync.Mutex
+	batch   []GatewayTrace
+	done    chan struct{}
+	stopped chan struct{} // closed by flushLoop after its final flush
 }
 
 func newTransport(gatewayURL, apiKey string) *transport {
@@ -36,6 +38,7 @@ func newTransport(gatewayURL, apiKey string) *transport {
 		pollInterval:    time.Second,
 		batch:           make([]GatewayTrace, 0, defaultBatchSize),
 		done:            make(chan struct{}),
+		stopped:         make(chan struct{}),
 	}
 	go t.flushLoop()
 	return t
@@ -60,6 +63,7 @@ func (t *transport) flushLoop() {
 			t.flush()
 		case <-t.done:
 			t.flush()
+			close(t.stopped)
 			return
 		}
 	}
@@ -132,6 +136,7 @@ func (t *transport) check(agentID, toolName string, toolCall interface{}) (*Chec
 	}
 	// A held call: poll until a person decides (or the hold expires server-side).
 	if out.Decision == "pending" && out.CheckID != "" {
+		out.Held = true
 		deadline := time.Now().Add(t.approvalTimeout)
 		for time.Now().Before(deadline) {
 			time.Sleep(t.pollInterval)
@@ -177,6 +182,39 @@ func (t *transport) pollDecision(checkID string) (*CheckResponse, error) {
 	return &out, nil
 }
 
+// chainHead asks the gateway where this agent's hash chain currently ends,
+// so a restarted process continues it. Nil on an older gateway or when
+// the agent has no traces yet.
+func (t *transport) chainHead(agentUUID string) (*chainHead, error) {
+	httpReq, err := http.NewRequest("GET", t.gatewayURL+"/api/v1/traces/chain-head?agent_id="+url.QueryEscape(agentUUID), nil)
+	if err != nil {
+		return nil, err
+	}
+	if t.apiKey != "" {
+		httpReq.Header.Set("X-API-Key", t.apiKey)
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("gateway returned %d", resp.StatusCode)
+	}
+	var head chainHead
+	if err := json.NewDecoder(resp.Body).Decode(&head); err != nil {
+		return nil, err
+	}
+	return &head, nil
+}
+
+// close stops the flush loop and waits for the final flush, so traces
+// recorded just before Close() reach the gateway before the process exits.
 func (t *transport) close() {
 	close(t.done)
+	select {
+	case <-t.stopped:
+	case <-time.After(10 * time.Second):
+	}
 }
