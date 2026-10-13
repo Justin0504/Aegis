@@ -75,7 +75,7 @@ AI agents increasingly execute tool calls---database queries, shell commands, fi
 
 We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 15 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same three scenarios.
 
-The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then submit input that genuinely fools the agent into emitting a destructive query and watch the block return \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
+The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then ask for a routine-looking install and watch the agent's \texttt{curl \ldots | sh} blocked \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
 
 This version also corrects our earlier evaluation. The 99.9\% block rate and 0.09\% false-positive rate previously reported came from a static per-call benchmark whose construction we audit here and find degenerate; they are withdrawn. Measured instead on tool calls a live agent was actually manipulated into emitting, the pattern layer fires on \textbf{0.4\%}, because a successful indirect injection produces a syntactically ordinary call. We are explicit about this in the demonstration itself, and the audit reproduces in one command.
 \end{abstract}
@@ -116,11 +116,13 @@ However, these capabilities create a direct path from model output to real-world
 In most current stacks, once the model emits a tool call, the framework forwards it to execution with no pre-execution control point.
 
 Post-execution observability platforms such as Langfuse~\cite{langfuse2024} and Arize~\cite{arize2024} can record these events, but they cannot prevent side effects before they occur.
-Existing defenses sit at two extremes: rule-based layers are fast ($<$1\,ms) but brittle against unseen attack patterns, while LLM-judge layers generalize well but add seconds of latency per call.
+Existing defenses sit at two extremes: rule-based layers are fast ($<$1\,ms) but see only the call string, while LLM-judge layers can read the call against the user's task but add seconds of latency per call.
 
-We demonstrate \system, a pre-execution firewall that bridges this gap with
-a \textbf{cost-aware cascade} and, more importantly for a demonstration,
-with a control point an attendee can stand in front of and try to defeat.
+We demonstrate \system, a pre-execution firewall whose layers are ordered
+by \textbf{what they may observe}---the call string, the agent's history,
+the conversation's trust channels, the stated task---and, more importantly
+for a demonstration, a control point an attendee can stand in front of and
+try to defeat.
 
 \paragraph{What the demonstration shows.}
 Three scenarios on a laptop (\S\ref{sec:demo}), driven live by attendees
@@ -895,6 +897,34 @@ InjecAgent~\cite{zhan2024injecagent} benchmarks indirect prompt
 injection. These are evaluation harnesses rather than runtime control
 points, and \S\ref{sec:eval} argues that distinction is load-bearing.
 
+\paragraph{Runtime controls for agents.}
+The closest systems also decide tool calls before they run, and differ
+from \system in where they stand. CaMeL~\cite{debenedetti2025camel}
+defeats injection \emph{by design}: a privileged model plans over the
+user's query while a quarantined model handles untrusted data, and
+capabilities on values enforce policies on tool calls; it requires the
+agent to be built around that split, and in exchange gets a guarantee
+that no detector can. Progent~\cite{shi2025progent} enforces a
+per-task privilege policy over tool names and arguments, generated and
+updated by a model and checked deterministically, demonstrated inside
+LangChain and the OpenAI Agents SDK.
+IsolateGPT~\cite{wu2025isolategpt} isolates third-party apps from each
+other and from the hub at the architecture level.
+LlamaFirewall~\cite{chennabasappa2025llamafirewall} and NeMo
+Guardrails~\cite{rebedea2023nemo} are libraries the agent's own process
+calls: prompt and alignment scanners and a code scanner in the first,
+programmable dialogue rails in the second. \system shares the
+pre-execution stance and is deliberately the least invasive of these:
+it stands between an \emph{unmodified} agent and its tools, across
+frameworks and transports it does not control, and adds what a
+deployment needs around the decision---a hold that suspends the agent
+for a person, a signed and chained record of every decision, and
+fallback when the control point itself is slow or down. Its
+instruction-provenance layer (\S\ref{sec:provenance}) is a detector that
+borrows CaMeL's question, which channel authorised this, without
+CaMeL's rewrite; \S\ref{sec:eval} measures what that buys and what it
+cannot.
+
 \paragraph{LLM trustworthiness and guardrails.}
 TrustLLM~\cite{huang2024position} and TrustEval~\cite{wang2024trusteval}
 evaluate trustworthiness at the model level; Llama
@@ -913,7 +943,7 @@ complements these by acting before side effects occur.
 
 We demonstrate \system, a pre-execution firewall and audit layer that
 inserts a framework-agnostic control point between an agent's tool-call
-decision and its execution, in two lines of integration across 14
+decision and its execution, in two lines of integration across 15
 frameworks---and, because a demonstration that only works with the
 demonstrator's agent proves little, we drive the same gateway with
 nineteen harnesses in Appendix~\ref{app:compat}, from plain SDK loops to
@@ -939,9 +969,21 @@ is what we are putting on it.
 \textbf{Code and demo video:}
 \href{https://github.com/Justin0504/Aegis}{\texttt{github.com/\allowbreak Justin0504/\allowbreak Aegis}} (MIT).
 The repository contains the gateway, the SDKs, the Compliance Cockpit,
-the rollout harness, the corrected benchmark, and
-\texttt{benchmark.\allowbreak audit\_construction}, which reproduces every figure in
-\S\ref{sec:eval}.
+the rollout harness, the corrected benchmark, and the compatibility
+matrix. Every number in this paper is produced by a command in that
+repository, at the commit tagged \texttt{arxiv-v2}:
+\texttt{python -m benchmark.audit\_construction} for the audit of
+\S\ref{sec:withdrawn} and Table~\ref{tab:integrity};
+\texttt{python -m selective.emit\_instantiated} to roll the corpus of
+\S\ref{sec:instantiate} out again (it needs the served model);
+\texttt{python -m cascade.run\_cascade} for the detectors of
+Table~\ref{tab:results}; \texttt{python -m selective.provenance\_eval}
+for Table~\ref{tab:provenance} and Figure~\ref{fig:capability}; and
+\texttt{research/compat/run\_compat.py} followed by
+\texttt{make\_table.py} for Appendix~\ref{app:compat}, whose per-row
+transcripts are committed under \texttt{research/compat/results}. The
+figures are drawn from those outputs by the scripts in
+\texttt{research/figures\_src}; nothing in a figure is typed in by hand.
 \clearpage
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
