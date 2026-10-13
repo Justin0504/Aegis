@@ -73,7 +73,7 @@
 \begin{abstract}
 AI agents increasingly execute tool calls---database queries, shell commands, file operations, and HTTP requests---yet most agent frameworks forward these calls to execution with no pre-execution mediation. Post-execution observability can record what an agent did; it cannot stop it.
 
-We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 14 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same three scenarios.
+We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 15 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same three scenarios.
 
 The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then submit input that genuinely fools the agent into emitting a destructive query and watch the block return \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
 
@@ -89,7 +89,7 @@ This version also corrects our earlier evaluation. The 99.9\% block rate and 0.0
     \includegraphics[width=\textwidth]{images/architecture.pdf}
     \vspace{-0.1in}
     \caption{\system on the tool-execution path, drawn as the loop it is.
-Outbound, the SDK intercepts \texttt{tool\_use} across 14 frameworks and
+Outbound, the SDK intercepts \texttt{tool\_use} across 15 frameworks and
 the Gateway applies layers ordered by \emph{observation scope} rather
 than only by cost: L1 sees the call string, L2 the agent's own history,
 L$_\mathrm{p}$ the conversation's trust channels, and the alignment auditor
@@ -159,7 +159,7 @@ failure on purpose.
 
 \medskip\noindent Our contributions are:
 \begin{enumerate}[nolistsep,leftmargin=*]
-\item A \textbf{framework-agnostic interception layer} supporting 14 agent
+\item A \textbf{framework-agnostic interception layer} supporting 15 agent
       frameworks across Python, JavaScript, and Go with two-line
       integration, returning allow/block/pending before any side effect.
 \item \sloppy \textbf{Human-in-the-loop control and tamper-evident audit}: agents
@@ -218,7 +218,7 @@ agentguard.auto()  # patches every detected SDK in-process
 it finds---Anthropic and OpenAI (sync and async), LangChain and LangGraph
 (through \texttt{langchain\_core} tools), CrewAI, AutoGen, Gemini, Bedrock,
 Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents~\cite{smolagents2024},
-the Claude Agent SDK, and a generic HTTP-tool shim; fourteen targets---and
+the OpenAI Agents SDK (at the tool), the Claude Agent SDK, and a generic HTTP-tool shim; fifteen targets---and
 exposes two hooks. On the \emph{response}
 side it extracts every \texttt{tool\_use} block, sends
 \texttt{(tool\_name, arguments, session\_id)} to the Gateway, and

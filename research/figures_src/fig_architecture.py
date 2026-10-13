@@ -97,7 +97,7 @@ def build() -> Scene:
     sc.add(Text(AG_X + 18, 184, "agentguard.auto()", size=10.8, mono=True,
                 color=P.MONO_FG))
 
-    sc.add(Text(AG_X + 14, 216, "14 frameworks", size=12, color=P.INK_SOFT))
+    sc.add(Text(AG_X + 14, 216, "15 frameworks", size=12, color=P.INK_SOFT))
     sc.add(Text(AG_X + 14, 234, "Python \u00b7 JS \u00b7 Go", size=11.5,
                 color=P.INK_FAINT))
     numbered(sc, AG_X + AG_W - 26, 46, "1")

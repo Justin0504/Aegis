@@ -38,7 +38,7 @@ One sentence the figure must make obvious without the caption:
 
 **Agent** (x 12–160): title `Agent`, badge ①; card `LLM` (robot icon),
 caption *untrusted principal*; accent-bordered card `two lines` + mono
-`agentguard.auto()`; `14 frameworks · Python · JS · Go`; arrow → gateway.
+`agentguard.auto()`; `15 frameworks · Python · JS · Go`; arrow → gateway.
 
 **Interposition** (x ≈ 170–250, new vs the reference): three short
 labelled stubs `SDK auto()` / `MCP proxy` / `egress proxy` merging into the

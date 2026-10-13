@@ -11,7 +11,7 @@
 <g transform="translate(32,148)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#0070F3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1-5-5zm10 0l-5-5l1.5-1.5a3.536 3.536 0 1 1 5 5zM3 21l2.5-2.5m13-13L21 3m-11 8l-2 2m5 1l-2 2"/></svg></svg></g>
 <text x="54" y="160" font-size="12.5" fill="#0070F3" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">two lines</text>
 <text x="30" y="184" font-size="10.8" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agentguard.auto()</text>
-<text x="26" y="216" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">14 frameworks</text>
+<text x="26" y="216" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">15 frameworks</text>
 <text x="26" y="234" font-size="11.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Python · JS · Go</text>
 <rect x="134" y="46" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
 <text x="141.5" y="57" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1</text>
