@@ -65,6 +65,7 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
         return {"decision": "allow", "reason": f"gateway-error: {e}"}
     if d.get("decision") == "pending" and d.get("check_id"):
         import time
+        d["held"] = True
         deadline = time.time() + HUMAN_APPROVAL_TIMEOUT_S
         while time.time() < deadline:
             time.sleep(1.0)
@@ -82,30 +83,49 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
     return d
 
 
-def _send_trace(tool_name: str, arguments: dict, result: Any, gateway_url: str, agent_id: str):
-    """Best-effort async trace (fire and forget via thread)."""
+_INSTRUMENTS: dict = {}
+
+
+def _instrument(gateway_url: str, agent_id: str):
+    """One AgentGuard per (gateway, agent): traces in the gateway's schema,
+    the agent's hash chain resumed from the gateway, decisions attached."""
+    key = (gateway_url, agent_id)
+    if key not in _INSTRUMENTS:
+        from .core.config import AgentGuardConfig
+        from .core.tracer import AgentGuard
+        from .interceptors.auto import AutoInstrument
+        # Synchronous sends: the proxy is a short-lived subprocess of its host, and
+        # a background batch thread would die with it, trace still queued.
+        guard = AgentGuard(AgentGuardConfig(agent_id=agent_id, gateway_url=gateway_url,
+                                            enable_signing=False, enable_async=False))
+        _INSTRUMENTS[key] = AutoInstrument(guard)
+    return _INSTRUMENTS[key]
+
+
+def _send_trace(tool_name: str, arguments: dict, result: Any, gateway_url: str, agent_id: str,
+                decision: Optional[dict] = None, start_time: Optional[float] = None, error: Optional[str] = None):
+    """Best-effort trace (fire and forget via thread). Every decision the
+    proxy took — allow, block, a hold and how it was resolved — is written
+    into the trace, in the same chain as the calls that ran."""
     import threading, time
-    payload = json.dumps({
-        "agent_id":  agent_id,
-        "tool_name": tool_name,
-        "arguments": arguments,
-        "result":    str(result)[:2000],
-        "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
-    }).encode()
+    t0 = start_time or time.time()
 
     def _send():
         try:
-            req = urllib.request.Request(
-                f"{gateway_url}/api/v1/traces",
-                data=payload,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            urllib.request.urlopen(req, timeout=5)
-        except Exception:
-            pass
+            inst = _instrument(gateway_url, agent_id)
+            if decision:
+                if decision.get("held"):
+                    inst._note_decision(tool_name, arguments, dict(decision, decision="pending"))
+                    inst._resolve_hold(tool_name, decision.get("decision") == "allow", decision.get("reason"))
+                else:
+                    inst._note_decision(tool_name, arguments, decision)
+            inst._send_trace(tool_name=tool_name, input_prompt=tool_name, arguments=arguments,
+                             result=result, start_time=t0, error=error)
+        except Exception as e:  # noqa: BLE001 — tracing must never break the proxy
+            print(f"[AEGIS] mcp-proxy trace failed: {e}", file=sys.stderr)
 
-    threading.Thread(target=_send, daemon=True).start()
+    # Not a daemon: the interpreter waits for the send before exiting.
+    threading.Thread(target=_send, daemon=False).start()
 
 
 async def proxy(
@@ -183,6 +203,7 @@ async def proxy(
                         f"Reason: {reason}"
                     )
                     print(f"[AEGIS] BLOCK {name} ({risk_level}) — {reason}", file=sys.stderr)
+                    _send_trace(name, arguments, None, gateway_url, agent_id, decision=result_check, error=reason)
                     # Raise, so the host receives an MCP tool error (isError) —
                     # the same shape as any failed tool, which hosts already handle.
                     raise RuntimeError(msg)
@@ -197,6 +218,8 @@ async def proxy(
                     raise RuntimeError(msg)
 
                 # Forward to upstream
+                import time as _time
+                t_start = _time.time()
                 upstream_result = await session.call_tool(name, arguments)
 
                 # Send trace (fire and forget)
@@ -204,15 +227,21 @@ async def proxy(
                     c.text for c in upstream_result.content
                     if hasattr(c, "text")
                 ) if upstream_result.content else ""
-                await loop.run_in_executor(
-                    None, _send_trace, name, arguments, output_text, gateway_url, agent_id
-                )
+                _send_trace(name, arguments, output_text, gateway_url, agent_id,
+                            decision=result_check, start_time=t_start)
 
                 return upstream_result.content
 
             # ── Run as stdio server ────────────────────────────────────────
-            async with stdio_server() as (r, w):
-                await server.run(r, w, server.create_initialization_options())
+            try:
+                async with stdio_server() as (r, w):
+                    await server.run(r, w, server.create_initialization_options())
+            finally:
+                for inst in _INSTRUMENTS.values():
+                    try:
+                        inst._guard._transport.shutdown()
+                    except Exception:
+                        pass
 
 
 def main():
