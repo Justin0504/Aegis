@@ -89,14 +89,18 @@ This version also corrects our earlier evaluation. The 99.9\% block rate and 0.0
     \includegraphics[width=\textwidth]{images/architecture.pdf}
     \vspace{-0.1in}
     \caption{\system on the tool-execution path, drawn as the loop it is.
-Outbound, the SDK intercepts \texttt{tool\_use} across 15 frameworks and
-the Gateway applies layers ordered by \emph{observation scope} rather
-than only by cost: L1 sees the call string, L2 the agent's own history,
-L$_\mathrm{p}$ the conversation's trust channels, and the alignment auditor
-(L3) the user's stated task. L$_\mathrm{p}$ (dashed) is the
-instruction-provenance layer of \S\ref{sec:eval}, optional and toggleable
-during the demonstration; L3 is not an inline stage of the check but an
-SDK-side pre-check and a post-hoc trace judge. Inbound is what distinguishes a control point
+Outbound, a call reaches the Gateway one of three ways---the SDK's
+\texttt{auto()} across 15 frameworks, the MCP proxy, or the egress proxy
+(the proxies decide inline and cannot hold)---and the Gateway applies
+layers ordered by \emph{observation scope} rather than only by cost: L1
+sees the call string, L2 the agent's own history, L$_\mathrm{p}$ the
+conversation's trust channels, the alignment auditor (L3) the user's
+stated task, and the policy DSL all of their facts. L$_\mathrm{p}$
+(accent, dashed) is the instruction-provenance layer of \S\ref{sec:eval},
+optional and toggleable during the demonstration; L3 (dashed) is not an
+inline stage of the check but an SDK-side pre-check and a post-hoc trace
+judge. The lower row is what stands around the decision
+(\S\ref{sec:hitl}--\S\ref{sec:connectors}). Inbound is what distinguishes a control point
 from a monitor: \texttt{allow} lets the tool run, \texttt{block} returns
 a refusal \emph{in the slot a tool result would occupy}---which is why a
 blocked agent explains itself and continues rather than failing

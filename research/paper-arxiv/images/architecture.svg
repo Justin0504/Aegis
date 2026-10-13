@@ -1,95 +1,137 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="470" viewBox="0 0 1000 470" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="508" viewBox="0 0 1000 508" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">
 <defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/></marker><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.07"/></filter></defs>
-<rect width="1000" height="470" fill="#FFFFFF"/>
-<rect x="12" y="40" width="148" height="218" rx="12" fill="#FAFAFA" stroke="#EBEBEB" stroke-width="1.0"/>
-<text x="24" y="57" font-size="15" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Agent</text>
-<rect x="24" y="72" width="124" height="34" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<g transform="translate(33,82.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2zm6-4v2m-3 8v9m6-9v9M5 16l4-2m6 0l4 2M9 18h6M10 8v.01M14 8v.01"/></svg></svg></g>
-<text x="53" y="93.68" font-size="13" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">LLM</text>
-<text x="26" y="126" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-style="italic">untrusted principal</text>
-<rect x="24" y="138" width="124" height="56" rx="6" fill="#FFFFFF" stroke="#D3E5FF" stroke-width="1.0"/>
-<g transform="translate(32,148)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#0070F3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1-5-5zm10 0l-5-5l1.5-1.5a3.536 3.536 0 1 1 5 5zM3 21l2.5-2.5m13-13L21 3m-11 8l-2 2m5 1l-2 2"/></svg></svg></g>
-<text x="54" y="160" font-size="12.5" fill="#0070F3" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">two lines</text>
-<text x="30" y="184" font-size="10.8" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agentguard.auto()</text>
-<text x="26" y="216" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">15 frameworks</text>
-<text x="26" y="234" font-size="11.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Python · JS · Go</text>
-<rect x="134" y="46" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
-<text x="141.5" y="57" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1</text>
-<line x1="164" y1="100" x2="178" y2="100" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
-<rect x="184" y="40" width="620" height="218" rx="12" fill="#FAFAFA" stroke="#D8D8D8" stroke-width="1.0" stroke-dasharray="5 4"/>
-<text x="200" y="66" font-size="17" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Aegis Gateway</text>
-<text x="200" y="84" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-style="italic">the call has not run yet</text>
-<rect x="200" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
-<g transform="translate(210,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.5 15a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5M17 7.875l3-1.687m-3 1.687v3.375m0-3.375l-3-1.687m3 1.687l3 1.688M17 4.5v3.375m0 0l-3 1.688"/></svg></svg></g>
-<text x="232" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L1  rules</text>
-<rect x="209" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="270.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">call string</text>
-<text x="212" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">&lt;1 ms</text>
-<line x1="341" y1="144" x2="351" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
-<rect x="352" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
-<g transform="translate(362,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 20a2 2 0 1 0-4 0a2 2 0 0 0 4 0M16 4a2 2 0 1 0-4 0a2 2 0 0 0 4 0m0 16a2 2 0 1 0-4 0a2 2 0 0 0 4 0m-5-8a2 2 0 1 0-4 0a2 2 0 0 0 4 0m10 0a2 2 0 1 0-4 0a2 2 0 0 0 4 0M5.058 18.306l2.88-4.606m2.123-3.397l2.877-4.604m-2.873 8.006l2.876 4.6M15.063 5.7l2.881 4.61"/></svg></svg></g>
-<text x="384" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L2  behaviour</text>
-<rect x="361" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="422.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agent history</text>
-<text x="364" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">in-process</text>
-<line x1="493" y1="144" x2="503" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
-<rect x="504" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
-<g transform="translate(514,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3m.7 1h4.6"/></svg></svg></g>
-<text x="536" y="118" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L3  auditor</text>
-<rect x="513" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="574.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">stated task</text>
-<text x="516" y="180" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1–2 s</text>
-<line x1="645" y1="144" x2="655" y2="144" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
-<rect x="656" y="96" width="140" height="96" rx="10" fill="#FFFFFF" stroke="#D3E5FF" stroke-width="1.0" stroke-dasharray="5 4"/>
-<g transform="translate(666,104)"><svg width="15" height="15" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#0070F3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19a2 2 0 1 0 4 0a2 2 0 0 0-4 0M19 7a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-8 12h5.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H13"/></svg></svg></g>
-<text x="688" y="118" font-size="13" fill="#0070F3" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Lp  provenance</text>
-<rect x="665" y="132" width="122" height="24" rx="4" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="726.0" y="148" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">channel split</text>
-<text x="668" y="180" font-size="11.5" fill="#0070F3" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">&lt;1 ms · optional</text>
-<text x="200" y="218" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">decision</text>
-<rect x="276" y="204" width="92" height="32" rx="16" fill="#D7F2E7" stroke="#D7F2E7" stroke-width="1.0"/>
-<text x="322.0" y="225" font-size="13" fill="#0E8A5F" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">allow</text>
-<rect x="380" y="204" width="92" height="32" rx="16" fill="#FFE3E3" stroke="#FFE3E3" stroke-width="1.0"/>
-<text x="426.0" y="225" font-size="13" fill="#D40000" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">block</text>
-<rect x="484" y="204" width="104" height="32" rx="16" fill="#FFEFCF" stroke="#FFEFCF" stroke-width="1.0"/>
-<text x="536.0" y="225" font-size="13" fill="#A96500" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">pending</text>
-<line x1="594" y1="220" x2="614" y2="220" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
-<rect x="620" y="204" width="168" height="32" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<g transform="translate(629,213.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4m1 4l2 2l4-4"/></svg></svg></g>
-<text x="649" y="224.5" font-size="12.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">human approval</text>
-<rect x="772" y="208" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
-<text x="779.5" y="219" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">2</text>
-<path d="M 322,238 L 322.0,294.0 Q 322,300 316.0,300.0 L 92.0,300.0 Q 86,300 86.0,294.0 L 86,262" fill="none" stroke="#0E8A5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
-<path d="M 426,238 L 426.0,316.0 Q 426,322 420.0,322.0 L 116.0,322.0 Q 110,322 110.0,316.0 L 110,262" fill="none" stroke="#D40000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
-<path d="M 536,238 L 536.0,338.0 Q 536,344 530.0,344.0 L 68.0,344.0 Q 62,344 62.0,338.0 L 62,262" fill="none" stroke="#A96500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
-<rect x="604" y="276" width="384" height="100" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="618" y="302" font-size="12" fill="#0E8A5F" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">allow</text>
-<text x="690" y="302" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the tool runs; its result returns normally</text>
-<text x="618" y="328" font-size="12" fill="#D40000" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">block</text>
-<text x="690" y="328" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the tool never runs — a refusal returns</text>
-<text x="618" y="354" font-size="12" fill="#A96500" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">pending</text>
-<text x="690" y="354" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the turn suspends until a person decides</text>
-<text x="690" y="341" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">where a tool result would</text>
-<text x="12" y="404" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">The refusal arrives in-band — which is why a blocked agent explains itself and continues</text>
-<text x="12" y="422" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the conversation instead of failing.</text>
-<line x1="808" y1="100" x2="810" y2="100" stroke="#8A8A8A" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
-<rect x="816" y="40" width="172" height="116" rx="12" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
-<text x="828" y="57" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Tamper-evident</text>
-<rect x="826" y="70" width="152" height="30" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<g transform="translate(835,78.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.5 21H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v.5"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0m-3-5V7a4 4 0 1 1 8 0v4m-1 8l2 2l4-4"/></g></svg></svg></g>
-<text x="855" y="89.32" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Ed25519</text>
-<rect x="826" y="108" width="152" height="28" rx="5" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
-<text x="834" y="126.14" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">SHA-256 chain</text>
-<rect x="964" y="46" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
-<text x="971.5" y="57" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">3</text>
-<rect x="816" y="168" width="172" height="90" rx="12" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
-<text x="828" y="185" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Cockpit</text>
-<rect x="826" y="196" width="152" height="30" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
-<g transform="translate(835,204.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m0 12h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1m10-4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1m0-8h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1"/></svg></svg></g>
-<text x="855" y="215.32" font-size="12" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">live feed</text>
-<text x="828" y="244" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">approvals · export</text>
-<text x="12" y="452" font-size="12" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Where an attendee acts:</text>
-<text x="196" y="452" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1  drives the agent</text>
-<text x="356" y="452" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">2  approves or blocks a held call</text>
-<text x="600" y="452" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">3  tampers with the signed log, verification fails</text>
+<rect width="1000" height="508" fill="#FFFFFF"/>
+<rect x="12" y="36" width="148" height="218" rx="12" fill="#FAFAFA" stroke="#EBEBEB" stroke-width="1.0"/>
+<text x="24" y="53" font-size="15" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Agent</text>
+<rect x="24" y="68" width="124" height="34" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(33,78.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2zm6-4v2m-3 8v9m6-9v9M5 16l4-2m6 0l4 2M9 18h6M10 8v.01M14 8v.01"/></svg></svg></g>
+<text x="53" y="89.68" font-size="13" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">LLM</text>
+<text x="26" y="122" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-style="italic">untrusted principal</text>
+<rect x="24" y="134" width="124" height="56" rx="6" fill="#FFFFFF" stroke="#D3E5FF" stroke-width="1.0"/>
+<g transform="translate(32,144)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#0070F3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1-5-5zm10 0l-5-5l1.5-1.5a3.536 3.536 0 1 1 5 5zM3 21l2.5-2.5m13-13L21 3m-11 8l-2 2m5 1l-2 2"/></svg></svg></g>
+<text x="54" y="156" font-size="12.5" fill="#0070F3" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">two lines</text>
+<text x="30" y="180" font-size="10.8" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agentguard.auto()</text>
+<text x="26" y="212" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">15 frameworks</text>
+<text x="26" y="230" font-size="11.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Python · JS · Go</text>
+<rect x="134" y="42" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="141.5" y="53" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1</text>
+<text x="168" y="62" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">three ways in</text>
+<rect x="168" y="76" width="82" height="20" rx="4" fill="#FFFFFF" stroke="#171717" stroke-width="1.0"/>
+<text x="209.0" y="90" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">SDK auto()</text>
+<line x1="252" y1="86" x2="255" y2="86" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round" marker-end="url(#ah)"/>
+<rect x="168" y="108" width="82" height="20" rx="4" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0" stroke-dasharray="5 4"/>
+<text x="209.0" y="122" font-size="10.5" fill="#4D4D4D" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">MCP proxy</text>
+<line x1="252" y1="118" x2="255" y2="118" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="168" y="140" width="82" height="20" rx="4" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0" stroke-dasharray="5 4"/>
+<text x="209.0" y="154" font-size="10.5" fill="#4D4D4D" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">egress proxy</text>
+<line x1="252" y1="150" x2="255" y2="150" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<line x1="163" y1="86" x2="165" y2="86" stroke="#8A8A8A" stroke-width="1.4" stroke-linecap="round" marker-end="url(#ah)"/>
+<text x="168" y="178" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">proxies decide</text>
+<text x="168" y="191" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">inline; no hold</text>
+<rect x="258" y="36" width="548" height="218" rx="12" fill="#FAFAFA" stroke="#D8D8D8" stroke-width="1.0" stroke-dasharray="5 4"/>
+<text x="274" y="62" font-size="17" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Aegis Gateway</text>
+<text x="408" y="62" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-style="italic">the call has not run yet</text>
+<text x="790" y="62" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="end" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">layers ordered by what they may observe</text>
+<rect x="270" y="76" width="100" height="112" rx="8" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<g transform="translate(348,166)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.5 15a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5M17 7.875l3-1.687m-3 1.687v3.375m0-3.375l-3-1.687m3 1.687l3 1.688M17 4.5v3.375m0 0l-3 1.688"/></svg></svg></g>
+<text x="280" y="97" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L1  rules</text>
+<rect x="278" y="110" width="84" height="22" rx="4" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="320.0" y="125" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">call string</text>
+<text x="280" y="152" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">&lt;1 ms</text>
+<text x="280" y="170" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">28 patterns</text>
+<line x1="371" y1="121" x2="375" y2="121" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="376" y="76" width="100" height="112" rx="8" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<g transform="translate(454,166)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 20a2 2 0 1 0-4 0a2 2 0 0 0 4 0M16 4a2 2 0 1 0-4 0a2 2 0 0 0 4 0m0 16a2 2 0 1 0-4 0a2 2 0 0 0 4 0m-5-8a2 2 0 1 0-4 0a2 2 0 0 0 4 0m10 0a2 2 0 1 0-4 0a2 2 0 0 0 4 0M5.058 18.306l2.88-4.606m2.123-3.397l2.877-4.604m-2.873 8.006l2.876 4.6M15.063 5.7l2.881 4.61"/></svg></svg></g>
+<text x="386" y="97" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L2  behaviour</text>
+<rect x="384" y="110" width="84" height="22" rx="4" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="426.0" y="125" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">agent history</text>
+<text x="386" y="152" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">in-process</text>
+<text x="386" y="170" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">never relaxes</text>
+<line x1="477" y1="121" x2="481" y2="121" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="482" y="76" width="100" height="112" rx="8" fill="#FFFFFF" stroke="#0070F3" stroke-width="1.2" stroke-dasharray="5 4"/>
+<g transform="translate(560,166)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#0070F3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19a2 2 0 1 0 4 0a2 2 0 0 0-4 0M19 7a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-8 12h5.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H13"/></svg></svg></g>
+<text x="492" y="97" font-size="11.5" fill="#0070F3" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Lp provenance</text>
+<rect x="490" y="110" width="84" height="22" rx="4" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="532.0" y="125" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">channel split</text>
+<text x="492" y="152" font-size="11.5" fill="#0070F3" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">&lt;1 ms</text>
+<text x="492" y="170" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">session ledger</text>
+<line x1="583" y1="121" x2="587" y2="121" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="588" y="76" width="100" height="112" rx="8" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0" stroke-dasharray="5 4"/>
+<g transform="translate(666,166)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3m.7 1h4.6"/></svg></svg></g>
+<text x="598" y="97" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L3  auditor</text>
+<rect x="596" y="110" width="84" height="22" rx="4" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="638.0" y="125" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">stated task</text>
+<text x="598" y="152" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1–2 s</text>
+<text x="598" y="170" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">pre / post check</text>
+<line x1="689" y1="121" x2="693" y2="121" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round"/>
+<rect x="694" y="76" width="100" height="112" rx="8" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<g transform="translate(772,166)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20h10M6 6l6-1l6 1m-6-3v17m-3-8L6 6l-3 6a3 3 0 0 0 6 0m12 0l-3-6l-3 6a3 3 0 0 0 6 0"/></svg></svg></g>
+<text x="704" y="97" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Policy DSL</text>
+<rect x="702" y="110" width="84" height="22" rx="4" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="744.0" y="125" font-size="10.5" fill="#171717" font-weight="normal" text-anchor="middle" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">all facts</text>
+<text x="704" y="152" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">constant</text>
+<text x="704" y="170" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">tightens only</text>
+<text x="274" y="225" font-size="13" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">decision</text>
+<rect x="350" y="204" width="92" height="32" rx="16" fill="#D7F2E7" stroke="#D7F2E7" stroke-width="1.0"/>
+<text x="396.0" y="225" font-size="13" fill="#0E8A5F" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">allow</text>
+<rect x="454" y="204" width="92" height="32" rx="16" fill="#FFE3E3" stroke="#FFE3E3" stroke-width="1.0"/>
+<text x="500.0" y="225" font-size="13" fill="#D40000" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">block</text>
+<rect x="558" y="204" width="104" height="32" rx="16" fill="#FFEFCF" stroke="#FFEFCF" stroke-width="1.0"/>
+<text x="610.0" y="225" font-size="13" fill="#A96500" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">pending</text>
+<line x1="668" y1="220" x2="686" y2="220" stroke="#8A8A8A" stroke-width="1.6" stroke-linecap="round" marker-end="url(#ah)"/>
+<rect x="690" y="204" width="110" height="32" rx="7" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(699,213.0)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4m1 4l2 2l4-4"/></svg></svg></g>
+<text x="719" y="224.14" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">human approval</text>
+<rect x="790" y="196" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="797.5" y="207" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">2</text>
+<path d="M 396,238 L 396.0,276.0 Q 396,282 390.0,282.0 L 92.0,282.0 Q 86,282 86.0,276.0 L 86,258" fill="none" stroke="#0E8A5F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<path d="M 500,238 L 500.0,294.0 Q 500,300 494.0,300.0 L 116.0,300.0 Q 110,300 110.0,294.0 L 110,258" fill="none" stroke="#D40000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<path d="M 610,238 L 610.0,312.0 Q 610,318 604.0,318.0 L 68.0,318.0 Q 62,318 62.0,312.0 L 62,258" fill="none" stroke="#A96500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="640" y="262" width="348" height="86" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<text x="652" y="284" font-size="12" fill="#0E8A5F" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">allow</text>
+<text x="718" y="284" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the tool runs; its result returns normally</text>
+<text x="652" y="308" font-size="12" fill="#D40000" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">block</text>
+<text x="718" y="308" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the tool never runs — a refusal returns</text>
+<text x="652" y="332" font-size="12" fill="#A96500" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">pending</text>
+<text x="718" y="332" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the turn suspends until a person decides</text>
+<text x="718" y="320" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">where a tool result would</text>
+<text x="12" y="364" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">The refusal arrives in-band — which is why a blocked agent explains itself and continues the conversation instead of failing.</text>
+<rect x="12" y="378" width="187" height="92" rx="8" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
+<g transform="translate(22,388)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19h16M4 15l4-6l4 2l4-5l4 4"/></svg></svg></g>
+<text x="42" y="400" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Behavioural monitoring</text>
+<text x="24" y="422" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">profile · sliding window</text>
+<text x="24" y="438" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">IForest · HST · Mahalanobis</text>
+<text x="24" y="454" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">ADWIN drift · conformal p-values</text>
+<rect x="209" y="378" width="187" height="92" rx="8" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
+<g transform="translate(219,388)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-6.5v-2a1.5 1.5 0 1 1 3 0V12m0-6.5a1.5 1.5 0 0 1 3 0V12"/><path d="M17 7.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2h.208a6 6 0 0 1-5.012-2.7L7 19q-.468-.718-3.286-5.728a1.5 1.5 0 0 1 .536-2.022a1.87 1.87 0 0 1 2.28.28L8 13"/></g></svg></svg></g>
+<text x="239" y="400" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Containment &amp; recovery</text>
+<text x="221" y="422" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">kill switch (violation count)</text>
+<text x="221" y="438" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">budget guard · effect outbox</text>
+<text x="221" y="454" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">snapshot → saga → rollback</text>
+<rect x="406" y="378" width="187" height="92" rx="8" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
+<g transform="translate(416,388)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a12 12 0 0 0 8.5 3A12 12 0 0 1 12 21A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3m0 0v18"/></svg></svg></g>
+<text x="436" y="400" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Pre-deploy</text>
+<text x="418" y="422" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">repo scan · 53 OWASP rules</text>
+<text x="418" y="438" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">same policy packs, statically</text>
+<text x="418" y="454" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">code shield · scan diff</text>
+<rect x="603" y="378" width="187" height="92" rx="8" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
+<g transform="translate(613,388)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 12l5 5l-1.5 1.5a3.536 3.536 0 1 1-5-5zm10 0l-5-5l1.5-1.5a3.536 3.536 0 1 1 5 5zM3 21l2.5-2.5m13-13L21 3m-11 8l-2 2m5 1l-2 2"/></svg></svg></g>
+<text x="633" y="400" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Connectors &amp; fallback</text>
+<text x="615" y="422" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">SIEM · OTLP · webhooks · SSO</text>
+<text x="615" y="438" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">fail open | closed · disk queue</text>
+<text x="615" y="454" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">offline model · AEGIS_OFFLINE</text>
+<rect x="800" y="378" width="187" height="92" rx="8" fill="#FFFFFF" stroke="#EBEBEB" stroke-width="1.0"/>
+<g transform="translate(810,388)"><svg width="14" height="14" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.5 21H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v.5"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0m-3-5V7a4 4 0 1 1 8 0v4m-1 8l2 2l4-4"/></g></svg></svg></g>
+<text x="830" y="400" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Audit &amp; integrity</text>
+<text x="812" y="422" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Ed25519 per-agent signature</text>
+<text x="812" y="438" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">SHA-256 chain → Merkle → log</text>
+<text x="812" y="454" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">witnesses · offline verifier</text>
+<rect x="963" y="384" width="15" height="15" rx="7.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="970.5" y="395" font-size="15" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">3</text>
+<path d="M 808,96 L 988.0,96.0 Q 994,96 994.0,102.0 L 994.0,422.0 Q 994,424 992.0,424.0 L 990,424" fill="none" stroke="#8A8A8A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<text x="814" y="90" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">every decision, signed</text>
+<text x="12" y="490" font-size="12" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Where an attendee acts:</text>
+<text x="190" y="490" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1  drives the agent</text>
+<text x="350" y="490" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">2  approves or blocks a held call</text>
+<text x="594" y="490" font-size="12" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">3  tampers with the signed log, verification fails</text>
 </svg>

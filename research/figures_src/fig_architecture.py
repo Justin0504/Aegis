@@ -1,37 +1,20 @@
-"""Figure 1 — the control point, and what comes back from it.
+"""Figure 1 — the control point, what comes back from it, and what stands around it.
 
-    python -m figures_src.fig_architecture
+    python -m figures_src.fig_architecture      # → paper-arxiv/images/architecture.{svg,pdf,png,pptx}
 
-WHAT THE EARLIER VERSIONS GOT WRONG
+Two rows (CODEX-FIGURE-BRIEF.md §F1). Row 1 is the path of one call:
+the agent, the three ways in (SDK, MCP proxy, egress proxy), the five
+gateway stages ordered by what each may observe, the three decisions,
+and the three return paths drawn explicitly — because a mediation
+layer is defined by what comes *back* from it, and the single claim the
+demonstration rests on is that a block returns in-band. Row 2 is the
+systems around the call that make it deployable rather than
+demonstrable: audit, behavioural monitoring, containment and recovery,
+pre-deploy scanning, connectors and fallback (§2.4–§2.10).
 
-The original was a feature inventory: emoji icons, dotted lines crossing
-the scan panel, eight Cockpit tab names, every box at equal weight.
-
-The version after that fixed the weighting but inherited a research
-paper's priorities --- each cascade layer carried its AUC, and a band
-across the bottom stated the paper's finding. Once the paper was
-rebalanced as a demonstration, those numbers belonged in the evaluation
-table, not in the system figure.
-
-Both shared a worse omission: every arrow pointed left to right. A
-mediation layer is defined by what comes *back* from it, and the single
-claim the demonstration rests on --- that a block returns in-band, so the
-agent explains itself and continues rather than failing --- was nowhere
-in the figure at all.
-
-SO THIS ONE IS ORGANISED AS A LOOP
-
-Outbound along the top, the three decisions in the middle, and three
-distinct return paths drawn explicitly, because they differ in exactly
-the way an attendee needs to see:
-
-    allow    the tool runs, its result returns normally
-    block    the tool never runs; a refusal returns in the same slot a
-             tool result would have, which is why the agent recovers
-    pending  the turn suspends until a person decides
-
-Circled numbers mark where a human touches the system, since that is
-what a demo audience is being invited to do.
+No evaluation numbers appear here; they belong in §4's tables. Type
+floor is 12 units on the 1000-wide canvas (≈6 pt printed); the few
+10.5–11-unit labels are chips and notes a reader can skip.
 """
 
 from __future__ import annotations
@@ -44,9 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from figkit import palette as P                                       # noqa: E402
 from figkit.icons import prefetch                                     # noqa: E402
-from figkit.scene import (                                            # noqa: E402
-    Arrow, Box, Icon, Image, Path, Scene, Text, export,
-)
+from figkit.scene import Arrow, Box, Icon, Path, Scene, Text, export  # noqa: E402
 
 OUT = ROOT / "paper-arxiv" / "images" / "architecture"
 
@@ -56,161 +37,180 @@ ICONS = {
     "tree":   "tabler:binary-tree",
     "route":  "tabler:route",
     "brain":  "tabler:bulb",
+    "scale":  "tabler:scale",
     "user":   "tabler:user-check",
     "lock":   "tabler:lock-check",
-    "chart":  "tabler:layout-dashboard",
+    "chart":  "tabler:chart-line",
+    "stop":   "tabler:hand-stop",
+    "scan":   "tabler:shield-half",
     "plug":   "tabler:plug-connected",
 }
 
 
-def numbered(sc: Scene, x: float, y: float, n: str, tint: str = "purple"):
+def numbered(sc: Scene, x: float, y: float, n: str):
     """A circled step number, for the points where a person acts."""
-    sc.add(Box(x, y, 15, 15, fill=P.TINT_TEXT[tint], stroke=P.TINT_TEXT[tint],
-               radius=7.5))
-    sc.add(Text(x + 7.5, y + 11, n, size=15, weight="bold", color=P.WHITE,
-                anchor="middle"))
+    sc.add(Box(x, y, 15, 15, fill=P.INK, stroke=P.INK, radius=7.5))
+    sc.add(Text(x + 7.5, y + 11, n, size=15, weight="bold", color=P.WHITE, anchor="middle"))
 
 
 def build() -> Scene:
-    # Design width matches the printed width closely enough that a 12-unit
-    # label lands at ~6pt in the PDF. Everything below is sized against that
-    # floor, and text that could not be said at that size was cut rather
-    # than shrunk.
-    W, H = 1000, 470
+    W, H = 1000, 508
     sc = Scene(W, H, bg=P.WHITE)
 
     AG_X, AG_W = 12, 148
-    GW_X, GW_W = 184, 620
-    RT_X, RT_W = 816, 172
+    ST_X, ST_W = 168, 82          # interposition stubs
+    GW_X, GW_W = 258, 548
+    Y0 = 36                        # row 1 top
 
     # ---- agent ----------------------------------------------------------
-    sc.panel(AG_X, 40, AG_W, 218, "Agent", tint="slate", title_size=15)
-    sc.card(AG_X + 12, 72, AG_W - 24, 34, "LLM", size=13, icon=ICONS["agent"])
-    sc.add(Text(AG_X + 14, 126, "untrusted principal", size=11.5,
-                color=P.INK_SOFT, italic=True))
+    sc.panel(AG_X, Y0, AG_W, 218, "Agent", tint="slate", title_size=15)
+    sc.card(AG_X + 12, Y0 + 32, AG_W - 24, 34, "LLM", size=13, icon=ICONS["agent"])
+    sc.add(Text(AG_X + 14, Y0 + 86, "untrusted principal", size=11.5, color=P.INK_SOFT, italic=True))
+    sc.add(Box(AG_X + 12, Y0 + 98, AG_W - 24, 56, fill=P.WHITE, stroke=P.ACCENT_SOFT, radius=6))
+    sc.add(Icon(AG_X + 20, Y0 + 108, ICONS["plug"], size=14, color=P.ACCENT))
+    sc.add(Text(AG_X + 42, Y0 + 120, "two lines", size=12.5, weight="bold", color=P.ACCENT))
+    sc.add(Text(AG_X + 18, Y0 + 144, "agentguard.auto()", size=10.8, mono=True, color=P.MONO_FG))
+    sc.add(Text(AG_X + 14, Y0 + 176, "15 frameworks", size=12, color=P.INK_SOFT))
+    sc.add(Text(AG_X + 14, Y0 + 194, "Python · JS · Go", size=11.5, color=P.INK_FAINT))
+    numbered(sc, AG_X + AG_W - 26, Y0 + 6, "1")
 
-    sc.add(Box(AG_X + 12, 138, AG_W - 24, 56, fill=P.WHITE,
-               stroke=P.ACCENT_SOFT, radius=6))
-    sc.add(Icon(AG_X + 20, 148, ICONS["plug"], size=14, color=P.ACCENT))
-    sc.add(Text(AG_X + 42, 160, "two lines", size=12.5, weight="bold",
-                color=P.ACCENT))
-    sc.add(Text(AG_X + 18, 184, "agentguard.auto()", size=10.8, mono=True,
-                color=P.MONO_FG))
-
-    sc.add(Text(AG_X + 14, 216, "15 frameworks", size=12, color=P.INK_SOFT))
-    sc.add(Text(AG_X + 14, 234, "Python \u00b7 JS \u00b7 Go", size=11.5,
-                color=P.INK_FAINT))
-    numbered(sc, AG_X + AG_W - 26, 46, "1")
-
-    sc.add(Arrow(AG_X + AG_W + 4, 100, GW_X - 6, 100))
+    # ---- three ways in ----------------------------------------------------
+    stubs = [("SDK auto()", False, Y0 + 40), ("MCP proxy", True, Y0 + 72), ("egress proxy", True, Y0 + 104)]
+    sc.add(Text(ST_X, Y0 + 26, "three ways in", size=11, color=P.INK_FAINT))
+    for label, dashed, y in stubs:
+        sc.add(Box(ST_X, y, ST_W, 20, fill=P.WHITE, stroke=P.STROKE_GROUP if dashed else P.INK,
+                   radius=4, dashed=dashed, width=1.0))
+        sc.add(Text(ST_X + ST_W / 2, y + 14, label, size=10.5, mono=True,
+                    color=P.INK_SOFT if dashed else P.INK, anchor="middle"))
+        sc.add(Arrow(ST_X + ST_W + 2, y + 10, GW_X - 3, y + 10, color=P.INK_FAINT, width=1.2,
+                     dashed=dashed))
+    sc.add(Arrow(AG_X + AG_W + 3, Y0 + 50, ST_X - 3, Y0 + 50, color=P.INK_FAINT, width=1.4))
+    sc.add(Text(ST_X, Y0 + 142, "proxies decide", size=10.5, color=P.INK_FAINT))
+    sc.add(Text(ST_X, Y0 + 155, "inline; no hold", size=10.5, color=P.INK_FAINT))
 
     # ---- gateway --------------------------------------------------------
-    sc.add(Box(GW_X, 40, GW_W, 218, fill=P.PAPER, stroke=P.STROKE_GROUP,
-               radius=12, dashed=True))
-    sc.add(Text(GW_X + 16, 66, "Aegis Gateway", size=17, weight="bold"))
-    sc.add(Text(GW_X + 16, 84, "the call has not run yet", size=12,
-                color=P.INK_SOFT, italic=True))
+    sc.add(Box(GW_X, Y0, GW_W, 218, fill=P.PAPER, stroke=P.STROKE_GROUP, radius=12, dashed=True))
+    sc.add(Text(GW_X + 16, Y0 + 26, "Aegis Gateway", size=17, weight="bold"))
+    sc.add(Text(GW_X + 150, Y0 + 26, "the call has not run yet", size=12, color=P.INK_SOFT, italic=True))
+    sc.add(Text(GW_X + GW_W - 16, Y0 + 26, "layers ordered by what they may observe", size=11,
+                color=P.INK_FAINT, anchor="end"))
 
-    lw, lg = 140, 12
-    lx0 = GW_X + 16
+    lw, lg = 100, 6
+    lx0 = GW_X + 12
+    cy = Y0 + 40
     layers = [
-        ("L1  rules", "blue", ICONS["regex"], "call string", "<1 ms", False),
-        ("L2  behaviour", "slate", ICONS["tree"], "agent history", "in-process", False),
-        ("L3  auditor", "purple", ICONS["brain"], "stated task", "1\u20132 s", False),
-        ("Lp  provenance", "mint", ICONS["route"], "channel split",
-         "<1 ms \u00b7 optional", True),   # accent-marked below: proposed
+        # name, icon, sees, cost, style  (style: solid | accent | dashed)
+        ("L1  rules",      ICONS["regex"], "call string",   "<1 ms",        "solid"),
+        ("L2  behaviour",  ICONS["tree"],  "agent history", "in-process",   "solid"),
+        ("Lp provenance", ICONS["route"], "channel split", "<1 ms",        "accent"),
+        ("L3  auditor",    ICONS["brain"], "stated task",   "1–2 s",   "dashed"),
+        ("Policy DSL",     ICONS["scale"], "all facts",     "constant",     "solid"),
     ]
-    for i, (name, tint, icon, sees, cost, dashed) in enumerate(layers):
+    for i, (name, icon, sees, cost, style) in enumerate(layers):
         x = lx0 + i * (lw + lg)
-        sc.add(Box(x, 96, lw, 96, fill=P.WHITE,
-                   stroke=P.ACCENT_SOFT if dashed else P.TINT_EDGE[tint],
-                   radius=P.RADIUS_PANEL, dashed=dashed))
-        lead = P.ACCENT if dashed else P.INK       # dashed == proposed
-        sc.add(Icon(x + 10, 104, icon, size=15, color=lead))
-        sc.add(Text(x + 32, 118, name, size=13, weight="bold", color=lead))
-        sc.add(Box(x + 9, 132, lw - 18, 24, fill=P.WHITE,
-                   stroke=P.STROKE_SOFT, radius=4))
-        sc.add(Text(x + lw / 2, 148, sees, size=11.5, mono=True, color=P.INK,
-                    anchor="middle"))
-        sc.add(Text(x + 12, 180, cost, size=11.5,
-                    color=P.ACCENT if dashed else P.INK_SOFT))
-        if i < 3:
-            sc.add(Arrow(x + lw + 1, 144, x + lw + lg - 1, 144))
-
+        stroke = {"solid": P.STROKE_GROUP, "accent": P.ACCENT, "dashed": P.STROKE_GROUP}[style]
+        lead = P.ACCENT if style == "accent" else P.INK
+        sc.add(Box(x, cy, lw, 112, fill=P.WHITE, stroke=stroke, radius=8,
+                   dashed=style != "solid", width=1.2 if style == "accent" else 1.0))
+        sc.add(Icon(x + lw - 22, cy + 90, icon, size=13, color=lead))
+        sc.add(Text(x + 10, cy + 21, name, size=11.5, weight="bold", color=lead))
+        sc.add(Box(x + 8, cy + 34, lw - 16, 22, fill=P.MONO_BG, stroke=P.STROKE_SOFT, radius=4))
+        sc.add(Text(x + lw / 2, cy + 49, sees, size=10.5, mono=True, color=P.INK, anchor="middle"))
+        sc.add(Text(x + 10, cy + 76, cost, size=11.5, color=P.ACCENT if style == "accent" else P.INK_SOFT))
+        note = {"Lp provenance": "session ledger",
+                "L3  auditor": "pre / post check",
+                "Policy DSL": "tightens only",
+                "L2  behaviour": "never relaxes",
+                "L1  rules": "28 patterns"}[name]
+        sc.add(Text(x + 10, cy + 94, note, size=10.5, color=P.INK_FAINT))
+        if i < 4:
+            sc.add(Arrow(x + lw + 1, cy + 45, x + lw + lg - 1, cy + 45, color=P.INK_FAINT, width=1.2, head=False))
 
     # ---- decisions ------------------------------------------------------
-    sc.add(Text(GW_X + 16, 218, "decision", size=13, weight="bold",
-                color=P.INK))
-    for x, w, label, fill, fg in [
-        (GW_X + 92, 92, "allow", P.PASS_SOFT, P.PASS),
-        (GW_X + 196, 92, "block", P.FAIL_SOFT, P.FAIL),
-        (GW_X + 300, 104, "pending", P.WARN_SOFT, P.WARN),
-    ]:
-        sc.add(Box(x, 204, w, 32, fill=fill, stroke=fill, radius=16))
-        sc.add(Text(x + w / 2, 225, label, size=13, weight="bold", color=fg,
-                    anchor="middle"))
-
-    sc.add(Arrow(GW_X + 410, 220, GW_X + 430, 220))
-    sc.card(GW_X + 436, 204, 168, 32, "human approval", size=12.5,
-            icon=ICONS["user"])
-    numbered(sc, GW_X + 588, 208, "2")
+    dy = Y0 + 168
+    sc.add(Text(GW_X + 16, dy + 21, "decision", size=13, weight="bold", color=P.INK))
+    pills = [(GW_X + 92, 92, "allow", P.PASS_SOFT, P.PASS),
+             (GW_X + 196, 92, "block", P.FAIL_SOFT, P.FAIL),
+             (GW_X + 300, 104, "pending", P.WARN_SOFT, P.WARN)]
+    for x, w, label, fill, fg in pills:
+        sc.add(Box(x, dy, w, 32, fill=fill, stroke=fill, radius=16))
+        sc.add(Text(x + w / 2, dy + 21, label, size=13, weight="bold", color=fg, anchor="middle"))
+    sc.add(Arrow(GW_X + 410, dy + 16, GW_X + 428, dy + 16))
+    sc.card(GW_X + 432, dy, 110, 32, "human approval", size=11.5, icon=ICONS["user"])
+    numbered(sc, GW_X + 432 + 110 - 10, dy - 8, "2")
 
     # ---- return paths ----------------------------------------------------
+    ry = Y0 + 218
     for sx, ly, ex, col, wd, dash in [
-        (GW_X + 138, 300, AG_X + 74, P.PASS, 1.8, False),
-        (GW_X + 242, 322, AG_X + 98, P.FAIL, 2.2, False),
-        (GW_X + 352, 344, AG_X + 50, P.WARN, 1.8, True),
+        (GW_X + 138, ry + 28, AG_X + 74, P.PASS, 1.8, False),
+        (GW_X + 242, ry + 46, AG_X + 98, P.FAIL, 2.2, False),
+        (GW_X + 352, ry + 64, AG_X + 50, P.WARN, 1.8, True),
     ]:
-        sc.add(Path(sx, 238, pts=[(sx, ly), (ex, ly), (ex, 262)],
-                    color=col, width=wd, dashed=dash))
+        sc.add(Path(sx, dy + 34, pts=[(sx, ly), (ex, ly), (ex, ry + 4)], color=col, width=wd, dashed=dash))
 
-    LX, LY = 604, 276
-    sc.add(Box(LX, LY, 384, 100, fill=P.WHITE, stroke=P.STROKE_SOFT, radius=8))
+    LX, LY, LW = 640, ry + 8, 348
+    sc.add(Box(LX, LY, LW, 86, fill=P.WHITE, stroke=P.STROKE_SOFT, radius=8))
     for i, (col, tag, txt) in enumerate([
         (P.PASS, "allow", "the tool runs; its result returns normally"),
-        (P.FAIL, "block", "the tool never runs \u2014 a refusal returns"),
+        (P.FAIL, "block", "the tool never runs — a refusal returns"),
         (P.WARN, "pending", "the turn suspends until a person decides"),
     ]):
-        y = LY + 26 + i * 26
-        sc.add(Text(LX + 14, y, tag, size=12, weight="bold", color=col))
-        sc.add(Text(LX + 86, y, txt, size=12, color=P.INK))
-    sc.add(Text(LX + 86, LY + 65, "where a tool result would", size=12,
-                color=P.INK))
+        y = LY + 22 + i * 24
+        sc.add(Text(LX + 12, y, tag, size=12, weight="bold", color=col))
+        sc.add(Text(LX + 78, y, txt, size=11.5, color=P.INK))
+    sc.add(Text(LX + 78, LY + 58, "where a tool result would", size=11.5, color=P.INK))
 
-    sc.add(Text(AG_X, 404, "The refusal arrives in-band \u2014 which is why a "
-                "blocked agent explains itself and continues", size=13,
-                weight="bold", color=P.TINT_TEXT["mint"]))
-    sc.add(Text(AG_X, 422, "the conversation instead of failing.", size=13,
-                weight="bold", color=P.INK))
+    sc.add(Text(AG_X, ry + 110, "The refusal arrives in-band — which is why a blocked agent "
+                "explains itself and continues the conversation instead of failing.",
+                size=12.5, weight="bold", color=P.INK))
 
-    # ---- audit + cockpit -------------------------------------------------
-    sc.add(Arrow(GW_X + GW_W + 4, 100, RT_X - 6, 100, dashed=True,
-                 color=P.INK_FAINT, width=1.4))
-    sc.panel(RT_X, 40, RT_W, 116, "Tamper-evident", tint="peach",
-             title_size=13)
-    sc.card(RT_X + 10, 70, RT_W - 20, 30, "Ed25519", size=12,
-            icon=ICONS["lock"])
-    sc.code(RT_X + 10, 108, RT_W - 20, 28, "SHA-256 chain", size=11.5)
-    numbered(sc, RT_X + RT_W - 24, 46, "3")
-
-    sc.panel(RT_X, 168, RT_W, 90, "Cockpit", tint="blue", title_size=13)
-    sc.card(RT_X + 10, 196, RT_W - 20, 30, "live feed", size=12,
-            icon=ICONS["chart"])
-    sc.add(Text(RT_X + 12, 244, "approvals \u00b7 export", size=11.5,
-                color=P.INK_SOFT))
+    # ---- row 2: the systems around the call ----------------------------
+    R2 = ry + 124
+    cw, cg = 187, 10
+    cards = [
+        ("Behavioural monitoring", ICONS["chart"], ["profile \u00b7 sliding window",
+                                                   "IForest \u00b7 HST \u00b7 Mahalanobis",
+                                                   "ADWIN drift \u00b7 conformal p-values"], False),
+        ("Containment & recovery", ICONS["stop"], ["kill switch (violation count)",
+                                                  "budget guard \u00b7 effect outbox",
+                                                  "snapshot \u2192 saga \u2192 rollback"], False),
+        ("Pre-deploy", ICONS["scan"], ["repo scan \u00b7 53 OWASP rules",
+                                       "same policy packs, statically",
+                                       "code shield \u00b7 scan diff"], False),
+        ("Connectors & fallback", ICONS["plug"], ["SIEM \u00b7 OTLP \u00b7 webhooks \u00b7 SSO",
+                                                 "fail open | closed \u00b7 disk queue",
+                                                 "offline model \u00b7 AEGIS_OFFLINE"], False),
+        ("Audit & integrity", ICONS["lock"], ["Ed25519 per-agent signature",
+                                             "SHA-256 chain \u2192 Merkle \u2192 log",
+                                             "witnesses \u00b7 offline verifier"], True),
+    ]
+    for i, (title, icon, items, badge) in enumerate(cards):
+        x = AG_X + i * (cw + cg)
+        sc.add(Box(x, R2, cw, 92, fill=P.WHITE, stroke=P.STROKE, radius=8))
+        sc.add(Icon(x + 10, R2 + 10, icon, size=14, color=P.INK_SOFT))
+        sc.add(Text(x + 30, R2 + 22, title, size=12.5, weight="bold", color=P.INK))
+        for j, it in enumerate(items):
+            sc.add(Text(x + 12, R2 + 44 + j * 16, it, size=11, color=P.INK_SOFT))
+        if badge:
+            numbered(sc, x + cw - 24, R2 + 6, "3")
+    # every decision, signed → audit (down the right edge, clear of the lanes)
+    sc.add(Path(GW_X + GW_W + 2, Y0 + 60, pts=[(W - 6, Y0 + 60), (W - 6, R2 + 46), (AG_X + 4 * (cw + cg) + cw + 3, R2 + 46)],
+                color=P.INK_FAINT, width=1.2, dashed=True, radius=6))
+    sc.add(Text(GW_X + GW_W + 8, Y0 + 54, "every decision, signed", size=10.5, color=P.INK_FAINT))
 
     # ---- attendee legend -------------------------------------------------
-    sc.add(Text(AG_X, 452, "Where an attendee acts:", size=12,
-                weight="bold", color=P.INK))
-    for x, t in [(196, "1  drives the agent"),
-                 (356, "2  approves or blocks a held call"),
-                 (600, "3  tampers with the signed log, verification fails")]:
-        sc.add(Text(x, 452, t, size=12, color=P.INK_SOFT))
+    ay = R2 + 112
+    sc.add(Text(AG_X, ay, "Where an attendee acts:", size=12, weight="bold", color=P.INK))
+    for x, t in [(190, "1  drives the agent"), (350, "2  approves or blocks a held call"),
+                 (594, "3  tampers with the signed log, verification fails")]:
+        sc.add(Text(x, ay, t, size=12, color=P.INK_SOFT))
     return sc
 
 
 def main() -> int:
     prefetch(ICONS)
+    for ext in ("svg", "pdf", "png", "pptx"):
+        OUT.with_suffix("." + ext).unlink(missing_ok=True)
     made = export(build(), OUT, png=True)
     for k, v in made.items():
         print(f"  {k:5s} {v.relative_to(ROOT)}")

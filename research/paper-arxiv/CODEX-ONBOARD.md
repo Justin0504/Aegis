@@ -53,10 +53,14 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
 
 ## Open tasks (in priority order)
 
-1. **Figures F2, F3, F5** per `CODEX-FIGURE-BRIEF.md`. Drop the files into
-   `images/`, same names; the LaTeX does not change. Run the five checks in
-   the brief before handing back. F1 (architecture) exists but should be
-   redrawn to the two-row spec in the brief.
+1. ~~Figures F1, F2, F3, F5~~ — drawn 2026-10-13 with figkit
+   (`figures_src/fig_architecture.py`, `fig_provenance.py`, `fig_rollout.py`,
+   `fig_audit.py`). F2's values are computed on corpus record
+   `ds_enhanced::219` with `cascade/provenance.py` (see the docstring);
+   F3's numbers are §4.2's; F1 is the two-row layout of the brief. Type
+   floor 12 units, fonts embedded (`pdffonts`), checked at print size
+   (`pdftoppm -r 100`). If you touch them, re-run the five checks in
+   `CODEX-FIGURE-BRIEF.md`.
 2. ~~In-band refusals for framework rows~~ — done 2026-10-13: every
    framework row is in-band via `enforce_at="tool"`. Plain SDK loops,
    LiteLLM and Google GenAI now use the one-line helper
