@@ -74,7 +74,7 @@ def cell(r, s, holds):
     ms = [x.get("sdk_roundtrip_ms") for x in tool_calls if isinstance(x.get("sdk_roundtrip_ms"), (int, float))]
     lat = f"{statistics.median(ms):.0f}\\,ms" if ms and s != "S3" else ""
     inb = r.get("inband")
-    inb_txt = {"native": "in-band", "handler": "handler", "exception": "escaped", "proxy": "inline"}.get(inb, "")
+    inb_txt = {"native": "in-band", "helper": "in-band (helper)", "handler": "handler", "exception": "escaped", "proxy": "inline"}.get(inb, "")
     if s == "S3":
         # The S3 outcome is a hold followed by the second attendee's approval.
         # SDK rows surface it as `pending` (then allow); the Go/JS/MCP rows
@@ -101,9 +101,10 @@ def main():
         "\\caption{Compatibility matrix. Every row runs the same three scenarios against the same shipping gateway: "
         "\\textbf{S1} a benign \\texttt{SELECT}; \\textbf{S2} the agent is talked into \\texttt{curl \\ldots | sh}; "
         "\\textbf{S3} \\texttt{kubectl delete} held by a policy for a second person who approves after 3\\,s. "
-        "Cells give the gateway's decision, for S2 how the refusal reached the model (in-band: the framework "
-        "delivered it natively; handler: a three-line catch in the agent loop was needed; escaped: the framework "
-        "surfaced it as an exception), and the SDK round trip. Latencies are medians over the calls in the row.}",
+        "Cells give the gateway's decision, for S2 how the refusal reached the model (in-band: the framework's "
+        "tool-level patch returned it as the tool result; in-band (helper): the agent's own dispatcher is wrapped "
+        "by the one-line \\texttt{agentguard.guarded}; inline: the proxy rewrote the model's reply; escaped: the "
+        "framework surfaced it as an exception), and the SDK round trip. Latencies are medians over the calls in the row.}",
         "\\label{tab:compat}",
         "\\begin{tabular}{llllll}", "\\toprule",
         "Harness & Path & Model & S1 benign & S2 injected payload & S3 held for approval \\\\",

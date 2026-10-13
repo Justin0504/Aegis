@@ -1,3 +1,4 @@
 anthropic>=0.39.0
+agentguard-aegis>=1.3.0   # or: pip install -e ../../packages/sdk-python
 fastapi>=0.115.0
 uvicorn>=0.32.0

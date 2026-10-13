@@ -19,6 +19,14 @@ export class AgentGuard {
   private sequenceCounter = 0;
   private previousHash: string | undefined;
   /**
+   * The hash chain is per agent, not per process. The constructor asks
+   * the gateway where the chain ends; traces built before the answer
+   * arrives are deferred (in order) until it does, so a restarted
+   * process continues the chain instead of forking it at sequence 0.
+   */
+  private readonly chainReady: Promise<void>;
+  private chainResolved = false;
+  /**
    * Stack of active delegation ids (Toledo et al. arXiv:2606.09692).
    * `guard.delegation(id, () => {...})` pushes an id; every trace
    * opened while the stack is non-empty inherits the top id, with
@@ -51,6 +59,17 @@ export class AgentGuard {
     };
     this.agentId = config.agentId;
     this.transport = new HttpTransport(this.config);
+    this.chainReady = this.transport
+      .chainHead(this.agentId)
+      .then((head) => {
+        if (head && head.sequence_number >= 0 && head.integrity_hash
+            && this.sequenceCounter === 0 && this.previousHash === undefined) {
+          this.sequenceCounter = head.sequence_number + 1;
+          this.previousHash = head.integrity_hash;
+        }
+      })
+      .catch(() => { /* fresh chain */ })
+      .finally(() => { this.chainResolved = true; });
   }
 
   /**
@@ -220,6 +239,12 @@ export class AgentGuard {
     result?: unknown;
     error?: string;
   }): void {
+    if (!this.chainResolved) {
+      // Keep order: promise callbacks run FIFO, and chainReady settles
+      // only after chainResolved is set, so this cannot re-defer.
+      void this.chainReady.then(() => this.sendTrace(input));
+      return;
+    }
     try {
       const traceId = generateTraceId();
       const now = new Date().toISOString();

@@ -4,8 +4,11 @@ import asyncio
 import functools
 import json
 import os
+import threading
 import time
 import traceback
+import urllib.parse
+import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -231,6 +234,13 @@ class AgentGuard:
         self.config = config or self._load_default_config()
         self._sequence_counter = 0
         self._previous_hash: Optional[str] = None
+        # The hash chain is per agent, not per process. Before the first
+        # trace leaves this process we ask the gateway where the agent's
+        # chain currently ends and continue from there; otherwise every
+        # restart would start a second chain at sequence 0 and the
+        # gateway's verifier would (correctly) report the agent as broken.
+        self._chain_resumed = False
+        self._chain_lock = threading.Lock()
         self._trace_stack: List[TraceContext] = []
         # Stack of active delegation ids (Toledo et al. arXiv:2606.09692).
         # Each `with guard.delegation(...)` pushes; every trace opened
@@ -409,6 +419,8 @@ class AgentGuard:
     @contextmanager
     def _create_trace_context(self):
         """Create a new trace context."""
+        if not self._chain_resumed:
+            self.resume_chain()
         parent_id = self._trace_stack[-1].trace_id if self._trace_stack else None
 
         # Delegation propagation: the top of the delegation stack is this
@@ -591,6 +603,42 @@ class AgentGuard:
         # Default: concatenate all string args
         str_args = [str(arg) for arg in args if isinstance(arg, (str, int, float))]
         return " ".join(str_args) if str_args else "No prompt captured"
+
+    def resume_chain(self) -> None:
+        """Continue this agent's hash chain from the gateway's head.
+
+        Called once, lazily, before the first trace of the process. Reads
+        ``GET /api/v1/traces/chain-head?agent_id=<uuid>`` and seeds the
+        sequence counter and previous hash. Any failure (old gateway,
+        offline, timeout) falls back to a fresh chain, which is what the
+        SDK did before this method existed.
+        """
+        with self._chain_lock:
+            if self._chain_resumed:
+                return
+            self._chain_resumed = True
+            if self._sequence_counter != 0 or self._previous_hash is not None:
+                return  # a trace already left this process; do not rewind
+            try:
+                from ..interceptors.auto import _build_identity_headers
+                headers = _build_identity_headers(self.config, self)
+            except Exception:
+                headers = {"Content-Type": "application/json"}
+            try:
+                url = (
+                    f"{self.config.gateway_url.rstrip('/')}/api/v1/traces/chain-head?"
+                    + urllib.parse.urlencode({"agent_id": str(self._agent_uuid)})
+                )
+                req = urllib.request.Request(url, headers=headers, method="GET")
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    head = json.loads(resp.read())
+                seq = int(head.get("sequence_number", -1))
+                h = head.get("integrity_hash")
+                if seq >= 0 and h:
+                    self._sequence_counter = seq + 1
+                    self._previous_hash = str(h)
+            except Exception:
+                pass  # fresh chain; the gateway logs the gap if there is one
 
     def _create_and_send_trace(
         self,

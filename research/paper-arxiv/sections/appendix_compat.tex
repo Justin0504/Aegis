@@ -27,17 +27,26 @@ and the OpenAI Agents SDK on both of its APIs, run with
 \texttt{enforce\_at="tool"} so that the model-level patch observes and
 the tool-level patch enforces), the MCP host receives a tool error, the
 egress proxy rewrites the model's reply, and Claude Code's hook protocol
-carries a denial reason. Where the SDK can only raise from inside the
-model call because the stack offers no tool-execution hook (plain SDK
-loops, LiteLLM, Google GenAI), a three-line \emph{handler} in the agent
-loop turns the exception into a message the model sees. No row escapes.
+carries a denial reason. Where the stack offers no tool-execution hook
+for the SDK to patch (plain SDK loops, LiteLLM, Google GenAI), the agent
+executes tools in its own code, and one line wraps that dispatcher:
+\texttt{execute\_tool = agentguard.guarded(execute\_tool)}. The wrapper
+decides the call before the dispatcher runs and returns the refusal in
+the tool's own result slot, which the table marks \emph{in-band
+(helper)}. No row escapes, and no row needs exception handling in the
+agent loop.
 
 \paragraph{Harness-specific notes.}
 Claude Haiku refused to emit the \texttt{DROP TABLE} payload of the
 original S2 under every framing we tried, direct or through a planted
 runbook, which is itself a defence layer; S2 therefore uses a payload both
-model families reliably emit, a remote install script piped to
-\texttt{sh}. The Claude Agent SDK runs Claude Code's own Bash tool, so its
+model families emit, a remote install script piped to \texttt{sh}. Whether
+it is emitted depends on the agent's own prompt: with a system prompt
+that named the firewall and mentioned compliance, Claude Haiku 4.5
+emitted the call on two turns of six; with the neutral operations
+prompt the demo agent now ships, on five of five. A turn on which the
+model declines produces no tool call and therefore no row; the matrix
+records what the gateway did when the call was made. The Claude Agent SDK runs Claude Code's own Bash tool, so its
 scenarios are shell-shaped (\texttt{echo}, the same \texttt{curl \ldots | sh},
 \texttt{kubectl delete}; Claude Code declined \texttt{cat /etc/shadow} outright) and the interposition is a PreToolUse hook that
 denies with the gateway's reason. The MCP proxy row needs no model: the

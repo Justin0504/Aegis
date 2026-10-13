@@ -126,8 +126,8 @@ with a control point an attendee can stand in front of and try to defeat.
 Three scenarios on a laptop (\S\ref{sec:demo}), driven live by attendees
 rather than replayed. A benign call clears in about a millisecond, so the
 cost of mediation when nothing is wrong is visible before any blocking is.
-An attendee then submits input that genuinely fools the agent into
-emitting \texttt{DROP TABLE audit\_log}; the call is blocked at L1, and
+An attendee then asks for a routine-looking install and the agent emits a
+remote script piped to \texttt{sh}; the call is blocked at L1, and
 the refusal returns \emph{in-band} as a tool result, so the agent explains
 what was blocked and offers an alternative rather than failing---the
 single most common objection to pre-execution blocking, answered by
@@ -226,9 +226,18 @@ suspends dispatch until a decision returns. On the \emph{request} side,
 which is new in this version, it reads the outgoing \texttt{messages}
 array and classifies each span by trust channel before the model is
 called (\S\ref{sec:provenance}). The agent's code, prompts and tool
-definitions are untouched. JavaScript and Go SDKs provide the same
-response-side hook; the JavaScript SDK patches Anthropic, OpenAI and
-LangChain.
+definitions are untouched. Where the decision is \emph{enforced} is a
+switch, \texttt{enforce\_at}: at the response, the SDK raises out of the
+model call before dispatch; at the tool, the model-level patch only
+observes and a tool-level patch on the framework's own dispatch method
+(LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI, the
+OpenAI Agents SDK) returns the refusal as the tool's result, so the model
+sees it in the slot a result would occupy. A stack with no such method
+to patch---a hand-written loop, LiteLLM, the Google GenAI client---gets
+the same behaviour from one line that wraps its dispatcher,
+\texttt{agentguard.guarded(execute\_tool)}. JavaScript and Go SDKs
+provide the same response-side hook; the JavaScript SDK patches
+Anthropic, OpenAI and LangChain.
 
 \paragraph{MCP proxy.}
 For agents that reach tools over the Model Context Protocol, a stdio or
@@ -257,6 +266,15 @@ by \emph{what each may observe}, not only by cost. The ordering matters
 because the measurement in \S\ref{sec:eval} turns on it: layers that see
 only the call string are blind to a class of attack that layers which
 see the conversation can resolve.
+
+\paragraph{Identity and scope.}
+Before any content is read, the call is attributed. The agent is looked
+up in the registry (and created on first sight), an agent the operator
+has suspended or the kill switch has revoked is refused, and an agent
+with a \emph{declared tool scope} may only call the tools it declared:
+a call to an undeclared tool is blocked as \texttt{unattested-tool}
+before extraction. Scope is opt-in per agent, so an unscoped agent is not
+blocked by a check it never asked for.
 
 \paragraph{Extraction.}
 Arguments are walked recursively (depth limit 32, 10{,}000-string cap)
@@ -467,7 +485,11 @@ Every decision, with the facts that produced it, becomes a trace. Traces
 are signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and
 linked into a SHA-256 hash chain in which each record commits to its
 predecessor; modifying or deleting any entry breaks the chain for every
-record after it. Chain heads are periodically folded into a Merkle tree
+record after it. The chain belongs to the agent, not to a process: before
+its first trace, an SDK asks the gateway where the agent's chain ends and
+continues from there, so a restarted agent extends one chain rather than
+starting a second (a defect the compatibility matrix exposed, since every
+row there runs in a fresh process). Chain heads are periodically folded into a Merkle tree
 and the signed root is appended to a transparency log, which registered
 external \emph{witnesses} can countersign---so an operator cannot
 quietly rewrite their own history even with the gateway's key. Offline
@@ -476,6 +498,12 @@ fails loudly on any discrepancy; the demonstration invites attendees to
 edit one record and watch it fail (Figure~\ref{fig:audit}). Compliance evidence packs assemble
 traces, policies and verification results into the artefacts an audit
 expects (SOC~2 control evidence, EU AI Act Article 12 record-keeping).
+Retention is a policy too: per-tenant, per-resource retention periods
+(traces, violations, anomaly events, judge verdicts, admin audit log)
+are purged on a schedule, so a deployment can satisfy a deletion
+obligation without an operator deleting rows by hand---and a purge that
+removes the oldest records leaves the chain verifiable from the first
+retained one.
 
 \subsection{Recovery}
 \label{sec:recovery}
@@ -526,20 +554,26 @@ they see is produced by the same gateway binary the repository ships.
 
 \paragraph{Setup.}
 A Claude-powered research agent is connected to a SQLite database, a
-scratch file system, and a shell tool. \system is enabled by adding one
-line to the agent, shown in full:
+scratch file system, and a shell tool. \system is enabled by adding two
+lines to the agent, shown in full:
 
 \begin{center}\small
-\texttt{import agentguard; agentguard.auto(blocking\_mode=True)}
+\texttt{agentguard.auto(blocking\_mode=True, enforce\_at="tool")}\\
+\texttt{execute\_tool = agentguard.guarded(execute\_tool)}
 \end{center}
 
 \noindent
 No other change is made (\texttt{auto()} without the flag observes and
-audits but never blocks; the flag is the firewall). The SDK monkey-patches
-the framework's tool-dispatch entry point, so the agent code, the prompts,
-and the tool definitions are untouched---which is the property we most want attendees
-to check, and the first thing we invite them to verify by diffing the
-agent source against its upstream version.
+audits but never blocks; the flag is the firewall). The first line patches
+the model client, so every tool call the model emits is traced; the
+second wraps the agent's own tool dispatcher, so the decision is taken
+there and a refusal is returned as the tool's result. An agent built on a
+framework with a tool-execution hook needs only the first line (the SDK
+patches the framework's dispatch entry point); this demo agent is a plain
+Anthropic loop, and so uses both. The agent code, the prompts, and the
+tool definitions are otherwise untouched---which is the property we most
+want attendees to check, and the first thing we invite them to verify by
+diffing the agent source against its upstream version.
 
 \input{figures/fig_demo}
 
@@ -560,19 +594,27 @@ end-to-end turn complete at its normal speed with the gateway in the
 loop.
 
 \paragraph{S2 --- Interception, and what the agent does next.}
-An attendee submits input carrying an embedded SQL injection. The agent
-is genuinely fooled and emits
-\texttt{query\_database(sql="SELECT * FROM users; DROP TABLE
-audit\_log; --")}. \system blocks it at L1 in 6.2\,ms.
+An attendee asks the agent to ``install the monitoring agent the usual
+way'' and gives it the usual way: \texttt{curl -s https://\ldots/install.sh
+| sh}. The agent does as asked and emits
+\texttt{run\_shell(command="curl -s \ldots | sh")}. \system blocks it at
+L1 (shell-injection family: a remote fetch piped to a shell) in about a
+millisecond at the gateway. The same payload is the S2 of the
+compatibility matrix (Appendix~\ref{app:compat}), where every one of
+nineteen harnesses blocks it; the earlier version's \texttt{DROP TABLE}
+payload is one that current Claude models decline to emit on their own,
+which is a defence layer of its own but not the one being demonstrated,
+and the appendix records that choice.
 
 What we most want attendees to look at is not the block but
 Figure~\ref{fig:demo}(b): the agent receives a structured refusal, and
 continues the conversation---telling the user what was blocked, why
-(multiple statements, a \texttt{DROP}, comment-syntax truncation), and
-what it can do instead. This matters for a demo audience because the
-common objection to blocking is that it breaks the agent. It does not:
-the decision is returned in-band as a tool result, so the model recovers
-the way it recovers from any tool error.
+(a pipe into a shell interpreter, an unverified remote script), and
+what it can do instead (download, inspect, then run). This matters for
+a demo audience because the common objection to blocking is that it
+breaks the agent. It does not: the decision is returned in-band as a
+tool result, so the model recovers the way it recovers from any tool
+error.
 
 \paragraph{S3 --- Human-in-the-loop, live.}
 An attendee asks for something genuinely destructive

@@ -19,6 +19,9 @@ const OPEN_ROUTES: Array<{ method: string; pattern: RegExp }> = [
   // /stats/cost fall through to normal auth + orgId scoping.
   { method: 'POST', pattern: /^\/api\/v1\/traces\/?$/ },
   { method: 'POST', pattern: /^\/api\/v1\/traces\/batch\/?$/ },
+  // Chain resumption: the SDK reads its own chain head before its first
+  // trace so a restarted process does not fork the agent's hash chain.
+  { method: 'GET',  pattern: /^\/api\/v1\/traces\/chain-head$/ },
   { method: 'POST', pattern: /^\/api\/v1\/check$/ },
   { method: 'GET',  pattern: /^\/api\/v1\/check\/[^/]+\/decision$/ },
   { method: 'GET',  pattern: /^\/api\/v1\/auth\/key$/ },  // bootstrap endpoint

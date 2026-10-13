@@ -141,6 +141,8 @@ def auto(
     _default_guard = guard
 
     instrument = AutoInstrument(guard)
+    global _default_instrument
+    _default_instrument = instrument
     anthropic_ok       = instrument.patch_anthropic()
     anthropic_async_ok = instrument.patch_anthropic_async()
     openai_ok          = instrument.patch_openai()
@@ -183,6 +185,83 @@ def auto(
     return guard
 
 
+# ── Explicit check for stacks without a tool-execution hook ─────────────────
+# Plain SDK loops, LiteLLM and the Google GenAI client execute tools in the
+# agent's own code, so there is no framework method for auto() to patch at the
+# tool. These helpers put the decision in that code with one line:
+#
+#     agentguard.auto(url, agent_id="ops", blocking_mode=True, enforce_at="tool")
+#     execute_tool = agentguard.guarded(execute_tool)   # fn(tool_name, arguments)
+#
+# A blocked call then returns the refusal as the tool's own result — the
+# in-band slot — instead of raising out of the model call.
+_default_instrument = None
+_REFUSAL_PREFIX = "[AEGIS] Tool call blocked before execution: "
+
+
+def check(tool_name: str, arguments: dict) -> None:
+    """Decide one tool call before it runs.
+
+    Returns on allow (after any human hold is resolved), raises
+    ``AgentGuardBlockedError`` on block, human rejection or approval
+    timeout. Honours the ``auto()`` configuration: ``blocking_mode``,
+    ``fail_open``, ``human_approval_timeout_s`` and the allow-lists.
+    """
+    if _default_instrument is None:
+        raise RuntimeError("agentguard.check() needs agentguard.auto(...) to have run first")
+    _default_instrument._check_block(tool_name, dict(arguments or {}))
+
+
+async def acheck(tool_name: str, arguments: dict) -> None:
+    """Async form of :func:`check`."""
+    if _default_instrument is None:
+        raise RuntimeError("agentguard.acheck() needs agentguard.auto(...) to have run first")
+    await _default_instrument._async_check_block(tool_name, dict(arguments or {}))
+
+
+def refusal(err: "AgentGuardBlockedError") -> str:
+    """The in-band refusal text for a blocked call, as the tool-level patches return it."""
+    return f"{_REFUSAL_PREFIX}{err.reason}"
+
+
+def guarded(dispatch, *, tool_name_arg: int = 0, arguments_arg: int = 1):
+    """Wrap an agent's tool dispatcher ``dispatch(tool_name, arguments, ...)``.
+
+    The wrapper runs :func:`check` first; on allow it calls ``dispatch``
+    unchanged, on block it returns :func:`refusal` so the model sees why
+    the tool did not run, in the slot its result would have occupied.
+    Works for sync and async dispatchers.
+    """
+    import asyncio
+    import functools
+
+    def _pick(args, kwargs):
+        name = args[tool_name_arg] if len(args) > tool_name_arg else kwargs.get("tool_name") or kwargs.get("name")
+        arguments = args[arguments_arg] if len(args) > arguments_arg else kwargs.get("arguments") or kwargs.get("args") or {}
+        return str(name), arguments
+
+    if asyncio.iscoroutinefunction(dispatch):
+        @functools.wraps(dispatch)
+        async def _async_wrapper(*args, **kwargs):
+            name, arguments = _pick(args, kwargs)
+            try:
+                await acheck(name, arguments)
+            except AgentGuardBlockedError as e:
+                return refusal(e)
+            return await dispatch(*args, **kwargs)
+        return _async_wrapper
+
+    @functools.wraps(dispatch)
+    def _wrapper(*args, **kwargs):
+        name, arguments = _pick(args, kwargs)
+        try:
+            check(name, arguments)
+        except AgentGuardBlockedError as e:
+            return refusal(e)
+        return dispatch(*args, **kwargs)
+    return _wrapper
+
+
 # ── Zero-code env-var activation ────────────────────────────────────────────
 # Set AGENTGUARD_URL=http://localhost:8080 and agentguard auto-instruments on import.
 # No code changes needed — just set env vars.
@@ -216,6 +295,10 @@ __all__ = [
     "AgentGuardConfig",
     "AgentGuardBlockedError",
     "auto",
+    "check",
+    "acheck",
+    "guarded",
+    "refusal",
     "dev",
     "patch",
     "trace",

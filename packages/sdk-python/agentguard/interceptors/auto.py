@@ -1981,6 +1981,8 @@ class AutoInstrument:
             ctx_id      = uuid4()
             cfg         = self._guard.config
             agent_id    = self._guard._agent_uuid
+            if not self._guard._chain_resumed:
+                self._guard.resume_chain()   # continue the agent's chain across restarts
 
             obs_metadata: dict = {}
             if token_usage:

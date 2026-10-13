@@ -324,6 +324,29 @@ export class HttpTransport {
     }
   }
 
+  /**
+   * GET /api/v1/traces/chain-head — where this agent's hash chain currently
+   * ends on the gateway, so a restarted process continues it rather than
+   * starting a second chain at sequence 0. Null on any failure (old
+   * gateway, offline); the caller then starts fresh, as before.
+   */
+  async chainHead(agentId: string): Promise<{ sequence_number: number; integrity_hash: string | null } | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    try {
+      const res = await fetch(
+        `${this.settings.gatewayUrl}/api/v1/traces/chain-head?agent_id=${encodeURIComponent(agentId)}`,
+        { method: 'GET', headers: buildHeaders(this.config), signal: controller.signal },
+      );
+      if (!res.ok) return null;
+      return (await res.json()) as { sequence_number: number; integrity_hash: string | null };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /** GET /api/v1/check/:id/decision — used while a call is held for a person. */
   async pollDecision(checkId: string): Promise<CheckResponse | null> {
     const res = await fetch(`${this.settings.gatewayUrl}/api/v1/check/${encodeURIComponent(checkId)}/decision`, {

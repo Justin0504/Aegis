@@ -135,6 +135,12 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     );
 
     -- Violations table
+    -- No foreign keys on purpose: a pre-execution decision at /check has
+    -- no trace yet (trace_id is the check_id) and its policy_id may be a
+    -- DSL rule name or a risk tier ("risk:HIGH"), neither of which lives
+    -- in policies(id). With the old FKs every /check block and hold
+    -- failed to record, so the Cockpit's blocked counter and the policy
+    -- hit-rate table undercounted exactly the decisions that matter.
     CREATE TABLE IF NOT EXISTS violations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       agent_id TEXT NOT NULL,
@@ -142,9 +148,7 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
       trace_id TEXT NOT NULL,
       violation_type TEXT NOT NULL,
       details TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (policy_id) REFERENCES policies(id),
-      FOREIGN KEY (trace_id) REFERENCES traces(trace_id)
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_agent_violations ON violations (agent_id, created_at);
 
@@ -328,6 +332,39 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
 
   for (const sql of migrations) {
     try { db.exec(sql); } catch { /* column already exists — safe to ignore */ }
+  }
+
+  // Existing databases: rebuild `violations` without its foreign keys
+  // (see the CREATE TABLE comment). SQLite cannot drop a constraint, so
+  // copy, drop, rename — inside a transaction with FK enforcement off.
+  const violationFks = db.pragma('foreign_key_list(violations)') as unknown[];
+  if (violationFks.length > 0) {
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.exec(`
+        BEGIN;
+        CREATE TABLE violations_v2 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          agent_id TEXT NOT NULL,
+          policy_id TEXT NOT NULL,
+          trace_id TEXT NOT NULL,
+          violation_type TEXT NOT NULL,
+          details TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO violations_v2 (id, agent_id, policy_id, trace_id, violation_type, details, created_at)
+          SELECT id, agent_id, policy_id, trace_id, violation_type, details, created_at FROM violations;
+        DROP TABLE violations;
+        ALTER TABLE violations_v2 RENAME TO violations;
+        CREATE INDEX IF NOT EXISTS idx_agent_violations ON violations (agent_id, created_at);
+        COMMIT;
+      `);
+    } catch (e) {
+      try { db.exec('ROLLBACK'); } catch { /* not in a transaction */ }
+      throw e;
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
   }
 
   // ── Full-text search over traces (Round 3 · Trace query DSL) ─────

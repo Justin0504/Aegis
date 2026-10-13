@@ -61,26 +61,31 @@ class TelemetryService:
         if not self.tracer:
             return
 
+        # OpenTelemetry rejects None attribute values (and warns loudly on
+        # every span), so optional fields are only set when present.
+        attributes = {
+            "agent.id": str(agent_trace.agent_id),
+            "trace.id": str(agent_trace.trace_id),
+            "parent.trace.id": str(agent_trace.parent_trace_id)
+            if agent_trace.parent_trace_id
+            else None,
+            "sequence.number": agent_trace.sequence_number,
+            "tool.name": agent_trace.tool_call.tool_name,
+            "function.name": agent_trace.tool_call.function,
+            "duration.ms": agent_trace.observation.duration_ms,
+            "has.error": agent_trace.observation.error is not None,
+            "risk.level": agent_trace.safety_validation.risk_level
+            if agent_trace.safety_validation
+            else None,
+            "approval.status": agent_trace.approval_status,
+            "hash.integrity": agent_trace.integrity_hash,
+        }
+        attributes = {k: v for k, v in attributes.items() if v is not None}
+
         # Create span
         with self.tracer.start_as_current_span(
             name=f"{agent_trace.tool_call.tool_name}.{agent_trace.tool_call.function}",
-            attributes={
-                "agent.id": str(agent_trace.agent_id),
-                "trace.id": str(agent_trace.trace_id),
-                "parent.trace.id": str(agent_trace.parent_trace_id)
-                if agent_trace.parent_trace_id
-                else None,
-                "sequence.number": agent_trace.sequence_number,
-                "tool.name": agent_trace.tool_call.tool_name,
-                "function.name": agent_trace.tool_call.function,
-                "duration.ms": agent_trace.observation.duration_ms,
-                "has.error": agent_trace.observation.error is not None,
-                "risk.level": agent_trace.safety_validation.risk_level
-                if agent_trace.safety_validation
-                else None,
-                "approval.status": agent_trace.approval_status,
-                "hash.integrity": agent_trace.integrity_hash,
-            },
+            attributes=attributes,
         ) as span:
             # Add events
             if agent_trace.observation.error:

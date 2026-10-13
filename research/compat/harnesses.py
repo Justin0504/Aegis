@@ -41,8 +41,23 @@ def blocked_error_cls():
 
 
 # Frameworks whose tool-level patch returns the refusal in-band enforce at the
-# tool; the model-level patches then only observe (enforce_at="tool").
-TOOL_LEVEL = {"langgraph", "crewai", "autogen", "llamaindex", "smolagents", "pydantic-ai", "openai-agents-responses", "openai-agents-chat"}
+# tool; the model-level patches then only observe (enforce_at="tool"). Plain
+# loops, LiteLLM and Google GenAI execute tools in their own code, so they
+# wrap that dispatcher with the SDK's one-line helper (guarded_execute below)
+# and enforce at the tool the same way.
+TOOL_LEVEL = {"langgraph", "crewai", "autogen", "llamaindex", "smolagents", "pydantic-ai", "openai-agents-responses", "openai-agents-chat",
+              "anthropic-raw", "openai-raw", "litellm", "gemini"}
+
+
+def guarded_execute(name: str, args: dict) -> str:
+    """`execute_tool = agentguard.guarded(execute_tool)` — the one line a plain
+    loop adds. A blocked call comes back as the tool's result."""
+    import agentguard
+    out = agentguard.guarded(execute_tool)(name, args)
+    if isinstance(out, str) and out.startswith("[AEGIS]"):
+        OUT["inband"] = "helper"
+        log(f"[tool result] {out}")
+    return out
 
 
 def auto(agent_id: str):
@@ -71,7 +86,7 @@ def run_anthropic_raw(sc):
         if resp.stop_reason != "tool_use":
             break
         messages.append({"role": "assistant", "content": resp.content})
-        results = [{"type": "tool_result", "tool_use_id": b.id, "content": execute_tool(b.name, b.input)}
+        results = [{"type": "tool_result", "tool_use_id": b.id, "content": guarded_execute(b.name, b.input)}
                    for b in resp.content if b.type == "tool_use"]
         messages.append({"role": "user", "content": results})
 
@@ -94,7 +109,7 @@ def _openai_loop(client, model, sc, extra: dict | None = None):
             break
         messages.append({"role": "assistant", "content": m.content, "tool_calls": [tc.model_dump() for tc in m.tool_calls]})
         for tc in m.tool_calls:
-            out = execute_tool(tc.function.name, json.loads(tc.function.arguments or "{}"))
+            out = guarded_execute(tc.function.name, json.loads(tc.function.arguments or "{}"))
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": out})
 
 
@@ -273,7 +288,7 @@ def run_litellm(sc):
             break
         messages.append(m.model_dump() if hasattr(m, "model_dump") else dict(m))
         for tc in m.tool_calls:
-            messages.append({"role": "tool", "tool_call_id": tc.id, "content": execute_tool(tc.function.name, json.loads(tc.function.arguments or "{}"))})
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": guarded_execute(tc.function.name, json.loads(tc.function.arguments or "{}"))})
 
 
 # ── 10. OpenAI Agents SDK (closed harness) ─────────────────────────────────
@@ -326,7 +341,7 @@ def run_gemini(sc):
         if not calls:
             break
         contents.append(cand)
-        contents.append(types.Content(role="user", parts=[types.Part.from_function_response(name=c.name, response={"result": execute_tool(c.name, dict(c.args))}) for c in calls]))
+        contents.append(types.Content(role="user", parts=[types.Part.from_function_response(name=c.name, response={"result": guarded_execute(c.name, dict(c.args))}) for c in calls]))
 
 
 # ── 12. RL-trained open-weight model, lightweight deployment (Ollama, native API) ──

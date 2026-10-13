@@ -16,8 +16,11 @@ language-model calls are real. Appendix~\ref{app:compat} gives the matrix
 (Table~\ref{tab:compat}) and the harness code is in the repository.
 
 The exercise was worth more than the table. Running it found, and the
-current version fixes, sixteen defects that no unit test had caught,
-among them: the Python SDK replaced any human-readable agent id with a
+current version fixes, seventeen defects that no unit test had caught,
+among them: every SDK started a new hash chain at sequence zero in every
+process, so an agent restarted once failed chain verification (the
+Cockpit's chain counter, screenshotted against the matrix, showed it);
+the Python SDK replaced any human-readable agent id with a
 random UUID, so policies and approvals keyed to the agent's name never
 matched; its OpenAI patch crashed on streaming responses and did not see
 the Responses API or the current Google GenAI client at all; the

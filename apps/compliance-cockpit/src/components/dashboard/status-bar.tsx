@@ -172,7 +172,11 @@ export function StatusBar() {
               <a
                 href="/audit-log"
                 className="inline-flex items-baseline gap-1 hover:underline"
-                title="Open /audit-log to drill in"
+                title={
+                  integrity.broken === 0
+                    ? `${integrity.ok} of ${integrity.total} agent hash chains verify end to end. Open /audit-log to drill in.`
+                    : `${integrity.broken} of ${integrity.total} agent hash chains do not verify: a record was altered, removed, or a second chain was started at sequence 0. Open /audit-log to see where.`
+                }
                 style={{ color: 'inherit' }}
               >
                 <Link2

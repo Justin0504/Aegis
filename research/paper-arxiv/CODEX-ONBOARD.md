@@ -58,23 +58,28 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
    the brief before handing back. F1 (architecture) exists but should be
    redrawn to the two-row spec in the brief.
 2. ~~In-band refusals for framework rows~~ — done 2026-10-13: every
-   framework row is in-band via `enforce_at="tool"` (tool-level patches for
-   LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic AI and the
-   OpenAI Agents SDK return the refusal as the tool result). Plain SDK
-   loops, LiteLLM and Google GenAI still need the three-line handler; the
-   SDK could ship that handler as a helper.
-
-3. **`demo/live-agent/app.py`** still calls `/api/v1/check` by hand; the
-   paper says the demo agent uses `agentguard.auto(blocking_mode=True)`.
-   Migrate it (the S1–S3 flow and the in-band refusal must survive) or the
-   paper's §3 "Setup" paragraph must say what the app really does.
-4. **Cockpit**: the topbar's "0/N chains" is red whenever SDK signing is
-   off (`enable_signing=False` in `auto()`); show it neutral with a
-   tooltip. The Activity chart on the overview shows 0 actions for the
-   last 24 h while the counter shows N — find the bucketing bug.
+   framework row is in-band via `enforce_at="tool"`. Plain SDK loops,
+   LiteLLM and Google GenAI now use the one-line helper
+   `execute_tool = agentguard.guarded(execute_tool)` (`agentguard.check` /
+   `acheck` / `refusal` are the pieces); the table marks them
+   *in-band (helper)*.
+3. ~~`demo/live-agent/app.py`~~ — migrated 2026-10-13 to
+   `agentguard.auto(..., blocking_mode=True, enforce_at="tool")` +
+   `agentguard.guarded`; it installs its own `hold-send-report` DSL rule
+   at start (merging with the tenant's rules). Hand-rolled `/check`,
+   polling and trace posting are gone.
+4. ~~Cockpit "0/N chains"~~ — this was **not** cosmetic: every SDK
+   process started a new chain at sequence 0, so any restarted agent
+   failed verification. Fixed 2026-10-13: `GET /api/v1/traces/chain-head`
+   (open route) + `AgentGuard.resume_chain()` in the Python SDK and the
+   same in the JS tracer (traces built before the head arrives are
+   deferred in order). The tooltip now says what a broken chain means.
+   The Activity chart bucketing bug was fixed earlier (naive-UTC parse).
 5. ~~Streaming on the Anthropic patch~~ — done 2026-10-13 (events are
    assembled and checked at `message_stop`; verified with a live streamed
    `curl | sh` call). `messages.stream()` (the helper) is untested.
+6. **Go SDK** has no chain resumption yet (`packages/sdk-go`): mirror
+   `chain-head` there (read head before the first trace).
 
 ## Rules
 
