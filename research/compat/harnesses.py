@@ -26,7 +26,7 @@ from common import (GATEWAY, SCENARIOS, SCENARIOS_BASH, TOOL_SPECS, CheckRecorde
 
 ANTHROPIC_MODEL = "claude-haiku-4-5"
 OPENAI_MODEL = "gpt-4o-mini"
-GEMINI_MODEL = "gemini-3-flash-preview"
+GEMINI_MODEL = os.environ.get("COMPAT_GEMINI_MODEL", "gemini-3-flash-preview")
 REC = CheckRecorder().install()
 OUT: dict[str, Any] = {"transcript": [], "inband": "n/a", "escaped": False}
 

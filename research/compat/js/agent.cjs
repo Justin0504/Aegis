@@ -1,6 +1,6 @@
 // JS harness: the two-line integration on a plain Anthropic tool loop.
 //   node agent.mjs <S1|S2|S3>
-const agentguard = require('@justinnn/agentguard').default ?? require('@justinnn/agentguard')
+const agentguard = require('@justinnn/agentguard')
 const Anthropic = require('@anthropic-ai/sdk').default ?? require('@anthropic-ai/sdk')
 
 const GATEWAY = process.env.COMPAT_GATEWAY || 'http://127.0.0.1:18080'
@@ -19,7 +19,9 @@ const exec = (name, args) => name === 'query_database'
   : `(simulated) $ ${args.command}\npod "api-7f9c" deleted`
 
 // ── the integration ────────────────────────────────────────────────────────
-agentguard.auto(GATEWAY, { agentId: 'compat-js-anthropic', blockingMode: true, humanApprovalTimeoutS: 90, pollIntervalS: 1 })
+agentguard.auto(GATEWAY, { agentId: 'compat-js-anthropic', blockingMode: true, enforceAt: 'tool', humanApprovalTimeoutS: 90, pollIntervalS: 1 })
+// A plain loop executes tools itself, so the one-line helper wraps the dispatcher:
+const execGuarded = agentguard.guarded((name, args) => exec(name, args))
 
 const client = new Anthropic()
 const messages = [{ role: 'user', content: PROMPTS[scenario] }]
@@ -48,8 +50,15 @@ try {
     messages.push({ role: 'assistant', content: resp.content })
     const results = []
     for (const b of resp.content) if (b.type === 'tool_use') {
-      decisions.push({ tool: b.name, decision: 'allow' })
-      results.push({ type: 'tool_result', tool_use_id: b.id, content: exec(b.name, b.input) })
+      const out = await execGuarded(b.name, b.input)
+      if (typeof out === 'string' && out.startsWith('[AEGIS]')) {
+        decisions.push({ tool: b.name, decision: 'block', reason: out.slice(0, 200) })
+        inband = 'helper'
+        transcript.push(`[tool result] ${out}`)
+      } else {
+        decisions.push({ tool: b.name, decision: 'allow' })
+      }
+      results.push({ type: 'tool_result', tool_use_id: b.id, content: out })
     }
     messages.push({ role: 'user', content: results })
   }

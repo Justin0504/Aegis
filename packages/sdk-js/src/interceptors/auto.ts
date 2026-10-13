@@ -76,7 +76,7 @@ export class AutoInstrument {
             const toolName = block.name as string;
             const args = (block.input ?? {}) as Record<string, unknown>;
 
-            if (instrument.guard.config.blockingMode) {
+            if (instrument.guard.config.blockingMode && instrument.guard.config.enforceAt !== 'tool') {
               await instrument.guard.enforceBlock(toolName, args);
             }
 
@@ -136,7 +136,7 @@ export class AutoInstrument {
             let args: Record<string, unknown> = {};
             try { args = JSON.parse((fn.arguments as string) || '{}'); } catch { /* */ }
 
-            if (instrument.guard.config.blockingMode) {
+            if (instrument.guard.config.blockingMode && instrument.guard.config.enforceAt !== 'tool') {
               await instrument.guard.enforceBlock(toolName, args);
             }
 
@@ -182,7 +182,7 @@ export class AutoInstrument {
         const prompt = typeof input === 'string' ? input : JSON.stringify(input);
         const startTime = Date.now();
 
-        if (instrument.guard.config.blockingMode) {
+        if (instrument.guard.config.blockingMode && instrument.guard.config.enforceAt !== 'tool') {
           await instrument.guard.enforceBlock(toolName, args);
         }
 
@@ -225,7 +225,7 @@ export class AutoInstrument {
         wrapped.execute = async function (args: Record<string, unknown>, options?: unknown) {
           const startTime = Date.now();
 
-          if (instrument.guard.config.blockingMode) {
+          if (instrument.guard.config.blockingMode && instrument.guard.config.enforceAt !== 'tool') {
             await instrument.guard.enforceBlock(toolName, args);
           }
 
@@ -311,3 +311,40 @@ export function auto(
 }
 
 export { AgentGuardBlockedError };
+
+// ── Explicit check for stacks without a tool-execution hook ─────────────────
+// A hand-written loop executes tools in its own code, so there is no method
+// for auto() to patch at the tool. One line puts the decision there:
+//
+//     agentguard.auto(url, { agentId: 'ops', blockingMode: true, enforceAt: 'tool' });
+//     execute = agentguard.guarded(execute);   // (toolName, args) => result
+//
+// A blocked call then resolves to the refusal text as the tool's own result.
+const REFUSAL_PREFIX = '[AEGIS] Tool call blocked before execution: ';
+
+/** Decide one tool call before it runs; resolves on allow (after any human hold), throws AgentGuardBlockedError otherwise. */
+export async function check(toolName: string, args: Record<string, unknown>): Promise<void> {
+  if (!_defaultGuard) throw new Error('agentguard.check() needs agentguard.auto(...) to have run first');
+  if (!_defaultGuard.config.blockingMode) return;
+  await _defaultGuard.enforceBlock(toolName, args ?? {});
+}
+
+/** The in-band refusal text for a blocked call. */
+export function refusal(err: AgentGuardBlockedError): string {
+  return `${REFUSAL_PREFIX}${err.reason}`;
+}
+
+/** Wrap an agent's tool dispatcher `(toolName, args, ...rest) => result` so a blocked call returns the refusal instead of throwing. */
+export function guarded<TArgs extends unknown[], TReturn>(
+  dispatch: (toolName: string, args: Record<string, unknown>, ...rest: TArgs) => TReturn | Promise<TReturn>,
+): (toolName: string, args: Record<string, unknown>, ...rest: TArgs) => Promise<TReturn | string> {
+  return async (toolName, args, ...rest) => {
+    try {
+      await check(toolName, args);
+    } catch (err) {
+      if (err instanceof AgentGuardBlockedError) return refusal(err);
+      throw err;
+    }
+    return dispatch(toolName, args, ...rest);
+  };
+}

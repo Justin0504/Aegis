@@ -235,9 +235,10 @@ OpenAI Agents SDK) returns the refusal as the tool's result, so the model
 sees it in the slot a result would occupy. A stack with no such method
 to patch---a hand-written loop, LiteLLM, the Google GenAI client---gets
 the same behaviour from one line that wraps its dispatcher,
-\texttt{agentguard.guarded(execute\_tool)}. JavaScript and Go SDKs
-provide the same response-side hook; the JavaScript SDK patches
-Anthropic, OpenAI and LangChain.
+\texttt{agentguard.guarded(execute\_tool)}. The JavaScript SDK patches
+Anthropic, OpenAI and LangChain and ships the same \texttt{enforceAt}
+switch and \texttt{guarded} helper; the Go SDK is an explicit
+\texttt{Wrap(tool, args, fn)} that checks, holds, runs and traces.
 
 \paragraph{MCP proxy.}
 For agents that reach tools over the Model Context Protocol, a stdio or
@@ -481,7 +482,12 @@ Supply chain        & 8 & \makecell[tl]{Source-map leak (3), unsafe\\publish (3)
 
 Agents carry an identity card---an EdDSA-signed JWT minted by the gateway
 and bound to the agent's registry status---which the proxy path verifies.
-Every decision, with the facts that produced it, becomes a trace. Traces
+Every decision, with the facts that produced it, becomes a trace: the
+SDK carries the gateway's verdict into the trace record it writes for
+the call (\texttt{safety\_validation}, \texttt{approval\_status}), so a
+blocked call, a held call and the person's answer to it are in the same
+chain as the calls that ran, and the gateway records the same decision
+in its violations table. Traces
 are signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and
 linked into a SHA-256 hash chain in which each record commits to its
 predecessor; modifying or deleting any entry breaks the chain for every
@@ -537,10 +543,11 @@ calls.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\columnwidth]{images/dashboard-overview.png}
+    \includegraphics[width=\columnwidth]{images/ui/overview.png}
     \vspace{-0.2in}
-    \caption{Compliance Cockpit: active agents, trace volume, pending
-    approvals and the real-time decision feed.}
+    \caption{Compliance Cockpit overview, taken against the gateway that
+    ran the compatibility matrix: agents, trace volume, blocked and held
+    calls, chain integrity, and the activity feed.}
     \vspace{-0.15in}
     \label{fig:dashboard}
 \end{figure}

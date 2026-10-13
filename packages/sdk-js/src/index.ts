@@ -24,7 +24,7 @@ export type {
   Environment,
   ApprovalStatus,
 } from './core/types.js';
-export { auto, AutoInstrument } from './interceptors/auto.js';
+export { auto, AutoInstrument, check, guarded, refusal } from './interceptors/auto.js';
 
 /**
  * CodeShield helper — scan agent-generated code before dispatch, get

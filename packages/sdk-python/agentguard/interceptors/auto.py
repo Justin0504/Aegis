@@ -178,6 +178,11 @@ class AutoInstrument:
     def __init__(self, guard: "AgentGuard"):
         self._guard = guard
         self._pending: Dict[str, Dict[str, Any]] = {}  # tool_use_id → partial data
+        # Gateway decisions keyed by (tool, args), consumed by _send_trace so
+        # every decision — allow, block, hold and its resolution — is written
+        # into the trace's safety_validation / approval_status, not only into
+        # the gateway's violations table. "Every decision becomes a trace."
+        self._decisions: Dict[str, Dict[str, Any]] = {}
 
     # ── Shared payload builder ──────────────────────────────────────────────
 
@@ -242,6 +247,40 @@ class AutoInstrument:
             return check_id, risk_level, category
         return None
 
+    @staticmethod
+    def _decision_key(tool_name: str, arguments: Any) -> str:
+        try:
+            return f"{tool_name}|{_json_mod.dumps(arguments, sort_keys=True, default=str)}"
+        except Exception:
+            return f"{tool_name}|{arguments!r}"
+
+    def _note_decision(self, tool_name: str, arguments: Any, result: dict) -> None:
+        decision = result.get("decision", "allow")
+        self._decisions[self._decision_key(tool_name, arguments)] = {
+            "passed":     decision != "block",
+            "risk_level": result.get("risk_level", "LOW"),
+            "approval":   {"allow": "AUTO_APPROVED", "pending": "PENDING_APPROVAL"}.get(decision, "REJECTED"),
+            "reason":     result.get("reason") if decision == "block" else None,
+            "check_id":   result.get("check_id"),
+        }
+
+    def _resolve_hold(self, tool_name: str, approved: bool, reason: Optional[str]) -> None:
+        for key, d in self._decisions.items():
+            if key.startswith(tool_name + "|") and d.get("approval") == "PENDING_APPROVAL":
+                d["approval"] = "APPROVED" if approved else "REJECTED"
+                d["passed"] = approved
+                d["reason"] = None if approved else reason
+
+    def _pop_decision(self, tool_name: str, arguments: Any):
+        d = self._decisions.pop(self._decision_key(tool_name, arguments), None)
+        if not d:
+            return None, None
+        from agentguard_core_schema import SafetyValidation
+        sv = SafetyValidation(policy_name="gateway", passed=bool(d["passed"]),
+                              violations=[d["reason"]] if d.get("reason") else None,
+                              risk_level=d.get("risk_level") if d.get("risk_level") in ("LOW", "MEDIUM", "HIGH", "CRITICAL") else "LOW")
+        return sv, d.get("approval")
+
     # ── Shared pre-check helpers ────────────────────────────────────────────
 
     _SEV = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
@@ -295,6 +334,7 @@ class AutoInstrument:
             )
             with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 result = _json_mod.loads(resp.read())
+            self._note_decision(tool_name, arguments, result)
 
             risk_level = result.get("risk_level", "LOW")
             category   = result.get("category", "unknown")
@@ -356,8 +396,10 @@ class AutoInstrument:
 
                 if decision == "allow":
                     print(f"[AEGIS] ✅ '{tool_name}' approved by {result.get('decided_by', 'human')}")
+                    self._resolve_hold(tool_name, True, None)
                     return
                 if decision == "block":
+                    self._resolve_hold(tool_name, False, "Rejected by human reviewer")
                     raise AgentGuardBlockedError(
                         tool_name=tool_name,
                         reason="Rejected by human reviewer",
@@ -369,6 +411,7 @@ class AutoInstrument:
             except Exception:
                 pass  # network blip — keep polling
 
+        self._resolve_hold(tool_name, False, f"Human approval timed out after {timeout_s}s")
         raise AgentGuardBlockedError(
             tool_name=tool_name,
             reason=f"Human approval timed out after {timeout_s}s",
@@ -408,6 +451,7 @@ class AutoInstrument:
                     return _json_mod.loads(resp.read())
 
             result = await loop.run_in_executor(None, _do_check)
+            self._note_decision(tool_name, arguments, result)
 
             risk_level = result.get("risk_level", "LOW")
             category   = result.get("category", "unknown")
@@ -469,8 +513,10 @@ class AutoInstrument:
 
                 if decision == "allow":
                     print(f"[AEGIS] ✅ '{tool_name}' approved by {result.get('decided_by', 'human')}")
+                    self._resolve_hold(tool_name, True, None)
                     return
                 if decision == "block":
+                    self._resolve_hold(tool_name, False, "Rejected by human reviewer")
                     raise AgentGuardBlockedError(
                         tool_name=tool_name,
                         reason="Rejected by human reviewer",
@@ -482,6 +528,7 @@ class AutoInstrument:
             except Exception:
                 pass
 
+        self._resolve_hold(tool_name, False, f"Human approval timed out after {timeout_s}s")
         raise AgentGuardBlockedError(
             tool_name=tool_name,
             reason=f"Human approval timed out after {timeout_s}s",
@@ -1988,9 +2035,12 @@ class AutoInstrument:
             if token_usage:
                 obs_metadata["token_usage"] = token_usage
 
+            safety_validation, approval_status = self._pop_decision(tool_name, arguments)
             trace_request = CreateTraceRequest(
                 agent_id=agent_id,
                 sequence_number=self._guard._sequence_counter,
+                safety_validation=safety_validation,
+                approval_status=approval_status,
                 input_context=InputContext(prompt=input_prompt),
                 thought_chain=ThoughtChain(
                     raw_tokens="Auto-captured via SDK interceptor",

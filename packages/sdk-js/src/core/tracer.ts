@@ -44,6 +44,7 @@ export class AgentGuard {
       humanApprovalTimeoutMs: 300_000,
       pollIntervalMs: 1_000,
       failOpen: true,
+      enforceAt: 'response',
       debug: false,
       // Identity headers default to empty strings; HttpTransport's
       // env-fallback logic in buildHeaders() picks them up from

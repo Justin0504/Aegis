@@ -19,6 +19,14 @@ export interface AgentGuardConfig {
    * Default: false
    */
   blockingMode?: boolean;
+  /**
+   * Where a blocking decision is enforced. 'response' (default): the
+   * auto-instrumentation throws AgentGuardBlockedError out of the model
+   * call before any tool is dispatched. 'tool': the model-level patch only
+   * observes, and the agent's own dispatcher — wrapped with guarded() —
+   * decides, returning the refusal as the tool's result (in-band).
+   */
+  enforceAt?: 'response' | 'tool';
   /** Timeout for blocking checks in ms (default: 3000) */
   blockingTimeoutMs?: number;
   /** How long a `pending` call waits for a human decision before it is treated as blocked (default: 300000). */
