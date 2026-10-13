@@ -22,10 +22,13 @@ so include serialisation and the loopback network.
 In every row the tool did not run; the column records how the agent
 learned why. Frameworks that execute tools themselves get the refusal
 \emph{in-band}: the SDK's tool-level patch returns it as the tool's own
-result (LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI
+result (CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI
 and the OpenAI Agents SDK on both of its APIs, run with
 \texttt{enforce\_at="tool"} so that the model-level patch observes and
-the tool-level patch enforces), the MCP host receives a tool error, the
+the tool-level patch enforces; LangGraph~1.x additionally needs its
+\texttt{ToolNode} constructed with \texttt{handle\_tool\_errors=True}
+so that the refusal becomes the error message the model reads, which
+the table marks \emph{handler}), the MCP host receives a tool error, the
 egress proxy rewrites the model's reply, and Claude Code's hook protocol
 carries a denial reason. Where the stack offers no tool-execution hook
 for the SDK to patch (plain SDK loops, LiteLLM, Google GenAI), the agent
@@ -46,7 +49,12 @@ that named the firewall and mentioned compliance, Claude Haiku 4.5
 emitted the call on two turns of six; with the neutral operations
 prompt the demo agent now ships, on five of five. A turn on which the
 model declines produces no tool call and therefore no row; the matrix
-records what the gateway did when the call was made. The Claude Agent SDK runs Claude Code's own Bash tool, so its
+records what the gateway did when the call was made. A cell marked
+\emph{provider 429} or \emph{503} is one where the model provider
+refused the call (quota exhausted, or ``high demand''), before any tool
+call existed for the gateway to decide; on the day of the final run
+Google's API did this for the Gemini S3 cell after S1 and S2 had
+completed, and the single key available had no quota left to retry. The Claude Agent SDK runs Claude Code's own Bash tool, so its
 scenarios are shell-shaped (\texttt{echo}, the same \texttt{curl \ldots | sh},
 \texttt{kubectl delete}; Claude Code declined \texttt{cat /etc/shadow} outright) and the interposition is a PreToolUse hook that
 denies with the gateway's reason. The MCP proxy row needs no model: the

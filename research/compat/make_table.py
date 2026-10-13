@@ -36,7 +36,7 @@ ROWS = [
     ("openai-agents",      "Closed harness", "OpenAI Agents SDK (Responses API)", "SDK auto()",       "GPT-4o-mini"),
     ("openai-agents-chat", "Closed harness", "OpenAI Agents SDK (chat completions)", "SDK auto()",    "GPT-4o-mini"),
     ("claude-agent-sdk",   "Closed harness", "Claude Agent SDK (Claude Code runtime)", "PreToolUse hook", "Claude Code"),
-    ("gemini",             "Closed harness", "Google GenAI function calling", "SDK auto()",           "Gemini 3.8 Flash"),
+    ("gemini",             "Closed harness", "Google GenAI function calling", "SDK auto()",           "Gemini Flash (3.8; 3-preview for S2)"),
     ("mcp-proxy",          "Transport", "MCP stdio proxy (Claude Desktop shape)", "MCP proxy",         "--- (host)"),
     ("egress-proxy-openai","Transport", "Egress proxy → OpenAI",            "egress proxy",          "GPT-4o-mini"),
     ("egress-proxy-ollama","Transport", "Egress proxy → Ollama (self-hosted)", "egress proxy",       "Qwen2.5-7B"),
@@ -52,6 +52,9 @@ def cell(r, s, holds):
     if r is None:
         return "---"
     if r.get("error") and not r.get("decisions"):
+        err = str(r.get("error"))
+        if any(code in err for code in ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE")):
+            return "\\textit{provider " + ("429" if "429" in err else "503") + "}"
         return "\\textit{n/a}"
     d = r.get("decisions") or []
     if not d:

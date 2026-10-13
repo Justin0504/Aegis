@@ -16,7 +16,7 @@ language-model calls are real. Appendix~\ref{app:compat} gives the matrix
 (Table~\ref{tab:compat}) and the harness code is in the repository.
 
 The exercise was worth more than the table. Running it found, and the
-current version fixes, twenty defects that no unit test had caught,
+current version fixes, twenty-one defects that no unit test had caught,
 among them: every SDK started a new hash chain at sequence zero in every
 process, so an agent restarted once failed chain verification (the
 Cockpit's chain counter, screenshotted against the matrix, showed it);
@@ -24,7 +24,9 @@ the violations table carried foreign keys that no pre-execution decision
 can satisfy, so every \texttt{/check} block and hold was silently dropped
 from the Cockpit's counts; the Go SDK's traces were in a shape the
 gateway would have rejected, and never reached it anyway because the
-process exited before the final flush;
+process exited before the final flush; the MCP proxy's own trace record
+had the same shape problem, so the transport that needs no SDK left no
+audit record;
 the Python SDK replaced any human-readable agent id with a
 random UUID, so policies and approvals keyed to the agent's name never
 matched; its OpenAI patch crashed on streaming responses and did not see

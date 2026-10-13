@@ -1,0 +1,20 @@
+{
+ "decision": "allow",
+ "harness": "go-wrap",
+ "result": "(simulated) pod \"api-7f9c\" deleted",
+ "scenario": "S3",
+ "sdk_roundtrip_ms": 4020.699,
+ "tool": "run_shell",
+ "expect": "pending",
+ "decisions": [
+  {
+   "tool": "run_shell",
+   "decision": "allow",
+   "reason": null,
+   "sdk_roundtrip_ms": 4020.699
+  }
+ ],
+ "inband": "n/a",
+ "stderr_tail": "",
+ "elapsed_s": 4.0
+}

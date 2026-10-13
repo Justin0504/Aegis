@@ -99,7 +99,13 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
    `harnesses.py` retries transient errors (`_gemini_call`) and defaults to
    `gemini-3.8-flash` (`COMPAT_GEMINI_MODEL` overrides; the key's model
    list is at `generativelanguage.googleapis.com/v1beta/models`).
-10. **Demo model**: `demo/live-agent` defaults to `claude-haiku-4-5`
+10. **MCP proxy traces** (`agentguard/mcp_proxy.py`) now go through the
+    SDK's trace builder (schema, chain-head resume, decision fields) and
+    are sent synchronously from a non-daemon thread; the proxy flushes on
+    exit. Before this, every forwarded call raised in the trace step
+    (missing `timezone` import) and the record would have been rejected
+    anyway. Agent id for the matrix row is `compat-mcp`.
+11. **Demo model**: `demo/live-agent` defaults to `claude-haiku-4-5`
    (`AEGIS_DEMO_MODEL` overrides). Sonnet 4.5 declines the S2 payload on
    its own; Haiku emits it 5/5 with the neutral system prompt and ~1/3
    with a prompt that names the firewall. Do not put "AEGIS" or
