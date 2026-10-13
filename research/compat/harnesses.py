@@ -40,10 +40,16 @@ def blocked_error_cls():
     return AgentGuardBlockedError
 
 
+# Frameworks whose tool-level patch returns the refusal in-band enforce at the
+# tool; the model-level patches then only observe (enforce_at="tool").
+TOOL_LEVEL = {"langgraph", "crewai", "autogen", "llamaindex", "smolagents", "pydantic-ai", "openai-agents-responses", "openai-agents-chat"}
+
+
 def auto(agent_id: str):
     import agentguard
     agentguard.auto(GATEWAY, agent_id=f"compat-{agent_id}", blocking_mode=True, fail_open=False,
-                    human_approval_timeout_s=90, poll_interval_s=1.0)
+                    human_approval_timeout_s=90, poll_interval_s=1.0,
+                    enforce_at="tool" if agent_id in TOOL_LEVEL else "response")
 
 
 # ── 1. plain Anthropic tool loop ───────────────────────────────────────────
@@ -272,8 +278,8 @@ def run_litellm(sc):
 
 # ── 10. OpenAI Agents SDK (closed harness) ─────────────────────────────────
 def run_openai_agents(sc, api: str = "responses"):
+    auto(f"openai-agents-{api}")          # before the import: the patch wraps function_tool
     from agents import Agent, Runner, function_tool, set_default_openai_api
-    auto(f"openai-agents-{api}")
     set_default_openai_api("chat_completions" if api == "chat" else "responses")
 
     @function_tool

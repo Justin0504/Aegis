@@ -532,7 +532,7 @@ class AutoInstrument:
         for block in response.content:
             if getattr(block, "type", None) == "tool_use":
                 args = dict(block.input) if block.input else {}
-                self._check_block(block.name, args)
+                self._model_check(block.name, args)
                 with self._lock:
                     self._pending[block.id] = {
                         "tool_name":    block.name,
@@ -546,7 +546,7 @@ class AutoInstrument:
         for block in response.content:
             if getattr(block, "type", None) == "tool_use":
                 args = dict(block.input) if block.input else {}
-                await self._async_check_block(block.name, args)
+                await self._async_model_check(block.name, args)
                 with self._lock:
                     self._pending[block.id] = {
                         "tool_name":    block.name,
@@ -668,7 +668,7 @@ class AutoInstrument:
                             args = _j.loads(tc.function.arguments or "{}")
                         except Exception:
                             args = {}
-                        instrument._check_block(tc.function.name, args)
+                        instrument._model_check(tc.function.name, args)
                         with instrument._lock:
                             instrument._pending[tc.id] = {
                                 "tool_name":    tc.function.name,
@@ -686,6 +686,22 @@ class AutoInstrument:
             return False
 
 
+
+
+    # ── model-level enforcement switch ────────────────────────────────────────
+    def _model_check(self, tool_name: str, arguments: dict) -> None:
+        """Blocking check at the model boundary. With enforce_at="tool" the
+        model-level patches only observe and the framework's tool-level patch
+        (LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic AI)
+        enforces, returning the refusal as the tool's own result."""
+        if getattr(self._guard.config, "enforce_at", "response") == "tool":
+            return
+        self._model_check(tool_name, arguments)
+
+    async def _async_model_check(self, tool_name: str, arguments: dict) -> None:
+        if getattr(self._guard.config, "enforce_at", "response") == "tool":
+            return
+        await self._async_model_check(tool_name, arguments)
 
     # ── streaming support for the Anthropic patches ───────────────────────────
     def _wrap_anthropic_stream(self, stream, last_prompt: str, is_async: bool):
@@ -727,7 +743,7 @@ class AutoInstrument:
                     _accumulate(ev)
                     yield ev
                 for b, args in _parsed():
-                    await instrument._async_check_block(b["name"], args)
+                    await instrument._async_model_check(b["name"], args)
                     _register(b, args)
             return agen()
 
@@ -736,7 +752,7 @@ class AutoInstrument:
                 _accumulate(ev)
                 yield ev
             for b, args in _parsed():
-                instrument._check_block(b["name"], args)
+                instrument._model_check(b["name"], args)
                 _register(b, args)
         return gen()
 
@@ -772,7 +788,7 @@ class AutoInstrument:
                     args = _j.loads(slot["args"] or "{}")
                 except Exception:
                     args = {}
-                instrument._check_block(slot["name"], args)
+                instrument._model_check(slot["name"], args)
                 with instrument._lock:
                     instrument._pending[slot["id"]] = {"tool_name": slot["name"], "input_prompt": last_prompt or slot["name"],
                                                        "arguments": args, "start_time": time.time(), "token_usage": {}}
@@ -783,7 +799,7 @@ class AutoInstrument:
                     args = _j.loads(slot["args"] or "{}")
                 except Exception:
                     args = {}
-                await instrument._async_check_block(slot["name"], args)
+                await instrument._async_model_check(slot["name"], args)
                 with instrument._lock:
                     instrument._pending[slot["id"]] = {"tool_name": slot["name"], "input_prompt": last_prompt or slot["name"],
                                                        "arguments": args, "start_time": time.time(), "token_usage": {}}
@@ -802,6 +818,53 @@ class AutoInstrument:
                 yield chunk
             _finish_sync()
         return gen()
+
+    # ── OpenAI Agents SDK: tool-level patch via the function_tool decorator ──
+    def patch_openai_agents(self) -> bool:
+        """Wraps agents.function_tool so every FunctionTool it creates runs the
+        gateway check in on_invoke_tool and returns the refusal as the tool's
+        output. The Responses/chat patches see the same call at the model
+        boundary; with enforce_at="tool" they only observe and this enforces,
+        which is what lets the Agents SDK deliver the refusal in-band."""
+        try:
+            import agents as _ag  # type: ignore
+            import agents.tool as _at  # type: ignore
+        except Exception as e:
+            print(f"[AEGIS] OpenAI Agents auto-patch skipped: {e}")
+            return False
+        instrument = self
+        import json as _j
+        original = _at.function_tool
+
+        def _guard(tool):
+            orig_invoke = tool.on_invoke_tool
+
+            async def guarded(ctx, input_json):
+                try:
+                    args = _j.loads(input_json or "{}")
+                except Exception:
+                    args = {"input": str(input_json)}
+                try:
+                    await instrument._async_check_block(tool.name, args)
+                except AgentGuardBlockedError as e:
+                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                return await orig_invoke(ctx, input_json)
+            try:
+                tool.on_invoke_tool = guarded
+            except Exception:
+                object.__setattr__(tool, "on_invoke_tool", guarded)
+            return tool
+
+        def patched_function_tool(func=None, **kwargs):
+            if func is None:
+                deco = original(**kwargs)
+                return lambda f: _guard(deco(f))
+            return _guard(original(func, **kwargs))
+
+        _at.function_tool = patched_function_tool
+        if getattr(_ag, "function_tool", None) is original:
+            _ag.function_tool = patched_function_tool
+        return True
 
     # ── Google GenAI (google-genai, the current SDK) ─────────────────────────
     def patch_google_genai(self) -> bool:
@@ -853,7 +916,7 @@ class AutoInstrument:
             def patched(self_m, *args, **kwargs):
                 response = original(self_m, *args, **kwargs)
                 for name, fargs in _calls(response):
-                    instrument._check_block(name, fargs)
+                    instrument._model_check(name, fargs)
                 _register(response, _prompt(kwargs))
                 return response
             _mod.Models.generate_content = patched
@@ -866,7 +929,7 @@ class AutoInstrument:
             async def patched_async(self_m, *args, **kwargs):
                 response = await original_async(self_m, *args, **kwargs)
                 for name, fargs in _calls(response):
-                    await instrument._async_check_block(name, fargs)
+                    await instrument._async_model_check(name, fargs)
                 _register(response, _prompt(kwargs))
                 return response
             _mod.AsyncModels.generate_content = patched_async
@@ -949,7 +1012,7 @@ class AutoInstrument:
                 _collect_results(kwargs)
                 response = original(self_r, **kwargs)
                 for item, args in _calls(response):
-                    instrument._check_block(item.name, args)
+                    instrument._model_check(item.name, args)
                 _register(response, _last_prompt(kwargs))
                 return response
             _mod.Responses.create = patched_create
@@ -963,7 +1026,7 @@ class AutoInstrument:
                 _collect_results(kwargs)
                 response = await original_async(self_r, **kwargs)
                 for item, args in _calls(response):
-                    await instrument._async_check_block(item.name, args)
+                    await instrument._async_model_check(item.name, args)
                 _register(response, _last_prompt(kwargs))
                 return response
             _mod.AsyncResponses.create = patched_async_create
@@ -1021,7 +1084,7 @@ class AutoInstrument:
                             args = _j.loads(tc.function.arguments or "{}")
                         except Exception:
                             args = {}
-                        await instrument._async_check_block(tc.function.name, args)
+                        await instrument._async_model_check(tc.function.name, args)
                         with instrument._lock:
                             instrument._pending[tc.id] = {
                                 "tool_name":    tc.function.name,
@@ -1138,6 +1201,41 @@ class AutoInstrument:
     # ── CrewAI ─────────────────────────────────────────────────────────────
 
     def patch_crewai(self) -> bool:
+        # CrewAI >= 1.0 runs tools through CrewStructuredTool.invoke(input=…)
+        try:
+            import crewai.tools.structured_tool as _st  # type: ignore
+            _orig_invoke = _st.CrewStructuredTool.invoke
+            _instr = self
+
+            def _patched_invoke(self_tool, input, config=None, **kwargs):
+                tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
+                if isinstance(input, dict):
+                    args = input
+                else:
+                    try:
+                        import json as _j
+                        args = _j.loads(input) if isinstance(input, str) else {"input": str(input)}
+                    except Exception:
+                        args = {"input": str(input)}
+                try:
+                    _instr._check_block(tool_name, args)
+                except AgentGuardBlockedError as e:
+                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                start = time.time()
+                error: Optional[str] = None
+                result = None
+                try:
+                    result = _orig_invoke(self_tool, input, config, **kwargs)
+                    return result
+                except Exception as e:
+                    error = str(e); raise
+                finally:
+                    _instr._send_trace(tool_name=tool_name, input_prompt=tool_name, arguments=args,
+                                       result=str(result)[:500] if result is not None else None,
+                                       start_time=start, error=error)
+            _st.CrewStructuredTool.invoke = _patched_invoke
+        except Exception as e:
+            print(f"[AEGIS] CrewAI structured-tool auto-patch skipped: {e}")
         try:
             import crewai.tools.base_tool as _mod
             original_run = _mod.BaseTool.run
@@ -1177,6 +1275,32 @@ class AutoInstrument:
                     )
 
             _mod.BaseTool.run = patched_run
+            # The @tool decorator builds crewai.tools.base_tool.Tool, which
+            # overrides run(); patch it too or the executor path bypasses us.
+            _tool_cls = getattr(_mod, "Tool", None)
+            if _tool_cls is not None and "run" in _tool_cls.__dict__:
+                _orig_tool_run = _tool_cls.run
+
+                def patched_tool_run(self_tool, *args, **kwargs):
+                    tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
+                    tool_args = dict(kwargs) if kwargs else ({"input": str(args[0])} if args else {})
+                    try:
+                        instrument._check_block(tool_name, tool_args)
+                    except AgentGuardBlockedError as e:
+                        return f"[AEGIS] Tool call blocked before execution: {e}"
+                    start = time.time()
+                    error: Optional[str] = None
+                    result = None
+                    try:
+                        result = _orig_tool_run(self_tool, *args, **kwargs)
+                        return result
+                    except Exception as e:
+                        error = str(e); raise
+                    finally:
+                        instrument._send_trace(tool_name=tool_name, input_prompt=tool_name, arguments=tool_args,
+                                               result=str(result)[:500] if result is not None else None,
+                                               start_time=start, error=error)
+                _tool_cls.run = patched_tool_run
             return True
         except Exception as e:
             print(f"[AEGIS] CrewAI auto-patch failed: {e}")
@@ -1526,23 +1650,19 @@ class AutoInstrument:
     # ── AutoGen 0.4+ ────────────────────────────────────────────────────────
 
     def patch_autogen(self) -> bool:
-        """Patches autogen_core.tools.BaseTool.run / FunctionTool.run.
-        AutoGen 0.4+ standardized tool execution through BaseTool.run, so a
-        single hook covers every tool the agent invokes."""
+        """Patches autogen_core.tools.BaseTool.run_json — the entry point
+        autogen-agentchat calls. (FunctionTool overrides `run`, so a patch
+        on BaseTool.run never fired; the compatibility matrix showed it.)
+        A block is returned as the tool's result, in-band."""
         try:
             import autogen_core.tools as _at  # type: ignore
-            target_cls = getattr(_at, 'BaseTool', None) or getattr(_at, 'FunctionTool', None)
-            if not target_cls or not hasattr(target_cls, 'run'):
-                return False
-            original_run = target_cls.run
+            base = _at.BaseTool
+            original_run_json = base.run_json
             instrument = self
 
-            async def patched_run(self_tool, args=None, cancellation_token=None):
-                tool_name = getattr(self_tool, 'name', self_tool.__class__.__name__)
-                try:
-                    args_dict = args.model_dump() if hasattr(args, 'model_dump') else (args or {})
-                except Exception:
-                    args_dict = {'_raw': str(args)[:500]}
+            async def patched_run_json(self_tool, args, cancellation_token, call_id=None):
+                tool_name = getattr(self_tool, "name", self_tool.__class__.__name__)
+                args_dict = dict(args) if isinstance(args, dict) else {"input": str(args)}
                 try:
                     await instrument._async_check_block(tool_name, args_dict)
                 except AgentGuardBlockedError as e:
@@ -1551,24 +1671,21 @@ class AutoInstrument:
                 error: Optional[str] = None
                 result = None
                 try:
-                    result = await original_run(self_tool, args, cancellation_token)
+                    result = await original_run_json(self_tool, args, cancellation_token, call_id)
                     return result
                 except Exception as e:
                     error = str(e); raise
                 finally:
                     instrument._send_trace(
-                        tool_name=tool_name, input_prompt=tool_name,
-                        arguments=args_dict, result=str(result)[:500] if result else None,
+                        tool_name=tool_name, input_prompt=tool_name, arguments=args_dict,
+                        result=str(result)[:500] if result is not None else None,
                         start_time=start, error=error,
                     )
-
-            target_cls.run = patched_run
+            base.run_json = patched_run_json
             return True
         except Exception as e:
             print(f"[AEGIS] AutoGen auto-patch failed: {e}")
             return False
-
-    # ── LiteLLM (module-level completion + acompletion) ────────────────────
 
     def patch_litellm(self) -> bool:
         """Patches litellm.completion / litellm.acompletion at the module
@@ -1655,7 +1772,7 @@ class AutoInstrument:
                         args = {}
                     tc_id = getattr(tc, 'id', None) or (tc.get('id') if isinstance(tc, dict) else None) or f'tc_{id(tc)}'
                     if name:
-                        instrument._check_block(name, args)
+                        instrument._model_check(name, args)
                         with instrument._lock:
                             instrument._pending[tc_id] = {
                                 'tool_name':    name,

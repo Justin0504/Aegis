@@ -17,16 +17,16 @@ Go SDK \texttt{Wrap} & SDK (Go) & --- (explicit) & \texttt{allow} · 5\,ms & \te
 JS SDK + Anthropic & SDK auto() (JS) & Claude Haiku 4.5 & \texttt{allow} & \texttt{block} · handler & held → \texttt{allow}, 3\,s \\
 \midrule
 \multicolumn{6}{l}{\emph{Open-source framework}} \\
-LangGraph ReAct agent & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 5\,ms & \texttt{block} · handler · 4\,ms & held → \texttt{allow}, 3\,s \\
-CrewAI & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 3\,ms & \texttt{block} · escaped · 4\,ms & held → \texttt{allow}, 3\,s \\
-AutoGen 0.4 (agentchat) & SDK auto() & GPT-4o-mini & \texttt{allow} · 6\,ms & \texttt{block} · escaped · 3\,ms & held → \texttt{allow}, 3\,s \\
-LlamaIndex FunctionAgent & SDK auto() & GPT-4o-mini & \texttt{allow} · 9\,ms & \texttt{block} · escaped · 5\,ms & held → \texttt{allow}, 3\,s \\
-smolagents ToolCallingAgent & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 3\,ms & \texttt{block} · in-band · 3\,ms & held → \texttt{allow}, 3\,s \\
-Pydantic AI & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 3\,ms & \texttt{block} · escaped · 5\,ms & held → \texttt{allow}, 3\,s \\
+LangGraph ReAct agent & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 8\,ms & \texttt{block} · handler · 5\,ms & held → \texttt{allow}, 3\,s \\
+CrewAI & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 8\,ms & \texttt{block} · in-band · 5\,ms & held → \texttt{allow}, 3\,s \\
+AutoGen 0.4 (agentchat) & SDK auto() & GPT-4o-mini & \texttt{allow} · 6\,ms & \texttt{block} · in-band · 6\,ms & held → \texttt{allow}, 3\,s \\
+LlamaIndex FunctionAgent & SDK auto() & GPT-4o-mini & \texttt{allow} · 14\,ms & \texttt{block} · in-band · 7\,ms & held → \texttt{allow}, 3\,s \\
+smolagents ToolCallingAgent & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 5\,ms & \texttt{block} · in-band · 5\,ms & held → \texttt{allow}, 3\,s \\
+Pydantic AI & SDK auto() & Claude Haiku 4.5 & \texttt{allow} · 5\,ms & \texttt{block} · in-band · 4\,ms & held → \texttt{allow}, 3\,s \\
 \midrule
 \multicolumn{6}{l}{\emph{Closed harness}} \\
-OpenAI Agents SDK (Responses API) & SDK auto() & GPT-4o-mini & \texttt{allow} · 3\,ms & \texttt{block} · escaped · 3\,ms & held → \texttt{allow}, 3\,s \\
-OpenAI Agents SDK (chat completions) & SDK auto() & GPT-4o-mini & \texttt{allow} · 5\,ms & \texttt{block} · escaped · 3\,ms & held → \texttt{allow}, 3\,s \\
+OpenAI Agents SDK (Responses API) & SDK auto() & GPT-4o-mini & \texttt{allow} · 6\,ms & \texttt{block} · in-band · 4\,ms & held → \texttt{allow}, 3\,s \\
+OpenAI Agents SDK (chat completions) & SDK auto() & GPT-4o-mini & \texttt{allow} · 3\,ms & \texttt{block} · in-band · 4\,ms & held → \texttt{allow}, 3\,s \\
 Claude Agent SDK (Claude Code runtime) & PreToolUse hook & Claude Code & \texttt{allow} · 7\,ms & \texttt{block} · in-band · 11\,ms & held → \texttt{allow}, 3\,s \\
 Google GenAI function calling & SDK auto() & Gemini Flash & \texttt{allow} · 6\,ms & \texttt{block} · handler · 5\,ms & held → \texttt{allow}, 3\,s \\
 \midrule

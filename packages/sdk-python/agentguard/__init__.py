@@ -94,6 +94,7 @@ def auto(
     tool_categories: Optional[dict] = None,
     # ── Precision controls ─────────────────────────────────────────────────
     block_threshold: str = "HIGH",
+    enforce_at: str = "response",
     allow_tools: Optional[list] = None,
     allow_categories: Optional[list] = None,
     audit_only: bool = False,
@@ -131,6 +132,7 @@ def auto(
         session_id=session_id,
         tool_categories=tool_categories or {},
         block_threshold=block_threshold,
+        enforce_at=enforce_at,
         allow_tools=allow_tools or [],
         allow_categories=allow_categories or [],
         audit_only=audit_only,
@@ -145,6 +147,7 @@ def auto(
     openai_async_ok    = instrument.patch_openai_async()
     openai_responses_ok = instrument.patch_openai_responses()
     google_genai_ok     = instrument.patch_google_genai()
+    openai_agents_ok    = instrument.patch_openai_agents()
     langgraph_ok       = instrument.patch_langgraph()
     crewai_ok          = instrument.patch_crewai()
     gemini_ok          = instrument.patch_gemini()

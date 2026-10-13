@@ -57,13 +57,13 @@ Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
    `images/`, same names; the LaTeX does not change. Run the five checks in
    the brief before handing back. F1 (architecture) exists but should be
    redrawn to the two-row spec in the brief.
-2. **In-band refusals for model-level patches.** Rows marked *escaped* in
-   Table `tab:compat` are frameworks where the SDK can only raise inside the
-   model call (plain SDK loops are *handler*: three lines in the agent
-   loop). For the OpenAI Agents SDK the right hook is a `FunctionTool`
-   wrapper that returns the refusal as the tool's output; LiteLLM and Gemini
-   have no tool-execution hook and stay *handler*. Any change must be
-   re-run through the matrix and the table regenerated.
+2. ~~In-band refusals for framework rows~~ — done 2026-10-13: every
+   framework row is in-band via `enforce_at="tool"` (tool-level patches for
+   LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic AI and the
+   OpenAI Agents SDK return the refusal as the tool result). Plain SDK
+   loops, LiteLLM and Google GenAI still need the three-line handler; the
+   SDK could ship that handler as a helper.
+
 3. **`demo/live-agent/app.py`** still calls `/api/v1/check` by hand; the
    paper says the demo agent uses `agentguard.auto(blocking_mode=True)`.
    Migrate it (the S1–S3 flow and the in-band refusal must survive) or the

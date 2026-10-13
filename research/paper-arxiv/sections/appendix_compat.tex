@@ -19,16 +19,18 @@ trip to \texttt{/api/v1/check}, measured by wrapping the HTTP client, and
 so include serialisation and the loopback network.
 
 \paragraph{Reading the S2 column.}
-Where the framework executes tools itself and catches tool errors
-(LangGraph's \texttt{ToolNode}, smolagents, AutoGen, the MCP host, Claude
-Code's hook protocol), the refusal reaches the model natively. Where the
-SDK must raise from inside the model call because the framework offers no
-tool-execution hook (plain SDK loops, LiteLLM, the OpenAI Agents SDK), a
-three-line handler in the agent loop turns the exception into a message
-the model sees; the rows marked \emph{escaped} are frameworks that
-neither catch the exception nor expose a hook, and are the open items.
-In every row the tool did not run: the difference is only in how
-gracefully the agent learned why.
+In every row the tool did not run; the column records how the agent
+learned why. Frameworks that execute tools themselves get the refusal
+\emph{in-band}: the SDK's tool-level patch returns it as the tool's own
+result (LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI
+and the OpenAI Agents SDK on both of its APIs, run with
+\texttt{enforce\_at="tool"} so that the model-level patch observes and
+the tool-level patch enforces), the MCP host receives a tool error, the
+egress proxy rewrites the model's reply, and Claude Code's hook protocol
+carries a denial reason. Where the SDK can only raise from inside the
+model call because the stack offers no tool-execution hook (plain SDK
+loops, LiteLLM, Google GenAI), a three-line \emph{handler} in the agent
+loop turns the exception into a message the model sees. No row escapes.
 
 \paragraph{Harness-specific notes.}
 Claude Haiku refused to emit the \texttt{DROP TABLE} payload of the
@@ -36,8 +38,8 @@ original S2 under every framing we tried, direct or through a planted
 runbook, which is itself a defence layer; S2 therefore uses a payload both
 model families reliably emit, a remote install script piped to
 \texttt{sh}. The Claude Agent SDK runs Claude Code's own Bash tool, so its
-scenarios are shell-shaped (\texttt{echo}, \texttt{cat /etc/shadow},
-\texttt{kubectl delete}) and the interposition is a PreToolUse hook that
+scenarios are shell-shaped (\texttt{echo}, the same \texttt{curl \ldots | sh},
+\texttt{kubectl delete}; Claude Code declined \texttt{cat /etc/shadow} outright) and the interposition is a PreToolUse hook that
 denies with the gateway's reason. The MCP proxy row needs no model: the
 transport is what is under test, so the client calls the tool directly
 through the proxy. Qwen3-8B is driven through Ollama's native API with

@@ -139,6 +139,15 @@ class AgentGuardConfig(BaseModel):
             "Default 'HIGH' blocks HIGH and CRITICAL, audits MEDIUM/LOW."
         )
     )
+    enforce_at: str = Field(
+        default="response",
+        description=(
+            "Where a block is raised: 'response' (as soon as the model emits the call) or "
+            "'tool' (only when the framework executes it — for frameworks whose tool-level "
+            "patch returns the refusal in-band: LangGraph, CrewAI, AutoGen, LlamaIndex, "
+            "smolagents, Pydantic AI)."
+        )
+    )
 
     allow_tools: list = Field(
         default_factory=list,

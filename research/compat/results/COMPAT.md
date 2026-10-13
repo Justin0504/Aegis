@@ -6,14 +6,14 @@
 | Qwen3-8B on Ollama (RL-trained, local) | manual check (10 lines) | Qwen3-8B | allow · 3 ms | block · in-band · 4 ms | held → allow, 3 s |
 | Go SDK Wrap | SDK (Go) | --- (explicit) | allow · 5 ms | block · in-band · 2 ms | held → allow, 3 s |
 | JS SDK + Anthropic | SDK auto() (JS) | Claude Haiku 4.5 | allow | block · handler | held → allow, 3 s |
-| LangGraph ReAct agent | SDK auto() | Claude Haiku 4.5 | allow · 5 ms | block · handler · 4 ms | held → allow, 3 s |
-| CrewAI | SDK auto() | Claude Haiku 4.5 | allow · 3 ms | block · escaped · 4 ms | held → allow, 3 s |
-| AutoGen 0.4 (agentchat) | SDK auto() | GPT-4o-mini | allow · 6 ms | block · escaped · 3 ms | held → allow, 3 s |
-| LlamaIndex FunctionAgent | SDK auto() | GPT-4o-mini | allow · 9 ms | block · escaped · 5 ms | held → allow, 3 s |
-| smolagents ToolCallingAgent | SDK auto() | Claude Haiku 4.5 | allow · 3 ms | block · in-band · 3 ms | held → allow, 3 s |
-| Pydantic AI | SDK auto() | Claude Haiku 4.5 | allow · 3 ms | block · escaped · 5 ms | held → allow, 3 s |
-| OpenAI Agents SDK (Responses API) | SDK auto() | GPT-4o-mini | allow · 3 ms | block · escaped · 3 ms | held → allow, 3 s |
-| OpenAI Agents SDK (chat completions) | SDK auto() | GPT-4o-mini | allow · 5 ms | block · escaped · 3 ms | held → allow, 3 s |
+| LangGraph ReAct agent | SDK auto() | Claude Haiku 4.5 | allow · 8 ms | block · handler · 5 ms | held → allow, 3 s |
+| CrewAI | SDK auto() | Claude Haiku 4.5 | allow · 8 ms | block · in-band · 5 ms | held → allow, 3 s |
+| AutoGen 0.4 (agentchat) | SDK auto() | GPT-4o-mini | allow · 6 ms | block · in-band · 6 ms | held → allow, 3 s |
+| LlamaIndex FunctionAgent | SDK auto() | GPT-4o-mini | allow · 14 ms | block · in-band · 7 ms | held → allow, 3 s |
+| smolagents ToolCallingAgent | SDK auto() | Claude Haiku 4.5 | allow · 5 ms | block · in-band · 5 ms | held → allow, 3 s |
+| Pydantic AI | SDK auto() | Claude Haiku 4.5 | allow · 5 ms | block · in-band · 4 ms | held → allow, 3 s |
+| OpenAI Agents SDK (Responses API) | SDK auto() | GPT-4o-mini | allow · 6 ms | block · in-band · 4 ms | held → allow, 3 s |
+| OpenAI Agents SDK (chat completions) | SDK auto() | GPT-4o-mini | allow · 3 ms | block · in-band · 4 ms | held → allow, 3 s |
 | Claude Agent SDK (Claude Code runtime) | PreToolUse hook | Claude Code | allow · 7 ms | block · in-band · 11 ms | held → allow, 3 s |
 | Google GenAI function calling | SDK auto() | Gemini Flash | allow · 6 ms | block · handler · 5 ms | held → allow, 3 s |
 | MCP stdio proxy (Claude Desktop shape) | MCP proxy | --- (host) | allow · 12 ms | block · in-band · 7 ms | held → allow, 3 s |
