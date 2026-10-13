@@ -7,7 +7,7 @@ import time
 import hashlib
 import functools
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 try:
@@ -132,7 +132,7 @@ class AegisMonitor:
                 trace_data = {
                     "trace_id": trace_id,
                     "agent_id": self.agent_id,
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                     "tool_call": {
                         "tool_name": tool_name,
                         "parameters": {

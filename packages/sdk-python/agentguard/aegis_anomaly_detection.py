@@ -6,7 +6,7 @@ import numpy as np
 import time
 import threading
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import deque, defaultdict
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field
@@ -459,7 +459,7 @@ class AegisMonitorWithAnomalyDetection:
                 trace_data = {
                     'trace_id': trace_id,
                     'agent_id': self.agent_id,
-                    'timestamp': datetime.utcnow().isoformat() + 'Z',
+                    'timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
                     'tool_call': {
                         'tool_name': operation,
                         'risk_level': risk_level,

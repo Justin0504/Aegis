@@ -5,7 +5,7 @@ import json
 from typing import Any, Callable, Dict, Optional, List
 import time
 import inspect
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class LLMInterceptor:
@@ -74,7 +74,7 @@ class LLMInterceptor:
                 call_data = {
                     "provider": "anthropic",
                     "method": "messages.create",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "kwargs": interceptor._sanitize_kwargs(kwargs),
                 }
 
@@ -113,7 +113,7 @@ class LLMInterceptor:
             call_data = {
                 "provider": "openai",
                 "method": "chat.completions.create",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "args": args,
                 "kwargs": interceptor._sanitize_kwargs(kwargs),
             }
@@ -149,7 +149,7 @@ class LLMInterceptor:
             call_data = {
                 "provider": "openai",
                 "method": "ChatCompletion.create",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "args": args,
                 "kwargs": self._sanitize_kwargs(kwargs),
             }
@@ -237,7 +237,7 @@ class LLMInterceptor:
                 call_data = {
                     "provider": "langchain",
                     "method": f"{type(client_self).__name__}.invoke",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "kwargs": interceptor._sanitize_kwargs(kwargs),
                 }
 
@@ -275,7 +275,7 @@ class LLMInterceptor:
                 call_data = {
                     "provider": "claude_agent_sdk",
                     "method": "run",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "kwargs": interceptor._sanitize_kwargs(kwargs),
                 }
 

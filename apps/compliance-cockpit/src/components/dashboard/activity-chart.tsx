@@ -58,7 +58,12 @@ function useActivity24h(): { data: HourBucket[]; isLoading: boolean } {
   }
 
   for (const t of q.data ?? []) {
-    const ts = t.timestamp ? Date.parse(t.timestamp) : NaN
+    // SDK timestamps are UTC but may arrive without a zone suffix; parsing
+    // those as local time pushes them hours into the future and out of
+    // every bucket (the chart then shows 0 actions next to a non-zero count).
+    const raw: string | undefined = t.timestamp
+    const iso = raw && !/(Z|[+-]\d\d:?\d\d)$/i.test(raw) ? `${raw}Z` : raw
+    const ts = iso ? Date.parse(iso) : NaN
     if (!Number.isFinite(ts)) continue
     const tsHour = Math.floor(ts / 3_600_000)
     const idx = 23 - (nowHour - tsHour)

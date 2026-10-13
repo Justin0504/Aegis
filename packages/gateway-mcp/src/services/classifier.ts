@@ -407,7 +407,9 @@ function categoryFromContent(args: unknown): ToolCategory | null {
   const vals = extractStringValues(args)
   const joined = vals.join('\n').toLowerCase()
 
-  if (/\b(select|insert|update|delete|drop|create table|alter table)\b/.test(joined)) return 'database'
+  // SQL needs SQL context: a bare `delete` or `update` is also a kubectl verb,
+  // a git subcommand, or an English word — `kubectl delete pod` is not a query.
+  if (/\b(select\s+[\s\S]+?\s+from\s|insert\s+into\s|update\s+\w+\s+set\s|delete\s+from\s|drop\s+(table|database|index|view)\s|create\s+table\s|alter\s+table\s|truncate\s+table\s)/.test(joined)) return 'database'
   if (/\b(npm\s+publish|yarn\s+publish|pnpm\s+publish|docker\s+push|twine\s+upload|cargo\s+publish|terraform\s+apply|kubectl\s+apply)\b/.test(joined)) return 'supply-chain'
   if (/^(https?|ftp):\/\//.test(joined) || vals.some(v => /^https?:\/\//.test(v))) return 'network'
   if (vals.some(v => /^\/[a-z]|^[a-z]:\\/i.test(v) || v.includes('./'))) return 'file'

@@ -73,7 +73,7 @@
 \begin{abstract}
 AI agents increasingly execute tool calls---database queries, shell commands, file operations, and HTTP requests---yet most agent frameworks forward these calls to execution with no pre-execution mediation. Post-execution observability can record what an agent did; it cannot stop it.
 
-We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 14 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain.
+We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 14 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same three scenarios.
 
 The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then submit input that genuinely fools the agent into emitting a destructive query and watch the block return \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
 
@@ -505,9 +505,7 @@ DSL and natural-language input; coverage of which tools and sinks a
 policy actually touches; rollback history; scan results; and the
 exportable audit log with its verification status. It runs locally
 beside the gateway and needs no network beyond the agent's own model
-calls. Multi-tenant deployments add OIDC/SAML single sign-on, SCIM
-provisioning and role-based access, and decisions export over OTLP and
-webhooks.
+calls.
 
 \begin{figure}[t]
     \centering
@@ -867,10 +865,19 @@ complements these by acting before side effects occur.
 We demonstrate \system, a pre-execution firewall and audit layer that
 inserts a framework-agnostic control point between an agent's tool-call
 decision and its execution, in two lines of integration across 14
-frameworks. The demonstration is live and adversarial: attendees drive a
+frameworks---and, because a demonstration that only works with the
+demonstrator's agent proves little, we drive the same gateway with
+nineteen harnesses in Appendix~\ref{app:compat}, from plain SDK loops to
+the OpenAI Agents SDK, the Claude Agent SDK and the MCP and egress-proxy
+transports. The demonstration is live and adversarial: attendees drive a
 real agent, try to defeat the cascade, pass an approval decision between
 two people, and tamper with a signed audit log to watch verification
-fail.
+fail. Around the control point sit the parts an operator needs before it
+is deployable rather than demonstrable: a learning behavioural layer that
+cannot block before it has seen enough, explicit fallback for every way
+the gateway can be slow, down or model-less, static analysis that shares
+the runtime's policy vocabulary, a calibrated judge, and connectors into
+the identity, SIEM and compliance systems already in place.
 
 We also use the demonstration to be accurate about scope. Pre-execution
 mediation is the right place to stand, and the cheap layers that stand

@@ -10,7 +10,7 @@ import threading
 import urllib.request
 import urllib.error
 import json as _json_mod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import uuid4
 
@@ -579,6 +579,8 @@ class AutoInstrument:
                 messages = kwargs.get("messages", [])
                 instrument._collect_tool_results_anthropic(messages)
                 response = original(self_msg, **kwargs)
+                if kwargs.get("stream"):
+                    return instrument._wrap_anthropic_stream(response, instrument._extract_last_prompt(messages), is_async=False)
                 if getattr(response, "stop_reason", None) == "tool_use":
                     token_usage = instrument._get_token_usage_anthropic(response)
                     last_prompt = instrument._extract_last_prompt(messages)
@@ -603,6 +605,8 @@ class AutoInstrument:
                 messages = kwargs.get("messages", [])
                 instrument._collect_tool_results_anthropic(messages)
                 response = await original_async(self_msg, **kwargs)
+                if kwargs.get("stream"):
+                    return instrument._wrap_anthropic_stream(response, instrument._extract_last_prompt(messages), is_async=True)
                 if getattr(response, "stop_reason", None) == "tool_use":
                     token_usage = instrument._get_token_usage_anthropic(response)
                     last_prompt = instrument._extract_last_prompt(messages)
@@ -681,6 +685,60 @@ class AutoInstrument:
             print(f"[AEGIS] OpenAI sync auto-patch failed: {e}")
             return False
 
+
+
+    # ── streaming support for the Anthropic patches ───────────────────────────
+    def _wrap_anthropic_stream(self, stream, last_prompt: str, is_async: bool):
+        """messages.create(stream=True) yields events; tool_use blocks arrive as
+        content_block_start + input_json_delta fragments. Yield events unchanged,
+        assemble the calls, and run the blocking check at message_stop — before
+        the application dispatches any tool."""
+        instrument = self
+        import json as _j
+        blocks: dict = {}
+
+        def _accumulate(ev):
+            et = getattr(ev, "type", None)
+            if et == "content_block_start":
+                cb = getattr(ev, "content_block", None)
+                if getattr(cb, "type", None) == "tool_use":
+                    blocks[ev.index] = {"id": cb.id, "name": cb.name, "json": ""}
+            elif et == "content_block_delta":
+                d = getattr(ev, "delta", None)
+                if getattr(d, "type", None) == "input_json_delta" and ev.index in blocks:
+                    blocks[ev.index]["json"] += d.partial_json or ""
+
+        def _parsed():
+            for b in blocks.values():
+                try:
+                    args = _j.loads(b["json"] or "{}")
+                except Exception:
+                    args = {}
+                yield b, args
+
+        def _register(b, args):
+            with instrument._lock:
+                instrument._pending[b["id"]] = {"tool_name": b["name"], "input_prompt": last_prompt or b["name"],
+                                                "arguments": args, "start_time": time.time(), "token_usage": {}}
+
+        if is_async:
+            async def agen():
+                async for ev in stream:
+                    _accumulate(ev)
+                    yield ev
+                for b, args in _parsed():
+                    await instrument._async_check_block(b["name"], args)
+                    _register(b, args)
+            return agen()
+
+        def gen():
+            for ev in stream:
+                _accumulate(ev)
+                yield ev
+            for b, args in _parsed():
+                instrument._check_block(b["name"], args)
+                _register(b, args)
+        return gen()
 
     # ── streaming support for the OpenAI chat patches ─────────────────────────
     def _wrap_openai_stream(self, stream, last_prompt: str, is_async: bool):
@@ -1096,7 +1154,12 @@ class AutoInstrument:
                     input_str = str(input_val)
                     tool_args = {"input": input_str}
 
-                instrument._check_block(tool_name, tool_args)
+                try:
+                    instrument._check_block(tool_name, tool_args)
+                except AgentGuardBlockedError as e:
+                    # CrewAI feeds a tool's return value to the model: the refusal
+                    # goes back in the slot the result would have occupied.
+                    return f"[AEGIS] Tool call blocked before execution: {e}"
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1322,7 +1385,12 @@ class AutoInstrument:
             def patched_call(self_tool, *args, **kwargs):
                 tool_name = getattr(self_tool.metadata, "name", self_tool.__class__.__name__)
                 tool_args = {"args": str(args)[:200], **kwargs}
-                instrument._check_block(tool_name, tool_args)
+                try:
+                    instrument._check_block(tool_name, tool_args)
+                except AgentGuardBlockedError as e:
+                    from llama_index.core.tools.types import ToolOutput
+                    return ToolOutput(content=f"[AEGIS] Tool call blocked before execution: {e}", tool_name=tool_name,
+                                      raw_input=tool_args, raw_output=None, is_error=True)
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1351,7 +1419,12 @@ class AutoInstrument:
             async def patched_acall(self_tool, *args, **kwargs):
                 tool_name = getattr(self_tool.metadata, "name", self_tool.__class__.__name__)
                 tool_args = {"args": str(args)[:200], **kwargs}
-                await instrument._async_check_block(tool_name, tool_args)
+                try:
+                    await instrument._async_check_block(tool_name, tool_args)
+                except AgentGuardBlockedError as e:
+                    from llama_index.core.tools.types import ToolOutput
+                    return ToolOutput(content=f"[AEGIS] Tool call blocked before execution: {e}", tool_name=tool_name,
+                                      raw_input=tool_args, raw_output=None, is_error=True)
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1426,7 +1499,10 @@ class AutoInstrument:
 
             async def patched_call_tool(self_ts, name, tool_args, ctx, tool):
                 args = dict(tool_args) if isinstance(tool_args, dict) else {"input": str(tool_args)}
-                await instrument._async_check_block(name, args)
+                try:
+                    await instrument._async_check_block(name, args)
+                except AgentGuardBlockedError as e:
+                    return f"[AEGIS] Tool call blocked before execution: {e}"
                 start = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1467,7 +1543,10 @@ class AutoInstrument:
                     args_dict = args.model_dump() if hasattr(args, 'model_dump') else (args or {})
                 except Exception:
                     args_dict = {'_raw': str(args)[:500]}
-                await instrument._async_check_block(tool_name, args_dict)
+                try:
+                    await instrument._async_check_block(tool_name, args_dict)
+                except AgentGuardBlockedError as e:
+                    return f"[AEGIS] Tool call blocked before execution: {e}"
                 start = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1781,7 +1860,7 @@ class AutoInstrument:
             )
 
             duration_ms = (time.time() - start_time) * 1000
-            now         = datetime.utcnow()
+            now         = datetime.now(timezone.utc)
             ctx_id      = uuid4()
             cfg         = self._guard.config
             agent_id    = self._guard._agent_uuid

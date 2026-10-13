@@ -90,7 +90,7 @@ def _send_trace(tool_name: str, arguments: dict, result: Any, gateway_url: str, 
         "tool_name": tool_name,
         "arguments": arguments,
         "result":    str(result)[:2000],
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+        "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
     }).encode()
 
     def _send():

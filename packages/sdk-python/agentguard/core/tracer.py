@@ -7,7 +7,7 @@ import os
 import time
 import traceback
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
@@ -610,7 +610,7 @@ class AgentGuard:
             tool_name=tool_name,
             function=tool_name,
             arguments={},  # Could be enhanced to capture actual args
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         # Create observation
