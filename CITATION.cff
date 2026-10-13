@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "AEGIS"
+abstract: "Runtime policy enforcement and audit layer for AI agents: intercepts every tool call before execution, with a cryptographic audit trail, human-in-the-loop approvals, and a kill switch."
+authors:
+  - family-names: "Yuan"
+    given-names: "Aojie"
+    website: "https://aojieyuan.com"
+  - family-names: "Su"
+    given-names: "Zhiyuan"
+  - family-names: "Zhao"
+    given-names: "Yue"
+repository-code: "https://github.com/Justin0504/Aegis"
+url: "https://aegistraces.com"
+license: MIT
+keywords:
+  - "ai-agents"
+  - "ai-safety"
+  - "audit-trail"
+  - "agent-security"
+  - "pre-execution firewall"
+preferred-citation:
+  type: article
+  title: "AEGIS: No Tool Call Left Unchecked -- A Pre-Execution Firewall and Audit Layer for AI Agents"
+  authors:
+    - family-names: "Yuan"
+      given-names: "Aojie"
+    - family-names: "Su"
+      given-names: "Zhiyuan"
+    - family-names: "Zhao"
+      given-names: "Yue"
+  journal: "arXiv preprint arXiv:2603.12621"
+  year: 2026
+  url: "https://arxiv.org/abs/2603.12621"
+  identifiers:
+    - type: other
+      value: "arXiv:2603.12621"
