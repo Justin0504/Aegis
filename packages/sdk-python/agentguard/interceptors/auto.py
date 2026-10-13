@@ -183,6 +183,58 @@ class AutoInstrument:
         # into the trace's safety_validation / approval_status, not only into
         # the gateway's violations table. "Every decision becomes a trace."
         self._decisions: Dict[str, Dict[str, Any]] = {}
+        # Instruction provenance (§2.3 of the paper). The request-side hook:
+        # every patched model call hands its messages array here, the
+        # spans are classified by trust channel and the new ones are
+        # posted to /api/v1/context, so that by the time the response's
+        # tool_use reaches /check the gateway knows which turn could have
+        # authorised it. This reporter existed in the legacy
+        # LLMInterceptor and was never wired into auto(); the S4 row of
+        # the compatibility matrix found that the ledger stayed empty on
+        # every path, and the provenance pack never fired.
+        from ..context.reporter import ContextReporter
+        # Late-bound so a host (or a test) can replace _post_context after
+        # construction and the reporter follows.
+        self._context_reporter = ContextReporter(lambda path, payload: self._post_context(path, payload))
+
+    # ── Instruction provenance: request-side hook ───────────────────────────
+
+    def _session_id(self) -> Optional[str]:
+        cfg = self._guard.config
+        return getattr(cfg, "session_id", None) or os.environ.get("AEGIS_SESSION_ID") or None
+
+    def _post_context(self, path: str, payload: Dict[str, Any]) -> None:
+        """Small, synchronous, short timeout: it runs on the model-call
+        path. Failure raises into the reporter, which swallows it and lets
+        provenance degrade to `unknown` rather than fail the agent."""
+        cfg = self._guard.config
+        req = urllib.request.Request(
+            f"{cfg.gateway_url.rstrip('/')}{path}",
+            data=_json_mod.dumps(payload).encode(),
+            headers=_build_identity_headers(cfg, self._guard),
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            resp.read()
+
+    def _report_context(self, messages: Any) -> int:
+        """Report the trust channels of an outgoing model call. Never raises."""
+        sid = self._session_id()
+        if not sid or not messages:
+            return 0
+        try:
+            agent_id = self._guard.config.agent_id or str(self._guard._agent_uuid)
+            return self._context_reporter.report_messages(sid, messages, agent_id)
+        except Exception:  # noqa: BLE001
+            return 0
+
+    @staticmethod
+    def _messages_from_contents(contents: Any) -> Any:
+        """google-genai takes `contents`: a string, or a list of Content
+        objects / dicts with role + parts. A bare string is the principal."""
+        if isinstance(contents, str):
+            return [{"role": "user", "content": contents}]
+        return contents
 
     # ── Shared payload builder ──────────────────────────────────────────────
 
@@ -197,6 +249,11 @@ class AutoInstrument:
             "blocking":                True,
             "user_category_overrides": getattr(cfg, 'tool_categories', {}),
         }
+        # The ledger is keyed by session; without this the gateway cannot
+        # find the context the request-side hook reported.
+        sid = self._session_id()
+        if sid:
+            payload["session_id"] = sid
         # If a LangChain AlignmentCallback (or any other observer) has
         # buffered a fresh verdict for this agent, splice it in so the
         # gateway's DSL rules can react on the same /check round-trip.
@@ -344,8 +401,18 @@ class AutoInstrument:
                 print(f"[AEGIS] ⬜ '{tool_name}' ({category}) in allow_categories — skipped")
                 return
 
-            # Threshold check — below threshold → audit only, don't block
-            if not self._is_above_threshold(risk_level):
+            # Threshold check — below threshold → audit only, don't block.
+            # The threshold is a precision control over the gateway's
+            # risk-level verdicts; it must never override an explicit
+            # policy decision. A `pending` is a person's turn to decide,
+            # whatever the risk tier, and a `block` from a DSL rule is the
+            # operator's own rule. Before this guard, a LOW-risk hold was
+            # returned as allow: the tool ran, the agent never waited, and
+            # the approval queue filled with decisions nobody was waiting
+            # for — every S3 row of the compatibility matrix "held" a call
+            # that had already executed (found 2026-10-13).
+            explicit = result.get("decision") == "pending" or bool(result.get("dsl"))
+            if not self._is_above_threshold(risk_level) and not explicit:
                 if result.get("decision") == "block":
                     print(f"[AEGIS] 📋 '{tool_name}' ({risk_level}) below threshold — audited, not blocked")
                 return
@@ -460,7 +527,17 @@ class AutoInstrument:
                 print(f"[AEGIS] ⬜ '{tool_name}' ({category}) in allow_categories — skipped")
                 return
 
-            if not self._is_above_threshold(risk_level):
+            # The threshold is a precision control over the gateway's
+            # risk-level verdicts; it must never override an explicit
+            # policy decision. A `pending` is a person's turn to decide,
+            # whatever the risk tier, and a `block` from a DSL rule is the
+            # operator's own rule. Before this guard, a LOW-risk hold was
+            # returned as allow: the tool ran, the agent never waited, and
+            # the approval queue filled with decisions nobody was waiting
+            # for — every S3 row of the compatibility matrix "held" a call
+            # that had already executed (found 2026-10-13).
+            explicit = result.get("decision") == "pending" or bool(result.get("dsl"))
+            if not self._is_above_threshold(risk_level) and not explicit:
                 return
 
             if audit_only:
@@ -625,6 +702,7 @@ class AutoInstrument:
             def patched_create(self_msg, **kwargs):
                 messages = kwargs.get("messages", [])
                 instrument._collect_tool_results_anthropic(messages)
+                instrument._report_context(messages)
                 response = original(self_msg, **kwargs)
                 if kwargs.get("stream"):
                     return instrument._wrap_anthropic_stream(response, instrument._extract_last_prompt(messages), is_async=False)
@@ -640,6 +718,45 @@ class AutoInstrument:
             print(f"[AEGIS] Anthropic sync auto-patch failed: {e}")
             return False
 
+    # ── Anthropic beta endpoint: request-side provenance only ──────────────
+
+    def patch_anthropic_beta_context(self) -> bool:
+        """`client.beta.messages.create` is a separate resource from
+        `client.messages.create`, and frameworks call it directly —
+        Pydantic AI does, for every request. The tool-level patch still
+        decides those calls, but without this hook their conversation never
+        reached the context ledger, so the provenance layer had nothing to
+        assess and every S4 call through Pydantic AI was decided without it
+        (found 2026-10-13). This patch only reports context; it registers
+        no tool_use and blocks nothing, because enforcement for those
+        frameworks happens at the tool."""
+        try:
+            import anthropic.resources.beta.messages.messages as _mod
+        except Exception:
+            try:
+                import anthropic.resources.beta.messages as _mod  # older layout
+            except Exception:
+                return False
+        instrument = self
+        ok = False
+        if hasattr(_mod, "Messages"):
+            original = _mod.Messages.create
+
+            def patched_beta_create(self_msg, *args, **kwargs):
+                instrument._report_context(kwargs.get("messages", []))
+                return original(self_msg, *args, **kwargs)
+            _mod.Messages.create = patched_beta_create
+            ok = True
+        if hasattr(_mod, "AsyncMessages"):
+            original_async = _mod.AsyncMessages.create
+
+            async def patched_beta_async_create(self_msg, *args, **kwargs):
+                instrument._report_context(kwargs.get("messages", []))
+                return await original_async(self_msg, *args, **kwargs)
+            _mod.AsyncMessages.create = patched_beta_async_create
+            ok = True
+        return ok
+
     # ── Anthropic async ─────────────────────────────────────────────────────
 
     def patch_anthropic_async(self) -> bool:
@@ -651,6 +768,7 @@ class AutoInstrument:
             async def patched_async_create(self_msg, **kwargs):
                 messages = kwargs.get("messages", [])
                 instrument._collect_tool_results_anthropic(messages)
+                instrument._report_context(messages)
                 response = await original_async(self_msg, **kwargs)
                 if kwargs.get("stream"):
                     return instrument._wrap_anthropic_stream(response, instrument._extract_last_prompt(messages), is_async=True)
@@ -693,6 +811,7 @@ class AutoInstrument:
                                 token_usage=pending.get("token_usage"),
                             )
 
+                instrument._report_context(messages)
                 response = original(self_comp, **kwargs)
                 if kwargs.get("stream"):
                     lp = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
@@ -961,6 +1080,7 @@ class AutoInstrument:
             original = _mod.Models.generate_content
 
             def patched(self_m, *args, **kwargs):
+                instrument._report_context(instrument._messages_from_contents(kwargs.get("contents")))
                 response = original(self_m, *args, **kwargs)
                 for name, fargs in _calls(response):
                     instrument._model_check(name, fargs)
@@ -974,6 +1094,7 @@ class AutoInstrument:
             original_async = _mod.AsyncModels.generate_content
 
             async def patched_async(self_m, *args, **kwargs):
+                instrument._report_context(instrument._messages_from_contents(kwargs.get("contents")))
                 response = await original_async(self_m, *args, **kwargs)
                 for name, fargs in _calls(response):
                     await instrument._async_model_check(name, fargs)
@@ -1057,6 +1178,7 @@ class AutoInstrument:
 
             def patched_create(self_r, **kwargs):
                 _collect_results(kwargs)
+                instrument._report_context(instrument._messages_from_contents(kwargs.get("input")))
                 response = original(self_r, **kwargs)
                 for item, args in _calls(response):
                     instrument._model_check(item.name, args)
@@ -1071,6 +1193,7 @@ class AutoInstrument:
 
             async def patched_async_create(self_r, **kwargs):
                 _collect_results(kwargs)
+                instrument._report_context(instrument._messages_from_contents(kwargs.get("input")))
                 response = await original_async(self_r, **kwargs)
                 for item, args in _calls(response):
                     await instrument._async_model_check(item.name, args)
@@ -1109,6 +1232,7 @@ class AutoInstrument:
                                 token_usage=pending.get("token_usage"),
                             )
 
+                instrument._report_context(messages)
                 response = await original_async(self_comp, **kwargs)
                 if kwargs.get("stream"):
                     lp = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
@@ -1486,6 +1610,7 @@ class AutoInstrument:
 
             def patched_chat(self_client, messages, **kwargs):
                 start = time.time()
+                instrument._report_context(messages)
                 resp = original_complete(self_client, messages, **kwargs)
                 choice = resp.choices[0] if resp.choices else None
                 if choice and getattr(choice.message, "tool_calls", None):
@@ -1518,6 +1643,7 @@ class AutoInstrument:
 
                 def patched_complete(self_chat, messages=None, **kwargs):
                     start = time.time()
+                    instrument._report_context(messages)
                     resp = original_complete(self_chat, messages=messages, **kwargs)
                     choice = resp.choices[0] if resp.choices else None
                     if choice and getattr(choice.message, "tool_calls", None):
@@ -1832,6 +1958,7 @@ class AutoInstrument:
             def patched_sync(**kwargs):
                 messages = kwargs.get('messages', [])
                 _capture_tool_result(messages)
+                instrument._report_context(messages)
                 response = original_sync(**kwargs)
                 try:
                     _register_tool_calls(response, messages)
@@ -1842,6 +1969,7 @@ class AutoInstrument:
             async def patched_async(**kwargs):
                 messages = kwargs.get('messages', [])
                 _capture_tool_result(messages)
+                instrument._report_context(messages)
                 response = await original_async(**kwargs)
                 try:
                     _register_tool_calls(response, messages)

@@ -1,0 +1,7 @@
+{
+ "harness": "mcp-proxy",
+ "scenario": "S4",
+ "expect": "block",
+ "error": "no ledger",
+ "decisions": []
+}

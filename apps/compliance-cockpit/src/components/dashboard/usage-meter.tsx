@@ -82,7 +82,10 @@ export function UsageMeter({ variant = 'card' }: Props) {
     )
   }
 
-  // Card variant for Overview.
+  // Card variant for Overview. An unlimited tier has nothing to meter;
+  // a card that reads "0 of unlimited" above a dashboard full of traces
+  // is a contradiction, not information. The strip still says the tier.
+  if (usage.limit === Number.POSITIVE_INFINITY) return null
   return (
     <div className="rounded-xl border p-4"
          style={{

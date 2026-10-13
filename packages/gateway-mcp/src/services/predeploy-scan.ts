@@ -39,6 +39,9 @@
  */
 
 import { spawn } from 'child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { Logger } from 'pino';
 import { AuditLogService } from './audit-log';
 import { TransparencyLogService } from './transparency-log';
@@ -139,7 +142,14 @@ export class PredeployScanService {
         binary_missing: true,
       };
     }
-    const args = [...binary.baseArgs, 'scan', opts.path, '--format', 'sarif', ...(opts.extra ?? [])];
+    // Write SARIF to a file, not stdout. agent-audit renders stdout through
+    // a terminal console that wraps long lines at the detected width, which
+    // put a raw newline inside the $schema URL and made every report
+    // unparseable when the gateway ran without a wide TTY (found by the
+    // Cockpit screenshot pass, 2026-10-13).
+    const outDir = mkdtempSync(join(tmpdir(), 'aegis-scan-'));
+    const outFile = join(outDir, 'report.sarif');
+    const args = [...binary.baseArgs, 'scan', opts.path, '--format', 'sarif', '--no-color', '--output', outFile, ...(opts.extra ?? [])];
     let stdout = '';
     let stderr = '';
     let exitCode: number;
@@ -157,9 +167,12 @@ export class PredeployScanService {
       return { ok: false, error: `agent-audit exited abnormally (code ${exitCode}): ${stderr.slice(0, 500)}` };
     }
     let sarif: any;
-    try { sarif = JSON.parse(stdout); }
+    let raw = stdout;
+    try { raw = readFileSync(outFile, 'utf8'); } catch { /* older agent-audit without --output: fall back to stdout */ }
+    finally { try { rmSync(outDir, { recursive: true, force: true }); } catch { /* best effort */ } }
+    try { sarif = JSON.parse(raw); }
     catch (err: any) {
-      return { ok: false, error: `agent-audit stdout was not valid SARIF JSON: ${err.message}\nfirst 500 chars: ${stdout.slice(0, 500)}` };
+      return { ok: false, error: `agent-audit output was not valid SARIF JSON: ${err.message}\nfirst 500 chars: ${raw.slice(0, 500)}` };
     }
     const parsed = parseSarif(sarif, opts.max ?? 500);
     if (!parsed) {

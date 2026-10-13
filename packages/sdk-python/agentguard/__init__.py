@@ -129,7 +129,10 @@ def auto(
         blocking_timeout_ms=blocking_timeout_ms,
         human_approval_timeout_s=human_approval_timeout_s,
         poll_interval_s=poll_interval_s,
-        session_id=session_id,
+        # One ledger per process unless the host names its sessions. The
+        # request-side provenance hook needs a session to report into, and
+        # "two lines" must not mean "two lines plus a session id".
+        session_id=session_id or f"auto-{uuid4().hex[:12]}",
         tool_categories=tool_categories or {},
         block_threshold=block_threshold,
         enforce_at=enforce_at,
@@ -145,6 +148,7 @@ def auto(
     _default_instrument = instrument
     anthropic_ok       = instrument.patch_anthropic()
     anthropic_async_ok = instrument.patch_anthropic_async()
+    instrument.patch_anthropic_beta_context()
     openai_ok          = instrument.patch_openai()
     openai_async_ok    = instrument.patch_openai_async()
     openai_responses_ok = instrument.patch_openai_responses()

@@ -242,8 +242,10 @@ export function AgentsView() {
                     {/* Brand of where the agent runs (Vercel/AWS/GitHub…) */}
                     {a.last_seen_brand && <ToolIcon name={a.last_seen_brand} size={20} />}
                     <div>
-                      <div className="font-medium">{a.name ?? <span style={{ color: MUTED }}>(unnamed)</span>}</div>
-                      <div className="text-[10px] font-mono" style={{ color: MUTED }}>{a.id.slice(0, 24)}</div>
+                      {/* An agent that was never named is still an agent the
+                          operator has to recognise; its id is its name. */}
+                      <div className={a.name ? 'font-medium' : 'font-medium font-mono text-xs'}>{a.name ?? a.id.slice(0, 32)}</div>
+                      {a.name && <div className="text-[10px] font-mono" style={{ color: MUTED }}>{a.id.slice(0, 24)}</div>}
                     </div>
                   </div>
                 </td>

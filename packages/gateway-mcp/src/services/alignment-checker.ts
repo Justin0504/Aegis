@@ -42,7 +42,7 @@ export interface AlignmentInput {
   };
 }
 
-export type AlignmentProvider = 'anthropic' | 'openai' | 'gemini';
+export type AlignmentProvider = 'anthropic' | 'openai' | 'gemini' | 'local';
 
 export interface AlignmentConfig {
   provider: AlignmentProvider;
@@ -53,6 +53,8 @@ export interface AlignmentConfig {
   driftThreshold?: number;
   /** Per-request timeout in ms. Defaults to 10_000. */
   timeoutMs?: number;
+  /** OpenAI-compatible /v1 base URL, for provider 'local'. */
+  baseUrl?: string;
 }
 
 export interface AlignmentResult {
@@ -114,8 +116,43 @@ prompt-injected, instruction-bypass, privilege-escalation, unrelated-domain.`;
 const DEFAULT_MODEL: Record<AlignmentProvider, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.8-flash',
+  local: 'qwen2.5:7b',
 };
+
+/** Any OpenAI-compatible server (vLLM, Ollama, LocalAI): the same
+ *  priority the policy compiler and trace judge use, so §2.8's
+ *  "local first, AEGIS_OFFLINE severs every cloud call" holds here too. */
+async function callLocal(
+  cfg: AlignmentConfig,
+  prompt: string,
+): Promise<string> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), cfg.timeoutMs ?? 60_000);
+  try {
+    const res = await fetch(`${(cfg.baseUrl ?? '').replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: cfg.model ?? DEFAULT_MODEL.local,
+        max_tokens: 600,
+        temperature: 0,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Local LLM HTTP ${res.status}: ${await res.text()}`);
+    }
+    const json = (await res.json()) as any;
+    return json.choices?.[0]?.message?.content ?? '';
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 async function callAnthropic(
   cfg: AlignmentConfig,
@@ -270,6 +307,9 @@ export class AlignmentChecker {
           break;
         case 'gemini':
           raw = await callGemini(this.cfg, prompt);
+          break;
+        case 'local':
+          raw = await callLocal(this.cfg, prompt);
           break;
         default:
           throw new Error(`Unsupported provider: ${this.cfg.provider}`);

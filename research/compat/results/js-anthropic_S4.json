@@ -1,0 +1,7 @@
+{
+ "harness": "js-anthropic",
+ "scenario": "S4",
+ "expect": "block",
+ "error": "no ledger",
+ "decisions": []
+}

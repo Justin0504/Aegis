@@ -1,0 +1,36 @@
+{
+  "n_predictions_matched": 663,
+  "n_malicious": 237,
+  "n_benign": 426,
+  "block_rate": 0.0084,
+  "fp_rate": 0.0094,
+  "latency_ms": {
+    "p50": 0.7,
+    "p95": 0.936,
+    "p99": 2.888
+  },
+  "total_cost_usd": 0.0,
+  "by_distribution": {
+    "near_ood": {
+      "n_malicious": 237,
+      "n_benign": 426,
+      "block_rate": 0.008438818565400843,
+      "fp_rate": 0.009389671361502348
+    }
+  },
+  "by_category": {
+    "data_exfiltration": {
+      "n": 116,
+      "block_rate": 0.0
+    },
+    "unauthorized_action": {
+      "n": 121,
+      "block_rate": 0.01652892561983471
+    }
+  },
+  "baseline": "aegis_rules",
+  "benchmark": "aegis-bench-instantiated",
+  "n_records": 663,
+  "wall_time_s": 0.542,
+  "timestamp": "20261013-204028"
+}

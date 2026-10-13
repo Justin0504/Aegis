@@ -206,14 +206,14 @@ function SidebarContent({ pathname, connected, lastUpdate, notifPermission, requ
             </span>
           )}
         </div>
-        {notifPermission !== 'granted' && (
+        {notifPermission !== 'granted' && notifPermission !== 'denied' && (
           <button
             onClick={requestNotifPermission}
             className="w-full text-left text-[11px] px-2 py-1 rounded-md transition-colors hover:bg-[hsl(var(--secondary))]"
             style={{ background: 'transparent', color: MUTED }}
-            title={notifPermission === 'denied' ? 'Blocked in browser \u2014 enable in System Settings' : 'Get notified even when this tab is in background'}
+            title="Get notified even when this tab is in background"
           >
-            {notifPermission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
+            Enable notifications
           </button>
         )}
         <ThemeToggle />

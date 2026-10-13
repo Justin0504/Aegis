@@ -82,6 +82,15 @@ const RISK_PATTERNS: Array<{
   /** Tool-name categories this pattern must not fire on: a semicolon is
    *  syntax in SQL, not a shell metacharacter. */
   skipFor?: ToolCategory[]
+  /** Positive scope: the pattern fires only when the tool's category is
+   *  one of these OR a top-level argument key matches `argKeys`. A
+   *  semicolon in an email body, a file's contents or a chat message is
+   *  prose; it is a shell metacharacter only where a shell will read it.
+   *  Found by the S4 row of the compatibility matrix, where the body of
+   *  an injected send_email was blocked by this rule before the
+   *  provenance layer was ever asked. */
+  onlyFor?: ToolCategory[]
+  argKeys?: RegExp
 }> = [
   // ── SQL Injection ──────────────────────────────────────────────────────────
   {
@@ -217,6 +226,8 @@ const RISK_PATTERNS: Array<{
     type: 'shell_injection',
     severity: 'HIGH',
     skipFor: ['database'],
+    onlyFor: ['shell'],
+    argKeys: /^(command|cmd|cmdline|script|shell|bash|sh|exec|args|argv)$/i,
     test: (vals) => {
       const SHELL = /[;&|`]|\$\(|\|\|/
       const found = vals.find(v => SHELL.test(v))
@@ -470,8 +481,14 @@ export function classifyToolCall(
 
   const nameCategoryEarly = categoryFromName(toolName)
 
+  const argKeyList = args && typeof args === 'object' && !Array.isArray(args) ? Object.keys(args as object) : []
   for (const pattern of RISK_PATTERNS) {
-    if (pattern.skipFor && nameCategoryEarly && pattern.skipFor.includes(nameCategoryEarly)) continue
+    // A command-shaped argument key is direct evidence of what the value
+    // is; a category inferred from the tool's name is a guess (the name
+    // keyword "execute" files TerminalExecute under database). The key wins.
+    const keyHit = pattern.argKeys !== undefined && argKeyList.some(k => pattern.argKeys!.test(k))
+    if (pattern.skipFor && !keyHit && nameCategoryEarly && pattern.skipFor.includes(nameCategoryEarly)) continue
+    if (pattern.onlyFor && !keyHit && !(nameCategoryEarly !== null && pattern.onlyFor.includes(nameCategoryEarly))) continue
     const detail = pattern.test(stringValues, args)
     if (detail) {
       risks.push({ type: pattern.type, severity: pattern.severity, detail })

@@ -2,9 +2,11 @@
 \label{sec:compat}
 
 A demonstration that only works with the demonstrator's agent proves
-little, so the same three scenarios---the benign query of S1, a call the
-agent is talked into that L1 catches, and a destructive call a policy
-holds for a second person---are run against nineteen harnesses: plain
+little, so the same scenarios---the benign query of S1, a call the
+agent is talked into that L1 catches, a destructive call a policy
+holds for a second person, and, on every path that reports context, an
+indirect injection through a tool return that only the provenance layer
+can see (S4)---are run against nineteen harnesses: plain
 SDK loops in three languages, six open-source frameworks, three
 closed harnesses (the OpenAI Agents SDK on both of its APIs, the Claude
 Agent SDK running the Claude Code runtime, Google's GenAI SDK), an
@@ -16,7 +18,7 @@ language-model calls are real. Appendix~\ref{app:compat} gives the matrix
 (Table~\ref{tab:compat}) and the harness code is in the repository.
 
 The exercise was worth more than the table. Running it found, and the
-current version fixes, twenty-one defects that no unit test had caught,
+current version fixes, twenty-five defects that no unit test had caught,
 among them: every SDK started a new hash chain at sequence zero in every
 process, so an agent restarted once failed chain verification (the
 Cockpit's chain counter, screenshotted against the matrix, showed it);
@@ -42,7 +44,32 @@ waiting; the MCP proxy re-advertised output schemas it could not satisfy,
 so strict clients rejected every result; the L1 shell-metacharacter rule
 fired on the semicolon of an ordinary SQL statement; a free-tier agent
 cap silently switched new agents to audit-only; and blocking mode held
-failed validations for a person rather than blocking them. Each is the
+failed validations for a person rather than blocking them. The S4
+scenario, added in this version, found two more: the SDK's request-side
+context hook---the code that classifies each span of the messages array
+and reports it to the gateway's ledger, on which the whole provenance
+layer depends---was implemented and unit-tested and never called by
+\texttt{auto()}, so every ledger stayed empty and no provenance rule had
+ever fired outside its own tests; and L1's shell-metacharacter rule was
+applied to every string argument of every tool, so the semicolon in an
+injected email body was blocked as shell injection before the provenance
+layer was asked, and the cell would have credited the wrong layer. The
+last one is the most instructive, because the matrix itself had reported
+it as a pass. The Python SDK applies a \texttt{block\_threshold} (default
+\texttt{HIGH}) to the gateway's risk tier before it reads the decision,
+so a policy hold on a \texttt{LOW}-risk call was returned to the agent as
+\texttt{allow}: the tool ran at once, the agent never waited, and the
+approval queue filled with holds that nobody was waiting on. The S3
+column had been scored from the approvals table, where the second
+attendee's decision was duly recorded three seconds later; it was the
+traces, which stayed at \texttt{PENDING\_APPROVAL} because no agent ever
+resolved them, and the S3 wall-clock times, indistinguishable from S1's,
+that gave it away. The SDK now honours \texttt{pending} and any
+rule-produced \texttt{block} regardless of tier, the threshold keeps its
+original job of muting risk-tier verdicts below it, and the matrix now
+records how long each agent actually waited. The last
+found was the request-side hook missing from Anthropic's beta endpoint,
+which Pydantic~AI uses (Appendix~\ref{app:compat}). Each is the
 kind of gap that appears only when a real framework drives the real
 gateway, which is the argument for keeping the matrix in the repository
 and running it on every release.

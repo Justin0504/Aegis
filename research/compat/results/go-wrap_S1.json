@@ -3,7 +3,7 @@
  "harness": "go-wrap",
  "result": "[[1, \"thermal bottle\", 5, \"Keeps coffee hot for the whole commute.\"]]",
  "scenario": "S1",
- "sdk_roundtrip_ms": 5.069,
+ "sdk_roundtrip_ms": 8.432,
  "tool": "query_database",
  "expect": "allow",
  "decisions": [
@@ -11,7 +11,7 @@
    "tool": "query_database",
    "decision": "allow",
    "reason": null,
-   "sdk_roundtrip_ms": 5.069
+   "sdk_roundtrip_ms": 8.432
   }
  ],
  "inband": "n/a",

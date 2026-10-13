@@ -73,13 +73,15 @@ def prepare(port: int) -> str:
     from common import DSL_RULES
     key = gw(port, "GET", "/api/v1/auth/key")["api_key"]
     r = gw(port, "PUT", "/api/v1/dsl", DSL_RULES, key)
-    print(f"  gateway :{port} key {key[:8]}… dsl installed: {str(r)[:80]}")
+    # the shipped instruction-provenance pack, merged on top (S4)
+    pk = gw(port, "POST", "/api/v1/dsl/packs/security-instruction-provenance/apply", {}, key)
+    print(f"  gateway :{port} key {key[:8]}… dsl installed: {str(r)[:80]}; pack rules {pk.get('rule_count')}")
     return key
 
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    scen = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--scenarios=")), ["S1", "S2", "S3"])
+    scen = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--scenarios=")), ["S1", "S2", "S3", "S4"])
     from harnesses import HARNESSES
     names = args or (list(HARNESSES) + ["js-anthropic", "go-wrap"])
     RESULTS.mkdir(exist_ok=True)
@@ -129,12 +131,25 @@ def main():
     for a in approvers:
         a.start()
 
+    # Rows with no request-side context reporting: the Go and JS SDKs, the
+    # ten-line manual integration, the Claude Code hook, and the two
+    # transports. The provenance layer has no ledger there, so S4 is not
+    # run; the table says "no ledger" rather than reporting an allow that
+    # would measure the absence of the hook, not the layer.
+    NO_LEDGER = {"js-anthropic", "go-wrap", "qwen3-ollama", "claude-agent-sdk", "mcp-proxy",
+                 "egress-proxy-openai", "egress-proxy-ollama"}
     records = []
     try:
         for name in names:
             port = PORTS["ollama"] if name == "egress-proxy-ollama" else PORTS["main"]
             for sid in scen:
                 t0 = time.time()
+                if sid == "S4" and name in NO_LEDGER:
+                    rec = {"harness": name, "scenario": sid, "expect": "block", "error": "no ledger", "decisions": []}
+                    (RESULTS / f"{name}_{sid}.json").write_text(json.dumps(rec, indent=1))
+                    records.append(rec)
+                    print(f"{name:22s} {sid}  skipped: no context ledger on this path")
+                    continue
                 e = {**env, "COMPAT_GATEWAY": f"http://127.0.0.1:{port}", "COMPAT_API_KEY": keys["ollama" if port == PORTS["ollama"] else "main"],
                      "PYTHONPATH": str(HERE), "PYTHONUNBUFFERED": "1"}
                 try:
@@ -149,7 +164,7 @@ def main():
                     if name in ("js-anthropic", "go-wrap"):
                         line = [l for l in out.splitlines() if l.startswith("{")]
                         rec = json.loads(line[-1]) if line else {"harness": name, "scenario": sid, "error": "no result", "stderr": p.stderr[-800:], "stdout": out[-800:]}
-                        rec.setdefault("expect", {"S1": "allow", "S2": "block", "S3": "pending"}[sid])
+                        rec.setdefault("expect", {"S1": "allow", "S2": "block", "S3": "pending", "S4": "block"}[sid])
                         if name == "go-wrap":
                             rec["decisions"] = [{"tool": rec.get("tool"), "decision": rec.get("decision"), "reason": rec.get("reason"), "sdk_roundtrip_ms": rec.get("sdk_roundtrip_ms")}]
                             rec["inband"] = "native" if rec.get("decision") == "block" else "n/a"

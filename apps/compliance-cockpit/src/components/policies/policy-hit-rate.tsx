@@ -19,6 +19,14 @@ import { gw } from '@/lib/gateway'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SkeletonRows } from '@/components/ui/skeleton'
 import { formatDistanceToNow } from 'date-fns'
+
+/** SQLite's CURRENT_TIMESTAMP is UTC with no zone marker ("2026-10-13
+ *  04:28:00"); `new Date()` reads that as local time, which put every
+ *  "last fired" hours into the future in the paper's first screenshot. */
+function gatewayTime(ts: string): Date {
+  const hasZone = /[zZ]$|[+-]\d\d:?\d\d$/.test(ts)
+  return new Date(hasZone || !/^\d{4}-\d\d-\d\d[ T]/.test(ts) ? ts : ts.replace(' ', 'T') + 'Z')
+}
 import { AlertOctagon, Clock } from 'lucide-react'
 
 interface Row {
@@ -114,7 +122,7 @@ export function PolicyHitRate() {
                     <td className="text-right text-xs flex items-center gap-1 justify-end pt-2"
                         style={{ color: 'hsl(var(--muted-foreground))' }}>
                       <Clock className="h-3 w-3" />
-                      {r.last_fired ? formatDistanceToNow(new Date(r.last_fired), { addSuffix: true }) : '—'}
+                      {r.last_fired ? formatDistanceToNow(gatewayTime(r.last_fired), { addSuffix: true }) : '—'}
                     </td>
                   </tr>
                   )

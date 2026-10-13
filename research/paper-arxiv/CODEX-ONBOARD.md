@@ -21,13 +21,13 @@ state.
 | `packages/gateway-mcp` | the gateway (Node/Express/SQLite). `npm run build` → `dist/`; `npx jest` must stay green (1360 tests) |
 | `packages/sdk-python` | `agentguard.auto(blocking_mode=True)` patches 15 targets; `integrations/claude_agent_sdk.py` is the PreToolUse hook |
 | `packages/sdk-js`, `packages/sdk-go` | JS (`auto()`), Go (`Wrap`) |
-| `apps/compliance-cockpit` | Next.js Cockpit; build with `NEXT_PUBLIC_USE_MOCK_TRACES=false` for real data |
+| `apps/compliance-cockpit` | Next.js Cockpit; real data by default; `NEXT_PUBLIC_USE_MOCK_TRACES=true` opts into the demo fixtures |
 
 ## How to run the matrix
 
 ```
 cd research/compat
-.venv/bin/python run_compat.py                 # all 19 rows × 3 scenarios, ~20 min, writes results/
+.venv/bin/python run_compat.py                 # all 19 rows × 4 scenarios (S4 = indirect injection, Lp), ~45 min, writes results/
 .venv/bin/python run_compat.py crewai S2       # (harness names: see harnesses.py HARNESSES)
 .venv/bin/python make_table.py                 # → paper table + results/COMPAT.md
 ```
@@ -42,14 +42,17 @@ because `auto()` patches SDKs process-wide. Port 18080/18081 must be free
 ## How to screenshot the Cockpit
 
 ```
-DB=$(ls -t /tmp/aegis-compat-main-*.db | head -1)
-(cd packages/gateway-mcp && PORT=18080 DB_PATH=$DB AEGIS_LICENSE_TIER=enterprise node dist/server.js &)
-(cd apps/compliance-cockpit && GATEWAY_URL=http://127.0.0.1:18080 npx next start -p 13003 &)
-KEY=$(curl -s http://127.0.0.1:18080/api/v1/auth/key | jq -r .api_key)
-cd research/compat/js && node shoot.mjs http://127.0.0.1:13003 http://127.0.0.1:18080 $KEY ../results/ui
+cd research/compat && bash shoot_cockpit.sh /tmp/aegis-compat-main-<ts>.db   # → paper-arxiv/images/ui/*.png
 ```
-Stage held calls first (POST `/api/v1/check` with `blocking: true` and a
-`kubectl delete …` command) so the approvals view has cards.
+
+The script does the whole thing: `sqlite3 .backup` of the matrix DB (never
+`cp` — WAL), a gateway on :18085 with the model keys loaded, `next start`
+on :13003 with `GATEWAY_URL` set (the Cockpit's server-side proxy reads
+that env, `NEXT_PUBLIC_` alone is not enough), then `js/shoot.mjs`, which
+hides toasts, opens the first trace's detail pane, runs a scan on the demo
+agent and an alignment audit before capturing. Build the Cockpit first
+(`npm run build`); demo fixtures are opt-in (`NEXT_PUBLIC_USE_MOCK_TRACES=true`),
+a plain build shows the gateway.
 
 ## Open tasks (in priority order)
 

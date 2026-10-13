@@ -30,30 +30,48 @@ const RequestSchema = z.object({
     arguments: z.record(z.unknown()),
   }),
   // Optional overrides
-  provider: z.enum(['anthropic', 'openai', 'gemini']).optional(),
+  provider: z.enum(['anthropic', 'openai', 'gemini', 'local']).optional(),
   model: z.string().max(80).optional(),
   api_key: z.string().min(8).max(512).optional(),
 });
 
-function resolveConfig(
+export function resolveConfig(
   body: z.infer<typeof RequestSchema>,
+  env: NodeJS.ProcessEnv = process.env,
 ): AlignmentConfig | { error: string } {
+  // Same order as services/llm-clients.ts: a configured local endpoint
+  // first, cloud keys after, and no cloud call at all under AEGIS_OFFLINE.
+  const localUrl = env.AEGIS_LOCAL_LLM_URL?.trim();
+  const localModel = env.AEGIS_LOCAL_LLM_MODEL?.trim();
+  const offline = ['1', 'true', 'yes'].includes(String(env.AEGIS_OFFLINE ?? '').toLowerCase());
+  if ((body.provider === 'local' || !body.provider) && localUrl && localModel) {
+    return {
+      provider: 'local',
+      apiKey: env.AEGIS_LOCAL_LLM_KEY ?? '',
+      baseUrl: localUrl,
+      model: body.model ?? localModel,
+      timeoutMs: Number(env.AEGIS_LOCAL_LLM_TIMEOUT_MS) || 60_000,
+    };
+  }
+  if (offline) {
+    return { error: 'AEGIS_OFFLINE is set and no local model is configured (AEGIS_LOCAL_LLM_URL + AEGIS_LOCAL_LLM_MODEL).' };
+  }
   const provider: AlignmentProvider =
     body.provider ??
-    (process.env.ANTHROPIC_API_KEY
+    (env.ANTHROPIC_API_KEY
       ? 'anthropic'
-      : process.env.OPENAI_API_KEY
+      : env.OPENAI_API_KEY
         ? 'openai'
-        : process.env.GEMINI_API_KEY
+        : env.GEMINI_API_KEY
           ? 'gemini'
           : 'anthropic');
 
   const envKey =
     provider === 'anthropic'
-      ? process.env.ANTHROPIC_API_KEY
+      ? env.ANTHROPIC_API_KEY
       : provider === 'openai'
-        ? process.env.OPENAI_API_KEY
-        : process.env.GEMINI_API_KEY;
+        ? env.OPENAI_API_KEY
+        : env.GEMINI_API_KEY;
 
   const apiKey = body.api_key ?? envKey;
   if (!apiKey) {

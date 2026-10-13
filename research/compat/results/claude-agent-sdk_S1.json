@@ -28,5 +28,6 @@
   }
  ],
  "stderr_tail": "\u26a0 claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login \u00b7 Unset it to load your organization's connectors\n",
- "elapsed_s": 4.8
+ "elapsed_s": 4.8,
+ "carried_from": "2026-10-12 run (Anthropic credit exhausted during the 2026-10-13 rerun)"
 }

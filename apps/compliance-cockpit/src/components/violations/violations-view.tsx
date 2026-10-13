@@ -149,19 +149,19 @@ export function ViolationsView() {
                   </span>
                 </div>
               )}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {items.map((trace: any) => {
                   const risk = trace.safety_validation?.risk_level || 'LOW'
                   const rc = RISK_COLORS[risk] || RISK_COLORS.LOW
                   return (
                     <div
                       key={trace.trace_id}
-                      className="rounded-lg border p-4"
+                      className="rounded-lg border px-3 py-2.5"
                       style={{ borderColor: rc.border, background: rc.bg }}
                     >
-                      <div className="flex items-start gap-3.5">
+                      <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
-                          <ToolIcon name={trace.tool_call?.tool_name} size={40} />
+                          <ToolIcon name={trace.tool_call?.tool_name} size={28} />
                         </div>
                         <div className="min-w-0 space-y-1 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">

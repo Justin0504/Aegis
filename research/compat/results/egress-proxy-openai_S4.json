@@ -1,0 +1,7 @@
+{
+ "harness": "egress-proxy-openai",
+ "scenario": "S4",
+ "expect": "block",
+ "error": "no ledger",
+ "decisions": []
+}

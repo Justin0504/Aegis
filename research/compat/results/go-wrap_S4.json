@@ -1,0 +1,7 @@
+{
+ "harness": "go-wrap",
+ "scenario": "S4",
+ "expect": "block",
+ "error": "no ledger",
+ "decisions": []
+}

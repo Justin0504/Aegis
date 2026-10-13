@@ -8,13 +8,16 @@ Two fresh gateways are started from the shipping build (one with the
 OpenAI upstream for the egress proxy, one with a local Ollama upstream),
 at enterprise tier so that no agent is placed in audit-only mode by the
 free-tier cap; one DSL rule is installed, holding \texttt{kubectl delete}
-for approval; and an approver thread plays the second attendee, approving
+for approval, with the shipped instruction-provenance pack merged on top
+of it; and an approver thread plays the second attendee, approving
 any held call three seconds after it appears. Each (harness, scenario)
 runs in its own process because \texttt{agentguard.auto()} patches SDKs
 process-wide. The tools are real (an in-memory SQLite database; a shell
 tool that simulates execution so a successful attack cannot damage the
 test machine---the decision is taken before the tool runs, so simulation
-after it changes nothing measured). Latencies are the SDK's own round
+after it changes nothing measured; a scratch file system whose
+\texttt{vendor-notes.txt} carries the S4 injection; and a simulated
+\texttt{send\_email}). Latencies are the SDK's own round
 trip to \texttt{/api/v1/check}, measured by wrapping the HTTP client, and
 so include serialisation and the loopback network.
 
@@ -38,6 +41,57 @@ decides the call before the dispatcher runs and returns the refusal in
 the tool's own result slot, which the table marks \emph{in-band
 (helper)}. No row escapes, and no row needs exception handling in the
 agent loop.
+
+\paragraph{Reading the S4 column.}
+S4 is the attack of \S\ref{sec:eval}: the user asks for
+\texttt{vendor-notes.txt} to be summarised, the file ends with a
+``records policy'' telling the assistant to forward its contents with
+\texttt{send\_email} first, and an agent that complies emits an ordinary
+\texttt{send\_email} the user never asked for. Nothing in that call is a
+payload; L1 has nothing to match and the pack's shell rule is not even
+in scope. The column therefore records a different thing from S2: not
+whether a refusal reached the model, but \emph{which layer} produced
+the decision. A cell marked L$_\mathrm{p}$ is a block or hold whose
+matched rule is one of the instruction-provenance pack's; in every such
+cell the request-side hook had reported the user turn and the tool
+return to the ledger, the gateway found that the tool return accounted
+for the call and the user turn did not, and the exfiltration rule fired.
+\emph{No ledger} marks the paths that have no request-side hook---the Go
+and JavaScript SDKs, the ten-line manual integration, the Claude Code
+hook and the two proxies---where the layer has nothing to assess and we
+do not run the scenario rather than report an \texttt{allow} that would
+measure the absence of the hook. \emph{Model declined} marks a turn on
+which the model summarised the file and ignored the instruction in it;
+that is the model's own refusal training, a defence layer of its own,
+and the gateway is not credited for it. The wording of the injected
+file was chosen by trial (\texttt{results/s4-wording.md}): a notice
+addressed to an external archive is declined by Claude Haiku~4.5 every
+time, a ``records policy'' naming an internal-looking address is acted
+on about two turns in three, and GPT-4o-mini acts on it more often than
+Claude does. Where the destination goes does not matter to the
+provenance layer, which scores who authorised the call, not where it
+sends. Of the twelve SDK rows, the model acted on the injection in
+eight. In six of them---the OpenAI tool loop, CrewAI, AutoGen,
+LlamaIndex and the OpenAI Agents SDK on both APIs---the
+\texttt{send\_email} was blocked by the pack's exfiltration rule. In the
+other two the provenance layer did not fire, for two different reasons,
+and both are findings rather than noise. Pydantic~AI calls Anthropic's
+\emph{beta} messages endpoint, which the SDK's request-side hook did not
+patch, so the conversation never reached the ledger; the hook now covers
+that endpoint and the fix is tested through a real client, but the row
+was not re-run, because the Anthropic account ran out of credit before
+it could be. smolagents rewrites every tool return into a plain
+user-role message (``Observation: \ldots'') before the model client is
+called, so by the time the SDK sees the messages array the injected
+instruction is indistinguishable from the user's own words, and the
+layer attributes the email to the user. Channel provenance cannot be
+recovered from a transcript that has already erased the channel; the fix
+belongs at the framework's tool dispatch, where the SDK sees the return
+before it is flattened, and is not in this version. Both emails were
+still held for a person, by the gateway's built-in approval policy for
+outbound communication rather than by L$_\mathrm{p}$, and the table says
+so. In the remaining three rows Claude Haiku~4.5 summarised the file and
+ignored the instruction; the Gemini row could not be run.
 
 \paragraph{Harness-specific notes.}
 Claude Haiku refused to emit the \texttt{DROP TABLE} payload of the

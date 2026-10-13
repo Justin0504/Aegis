@@ -159,6 +159,19 @@ export function TracesView() {
                   onSelectTrace={setSelectedTrace}
                 />
               )}
+              {!selectedTrace && (
+                <div
+                  className="hidden md:flex h-full min-h-[280px] items-center justify-center rounded-xl border border-dashed text-center px-8"
+                  style={{ borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}
+                >
+                  <div className="max-w-xs space-y-1">
+                    <p className="text-sm font-medium" style={{ color: 'hsl(var(--foreground))' }}>Select a trace</p>
+                    <p className="text-xs">
+                      The decision, the facts each layer produced, the arguments as the agent emitted them, and the session context open here.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>

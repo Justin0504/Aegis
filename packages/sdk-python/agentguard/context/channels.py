@@ -41,12 +41,13 @@ mistake one level down.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 # Block types that carry content from outside the trust boundary even
 # when the message envelope says "user".
-_TOOL_RESULT_TYPES = frozenset({"tool_result", "tool_use_result", "function_result"})
+_TOOL_RESULT_TYPES = frozenset({"tool_result", "tool_use_result", "function_result", "function_call_output"})
 # Block types the model produced itself.
 _MODEL_TYPES = frozenset({"tool_use", "function_call", "thinking", "redacted_thinking"})
 
@@ -95,7 +96,7 @@ def _block_text(block: Any) -> str:
             if isinstance(v, list):
                 return " ".join(_block_text(b) for b in v)
         return ""
-    for key in ("text", "content"):
+    for key in ("text", "content", "output"):
         v = block.get(key)
         if isinstance(v, str):
             return v
@@ -128,6 +129,33 @@ def _spans_from_message(message: Any) -> Iterable[ContextSpan]:
     role = (
         message.get("role") if isinstance(message, dict) else getattr(message, "role", "")
     ) or ""
+    # OpenAI Responses API: a tool return is a top-level input item with
+    # no role at all --- {"type": "function_call_output", "output": ...}.
+    if not role and _block_type(message) in _TOOL_RESULT_TYPES:
+        text = _block_text(message)
+        if text:
+            yield ContextSpan("untrusted", _clip(text), _block_source(message))
+        return
+    # google-genai: Content(role, parts). A function_response part is a
+    # tool return under a "user" role, exactly the Anthropic trap.
+    parts = message.get("parts") if isinstance(message, dict) else getattr(message, "parts", None)
+    if parts is not None and isinstance(parts, Sequence) and not isinstance(parts, (str, bytes)):
+        for part in parts:
+            fr = part.get("function_response") if isinstance(part, dict) else getattr(part, "function_response", None)
+            if fr is not None:
+                resp = fr.get("response") if isinstance(fr, dict) else getattr(fr, "response", None)
+                name = fr.get("name") if isinstance(fr, dict) else getattr(fr, "name", None)
+                text = resp if isinstance(resp, str) else (json.dumps(resp, default=str) if resp is not None else "")
+                if text:
+                    yield ContextSpan("untrusted", _clip(text), name if isinstance(name, str) else None)
+                continue
+            fc = part.get("function_call") if isinstance(part, dict) else getattr(part, "function_call", None)
+            text = part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
+            if fc is not None:
+                continue  # the model's own call: not an authority
+            if isinstance(text, str) and text:
+                yield ContextSpan("model" if role == "model" else "user", _clip(text))
+        return
     content = (
         message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
     )

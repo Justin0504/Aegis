@@ -47,9 +47,9 @@ OUT = Path(__file__).resolve().parent.parent / "paper-arxiv" / "images" / "capab
 DETECTORS = [
     ("no defense",        0.500,    0.0),
     ("keyword blacklist", 0.499,    0.0),
-    ("AEGIS rules (L1)",  0.552,    1.4),
-    ("patterns only",     0.499,    1.4),
+    ("AEGIS rules (L1)",  0.500,    0.7),
     ("LLM judge (L3)",    0.851, 2280.4),
+    ("Lp + pack (gateway)", 0.977,    0.7),   # results/selective/provenance_gateway.json, flag vs single-step
 ]
 # (b) Table tab:provenance — block, AUC, sd, role
 BLOCKS = [
@@ -69,17 +69,18 @@ fig, (a, b) = plt.subplots(1, 2, figsize=(2 * COLW * 1.02, 1.55), constrained_la
 # ── (a)
 a.axhline(0.5, color=P.INK_FAINT, lw=0.6, ls=":")
 a.text(60, 0.507, "chance", fontsize=6, color=P.INK_FAINT)
-OFFS = {"no defense": (5, 7, "left"), "keyword blacklist": (5, -15, "left"),
-        "AEGIS rules (L1)": (5, 5, "left"), "patterns only": (5, -7, "left"), "LLM judge (L3)": (0, 7, "center")}
+OFFS = {"no defense": (5, 12, "left"), "keyword blacklist": (5, -14, "left"),
+        "AEGIS rules (L1)": (7, -1, "left"), "LLM judge (L3)": (0, 7, "center"),
+        "Lp + pack (gateway)": (6, 0, "left")}
 for name, acc, ms in DETECTORS:
     x = max(ms, 0.3)
-    col = P.ACCENT if "judge" in name else P.INK_SOFT
+    col = P.ACCENT if ("judge" in name or name.startswith("Lp")) else P.INK_SOFT
     a.scatter(x, acc, s=16, color=col, zorder=3)
     dx, dy, ha = OFFS[name]
     a.annotate(name, (x, acc), xytext=(dx, dy), textcoords="offset points",
                fontsize=6.3, color=col, ha=ha, va="center")
 a.set_xscale("log")
-a.set_xlim(0.2, 9000); a.set_ylim(0.44, 0.92)
+a.set_xlim(0.2, 9000); a.set_ylim(0.44, 1.02)
 a.set_xticks([1, 10, 100, 1000]); a.set_xticklabels(["1", "10", "100", "1,000"])
 a.set_xlabel("P50 latency per call (ms, log)")
 a.set_ylabel("balanced accuracy")

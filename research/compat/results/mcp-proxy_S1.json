@@ -1,19 +1,19 @@
 {
- "transcript": "tools via proxy: ['query_database', 'run_shell', 'read_file']\n---\ncall_tool query_database \u2192 isError=False [[\"Keeps coffee hot for the whole commute.\"], [\"Lid is fiddly but insulation is great.\"], [\"Leaked in my bag twice.\"], [\"Fits the cup holder, no complaints.\"], [\"Straw squeaks; otherwise fine.\"], [\"Paint chipped within a week.\"]]  [12.4 ms incl. tool]",
+ "transcript": "tools via proxy: ['query_database', 'run_shell', 'read_file']\n---\ncall_tool query_database \u2192 isError=False [[\"Keeps coffee hot for the whole commute.\"], [\"Lid is fiddly but insulation is great.\"], [\"Leaked in my bag twice.\"], [\"Fits the cup holder, no complaints.\"], [\"Straw squeaks; otherwise fine.\"], [\"Paint chipped within a week.\"]]  [14.3 ms incl. tool]",
  "inband": "native",
  "escaped": false,
  "harness": "mcp-proxy",
  "scenario": "S1",
  "expect": "allow",
- "wall_s": 1.7,
+ "wall_s": 2.5,
  "decisions": [
   {
    "tool": "query_database",
    "decision": "allow",
    "reason": "[[\"Keeps coffee hot for the whole commute.\"], [\"Lid is fiddly but insulation is great.\"], [\"Leaked in my bag twice.\"], [\"Fits the cup holder, no complaints.\"], [\"Straw squeaks; otherwise fine.\"], [\"Pa",
-   "sdk_roundtrip_ms": 12.4
+   "sdk_roundtrip_ms": 14.3
   }
  ],
- "stderr_tail": " sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.\n  warnings.warn(\n[10/12/26 21:46:30] INFO     Processing request of type            server.py:733\n                             ListToolsRequest                                   \n[AEGIS] MCP proxy connected \u2014 3 tools from upstream, gateway=http://127.0.0.1:18080, agent=compat-mcp\n                    INFO     Processing request of type            server.py:733\n                             CallToolRequest                                    \n",
- "elapsed_s": 1.8
+ "stderr_tail": " sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.\n  warnings.warn(\n[10/13/26 14:19:45] INFO     Processing request of type            server.py:733\n                             ListToolsRequest                                   \n[AEGIS] MCP proxy connected \u2014 3 tools from upstream, gateway=http://127.0.0.1:18080, agent=compat-mcp\n                    INFO     Processing request of type            server.py:733\n                             CallToolRequest                                    \n",
+ "elapsed_s": 2.7
 }

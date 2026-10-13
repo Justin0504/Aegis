@@ -5,18 +5,22 @@
  "harness": "openai-raw",
  "scenario": "S3",
  "expect": "pending",
- "wall_s": 4.7,
+ "wall_s": 9.4,
  "decisions": [
   {
    "tool": "run_shell",
    "decision": "pending",
    "reason": "destructive cluster operation requires a human decision",
    "risk_level": "LOW",
-   "check_id": "db2fab24-5755-4345-ae72-7cccc58ff33d",
-   "sdk_roundtrip_ms": 2.8,
-   "gateway_ms": 1
+   "dsl_rule": "hold-kubectl-delete",
+   "_t_pending": 7561.425864166,
+   "check_id": "e4bf31f2-3cec-4e93-85ed-a5dff23bba19",
+   "sdk_roundtrip_ms": 5.3,
+   "gateway_ms": 3,
+   "held_s": 4.02,
+   "decision_after_hold": "allow"
   }
  ],
  "stderr_tail": "",
- "elapsed_s": 5.7
+ "elapsed_s": 10.5
 }

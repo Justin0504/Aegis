@@ -207,7 +207,7 @@ export function StatusBar() {
            color: license?.valid ? OK : MUTED,
            textDecoration: 'none',
          }}>
-        {license?.valid ? `${license.plan?.toUpperCase()} · ${license.email ?? '—'}` : 'Free tier'}
+        {license?.valid ? [license.plan?.toUpperCase(), license.email].filter(Boolean).join(' · ') : 'Free tier'}
       </a>
       <span className="opacity-50 hidden sm:inline">·</span>
       <span className="hidden sm:inline" style={{ color: MUTED, opacity: 0.7 }}>

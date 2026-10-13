@@ -73,7 +73,7 @@
 \begin{abstract}
 AI agents increasingly execute tool calls---database queries, shell commands, file operations, and HTTP requests---yet most agent frameworks forward these calls to execution with no pre-execution mediation. Post-execution observability can record what an agent did; it cannot stop it.
 
-We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code and demo video: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 15 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same three scenarios.
+We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 15 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same scenarios, and the provenance layer is measured through that gateway: it flags 95.4\% of the agent-emitted attacks at 0.7\,ms with no false positive against single-step benign calls, and holds 23.7\% of two-step benign calls, a gap we report rather than tune away.
 
 The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then ask for a routine-looking install and watch the agent's \texttt{curl \ldots | sh} blocked \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
 
@@ -175,7 +175,7 @@ failure on purpose.
 \item A \textbf{live, adversarial demonstration} in which attendees drive
       the agent, attempt evasion, exercise the approval path across two
       people, and install the system themselves.
-\item A \textbf{compatibility matrix} (Appendix~\ref{app:compat}): nineteen harnesses---open-source frameworks, lightweight and self-hosted agents, closed harnesses including the OpenAI Agents SDK and the Claude Agent SDK, and the MCP and egress-proxy transports---driving the shipping gateway through the same three scenarios, with the twenty-one defects the exercise found and fixed.
+\item A \textbf{compatibility matrix} (Appendix~\ref{app:compat}): nineteen harnesses---open-source frameworks, lightweight and self-hosted agents, closed harnesses including the OpenAI Agents SDK and the Claude Agent SDK, and the MCP and egress-proxy transports---driving the shipping gateway through the same four scenarios, with the twenty-one defects the exercise found and fixed.
 \item An \textbf{honest scoping of what the cascade catches}, including a
       reproducible audit that withdraws this paper's earlier headline
       numbers and a measurement of what payload inspection achieves
@@ -231,7 +231,8 @@ side it extracts every \texttt{tool\_use} block, sends
 suspends dispatch until a decision returns. On the \emph{request} side,
 which is new in this version, it reads the outgoing \texttt{messages}
 array and classifies each span by trust channel before the model is
-called (\S\ref{sec:provenance}). The agent's code, prompts and tool
+called (\S\ref{sec:provenance}), into one ledger per process unless the
+host names its sessions, so the two lines stay two lines. The agent's code, prompts and tool
 definitions are untouched. Where the decision is \emph{enforced} is a
 switch, \texttt{enforce\_at}: at the response, the SDK raises out of the
 model call before dispatch; at the tool, the model-level patch only
@@ -657,7 +658,10 @@ The session is adversarial by design. Attendees are invited to:
       demo does not hide it: an indirect injection that causes an
       ordinary-looking call passes L1 and L2; with L$_\mathrm{p}$ toggled
       off it is allowed, and with it on the attendee watches provenance
-      catch what content inspection could not.
+      catch what content inspection could not. This is the S4 column of
+      the compatibility matrix (Appendix~\ref{app:compat}): a file the
+      agent is asked to summarise tells it to forward its contents, and
+      the \texttt{send\_email} it emits is blocked by the provenance pack.
 \item \textbf{Verify the audit trail.} Each trace is Ed25519-signed and
       chained; the Cockpit exports a PDF/CSV report, and a verifier
       command recomputes the chain. Attendees are encouraged to edit a
@@ -791,20 +795,40 @@ benign, every one a call a live agent actually emitted.
 Table~\ref{tab:results} reports detectors on the rebuilt corpus, with
 balanced accuracy $\frac{1}{2}(\mathrm{TPR}+\mathrm{TNR})$ because the
 classes are unbalanced. \system-rules is the shipping gateway, run
-locally, not a reimplementation. The keyword blacklist is at chance.
-\system reports an 84.4\% block rate, but blocks 73.9\% of legitimate
-calls for the same reason; decomposing its block reasons, JSON-Schema
-policy validation rejecting a missing \texttt{reason} property accounts
-for 199/237 malicious and 312/426 benign blocks, and the detection
-patterns---the part of the system that is actually a detector---fire on
-\textbf{one} malicious record. Run family by family against the 237
-attack calls: SQL injection 0.0\%, path traversal 0.0\%, sensitive-file
-access 0.0\%, prompt injection 0.0\%, shell injection 0.4\%. The attacks
-contain no payload to match. \texttt{AmazonViewSavedPaymentMethods(\{\})}
-carries no argument at all. Only the LLM judge, which reads the user's
-stated task and compares the call against it, is meaningfully above
-chance (0.851), at 2{,}280\,ms per call---and it is the same model that
-generated the attacks, still missing 21.1\% of them.
+locally with a fresh database and no policy pack, not a reimplementation.
+The keyword blacklist is at chance, and so is L1: its 28 patterns fire
+on \textbf{two} of the 237 attack records---the same
+\texttt{TerminalExecute} command, caught by the shell-metacharacter
+rule---and on four benign ones (the \texttt{--} of a \texttt{git} and a
+\texttt{python} command line read as a SQL comment, two cryptocurrency
+addresses read as hex-encoded payload). Run family by family against the
+attacks: SQL injection 0.0\%, path traversal 0.0\%, sensitive-file access
+0.0\%, prompt injection 0.0\%, shell injection 0.8\%. The attacks contain
+no payload to match. \texttt{AmazonViewSavedPaymentMethods(\{\})} carries
+no argument at all. An earlier run of this row reported an 84.4\% block
+rate against 73.9\% of legitimate calls; both numbers came from a policy
+pack on that gateway's tenant requiring a \texttt{reason} argument on
+every call, which blocked 511 of the 663 records regardless of content
+and measured a configuration, not a detector. The row is replaced, and
+the run that produced it is kept in the repository. Only the LLM judge,
+which reads the user's stated task and compares the call against it, is
+meaningfully above chance (0.851), at 2{,}280\,ms per call---and it is the
+same model that generated the attacks, still missing 21.1\% of them.
+
+The last two rows are the provenance layer measured where it is
+deployed, not where it is convenient: a fresh gateway from the shipping
+build, the \texttt{security-instruction-provenance} pack applied and no
+other rule, each record's user turn and tool return reported to
+\texttt{/api/v1/context} exactly as the SDK's request-side hook reports
+them, and the call sent to \texttt{/api/v1/check} with that session
+(\texttt{python -m selective.provenance\_gateway\_eval}). The pack flags
+226 of the 237 attacks and none of the 426 benign calls, at 0.7\,ms
+median round trip; 29 of the 226 are outright blocks (the exfiltration
+and destructive rules), the rest are holds for a person. The eleven it
+misses are dominated by one tool, \texttt{NortonIdentitySafeSearchPasswords}
+(8), whose arguments are empty and whose name shares no word with the
+injection. This is the number a deployment gets; Table~\ref{tab:provenance}
+below is the number the features can reach.
 
 \subsection{Why Authority Separates What Content Cannot}
 \label{sec:authority}
@@ -849,6 +873,25 @@ layer that sees the channel split recovers it in under a millisecond
 without a model. The judge was doing the same comparison at
 $1600\times$ the cost.
 
+\paragraph{What the shipped pack does with it.}
+The 0.991 is a logistic regression over the four features, cross-validated
+on this corpus. The pack is five fixed rules written before the corpus
+existed, and the two numbers differ in the direction one should expect.
+Against the single-step benign arm the pack's false-positive rate is zero
+(Table~\ref{tab:results}); against the two-step arm, where every benign
+call follows a tool return, it holds 40 of 169 legitimate calls
+(23.7\%) for a person, all under the catch-all rule
+\texttt{provenance-untrusted-authority-review}, which escalates any call
+whose vocabulary the tool return explains better than the user turn does.
+A two-step benign call is \emph{supposed} to carry words from the tool
+return---that is what acting on a lookup means---so the rule fires on the
+honest case as well as the attack. Balanced accuracy on that arm is 0.858
+at the flag level and 0.561 at the block level, against the classifier's
+0.991. We do not tune the rule's threshold on this corpus, because that
+would be fitting the test set; we report the gap, and note that the
+holds are holds, not blocks: the agent waits, a person answers, and
+nothing is lost but time.
+
 \paragraph{Is it a generator artefact?}
 The benign arms were synthesised from tool schemas, so a model wrote
 their user instructions with the tool's name and parameters in view---the
@@ -873,6 +916,30 @@ will do: AUC falls to \textbf{0.933 $\pm$ 0.024}. This is a raised price,
 not a barrier, and it scales with how far the attacker's goal is from the
 principal's---which is exactly what makes an attack worth running.
 
+\paragraph{Same tool, hijacked arguments.}
+Every InjecAgent attack changes the \emph{tool}: the user asked for one
+thing and the injection makes the agent call another, so the tool's own
+name carries much of the licence signal. The case the measure cannot see
+by construction is the one where the user asked for the very tool the
+injection hijacks and only an argument changes---``email the summary to
+my team'' becomes ``\ldots to the attacker''. We construct it from the
+corpus: for each of the 237 attacks, the user turn is replaced by a
+benign-arm instruction that legitimately asks for the same tool, the
+injection and the attacker's call are kept verbatim, and the probe is run
+through the same gateway (\texttt{python -m selective.same\_tool\_probe}).
+Mean \texttt{user\_licence} rises from 0.040 to 0.237 and the margin
+halves, from $+0.373$ to $+0.176$; the pack's flag rate falls from 95.4\%
+to \textbf{77.6\%}, and 53 of the 237 probes pass unflagged. These are
+constructed records, not rollouts---no agent emitted them---and the user
+turn and the injection were written for different tasks, so the overlap
+they manufacture is a lower bound on what a real same-tool attack
+achieves. The honest statement is that provenance separates \emph{which
+tool} far better than \emph{which argument}, and an injection that stays
+inside the tool the user already authorised is the attack this layer is
+weakest against. Argument-level authority---whether a recipient, a path or
+an amount was ever stated by the principal---is the natural next feature
+and is not in this version.
+
 \paragraph{Two features we report and do not use.}
 Imperative density and second-person address in the untrusted channel
 detect ``an instruction appeared in a data channel'', which is the
@@ -883,7 +950,10 @@ imperatives. They are shown in italics in Table~\ref{tab:provenance} and
 excluded from every claim.
 
 \subsection{Scope}
-One agent model produced the attacks; capture is single-turn; 237 unique
+The shipped pack's thresholds were written before this corpus and are
+not tuned on it, which is why its two-step false-positive rate (23.7\%,
+as holds) is far from the classifier's AUC; the same-tool probe is
+constructed, not rolled out. One agent model produced the attacks; capture is single-turn; 237 unique
 malicious calls is bounded by how many distinct attacker instructions
 InjecAgent contains; the provenance result rests on an $n=17$
 human-written control and one adaptive strategy. We state these because
@@ -970,7 +1040,7 @@ The control point is the durable contribution, and instruction provenance
 is what we are putting on it.
 
 \medskip\noindent
-\textbf{Code and demo video:}
+\textbf{Code:}
 \href{https://github.com/Justin0504/Aegis}{\texttt{github.com/\allowbreak Justin0504/\allowbreak Aegis}} (MIT).
 The repository contains the gateway, the SDKs, the Compliance Cockpit,
 the rollout harness, the corrected benchmark, and the compatibility

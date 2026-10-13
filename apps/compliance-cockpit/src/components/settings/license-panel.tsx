@@ -235,7 +235,7 @@ export function LicensePanel() {
     <span className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded"
           style={{ background: 'hsl(150 30% 92%)', color: OK }}>
       <CheckCircle className="h-3.5 w-3.5" />
-      {state.plan?.toUpperCase()} tier · {state.email ?? '—'}
+      {state.plan?.toUpperCase()} tier{state.email ? ` · ${state.email}` : ''}
     </span>
   ) : state ? (
     <span className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded"

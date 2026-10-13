@@ -2,7 +2,7 @@
 the real gateway and prints a JSON record. Run one at a time, in its own
 process, because agentguard.auto() patches SDKs process-wide:
 
-    python harnesses.py <harness> <S1|S2|S3>
+    python harnesses.py <harness> <S1|S2|S3|S4>
 
 Every SDK-path harness uses exactly the integration the paper describes —
 `agentguard.auto(..., blocking_mode=True)` — and nothing else. Where a
@@ -62,7 +62,11 @@ def guarded_execute(name: str, args: dict) -> str:
 
 def auto(agent_id: str):
     import agentguard
+    # session_id turns on the SDK's request-side hook, which reports each
+    # span of the messages array to the gateway's context ledger (§2.3);
+    # without it the provenance layer has nothing to assess and S4 allows.
     agentguard.auto(GATEWAY, agent_id=f"compat-{agent_id}", blocking_mode=True, fail_open=False,
+                    session_id=f"compat-{agent_id}-{os.getpid()}",
                     human_approval_timeout_s=90, poll_interval_s=1.0,
                     enforce_at="tool" if agent_id in TOOL_LEVEL else "response")
 
@@ -136,11 +140,21 @@ def run_langgraph(sc):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
+    @tool
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    @tool
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
     from langgraph.prebuilt import ToolNode
     # LangGraph 1.x no longer swallows tool exceptions by default; one flag
     # on the ToolNode turns a refusal into the error ToolMessage the model sees.
     agent = create_react_agent(ChatAnthropic(model=ANTHROPIC_MODEL, max_tokens=400),
-                               ToolNode([query_database, run_shell], handle_tool_errors=True))
+                               ToolNode([query_database, run_shell, read_file, send_email], handle_tool_errors=True))
     res = agent.invoke({"messages": [("user", sc["prompt"])]})
     for m in res["messages"]:
         log(f"[{m.type}] {getattr(m, 'content', '')!s:.400}")
@@ -163,8 +177,18 @@ def run_crewai(sc):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
+    @tool("read_file")
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    @tool("send_email")
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
     a = Agent(role="ops assistant", goal="do what the user asks with the tools", backstory="an operations assistant",
-              tools=[query_database, run_shell], llm=LLM(model=f"anthropic/{ANTHROPIC_MODEL}", max_tokens=400), verbose=False, max_iter=4)
+              tools=[query_database, run_shell, read_file, send_email], llm=LLM(model=f"anthropic/{ANTHROPIC_MODEL}", max_tokens=400), verbose=False, max_iter=4)
     t = Task(description=sc["prompt"], expected_output="a short answer for the user", agent=a)
     out = Crew(agents=[a], tasks=[t], verbose=False).kickoff()
     log(str(out)[:800])
@@ -185,8 +209,16 @@ def run_autogen(sc):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
     async def go():
-        agent = AssistantAgent("ops", model_client=OpenAIChatCompletionClient(model=OPENAI_MODEL), tools=[query_database, run_shell],
+        agent = AssistantAgent("ops", model_client=OpenAIChatCompletionClient(model=OPENAI_MODEL), tools=[query_database, run_shell, read_file, send_email],
                                system_message="Use the tools to do what the user asks, then answer.", reflect_on_tool_use=True, max_tool_iterations=4)
         res = await agent.run(task=sc["prompt"])
         for m in res.messages:
@@ -210,9 +242,17 @@ def run_llamaindex(sc):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
     async def go():
         # FunctionAgent is a workflow and must be built inside a running loop
-        agent = FunctionAgent(tools=[FunctionTool.from_defaults(query_database), FunctionTool.from_defaults(run_shell)],
+        agent = FunctionAgent(tools=[FunctionTool.from_defaults(f) for f in (query_database, run_shell, read_file, send_email)],
                               llm=LIOpenAI(model=OPENAI_MODEL, max_tokens=400), system_prompt="Use the tools to do what the user asks.")
         return await agent.run(sc["prompt"])
     out = asyncio.run(go())
@@ -243,7 +283,27 @@ def run_smolagents(sc):
         """
         return execute_tool("run_shell", {"command": command})
 
-    agent = ToolCallingAgent(tools=[query_database, run_shell], model=LiteLLMModel(model_id=f"anthropic/{ANTHROPIC_MODEL}", max_tokens=400),
+    @tool
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem.
+
+        Args:
+            path: file path
+        """
+        return execute_tool("read_file", {"path": path})
+
+    @tool
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox.
+
+        Args:
+            to: recipient address
+            subject: subject line
+            body: message body
+        """
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
+    agent = ToolCallingAgent(tools=[query_database, run_shell, read_file, send_email], model=LiteLLMModel(model_id=f"anthropic/{ANTHROPIC_MODEL}", max_tokens=400),
                              max_steps=4, verbosity_level=0)
     out = agent.run(sc["prompt"])
     log(str(out)[:800])
@@ -263,7 +323,15 @@ def run_pydantic_ai(sc):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
-    agent = Agent(f"anthropic:{ANTHROPIC_MODEL}", tools=[query_database, run_shell], system_prompt="Use the tools to do what the user asks.")
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
+    agent = Agent(f"anthropic:{ANTHROPIC_MODEL}", tools=[query_database, run_shell, read_file, send_email], system_prompt="Use the tools to do what the user asks.")
     res = agent.run_sync(sc["prompt"])
     log(str(res.output)[:800])
     OUT["inband"] = "native"
@@ -307,7 +375,17 @@ def run_openai_agents(sc, api: str = "responses"):
         """Run a shell command on the ops host."""
         return execute_tool("run_shell", {"command": command})
 
-    agent = Agent(name="ops", instructions="Use the tools to do what the user asks.", tools=[query_database, run_shell], model=OPENAI_MODEL)
+    @function_tool
+    def read_file(path: str) -> str:
+        """Read a text file from the scratch filesystem."""
+        return execute_tool("read_file", {"path": path})
+
+    @function_tool
+    def send_email(to: str, subject: str, body: str) -> str:
+        """Send an email from the ops mailbox."""
+        return execute_tool("send_email", {"to": to, "subject": subject, "body": body})
+
+    agent = Agent(name="ops", instructions="Use the tools to do what the user asks.", tools=[query_database, run_shell, read_file, send_email], model=OPENAI_MODEL)
     res = Runner.run_sync(agent, sc["prompt"], max_turns=4)
     log(str(res.final_output)[:800])
     OUT["inband"] = "native"
@@ -334,6 +412,9 @@ def _gemini_call(fn, tries: int = 6):
             if i == tries - 1 or not any(code in msg for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED")):
                 raise
             log(f"[gemini transient {msg[:40]}… retry {i + 1}/{tries - 1} in {delay:.0f}s]")
+            # also to stdout: if the retries outlast the harness's 400 s
+            # budget, this is the only record of WHY the cell is empty
+            print(f"[gemini transient {msg[:60]} retry {i + 1}/{tries - 1}]", flush=True)
             time.sleep(delay)
             delay = min(delay * 2, 60)
 

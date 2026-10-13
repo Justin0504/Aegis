@@ -7,7 +7,12 @@
  * in apps/compliance-cockpit/.env.local and restart `next dev`.
  */
 
-export const USE_MOCK = process.env['NEXT_PUBLIC_USE_MOCK_TRACES'] !== 'false'
+// Opt-in, never default. A build that forgot the flag used to show these
+// fabricated traces in place of the gateway's — "Protected · 516 traces"
+// on a console that was not connected to anything. The cloud preview
+// sets the flag explicitly (vercel.json); everything else shows the
+// gateway or an honest empty state.
+export const USE_MOCK = process.env['NEXT_PUBLIC_USE_MOCK_TRACES'] === 'true'
 
 /** 24 hourly buckets with a believable business-hours shape. The
  *  newest bucket is index 23 (= now). Returns absolute counts so the
