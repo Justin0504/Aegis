@@ -108,6 +108,16 @@ export class ContextLedgerStore {
     return toDslFacts(assessAuthority(toolName, args ?? {}, entry.ledger));
   }
 
+  /** Recent tool output for a session, for the alignment auditor. Same
+   *  org scoping as assess(): a caller can only read its own tenant's
+   *  ledger. Empty when the session is unknown or expired. */
+  observations(orgId: string, sessionId: string | undefined, maxChars = 6000): string[] {
+    if (!sessionId) return [];
+    const entry = this.sessions.get(this.key(orgId, sessionId));
+    if (!entry || Date.now() - entry.lastSeen > this.ttlMs) return [];
+    return entry.ledger.recentUntrusted(maxChars);
+  }
+
   /** Called when a session ends, so a long-lived gateway does not hold
    *  text from finished conversations until the TTL. */
   forget(orgId: string, sessionId: string): void {

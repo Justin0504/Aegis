@@ -814,7 +814,7 @@ async function main() {
   // Agent alignment auditor — LlamaFirewall-style CoT inspection.
   // Standalone for v0.3 preview; SDKs that capture chain-of-thought
   // call this pre-execution and pass alignment.* into /check.
-  app.use('/api/v1/alignment', requireAuth, requireFeature('judge'), new AlignmentAPI(logger, auditLog, db).router);
+  app.use('/api/v1/alignment', requireAuth, requireFeature('judge'), new AlignmentAPI(logger, auditLog, db, contextLedgers).router);
 
   // CodeShield — fast local regex scanner for agent-generated code.
   // No LLM, no subprocess: every scan is sub-millisecond.

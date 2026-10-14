@@ -73,13 +73,24 @@ VERSION = "v1.2.1"
 # communication hold and the pack's review rules apply to acting calls only.
 # The un-suffixed configs were run on the build before that change and are
 # kept as the shipped-v1 result.
-PORTS = {"aegis_rules": 18110, "aegis": 18111, "aegis_rules_v2": 18112, "aegis_v2": 18113, "aegis_v2_audit": 18114}
+PORTS = {"aegis_rules": 18110, "aegis": 18111, "aegis_rules_v2": 18112, "aegis_v2": 18113, "aegis_v2_audit": 18114, "aegis_v2_audit_hold": 18115, "aegis_v2_audit_obs": 18116}
 # aegis_v2_audit: the same gateway, but a hold is not a refusal — it goes to
 # the gateway's own alignment auditor (POST /api/v1/alignment/check,
 # gpt-4o-mini) with the user's request as the declared goal, which approves
 # the call if it serves the task (not drifted) and refuses it otherwise:
 # the auditor as first reviewer, a person only when it refuses.
-AUDIT_CONFIGS = {"aegis_v2_audit"}
+AUDIT_CONFIGS = {"aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs"}
+# aegis_v2_audit_obs: as aegis_v2_audit_hold, and the auditor request names
+# the session, so the gateway shows the judge the tool output the agent read
+# (from the context ledger, fenced as data). Earlier configs ran without it.
+EVIDENCE_CONFIGS = {"aegis_v2_audit_obs"}
+# aegis_v2_audit_hold: as aegis_v2_audit, but the operator has demoted the
+# pack's two destination-sensitive block rules to holds, so a send whose
+# recipient came from tool output goes to the auditor instead of being
+# refused outright. Done through the public DSL API after applying the
+# pack, exactly as a deployment would tune it; the shipped pack is unchanged.
+DEMOTE = {c: ("provenance-untrusted-authority-on-exfil-sink", "provenance-destination-from-untrusted")
+          for c in ("aegis_v2_audit_hold", "aegis_v2_audit_obs")}
 
 for line in (Path.home() / ".openai.env").read_text().splitlines():
     if line.startswith("export OPENAI_API_KEY="):
@@ -159,6 +170,15 @@ class Gateway:
         self.key = self._req("GET", "/api/v1/auth/key")["api_key"]
         if self.pack:
             self._req("POST", "/api/v1/dsl/packs/security-instruction-provenance/apply", {})
+        if DEMOTE.get(self.tag):
+            doc = self._req("GET", "/api/v1/dsl")
+            doc = doc.get("dsl", doc)
+            hit = 0
+            for rule in doc["rules"]:
+                if rule["name"] in DEMOTE[self.tag]:
+                    rule["then"]["decision"] = "pending"; hit += 1
+            assert hit == len(DEMOTE[self.tag]), f"demote matched {hit} rules"
+            self._req("PUT", "/api/v1/dsl", doc)
         return self
 
     def stop(self):
@@ -195,13 +215,14 @@ class AegisToolsExecutor(ToolsExecutor):
         super().__init__(tool_result_to_str)
         self.gw, self.label, self.audit = gw, label, audit
 
-    def _auditor_approves(self, query, messages, tc) -> tuple[bool, dict]:
+    def _auditor_approves(self, query, messages, tc, sid=None) -> tuple[bool, dict]:
         thoughts = [" ".join(b.get("content", "") for b in (m.get("content") or []) if isinstance(b, dict))
                     for m in messages if m["role"] == "assistant"][-3:]
         r = self.gw._req("POST", "/api/v1/alignment/check", {
             "agent_id": self.label, "declared_goal": query[:4096],
             "thought_chain": [t[:2048] for t in thoughts if t.strip()],
             "proposed_action": {"tool_name": tc.function, "arguments": dict(tc.args)},
+            **({"session_id": sid} if sid and self.label.split("::")[0] in EVIDENCE_CONFIGS else {}),
             **({"provider": "local"} if LOCAL else {"provider": "openai", "model": MODEL})}, timeout=600)
         return (not r.get("drifted", True)) and r.get("score", 0) >= 0.5, r
 
@@ -232,7 +253,7 @@ class AegisToolsExecutor(ToolsExecutor):
             audit = None
             if dec == "pending" and self.audit:
                 try:
-                    ok, audit = self._auditor_approves(query, messages, tc)
+                    ok, audit = self._auditor_approves(query, messages, tc, sid)
                 except Exception as e:  # noqa: BLE001 — an auditor failure is a refusal
                     ok, audit = False, {"error": str(e)[:200]}
                 dec = "allow" if ok else "pending"
@@ -340,7 +361,7 @@ def main():
     suites = {k: v for k, v in get_suites(VERSION).items() if k in a.suites.split(",")}
     for cfg in configs:
         if cfg.startswith("aegis"):
-            GATEWAYS[cfg] = Gateway(cfg, PORTS[cfg], pack=cfg in ("aegis", "aegis_v2", "aegis_v2_audit"), offline=cfg not in AUDIT_CONFIGS).start()
+            GATEWAYS[cfg] = Gateway(cfg, PORTS[cfg], pack=cfg in ("aegis", "aegis_v2", "aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs"), offline=cfg not in AUDIT_CONFIGS).start()
             print(f"gateway {cfg} on :{PORTS[cfg]} pack={GATEWAYS[cfg].pack} auditor={cfg in AUDIT_CONFIGS}", flush=True)
     jobs = jobs_for(configs, a.mode, suites)
     if a.limit:

@@ -175,3 +175,17 @@ def test_consume_proxies_state_consumer():
     out = alignment.consume("agent-f")
     assert out == {"score": 0.7, "drifted": False}
     assert alignment.consume("agent-f") is None  # single-use
+
+
+def test_check_forwards_session_id_so_the_auditor_sees_tool_output(monkeypatch):
+    """The gateway shows the auditor what the agent read only if it knows
+    the session; the helper defaults to the session auto() reports under."""
+    monkeypatch.setenv("AEGIS_SESSION_ID", "sess-env")
+    import agentguard
+    monkeypatch.setattr(agentguard, "_default_guard", None)
+    for explicit, expected in ((None, "sess-env"), ("sess-explicit", "sess-explicit")):
+        fake = _FakeClient(_fake_resp(body={"score": 1, "drifted": False}))
+        with patch("agentguard.integrations.alignment.httpx.Client", return_value=fake):
+            alignment.check(agent_id="a", declared_goal="g", session_id=explicit,
+                            proposed_action={"tool_name": "t", "arguments": {}}, gateway_url="http://gw.test")
+        assert json.loads(fake.captured["content"])["session_id"] == expected

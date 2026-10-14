@@ -20,6 +20,7 @@ import {
 } from '../services/alignment-checker';
 import { AuditLogService } from '../services/audit-log';
 import { auditActor } from '../middleware/auth';
+import { ContextLedgerStore } from '../services/context-ledger-store';
 
 const RequestSchema = z.object({
   agent_id: z.string().min(1).max(128),
@@ -29,6 +30,9 @@ const RequestSchema = z.object({
     tool_name: z.string().min(1).max(128),
     arguments: z.record(z.unknown()),
   }),
+  // The session whose context ledger holds what the agent read; when
+  // given, its recent tool output is shown to the judge as evidence.
+  session_id: z.string().min(1).max(256).optional(),
   // Optional overrides
   provider: z.enum(['anthropic', 'openai', 'gemini', 'local']).optional(),
   model: z.string().max(80).optional(),
@@ -93,6 +97,7 @@ export class AlignmentAPI {
     private logger: Logger,
     private auditLog: AuditLogService,
     private db: Database.Database,
+    private contextLedgers?: ContextLedgerStore,
   ) {
     this.router = Router();
     this.setupRoutes();
@@ -116,7 +121,11 @@ export class AlignmentAPI {
         // Zod ran with .min(1) / required fields, so the parsed object
         // satisfies AlignmentInput at runtime; TS doesn't carry that
         // refinement so we cast.
-        const result = await checker.check(parsed.data as any);
+        const observations = this.contextLedgers?.observations(
+          (req as any).orgId ?? 'default',
+          parsed.data.session_id,
+        ) ?? [];
+        const result = await checker.check({ ...(parsed.data as any), observations });
 
         // Audit log every check — alignment scores are evidence that
         // belongs in the compliance trail. auditActor stamps the

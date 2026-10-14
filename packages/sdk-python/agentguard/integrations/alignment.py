@@ -60,6 +60,17 @@ from . import _alignment_state
 PROVIDERS = ("anthropic", "openai", "gemini")
 
 
+def _active_session_id() -> Optional[str]:
+    """The session id auto() reports context under, so the auditor reads
+    the same ledger the provenance layer does."""
+    try:
+        from .. import _default_guard  # type: ignore[attr-defined]
+        sid = getattr(getattr(_default_guard, "config", None), "session_id", None)
+    except Exception:  # noqa: BLE001 — no guard configured
+        sid = None
+    return sid or os.environ.get("AEGIS_SESSION_ID") or None
+
+
 def check(
     *,
     agent_id: str,
@@ -72,6 +83,7 @@ def check(
     model: Optional[str] = None,
     timeout_s: float = 10.0,
     record_for_check: bool = True,
+    session_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """POST a chain-of-thought + proposed action to the AEGIS
     alignment auditor.
@@ -101,6 +113,12 @@ def check(
     provider, model
         Optional overrides for the upstream LLM judge. Defaults
         come from the gateway's configured provider.
+    session_id
+        The session whose context the SDK has been reporting. When
+        given (default: the active guard's session, or
+        ``AEGIS_SESSION_ID``), the gateway shows the auditor the tool
+        output the agent read, as evidence. Without it the auditor
+        judges argument values it cannot check.
     record_for_check
         When True (default), the verdict is stashed in the
         closed-loop buffer so the SDK's auto-instrumentation will
@@ -127,6 +145,9 @@ def check(
             "arguments": dict(proposed_action.get("arguments") or {}),
         },
     }
+    sid = session_id or _active_session_id()
+    if sid:
+        body["session_id"] = sid
     if provider:
         body["provider"] = provider
     if model:

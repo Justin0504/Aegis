@@ -156,6 +156,23 @@ export class ContextLedger {
     return this.textFor('untrusted');
   }
 
+  /** The most recent untrusted spans, newest last, within a character
+   *  budget. For a reviewer (the alignment auditor) that has to judge a
+   *  held call against what the agent actually read, not only against
+   *  what it was asked. Returned as data; callers must present it as such. */
+  recentUntrusted(maxChars = 6000): string[] {
+    const out: string[] = [];
+    let used = 0;
+    for (let i = this.events.length - 1; i >= 0 && used < maxChars; i--) {
+      const e = this.events[i];
+      if (e.channel !== 'untrusted' || !e.text) continue;
+      const t = e.text.slice(0, maxChars - used);
+      out.unshift(t);
+      used += t.length;
+    }
+    return out;
+  }
+
   hasUserTurn(): boolean {
     return this.events.some((e) => e.channel === 'user');
   }
