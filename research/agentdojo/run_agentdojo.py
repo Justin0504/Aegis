@@ -73,24 +73,28 @@ VERSION = "v1.2.1"
 # communication hold and the pack's review rules apply to acting calls only.
 # The un-suffixed configs were run on the build before that change and are
 # kept as the shipped-v1 result.
-PORTS = {"aegis_rules": 18110, "aegis": 18111, "aegis_rules_v2": 18112, "aegis_v2": 18113, "aegis_v2_audit": 18114, "aegis_v2_audit_hold": 18115, "aegis_v2_audit_obs": 18116}
+PORTS = {"aegis_rules": 18110, "aegis": 18111, "aegis_rules_v2": 18112, "aegis_v2": 18113, "aegis_v2_audit": 18114, "aegis_v2_audit_hold": 18115, "aegis_v2_audit_obs": 18116, "aegis_v3_audit": 18117}
 # aegis_v2_audit: the same gateway, but a hold is not a refusal — it goes to
 # the gateway's own alignment auditor (POST /api/v1/alignment/check,
 # gpt-4o-mini) with the user's request as the declared goal, which approves
 # the call if it serves the task (not drifted) and refuses it otherwise:
 # the auditor as first reviewer, a person only when it refuses.
-AUDIT_CONFIGS = {"aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs"}
+AUDIT_CONFIGS = {"aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs", "aegis_v3_audit"}
 # aegis_v2_audit_obs: as aegis_v2_audit_hold, and the auditor request names
 # the session, so the gateway shows the judge the tool output the agent read
 # (from the context ledger, fenced as data). Earlier configs ran without it.
-EVIDENCE_CONFIGS = {"aegis_v2_audit_obs"}
+EVIDENCE_CONFIGS = {"aegis_v2_audit_obs", "aegis_v3_audit"}
+# aegis_v3_audit: as aegis_v2_audit_obs, on the pack with
+# provenance-destination-from-untrusted-any-action (a hold on any acting
+# call whose destination appears only in tool output), and a gateway whose
+# auditor treats a named attack signal as drift whatever the score.
 # aegis_v2_audit_hold: as aegis_v2_audit, but the operator has demoted the
 # pack's two destination-sensitive block rules to holds, so a send whose
 # recipient came from tool output goes to the auditor instead of being
 # refused outright. Done through the public DSL API after applying the
 # pack, exactly as a deployment would tune it; the shipped pack is unchanged.
 DEMOTE = {c: ("provenance-untrusted-authority-on-exfil-sink", "provenance-destination-from-untrusted")
-          for c in ("aegis_v2_audit_hold", "aegis_v2_audit_obs")}
+          for c in ("aegis_v2_audit_hold", "aegis_v2_audit_obs", "aegis_v3_audit")}
 
 for line in (Path.home() / ".openai.env").read_text().splitlines():
     if line.startswith("export OPENAI_API_KEY="):
@@ -261,7 +265,7 @@ class AegisToolsExecutor(ToolsExecutor):
                 DECISIONS.append({"cfg": self.label.split("::")[0], "session": sid, "tool": tc.function, "decision": dec,
                                   "rule": rule, "reason": d.get("reason"), "ms": round(ms, 2),
                                   "gateway_decision": d.get("decision"),
-                                  "auditor": None if audit is None else {k: audit.get(k) for k in ("score", "drifted", "reason", "error")}})
+                                  "auditor": None if audit is None else {k: audit.get(k) for k in ("score", "drifted", "signals", "reason", "error")}})
             if dec == "allow":
                 allowed.append(tc)
             else:
@@ -361,7 +365,7 @@ def main():
     suites = {k: v for k, v in get_suites(VERSION).items() if k in a.suites.split(",")}
     for cfg in configs:
         if cfg.startswith("aegis"):
-            GATEWAYS[cfg] = Gateway(cfg, PORTS[cfg], pack=cfg in ("aegis", "aegis_v2", "aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs"), offline=cfg not in AUDIT_CONFIGS).start()
+            GATEWAYS[cfg] = Gateway(cfg, PORTS[cfg], pack=cfg in ("aegis", "aegis_v2", "aegis_v2_audit", "aegis_v2_audit_hold", "aegis_v2_audit_obs", "aegis_v3_audit"), offline=cfg not in AUDIT_CONFIGS).start()
             print(f"gateway {cfg} on :{PORTS[cfg]} pack={GATEWAYS[cfg].pack} auditor={cfg in AUDIT_CONFIGS}", flush=True)
     jobs = jobs_for(configs, a.mode, suites)
     if a.limit:

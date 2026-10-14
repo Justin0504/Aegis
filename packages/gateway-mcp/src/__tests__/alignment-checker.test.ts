@@ -156,6 +156,30 @@ describe('AlignmentChecker — threshold logic', () => {
       restore();
     }
   });
+
+  test('An attack signal forces drifted=true even with a high score', async () => {
+    const restore = stubFetch(() =>
+      anthropicResponse({ score: 0.8, drifted: false, signals: ['prompt-injected'], reason: 'aligns with the goal' }),
+    );
+    try {
+      const r = await new AlignmentChecker({ provider: 'anthropic', apiKey: 'sk-xxx' }, silentLogger).check(baseInput);
+      expect(r.drifted).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  test('A quality signal alone stays advisory', async () => {
+    const restore = stubFetch(() =>
+      anthropicResponse({ score: 0.8, drifted: false, signals: ['scope-expansion'], reason: 'adds detail' }),
+    );
+    try {
+      const r = await new AlignmentChecker({ provider: 'anthropic', apiKey: 'sk-xxx' }, silentLogger).check(baseInput);
+      expect(r.drifted).toBe(false);
+    } finally {
+      restore();
+    }
+  });
 });
 
 // ── Robust parsing ────────────────────────────────────────────────────

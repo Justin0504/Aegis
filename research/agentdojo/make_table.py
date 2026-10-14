@@ -63,6 +63,22 @@ PIPELINE = {"aegis_rules": "aegis_rules", "aegis": "aegis", "aegis_rules_v2": "a
             "aegis_v2": "aegis_v2", "aegis_v2_audit": "aegis_v2_audit"}
 
 
+def artifact_successes():
+    """Per config: pairs AgentDojo scores as attack success although every
+    attack call was refused (slack injection_task_5 is judged on emitted
+    calls; see rescore_executed.py)."""
+    f = RES / "rescore_executed.json"
+    if not f.exists():
+        return {}
+    out = {}
+    for pipeline, v in json.loads(f.read_text()).items():
+        if not pipeline.startswith("gpt-4o-mini-2024-07-18"):
+            continue
+        cfg = pipeline[len("gpt-4o-mini-2024-07-18"):].lstrip("-") or "none"
+        out[cfg] = v["scored"] - v["executed"]
+    return out
+
+
 def needs_person(cfg):
     """From AgentDojo's own per-task transcripts of the clean run: a task
     needed a person if any tool result says the call was held. With the
@@ -110,12 +126,15 @@ def main():
         "v1 is the gateway as first submitted; the unmarked rows apply holds only to calls that act "
         "(\\S\\ref{sec:agentdojo}). \\emph{Pairs} is the number of the 949 attack pairs that completed: the OpenAI "
         "account ran out of credit near the end of the run; on the 829 pairs every configuration completed the ordering "
-        "is unchanged (\\texttt{results/matched\\_pairs.json}).}",
+        "is unchanged (\\texttt{results/matched\\_pairs.json}). \\emph{Executed} rescores the one injection task "
+        "AgentDojo judges on the calls the agent \\emph{emitted} rather than on their effect (Slack "
+        "\\texttt{injection\\_task\\_5}), counting only calls that ran; for an undefended agent the two coincide.}",
         "\\label{tab:agentdojo}",
-        "\\begin{tabular}{lrrrrr}", "\\toprule",
-        "Configuration & Utility (\\%) & Utility under attack (\\%) & Attack success (\\%) $\\downarrow$ & Pairs & Needs a person \\\\",
+        "\\begin{tabular}{lrrrrrr}", "\\toprule",
+        "Configuration & Utility (\\%) & Util.\\ under attack (\\%) & Attack success (\\%) $\\downarrow$ & Executed & Pairs & Needs a person \\\\",
         "\\midrule",
     ]
+    art = artifact_successes()
     best_asr = min((agg[c]["asr"][0] / agg[c]["asr"][1]) for c, _ in ROWS if agg[c]["asr"][1])
     for cfg, label in ROWS:
         a = agg[cfg]
@@ -127,9 +146,10 @@ def main():
         np_cell = f"{held}/{n}" if n else "---"
         is_best = a["asr"][1] and abs(a["asr"][0] / a["asr"][1] - best_asr) < 1e-9
         pairs = str(a["asr"][1]) if a["asr"][1] else "---"
-        ua = cell(*a["ua"]) if a["asr"][1] else "\\multicolumn{2}{c}{\\emph{not run: API credit}}"
+        ua = cell(*a["ua"]) if a["asr"][1] else "\\multicolumn{3}{c}{\\emph{not run: API credit}}"
         asr = cell(*a["asr"], bold=is_best) if a["asr"][1] else None
-        mid = f"{ua} & {asr}" if asr else ua
+        ex = f"{100*(a['asr'][0]-art.get(cfg,0))/a['asr'][1]:.1f}" if a["asr"][1] else None
+        mid = f"{ua} & {asr} & {ex}" if asr else ua
         lines.append(f"{label} & {cell(*a['u'])} & {mid} & {pairs} & {np_cell} \\\\")
     lines += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
     OUT.write_text("\n".join(lines) + "\n")
