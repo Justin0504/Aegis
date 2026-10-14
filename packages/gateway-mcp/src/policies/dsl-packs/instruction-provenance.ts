@@ -123,6 +123,31 @@ const dsl: PolicyDsl = {
       },
     },
     {
+      // The same argument-level signal on any acting call, whatever its
+      // name. A destination is not only an argument of send/pay/post:
+      // `update_scheduled_transaction(recipient=<attacker IBAN>)` redirects
+      // a standing order without a single sink verb, and on AgentDojo the
+      // gateway allowed exactly that call outright. Held, not blocked: the
+      // tools this reaches (update, schedule, add, set) legitimately take
+      // values from documents often enough that the call must stay
+      // reviewable. Ordered after the block rules, so a named sink still
+      // blocks.
+      name: 'provenance-destination-from-untrusted-any-action',
+      when: {
+        all: [
+          { 'provenance.degraded': false },
+          { 'provenance.untrusted_only_values': { '>': 0 } },
+          { 'tool.read_only': false },
+        ],
+      },
+      then: {
+        decision: 'pending',
+        reason:
+          'An address, URL or account in this call appears only in untrusted content, never in what the user said.',
+        tags: ['provenance', 'injection', 'argument-authority'],
+      },
+    },
+    {
       // The untrusted channel names the tool and the user does not. An
       // injection has to name its target; a principal rarely knows
       // internal tool names. Strong on its own, so it escalates even when
