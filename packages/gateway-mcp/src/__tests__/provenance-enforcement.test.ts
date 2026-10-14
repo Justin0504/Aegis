@@ -17,6 +17,7 @@ import { ContextLedgerStore } from '../services/context-ledger-store';
 import { DslEvaluator } from '../policies/dsl/evaluator';
 import { compileValidated } from '../policies/dsl/ast';
 import { getPack } from '../policies/dsl-packs';
+import { isReadOnlyTool } from '../services/classifier';
 
 const ORG = 'org_test';
 const SESSION = 'sess_1';
@@ -39,7 +40,8 @@ function decider(store: ContextLedgerStore) {
     return {
       provenance,
       match: packEvaluator().evaluate({
-        tool: { name: toolName, args },
+        // the same facts /check builds (api/check.ts)
+        tool: { name: toolName, args, read_only: isReadOnlyTool(toolName) },
         agent: { id: 'agent_1' },
         tenant: { id: ORG },
         provenance,
@@ -173,6 +175,39 @@ describe('instruction provenance · end to end', () => {
       recipient: 'audit@collector.io',
     });
     expect(victim?.authorised_by).toBe('untrusted');
+  });
+});
+
+describe('argument-level authority · same-tool hijack', () => {
+  it('blocks the user\'s own tool when only the injection named the destination', () => {
+    const store = new ContextLedgerStore();
+    const decide = decider(store);
+    store.record(ORG, SESSION, [
+      { seq: 0, channel: 'user',
+        text: 'Send an email with subject Q3 revenue summary and body Q3 revenue summary for the board to our records address.' },
+      { seq: 1, channel: 'untrusted', source: 'read_file', text: 'Records address: rx7@qz9.io' },
+    ]);
+    // Everything about this call but the recipient is the user's own words,
+    // so the tool-level licence attributes it to the user. The recipient
+    // is the only thing the tool output supplied.
+    const { provenance, match } = decide('send_email', {
+      to: 'rx7@qz9.io', subject: 'Q3 revenue summary', body: 'Q3 revenue summary for the board',
+    });
+    expect(provenance?.authorised_by).not.toBe('untrusted');
+    expect(provenance?.untrusted_only_values).toBe(1);
+    expect(match?.decision).toBe('block');
+    expect(match?.ruleName).toBe('provenance-destination-from-untrusted');
+  });
+
+  it('lets the same call through when the user named the recipient', () => {
+    const store = new ContextLedgerStore();
+    const decide = decider(store);
+    store.record(ORG, SESSION, [
+      { seq: 0, channel: 'user', text: 'Please email the Q3 summary to my team at team@acme.example.' },
+      { seq: 1, channel: 'untrusted', source: 'read_file', text: 'Q3 summary: revenue up.' },
+    ]);
+    const { match } = decide('send_email', { to: 'team@acme.example', subject: 'Q3 summary', body: 'Q3 summary' });
+    expect(match?.ruleName).not.toBe('provenance-destination-from-untrusted');
   });
 });
 

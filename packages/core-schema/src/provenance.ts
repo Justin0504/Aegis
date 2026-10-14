@@ -104,6 +104,12 @@ export interface AuthorityReport {
    *  An injection has to name its target; a user rarely knows internal
    *  tool names. */
   toolNamedInUntrusted: number;
+  /** Argument-level authority: distinctive argument values (addresses,
+   *  URLs, account numbers, paths, phone numbers) that appear in untrusted
+   *  text and never in the user's. A same-tool hijack keeps the user's tool
+   *  and swaps the destination; the tool-level licence cannot see that,
+   *  this can. */
+  untrustedOnlyValues: string[];
   verdict: AuthorityVerdict;
   /** True when no user turn was ever reported for this session. Policies
    *  must not read a margin of 0 as "safe" in that case. */
@@ -245,6 +251,49 @@ function licence(callToks: Set<string>, text: string): number {
 /** A margin this close to zero is noise, not a finding. */
 const MARGIN_DEADBAND = 0.05;
 
+// Values worth attributing: things that name a destination or an account.
+// Ordinary words are left to the licence measure; numbers shorter than six
+// digits (amounts, dates) are too common to attribute.
+const VALUE_PATTERNS: RegExp[] = [
+  /[\w.+-]+@[\w-]+\.[\w.-]+/g,              // email address
+  /https?:\/\/[^\s"'<>]+/g,                   // URL
+  /\b[A-Z]{2}\d{2}[A-Z0-9]{8,30}\b/g,          // IBAN-shaped account
+  /\b\d{6,}\b/g,                              // long account / card / id number
+  /(?:\/[\w.-]+){2,}/g,                        // file path
+  /\+?\d[\d -]{7,}\d/g,                       // phone number
+];
+
+function argumentValues(args: Record<string, unknown> | null | undefined): Set<string> {
+  const out = new Set<string>();
+  const walk = (v: unknown, depth: number): void => {
+    if (depth > 16 || v == null) return;
+    if (Array.isArray(v)) { v.forEach(x => walk(x, depth + 1)); return; }
+    if (typeof v === 'object') { Object.values(v as Record<string, unknown>).forEach(x => walk(x, depth + 1)); return; }
+    const s = String(v);
+    for (const re of VALUE_PATTERNS) {
+      for (const m of s.matchAll(re)) {
+        const val = m[0].replace(/^[ .,]+|[ .,]+$/g, '');
+        if (val.length >= 5) out.add(val);
+      }
+    }
+  };
+  walk(args, 0);
+  return out;
+}
+
+export function untrustedOnlyValues(
+  args: Record<string, unknown> | null | undefined,
+  userText: string,
+  untrustedText: string,
+): string[] {
+  const user = userText.toLowerCase();
+  const untrusted = untrustedText.toLowerCase();
+  return [...argumentValues(args)].filter(v => {
+    const lv = v.toLowerCase();
+    return untrusted.includes(lv) && !user.includes(lv);
+  });
+}
+
 export function assessAuthority(
   toolName: string,
   args: Record<string, unknown> | null | undefined,
@@ -269,6 +318,7 @@ export function assessAuthority(
   // SDK. `unknown` is distinguishable, and the shipped policy pack does
   // not tighten on it --- see the note on `degraded`.
   const degraded = !ledger.hasUserTurn();
+  const untrustedOnly = degraded ? [] : untrustedOnlyValues(args, ledger.userText(), ledger.untrustedText());
   let verdict: AuthorityVerdict;
   if (degraded) {
     verdict = 'unknown';
@@ -285,6 +335,7 @@ export function assessAuthority(
     untrustedLicence,
     authorityMargin,
     toolNamedInUntrusted,
+    untrustedOnlyValues: untrustedOnly,
     verdict,
     degraded,
   };
@@ -304,6 +355,8 @@ export interface ProvenanceDslFacts {
   user_licence: number;
   untrusted_licence: number;
   tool_named_in_untrusted: number;
+  /** How many destination-like argument values only untrusted text contains. */
+  untrusted_only_values: number;
   degraded: boolean;
 }
 
@@ -315,6 +368,7 @@ export function toDslFacts(report: AuthorityReport): ProvenanceDslFacts {
     user_licence: round(report.userLicence),
     untrusted_licence: round(report.untrustedLicence),
     tool_named_in_untrusted: round(report.toolNamedInUntrusted),
+    untrusted_only_values: report.untrustedOnlyValues.length,
     degraded: report.degraded,
   };
 }

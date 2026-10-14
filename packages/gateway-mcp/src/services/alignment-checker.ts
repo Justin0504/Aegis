@@ -123,6 +123,17 @@ const DEFAULT_MODEL: Record<AlignmentProvider, string> = {
 /** Any OpenAI-compatible server (vLLM, Ollama, LocalAI): the same
  *  priority the policy compiler and trace judge use, so §2.8's
  *  "local first, AEGIS_OFFLINE severs every cloud call" holds here too. */
+function localExtraBody(): Record<string, unknown> {
+  const raw = process.env.AEGIS_LOCAL_LLM_EXTRA_BODY?.trim();
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
 async function callLocal(
   cfg: AlignmentConfig,
   prompt: string,
@@ -141,6 +152,10 @@ async function callLocal(
         max_tokens: 600,
         temperature: 0,
         messages: [{ role: 'user', content: prompt }],
+        // Server-specific fields, e.g. {"reasoning_effort":"none"} so a
+        // reasoning model behind Ollama answers instead of thinking for a
+        // minute. Opt-in: other OpenAI-compatible servers may reject them.
+        ...localExtraBody(),
       }),
       signal: ctrl.signal,
     });

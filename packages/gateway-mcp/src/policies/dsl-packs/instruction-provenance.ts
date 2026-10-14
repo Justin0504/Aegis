@@ -74,6 +74,33 @@ const dsl: PolicyDsl = {
       },
     },
     {
+      // Argument-level authority. The user may have asked for this very
+      // tool; the destination (an address, URL, account) was supplied only
+      // by untrusted content. Closes the same-tool hijack the tool-level
+      // licence cannot see: "email the summary to my team" becomes "...to
+      // the attacker" with the user's own tool.
+      name: 'provenance-destination-from-untrusted',
+      when: {
+        all: [
+          { 'provenance.degraded': false },
+          { 'provenance.untrusted_only_values': { '>': 0 } },
+          { 'tool.read_only': false },
+          {
+            'tool.name': {
+              matches:
+                '[Ss][Ee][Nn][Dd]|[Ee]mail|[Pp]ost|[Uu]pload|[Ss]hare|[Tt]ransfer|[Pp]ay|[Pp]ublish|[Ff]orward|[Ii]nvite|[Dd]eposit|[Ww]ithdraw|[Mm]essage',
+            },
+          },
+        ],
+      },
+      then: {
+        decision: 'block',
+        reason:
+          'A destination in this call (address, URL or account) appears only in untrusted content, never in what the user said.',
+        tags: ['provenance', 'injection', 'exfil', 'argument-authority'],
+      },
+    },
+    {
       // Destructive and irreversible. Same logic, different cost
       // asymmetry: a false block is an annoyance, a false allow is not
       // recoverable.

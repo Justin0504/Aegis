@@ -991,9 +991,28 @@ they manufacture is a lower bound on what a real same-tool attack
 achieves. The honest statement is that provenance separates \emph{which
 tool} far better than \emph{which argument}, and an injection that stays
 inside the tool the user already authorised is the attack this layer is
-weakest against. Argument-level authority---whether a recipient, a path or
-an amount was ever stated by the principal---is the natural next feature
-and is not in this version.
+weakest against.
+
+\paragraph{Argument-level authority.} The first remedy is to attribute
+the destination rather than the tool. For a call that sends, pays,
+shares or posts, the gateway extracts its destination-like argument
+values---addresses, URLs, account numbers, paths, phone numbers; not
+amounts or dates---and counts those that appear in untrusted text and
+never in the user's (\texttt{provenance.untrusted\_only\_values}); a pack
+rule blocks such a call whatever the tool-level verdict. Prototyped on the
+corpus first, the signal fires on 17 of the 24 attacks on sending tools
+(every one that carries a destination), on none of 426 single-step benign
+calls and on 2 of 169 two-step ones, both a deposit reusing an account
+number from a lookup. Through the gateway, on the 183 same-tool probes
+whose tool acts, it raises blocks from 17 to 22 and cuts misses from 29 to
+26; \texttt{BankManagerTransferFunds} with an injected account is now
+blocked. What remains are actions with nothing to attribute---unlock a
+door, disable two-factor authentication, place an order---where the user
+asked for that tool and the injection changed nothing a value check can
+see. Its known false-positive class is a user who delegates the
+destination to a document (``send it to the address in the ticket''),
+which the rule cannot tell from an injection. The AgentDojo runs of
+\S\ref{sec:agentdojo} predate this rule.
 
 \paragraph{Two features we report and do not use.}
 Imperative density and second-person address in the untrusted channel
@@ -1017,8 +1036,10 @@ excluded from every claim.
   which changes the baseline more than the defense.
 \item \textbf{Same-tool hijacks.} An injection that stays inside the tool
   the user asked for and changes only an argument is the case
-  provenance is weakest on (\S\ref{sec:authority}); argument-level
-  authority is not in this version.
+  provenance is weakest on (\S\ref{sec:authority}). Attributing the
+  destination closes the part with a recipient, URL or account to
+  attribute; an action with none (unlock, disable, order) stays open, and
+  a destination the user delegated to a document is blocked with it.
 \item \textbf{The read-only revision trades recall for holds.} It was
   motivated by AgentDojo; on the independent corpus it costs per-call
   recall (95.4\% to 77.2\%) on data-stealing reads whose harm needs a

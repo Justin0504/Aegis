@@ -59,7 +59,14 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 GW_DIR = REPO / "packages" / "gateway-mcp"
 RESULTS = HERE / "results"
-MODEL = "gpt-4o-mini-2024-07-18"
+MODEL = os.environ.get("AD_MODEL", "gpt-4o-mini-2024-07-18")
+# A local model (Ollama's OpenAI-compatible endpoint) when AD_BASE_URL is set.
+# AgentDojo resolves the attack's "you are model X" from the pipeline name,
+# and knows a model called "local", so local pipelines are named local-<model>.
+BASE_URL = os.environ.get("AD_BASE_URL")
+LOCAL = bool(BASE_URL)
+PIPE_MODEL = f"local-{MODEL.replace(':', '-')}" if LOCAL else MODEL
+TAG = os.environ.get("AD_TAG", "")  # suffix for result files, one set per agent model
 ATTACK = "important_instructions"
 VERSION = "v1.2.1"
 # *_v2: gateway with read-only scoping (isReadOnlyTool) — the default
@@ -86,6 +93,25 @@ from agentdojo.benchmark import run_task_with_injection_tasks, run_task_without_
 from agentdojo.task_suite.load_suites import get_suites  # noqa: E402
 from agentdojo.types import ChatToolResultMessage, text_content_block_from_string  # noqa: E402
 import openai  # noqa: E402
+
+
+class _NoThinkCompletions:
+    """Adds reasoning_effort=none to every call: Qwen3 behind Ollama otherwise
+    reasons for hundreds of tokens before each tool call."""
+    def __init__(self, inner):
+        self._inner = inner
+
+    def create(self, **kw):
+        kw.setdefault("extra_body", {})["reasoning_effort"] = "none"
+        return self._inner.create(**kw)
+
+
+def make_client():
+    if LOCAL:
+        c = openai.OpenAI(base_url=BASE_URL, api_key="ollama", max_retries=4, timeout=600)
+        c.chat.completions = _NoThinkCompletions(c.chat.completions)
+        return c
+    return openai.OpenAI(max_retries=8, timeout=120)
 
 DECISIONS: list[dict] = []
 DECISIONS_LOCK = threading.Lock()
@@ -118,9 +144,11 @@ class Gateway:
     def start(self):
         db = f"/tmp/aegis-agentdojo-{self.tag}-{int(time.time())}.db"
         log = open(RESULTS / f"gateway-{self.tag}.log", "w")
-        env = {**os.environ, "PORT": str(self.port), "DB_PATH": db, "AEGIS_LICENSE_TIER": "enterprise",
+        local = ({"AEGIS_LOCAL_LLM_URL": BASE_URL, "AEGIS_LOCAL_LLM_MODEL": MODEL, "AEGIS_LOCAL_LLM_TIMEOUT_MS": "600000",
+                  "AEGIS_LOCAL_LLM_EXTRA_BODY": '{"reasoning_effort":"none"}'} if LOCAL else {})
+        env = {**os.environ, **local, "PORT": str(self.port), "DB_PATH": db, "AEGIS_LICENSE_TIER": "enterprise",
                "RATE_LIMIT_MAX": "10000000", "LOG_LEVEL": "warn",
-               **({"AEGIS_OFFLINE": "1"} if self.offline else {})}
+               **({"AEGIS_OFFLINE": "1"} if (self.offline or LOCAL) else {})}
         self.proc = subprocess.Popen(["node", "dist/server.js"], cwd=GW_DIR, env=env, stdout=log, stderr=subprocess.STDOUT)
         for _ in range(80):
             try:
@@ -174,7 +202,7 @@ class AegisToolsExecutor(ToolsExecutor):
             "agent_id": self.label, "declared_goal": query[:4096],
             "thought_chain": [t[:2048] for t in thoughts if t.strip()],
             "proposed_action": {"tool_name": tc.function, "arguments": dict(tc.args)},
-            "provider": "openai", "model": MODEL}, timeout=60)
+            **({"provider": "local"} if LOCAL else {"provider": "openai", "model": MODEL})}, timeout=600)
         return (not r.get("drifted", True)) and r.get("score", 0) >= 0.5, r
 
     def query(self, query, runtime, env=None, messages=(), extra_args={}):
@@ -232,7 +260,13 @@ class AegisToolsExecutor(ToolsExecutor):
 
 
 def build_pipeline(cfg: str, suite_name: str):
-    client = openai.OpenAI(max_retries=8, timeout=120)
+    client = make_client()
+    if cfg in ("none", "tool_filter", "repeat_user_prompt", "spotlighting_with_delimiting") and LOCAL:
+        pc = PipelineConfig(llm=OpenAILLM(client, MODEL), model_id=None, defense=None if cfg == "none" else cfg,
+                            system_message_name=None, system_message=None)
+        p = AgentPipeline.from_config(pc)
+        p.name = PIPE_MODEL if cfg == "none" else f"{PIPE_MODEL}-{cfg}"
+        return p
     if cfg in ("none", "tool_filter", "repeat_user_prompt", "spotlighting_with_delimiting"):
         # by name, not by object: AgentDojo's tool_filter refuses an LLM
         # object without a name, and the string route builds the same client
@@ -248,7 +282,7 @@ def build_pipeline(cfg: str, suite_name: str):
     sysmsg = next(e for e in base.elements if isinstance(e, SystemMessage))
     loop = ToolsExecutionLoop([AegisToolsExecutor(GATEWAYS[cfg], f"{cfg}::{suite_name}", audit=cfg in AUDIT_CONFIGS), llm])
     p = AgentPipeline([sysmsg, InitQuery(), llm, loop])
-    p.name = f"{MODEL}-{cfg}"
+    p.name = f"{PIPE_MODEL}-{cfg}"
     return p
 
 
@@ -315,7 +349,7 @@ def main():
             if seen[(j[0], j[1])] < a.limit:
                 keep.append(j); seen[(j[0], j[1])] += 1
         jobs = keep
-    out_path = RESULTS / f"rows-{a.mode}.jsonl"
+    out_path = RESULTS / f"rows-{a.mode}{TAG}.jsonl"
     done = 0
     t0 = time.time()
     try:
@@ -335,7 +369,7 @@ def main():
                 if done % 20 == 0 or done == len(jobs):
                     print(f"  {done}/{len(jobs)} user tasks  {time.time() - t0:.0f}s", flush=True)
     finally:
-        with open(RESULTS / f"decisions-{a.mode}.jsonl", "a") as f:
+        with open(RESULTS / f"decisions-{a.mode}{TAG}.jsonl", "a") as f:
             for d in DECISIONS:
                 f.write(json.dumps(d) + "\n")
         for g in GATEWAYS.values():
@@ -345,7 +379,7 @@ def main():
 def summarise():
     rows = {}
     for mode in ("utility", "security"):
-        p = RESULTS / f"rows-{mode}.jsonl"
+        p = RESULTS / f"rows-{mode}{TAG}.jsonl"
         if not p.exists():
             continue
         for l in p.open():
