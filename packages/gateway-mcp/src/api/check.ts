@@ -24,7 +24,7 @@ import { Logger } from 'pino';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { PolicyEngine } from '../policies/policy-engine';
-import { ToolCategory } from '../services/classifier';
+import { isReadOnlyTool, ToolCategory } from '../services/classifier';
 import { WebhookService } from '../services/webhooks';
 import { EventBus } from '../services/event-bus';
 import { AnomalyDetector, AnomalyResult } from '../services/anomaly-detector';
@@ -361,7 +361,7 @@ export class CheckAPI {
               riskLevel: validation.risk_level,
               violations: validation.violations ?? [],
             },
-            tool: { name: body.tool_name, args: body.arguments as Record<string, unknown> },
+            tool: { name: body.tool_name, args: body.arguments as Record<string, unknown>, read_only: isReadOnlyTool(body.tool_name) },
             agent: { id: body.agent_id },
             tenant: { id: orgId, deploymentMode },
             // Which turn authorised this call. Undefined when the caller
@@ -460,7 +460,9 @@ export class CheckAPI {
         }
 
         // Communication tools (email, messaging) always require human review in blocking mode
-        const requiresHumanReview = classification.category === 'communication'
+        // A communication tool that acts gets a person; one that only reads
+        // (search_emails, get_channels) does not — see isReadOnlyTool.
+        const requiresHumanReview = classification.category === 'communication' && !isReadOnlyTool(body.tool_name)
 
         // ── BLOCKING MODE: hold for human review ─────────────────────────────
         // Blocking-mode gate. A failed validation, a DSL `block` or an anomaly

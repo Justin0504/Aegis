@@ -71,13 +71,11 @@
 \email{yue.z@usc.edu}
 
 \begin{abstract}
-AI agents increasingly execute tool calls---database queries, shell commands, file operations, and HTTP requests---yet most agent frameworks forward these calls to execution with no pre-execution mediation. Post-execution observability can record what an agent did; it cannot stop it.
+AI agents now execute tool calls---database queries, shell commands, payments, email---and most agent frameworks forward those calls to execution with nothing in between. Observability records what an agent did; it cannot stop it.
 
-We demonstrate \system, a pre-execution firewall and audit layer that inserts a framework-agnostic control point between an agent's tool-call decision and its execution.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and supports 15 agent frameworks across Python, JavaScript, and Go. Each intercepted call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an instruction-provenance check over the conversation's trust channels, and a declarative policy over all of their facts---returning \texttt{allow}, \texttt{block}, or \texttt{pending}; pending calls suspend the agent and route to a human approval queue. Every decision is Ed25519-signed and linked into a SHA-256 hash chain. The same gateway is driven, in an appendix, by nineteen harnesses---plain SDK loops in three languages, six open-source frameworks, the OpenAI Agents SDK, the Claude Agent SDK, Google's GenAI SDK, a locally served RL-trained model, and the MCP and egress-proxy transports---through the same scenarios, and the provenance layer is measured through that gateway: it flags 95.4\% of the agent-emitted attacks at 0.7\,ms with no false positive against single-step benign calls, and holds 23.7\% of two-step benign calls, a gap we report rather than tune away.
+\system{} is an open-source control point between an agent's decision to call a tool and the tool running.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and covers 15 agent frameworks in Python, JavaScript and Go, plus an MCP proxy and a provider-compatible egress proxy. Each call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an \emph{instruction-provenance} check over which channel of the conversation authorised the call, and a declarative policy over all of their facts---and returns \texttt{allow}, \texttt{block}, or \texttt{pending}, which suspends the agent until a person or the alignment auditor decides. A refusal comes back where a tool result would, so a blocked agent explains itself and continues. Every decision is Ed25519-signed and hash-chained.
 
-The demonstration is live and adversarial. Attendees drive a real agent on a laptop: they watch a benign call clear in about a millisecond, then ask for a routine-looking install and watch the agent's \texttt{curl \ldots | sh} blocked \emph{in-band}, so the agent explains what happened and offers an alternative instead of failing. They then pass an approval decision between two people at two laptops while the agent waits. They are invited to try to get a payload past the rules, to tamper with the exported audit log and watch verification fail, and to install the two-line integration into their own agent.
-
-This version also corrects our earlier evaluation. The 99.9\% block rate and 0.09\% false-positive rate previously reported came from a static per-call benchmark whose construction we audit here and find degenerate; they are withdrawn. Measured instead on tool calls a live agent was actually manipulated into emitting, the pattern layer fires on \textbf{0.4\%}, because a successful indirect injection produces a syntactically ordinary call. We are explicit about this in the demonstration itself, and the audit reproduces in one command.
+On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29.7\% to \textbf{1.4\%}, the lowest of the defenses compared, against 5.4\% for an LLM tool filter. The cost is holds: with no reviewer, clean-task utility falls from 69.1\% to 38.1\%; with the alignment auditor as first reviewer it is 56.7\% and 11 of 97 tasks reach a person. A check takes 0.44\,ms at the median, and one gateway process sustains about 2{,}300--3{,}000 checks per second. On tool calls live agents emitted under attack, content inspection is at chance and the provenance layer separates them, and we report where it does not: an injection that stays inside the tool the user already asked for. Running the shipping gateway under nineteen agent harnesses found and fixed twenty-six defects no unit test had caught, which we list. Numbers reported in this paper's first version are withdrawn; an appendix gives the audit.
 \end{abstract}
 
 \keywords{AI Agent Safety, Tool-Call Interception, LLM Guardrails, Runtime Compliance}
@@ -122,64 +120,52 @@ In most current stacks, once the model emits a tool call, the framework forwards
 Post-execution observability platforms such as Langfuse~\cite{langfuse2024} and Arize~\cite{arize2024} can record these events, but they cannot prevent side effects before they occur.
 Existing defenses sit at two extremes: rule-based layers are fast ($<$1\,ms) but see only the call string, while LLM-judge layers can read the call against the user's task but add seconds of latency per call.
 
-We demonstrate \system, a pre-execution firewall whose layers are ordered
+\system{} is that control point. It stands between an \emph{unmodified}
+agent and its tools, decides each call before it runs with layers ordered
 by \textbf{what they may observe}---the call string, the agent's history,
-the conversation's trust channels, the stated task---and, more importantly
-for a demonstration, a control point an attendee can stand in front of and
-try to defeat.
+the conversation's trust channels, the stated task---and returns the
+decision in-band, so a refusal reads to the agent like a tool error it can
+recover from, and a hold suspends the turn until someone answers.
 
-\paragraph{What the demonstration shows.}
-Three scenarios on a laptop (\S\ref{sec:demo}), driven live by attendees
-rather than replayed. A benign call clears in about a millisecond, so the
-cost of mediation when nothing is wrong is visible before any blocking is.
-An attendee then asks for a routine-looking install and the agent emits a
-remote script piped to \texttt{sh}; the call is blocked at L1, and
-the refusal returns \emph{in-band} as a tool result, so the agent explains
-what was blocked and offers an alternative rather than failing---the
-single most common objection to pre-execution blocking, answered by
-watching it not happen. Finally a call marked \texttt{require\_approval}
-suspends the agent mid-turn and routes to a second attendee at a second
-laptop, who allows or blocks it while the first watches their agent wait.
+The question a deployment asks of such a system is not how a detector
+scores single calls but what happens to its agents. On AgentDojo
+(\S\ref{sec:agentdojo}), the benchmark the closest systems report against,
+\system{} cuts attack success from 29.7\% to 1.4\%. It does so mostly
+through the instruction-provenance layer, which asks which turn of the
+conversation authorised a call rather than what the call contains, and
+which costs under a millisecond and no model call
+(\S\ref{sec:overhead}). Its cost is holds, and we report them as such:
+the share of clean tasks that need a person, and how far the alignment
+auditor, used as first reviewer, brings that down. We also report what
+the layer cannot see (\S\ref{sec:scope}).
 
-Attendees are invited to attack it: to get a payload past the rules, to
-tamper with a signed audit record and watch verification fail, and to
-install the two-line integration into their own agent on their own
-machine.
-
-\paragraph{Why this version differs.}
-An earlier version of this paper reported that the cascade blocks 99.9\%
-of attacks at 0.09\% false positives, outperforming every standalone LLM
-judge on every metric. Those numbers came from a static per-call benchmark
-we assembled ourselves, and auditing its construction shows the benchmark
-cannot support them (\S\ref{sec:eval}). They are withdrawn.
-
-We think a demonstration is the right place to say so rather than the
-wrong one. The system's contribution is the control point---the fact that
-a decision can be taken before a side effect, returned in-band, escalated
-to a person, and signed into a chain---and that contribution does not
-depend on the detector behind it being good. The detector we ship is good
-at payloads and, as \S\ref{sec:eval} reports on tool calls a live agent
-was actually manipulated into emitting, poor at intentions. The
-demonstration includes an activity where attendees produce exactly that
-failure on purpose.
+The paper is written for someone deciding whether to put this in front of
+their agents. Section~\ref{sec:arch} describes the system; Section~\ref{sec:eval}
+measures it end to end, in cost, and per call on attacks live agents
+actually emitted; Section~\ref{sec:demo} walks through it on a real agent;
+and Appendix~\ref{app:compat} runs the shipping gateway under nineteen
+agent harnesses---the exercise that found most of the defects this
+version fixes.
 
 \medskip\noindent Our contributions are:
 \begin{enumerate}[nolistsep,leftmargin=*]
-\item A \textbf{framework-agnostic interception layer} supporting 15 agent
-      frameworks across Python, JavaScript, and Go with two-line
-      integration, returning allow/block/pending before any side effect.
-\item \sloppy \textbf{Human-in-the-loop control and tamper-evident audit}: agents
-      suspend on \texttt{pending} and resume on a human decision; every
-      trace is signed (Ed25519) and hash-chained, and verification is
-      offline and checkable by an attendee.
-\item A \textbf{live, adversarial demonstration} in which attendees drive
-      the agent, attempt evasion, exercise the approval path across two
-      people, and install the system themselves.
-\item A \textbf{compatibility matrix} (Appendix~\ref{app:compat}): nineteen harnesses---open-source frameworks, lightweight and self-hosted agents, closed harnesses including the OpenAI Agents SDK and the Claude Agent SDK, and the MCP and egress-proxy transports---driving the shipping gateway through the same four scenarios, with the twenty-one defects the exercise found and fixed.
-\item An \textbf{honest scoping of what the cascade catches}, including a
-      reproducible audit that withdraws this paper's earlier headline
-      numbers and a measurement of what payload inspection achieves
-      against real agent-emitted attacks.
+\item A \textbf{pre-execution control point} for unmodified agents: two
+      lines in 15 frameworks across Python, JavaScript and Go, an MCP
+      proxy and an egress proxy, returning allow, block or a hold before
+      any side effect, in-band, with every decision signed and chained.
+\item \textbf{Instruction provenance} as a decision layer: a per-session
+      ledger of the conversation's trust channels and a measure of which
+      channel explains a call, enforced by a shipped policy pack, and its
+      limit---an injection that stays inside the tool the user asked for.
+\item An \textbf{end-to-end evaluation} on AgentDojo against AgentDojo's
+      own defenses, with utility reported as holds and the tasks that
+      need a person, and an overhead measurement under concurrent load.
+\item A \textbf{per-call corpus of agent-emitted attacks} built by
+      compromising a live agent, with a matched control, on which content
+      inspection is at chance; and the audit that withdraws this paper's
+      first-version numbers (Appendix~\ref{sec:withdrawn}).
+\item A \textbf{compatibility matrix} of nineteen harnesses run against
+      the shipping gateway, and the twenty-six defects it found.
 \end{enumerate}
 
 \section{System Architecture}
@@ -559,7 +545,7 @@ calls.
     \label{fig:dashboard}
 \end{figure}
 
-\section{Demonstration}
+\section{Walkthrough on a Live Agent}
 \label{sec:demo}
 
 The demonstration runs entirely on a laptop. Nothing is pre-recorded and
@@ -683,45 +669,108 @@ time from a cold machine is under two minutes.
 \section{Evaluation}
 \label{sec:eval}
 
-A demonstration paper is not the place for a full study, and the harness
-is released so every number below can be re-run rather than taken. But
-the evaluation is where this version departs most from the last, so it
-is given in enough detail to be checked: how the test data is built, what
-each layer catches on it, and why the difference between layers is a
-difference of \emph{capability} rather than of tuning.
+We evaluate \system three ways, from the outside in. End to end
+(\S\ref{sec:agentdojo}): on AgentDojo, does an agent behind the gateway
+still finish what its user asked, and does the attacker's goal still
+happen? In cost (\S\ref{sec:overhead}): what does a check add, and how
+does the gateway hold up under concurrent agents? And per call
+(\S\ref{sec:instantiate}--\S\ref{sec:authority}): on tool calls live
+agents emitted under attack, which layer separates them and why. Every
+number is produced by a command in the repository (\S\ref{sec:avail}).
 
-\subsection{Why Our Earlier Numbers Are Withdrawn}
-\label{sec:withdrawn}
+\subsection{End to End: AgentDojo}
+\label{sec:agentdojo}
 
-\begin{sloppypar}
-The previous version reported a 99.9\% block rate at 0.09\% false
-positives on a 5{,}525-record benchmark we assembled from
-InjecAgent~\cite{zhan2024injecagent}, ToolEmu~\cite{ruan2024toolemu},
-OWASP payloads and a curated suite. Auditing that benchmark's
-construction shows it cannot support the claim. 144 records carry no
-arguments to inspect; 5{,}195 are exact duplicates; and the malicious
-records encode their own label in an argument key,
-\texttt{\_attacker\_\allowbreak instruction}, present in 3{,}196/3{,}196 InjecAgent
-attacks and 0/2{,}108 benign calls. Argument character count alone
-separates the classes at AUC 0.918 and fifteen surface features reach
-0.996. After removing unscoreable and duplicate records, 5{,}525 become
-\textbf{186 unique evaluable calls, 21 of them benign}---and the smallest
-non-zero false-positive rate estimable from 21 items is $1/21 = 4.8\%$,
-so 0.09\% was never a measurement of anything. The audit reproduces with
-\texttt{python -m benchmark.\allowbreak audit\_construction}, which recovers the
-pre-fix loader from version control because the fix is committed and the
-corpus now on disk no longer exhibits the artefact.
-\end{sloppypar}
+\input{figures/table_agentdojo}
 
-The cause is structural. InjecAgent and ToolEmu are agent-\emph{execution}
-suites: neither contains a concrete attacker tool call, because that call
-exists only once an agent has read an injection and acted on it.
-Converting them to per-call data requires fabricating the call, and no
-held-out split detects the resulting shortcut, since it is present in
-every record of the class---the failure
-\citet{gururangan2018artifacts} and \citet{geirhos2020shortcut} describe,
-sharpened by the fact that fabrication is the only way to produce the
-artefact at all.
+Per-call numbers say whether a detector flags a call; a deployment is
+judged per task. AgentDojo v1.2.1~\cite{debenedetti2024agentsec} measures
+exactly that, and is the benchmark CaMeL, Progent and LlamaFirewall
+report against: 97 user tasks in four environments (workspace, travel,
+banking, Slack), each run clean for \emph{utility} and against each of the
+suite's injection tasks for \emph{attack success}, 949 pairs in all, with
+the \texttt{important\_\allowbreak instructions} attack. The agent is
+gpt-4o-mini-2024-07-18 throughout. \system is placed where a deployment
+puts it: AgentDojo's tool executor is replaced by one that, before every
+tool runs, reports the conversation's new spans to the ledger exactly as
+the SDK's request-side hook classifies them, asks the shipping gateway's
+\texttt{/check}, and on a refusal returns the reason in the tool-result
+slot so the agent continues (\texttt{research/agentdojo/run\_agentdojo.py};
+one fresh gateway per configuration). AgentDojo's own defenses are run
+alongside for reference. Table~\ref{tab:agentdojo} gives the results.
+
+\paragraph{Security.} Undefended, the attack succeeds on 29.7\% of pairs.
+\system with the instruction-provenance pack brings that to
+\textbf{1.4\%}, the lowest of any configuration and a quarter of the
+tool filter's 5.4\%, at a check cost under a millisecond and no model
+call. The rules alone halve attack success (16.0--17.0\%), not because
+they recognise the injections---they contain no payload---but because
+the default policy holds every outbound message for a person and, with
+nobody to answer, a hold is a refusal. On the 829 pairs every
+configuration completed, the numbers are 30.0\%, 5.4\% and 1.4\%.
+
+\paragraph{Utility, and where it goes.} The price is paid in holds. With
+no reviewer present, every hold refuses a call, and \system with the pack
+completes 38.1\% of clean tasks against 69.1\% undefended. That number
+measures the absence of the person a hold is for, so the table also
+counts the tasks that needed one: 34 of 97. Two changes, both on the
+same principle, came out of this run. The first version held any tool the
+classifier filed as communication, so \texttt{search\_emails} was held
+like \texttt{send\_email}, and the pack's review rule held every call
+whose arguments came from an earlier tool result, which is what reading
+a hotel's reviews before booking it looks like: 671 holds on 97 clean
+tasks, 62 tasks needing a person, 33.0\% utility. A hold is for a call
+that \emph{acts}; reading changes nothing, and what an injection can do
+with a read needs a later call that writes, sends or pays, which is
+still held. The gateway now derives a \texttt{tool.read\_only} fact from
+the name's own verbs---conservatively: a name with any write verb, an
+unknown verb, or a network read is not read-only---and both the default
+communication hold and the pack's two review rules apply only to calls
+that are not read-only. Tasks needing a person fall from 62 to 34 and
+utility rises from 33.0\% to 38.1\%, at an unchanged 1.4\% attack
+success. Because the revision was motivated by this benchmark, the
+first version stays in the table, and the revision is checked on the
+independent corpus of \S\ref{sec:instantiate}: there it costs per-call
+recall (95.4\% to 77.2\%, the data-stealing reads it now allows) and
+barely moves two-step false positives (23.7\% to 19.5\%), which is the
+honest shape of the trade.
+
+\paragraph{With the auditor as first reviewer.} A deployment does not
+leave holds unanswered, and the design's own answer is the alignment
+auditor (\S\ref{sec:judge}): in the last row each hold goes to the
+gateway's \texttt{/alignment/check} with the user's request as the
+declared goal, and is released if the auditor finds the call serves it.
+Clean utility returns to \textbf{56.7\%}, inside the tool filter's
+interval, and only 11 of 97 tasks still reach a person. Its attack run
+did not complete---the OpenAI account ran out of credit before it
+started producing results---so whether the auditor releases attack
+calls the pack held is \emph{not measured here}, and is the first number
+the next version owes. What the table does establish is the split of
+labour: L$_\mathrm{p}$ decides in under a millisecond which calls need a
+second look, and only those pay for one.
+
+\subsection{Overhead}
+\label{sec:overhead}
+
+\input{figures/table_overhead}
+
+Table~\ref{tab:overhead} measures one gateway process under concurrent
+agents (\texttt{node research/perf/loadtest.mjs}). With one client a
+check takes 0.44\,ms at the median and under 2\,ms at p99, with or
+without the provenance pack; the pack's ledger assessment does not show
+at this resolution. Throughput saturates near 2{,}300--3{,}000 checks per
+second on one process, and beyond that latency is queueing: at 128
+concurrent clients p99 is 84--93\,ms. A Node.js gateway is one thread,
+so the scaling path is more processes behind sticky routing by session
+(the ledger is per process, \S\ref{sec:provenance}), which this
+measurement does not cover. An agent's own model call takes seconds; at
+the loads measured, a check is a fraction of a percent of a turn.
+
+\paragraph{The first version's numbers are withdrawn.}
+The 99.9\% block rate at 0.09\% false positives reported earlier came from a
+per-call benchmark whose malicious records encoded their own label in an
+argument key; Appendix~\ref{sec:withdrawn} gives the audit. Every number
+below is measured on agents that were actually attacked.
 
 \subsection{Mechanism: Instantiation by Rollout}
 \label{sec:instantiate}
@@ -815,7 +864,7 @@ which reads the user's stated task and compares the call against it, is
 meaningfully above chance (0.851), at 2{,}280\,ms per call---and it is the
 same model that generated the attacks, still missing 21.1\% of them.
 
-The last two rows are the provenance layer measured where it is
+The last three rows are the provenance layer measured where it is
 deployed, not where it is convenient: a fresh gateway from the shipping
 build, the \texttt{security-instruction-provenance} pack applied and no
 other rule, each record's user turn and tool return reported to
@@ -827,7 +876,13 @@ median round trip; 29 of the 226 are outright blocks (the exfiltration
 and destructive rules), the rest are holds for a person. The eleven it
 misses are dominated by one tool, \texttt{NortonIdentitySafeSearchPasswords}
 (8), whose arguments are empty and whose name shares no word with the
-injection. This is the number a deployment gets; Table~\ref{tab:provenance}
+injection. That is the pack as first shipped. The revised pack, which
+holds only calls that act (\S\ref{sec:agentdojo}), flags 183 of 237
+(77.2\%), still none of the benign calls: what it now allows are the
+data-stealing reads---\texttt{ExpediaSearchReservations} (21) leads---whose
+harm needs a later send or post, which it still holds. Per call this is
+a loss; end to end, on AgentDojo, attack success is unchanged at 1.4\%.
+These are the numbers a deployment gets; Table~\ref{tab:provenance}
 below is the number the features can reach.
 
 \subsection{Why Authority Separates What Content Cannot}
@@ -949,16 +1004,41 @@ on the common real case of tool output that legitimately carries
 imperatives. They are shown in italics in Table~\ref{tab:provenance} and
 excluded from every claim.
 
-\subsection{Scope}
-The shipped pack's thresholds were written before this corpus and are
-not tuned on it, which is why its two-step false-positive rate (23.7\%,
-as holds) is far from the classifier's AUC; the same-tool probe is
-constructed, not rolled out. One agent model produced the attacks; capture is single-turn; 237 unique
-malicious calls is bounded by how many distinct attacker instructions
-InjecAgent contains; the provenance result rests on an $n=17$
-human-written control and one adaptive strategy. We state these because
-the lesson of \S\ref{sec:withdrawn} is that an evaluation's construction,
-not its headline, determines what it can support.
+\subsection{Limitations}
+\label{sec:scope}
+\begin{itemize}[nolistsep,leftmargin=*]
+\item \textbf{The auditor-reviewed configuration's attack success is not
+  measured.} Its utility is (56.7\%); its attack run did not complete
+  before the API credit ran out. Until it is, the 1.4\% attack success
+  belongs to the configuration in which holds are refusals.
+\item \textbf{One agent model end to end.} AgentDojo was run with
+  gpt-4o-mini only, and the per-call corpus was produced by one model
+  (Qwen3-VL-32B). Stronger models resist the attack more on their own,
+  which changes the baseline more than the defense.
+\item \textbf{Same-tool hijacks.} An injection that stays inside the tool
+  the user asked for and changes only an argument is the case
+  provenance is weakest on (\S\ref{sec:authority}); argument-level
+  authority is not in this version.
+\item \textbf{The read-only revision trades recall for holds.} It was
+  motivated by AgentDojo; on the independent corpus it costs per-call
+  recall (95.4\% to 77.2\%) on data-stealing reads whose harm needs a
+  later, still-held call. The first version is reported alongside it.
+\item \textbf{Coverage of the provenance layer.} It needs the request-side
+  hook: the Python SDK has it for every model client it patches; the JS
+  and Go SDKs and the two proxies do not, and a framework that rewrites
+  tool results into user text (smolagents) erases the channel before any
+  hook sees it (Appendix~\ref{app:compat}).
+\item \textbf{Overhead on one laptop.} The load test ran on a shared
+  laptop under swap; percentiles were stable across runs, maximum
+  latencies were not and are not attributed. Multi-process and
+  networked deployments are not measured.
+\item \textbf{Corpus construction.} Capture is single-turn; 237 unique
+  malicious calls is bounded by InjecAgent's distinct attacker
+  instructions; the human-written control is $n=17$; one adaptive
+  strategy. The lesson of Appendix~\ref{sec:withdrawn} is that an
+  evaluation's construction, not its headline, decides what it can
+  support, so we state these rather than average over them.
+\end{itemize}
 
 \section{Related Work}
 \label{sec:related}
@@ -1014,30 +1094,24 @@ complements these by acting before side effects occur.
 \input{table/comp}
 
 \section{Conclusion and Availability}
+\label{sec:avail}
 
-We demonstrate \system, a pre-execution firewall and audit layer that
-inserts a framework-agnostic control point between an agent's tool-call
-decision and its execution, in two lines of integration across 15
-frameworks---and, because a demonstration that only works with the
-demonstrator's agent proves little, we drive the same gateway with
-nineteen harnesses in Appendix~\ref{app:compat}, from plain SDK loops to
-the OpenAI Agents SDK, the Claude Agent SDK and the MCP and egress-proxy
-transports. The demonstration is live and adversarial: attendees drive a
-real agent, try to defeat the cascade, pass an approval decision between
-two people, and tamper with a signed audit log to watch verification
-fail. Around the control point sit the parts an operator needs before it
-is deployable rather than demonstrable: a learning behavioural layer that
-cannot block before it has seen enough, explicit fallback for every way
-the gateway can be slow, down or model-less, static analysis that shares
-the runtime's policy vocabulary, a calibrated judge, and connectors into
-the identity, SIEM and compliance systems already in place.
-
-We also use the demonstration to be accurate about scope. Pre-execution
-mediation is the right place to stand, and the cheap layers that stand
-there today catch payloads rather than intentions; the evaluation in
-\S\ref{sec:eval} says so with the previous version's numbers withdrawn.
-The control point is the durable contribution, and instruction provenance
-is what we are putting on it.
+\system{} puts a decision between an agent and its tools: two lines of
+integration in fifteen frameworks, a refusal that returns in-band, a hold
+that waits for a person, and a signed chain of every decision. On
+AgentDojo it brings attack success from 29.7\% to 1.4\%, mostly through
+asking which turn of the conversation authorised a call, in under a
+millisecond and without a model. Its cost is holds, and the alignment
+auditor answering them first returns most of the utility; whether that
+reviewer also releases attacks is the number this version could not
+afford to measure, and the first one the next owes. Around the decision
+sit the parts an operator needs before it is deployable: a behavioural
+layer that cannot block before it has learned, explicit fallback for a
+gateway that is slow, down or without a model, static analysis in the
+same policy vocabulary, and connectors into the identity, SIEM and
+compliance systems already in place. Running all of it under nineteen
+real agent harnesses found twenty-six defects no unit test had; the
+matrix stays in the repository so the next ones are found the same way.
 
 \medskip\noindent
 \textbf{Code:}
@@ -1053,6 +1127,13 @@ repository, at the commit tagged \texttt{arxiv-v2}:
 \texttt{python -m cascade.run\_cascade} for the detectors of
 Table~\ref{tab:results}; \texttt{python -m selective.provenance\_eval}
 for Table~\ref{tab:provenance} and Figure~\ref{fig:capability}; and
+\texttt{research/agentdojo/run\_agentdojo.py} then
+\texttt{make\_table.py} for Table~\ref{tab:agentdojo} (per-task
+transcripts in \texttt{research/agentdojo/results/logs.tar.gz});
+\texttt{node research/perf/loadtest.mjs} for Table~\ref{tab:overhead};
+\texttt{python -m selective.provenance\_gateway\_eval} and
+\texttt{selective.same\_tool\_probe} for the gateway rows of
+Table~\ref{tab:results} and the same-tool probe;
 \texttt{research/compat/run\_compat.py} followed by
 \texttt{make\_table.py} for Appendix~\ref{app:compat}, whose per-row
 transcripts are committed under \texttt{research/compat/results}. The
@@ -1066,6 +1147,8 @@ figures are drawn from those outputs by the scripts in
 \appendix
 
 \input{sections/appendix_compat}
+
+\input{sections/appendix_erratum}
 
 \input{sections/appendix_ui}
 

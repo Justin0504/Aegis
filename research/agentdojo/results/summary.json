@@ -1,0 +1,160 @@
+{
+ "none": {
+  "u": {
+   "num": 67,
+   "den": 97
+  },
+  "ua": {
+   "num": 368,
+   "den": 949
+  },
+  "asr": {
+   "num": 282,
+   "den": 949
+  },
+  "needs_person": {
+   "held": null,
+   "of": 0
+  }
+ },
+ "repeat_user_prompt": {
+  "u": {
+   "num": 64,
+   "den": 97
+  },
+  "ua": {
+   "num": 454,
+   "den": 907
+  },
+  "asr": {
+   "num": 96,
+   "den": 907
+  },
+  "needs_person": {
+   "held": null,
+   "of": 0
+  }
+ },
+ "spotlighting_with_delimiting": {
+  "u": {
+   "num": 66,
+   "den": 97
+  },
+  "ua": {
+   "num": 416,
+   "den": 949
+  },
+  "asr": {
+   "num": 239,
+   "den": 949
+  },
+  "needs_person": {
+   "held": null,
+   "of": 0
+  }
+ },
+ "tool_filter": {
+  "u": {
+   "num": 62,
+   "den": 97
+  },
+  "ua": {
+   "num": 566,
+   "den": 949
+  },
+  "asr": {
+   "num": 51,
+   "den": 949
+  },
+  "needs_person": {
+   "held": null,
+   "of": 0
+  }
+ },
+ "aegis_rules": {
+  "u": {
+   "num": 47,
+   "den": 97
+  },
+  "ua": {
+   "num": 343,
+   "den": 949
+  },
+  "asr": {
+   "num": 152,
+   "den": 949
+  },
+  "needs_person": {
+   "held": 29,
+   "of": 97
+  }
+ },
+ "aegis": {
+  "u": {
+   "num": 32,
+   "den": 97
+  },
+  "ua": {
+   "num": 258,
+   "den": 949
+  },
+  "asr": {
+   "num": 13,
+   "den": 949
+  },
+  "needs_person": {
+   "held": 62,
+   "of": 97
+  }
+ },
+ "aegis_rules_v2": {
+  "u": {
+   "num": 52,
+   "den": 97
+  },
+  "ua": {
+   "num": 408,
+   "den": 907
+  },
+  "asr": {
+   "num": 154,
+   "den": 907
+  },
+  "needs_person": {
+   "held": 21,
+   "of": 97
+  }
+ },
+ "aegis_v2": {
+  "u": {
+   "num": 37,
+   "den": 97
+  },
+  "ua": {
+   "num": 341,
+   "den": 843
+  },
+  "asr": {
+   "num": 12,
+   "den": 843
+  },
+  "needs_person": {
+   "held": 34,
+   "of": 97
+  }
+ },
+ "aegis_v2_audit": {
+  "u": {
+   "num": 55,
+   "den": 97
+  },
+  "asr": {
+   "num": 0,
+   "den": 0
+  },
+  "needs_person": {
+   "held": 11,
+   "of": 97
+  }
+ }
+}

@@ -18,7 +18,7 @@ language-model calls are real. Appendix~\ref{app:compat} gives the matrix
 (Table~\ref{tab:compat}) and the harness code is in the repository.
 
 The exercise was worth more than the table. Running it found, and the
-current version fixes, twenty-five defects that no unit test had caught,
+current version fixes, twenty-six defects that no unit test had caught,
 among them: every SDK started a new hash chain at sequence zero in every
 process, so an agent restarted once failed chain verification (the
 Cockpit's chain counter, screenshotted against the matrix, showed it);
@@ -69,7 +69,12 @@ rule-produced \texttt{block} regardless of tier, the threshold keeps its
 original job of muting risk-tier verdicts below it, and the matrix now
 records how long each agent actually waited. The last
 found was the request-side hook missing from Anthropic's beta endpoint,
-which Pydantic~AI uses (Appendix~\ref{app:compat}). Each is the
+which Pydantic~AI uses (Appendix~\ref{app:compat}). A twenty-sixth
+surfaced only at evaluation scale: a self-hosted gateway, with no Stripe
+and therefore every organisation on the hosted Free plan, refused every
+check after the thousandth of the month; the matrix makes 76, AgentDojo
+about five thousand. Quotas now apply only where hosted billing is
+configured. Each is the
 kind of gap that appears only when a real framework drives the real
 gateway, which is the argument for keeping the matrix in the repository
 and running it on every release.

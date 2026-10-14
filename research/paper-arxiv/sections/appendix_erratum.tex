@@ -1,0 +1,38 @@
+\section{Erratum: the Benchmark Behind the First Version}
+\label{sec:withdrawn}
+
+The first version of this paper reported numbers that are withdrawn. This
+appendix says what they were, why the benchmark behind them could not
+support them, and how the corpus of \S\ref{sec:instantiate} replaces it.
+
+
+\begin{sloppypar}
+The previous version reported a 99.9\% block rate at 0.09\% false
+positives on a 5{,}525-record benchmark we assembled from
+InjecAgent~\cite{zhan2024injecagent}, ToolEmu~\cite{ruan2024toolemu},
+OWASP payloads and a curated suite. Auditing that benchmark's
+construction shows it cannot support the claim. 144 records carry no
+arguments to inspect; 5{,}195 are exact duplicates; and the malicious
+records encode their own label in an argument key,
+\texttt{\_attacker\_\allowbreak instruction}, present in 3{,}196/3{,}196 InjecAgent
+attacks and 0/2{,}108 benign calls. Argument character count alone
+separates the classes at AUC 0.918 and fifteen surface features reach
+0.996. After removing unscoreable and duplicate records, 5{,}525 become
+\textbf{186 unique evaluable calls, 21 of them benign}---and the smallest
+non-zero false-positive rate estimable from 21 items is $1/21 = 4.8\%$,
+so 0.09\% was never a measurement of anything. The audit reproduces with
+\texttt{python -m benchmark.\allowbreak audit\_construction}, which recovers the
+pre-fix loader from version control because the fix is committed and the
+corpus now on disk no longer exhibits the artefact.
+\end{sloppypar}
+
+The cause is structural. InjecAgent and ToolEmu are agent-\emph{execution}
+suites: neither contains a concrete attacker tool call, because that call
+exists only once an agent has read an injection and acted on it.
+Converting them to per-call data requires fabricating the call, and no
+held-out split detects the resulting shortcut, since it is present in
+every record of the class---the failure
+\citet{gururangan2018artifacts} and \citet{geirhos2020shortcut} describe,
+sharpened by the fact that fabrication is the only way to produce the
+artefact at all.
+

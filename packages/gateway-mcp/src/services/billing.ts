@@ -178,8 +178,24 @@ export class BillingService {
 /** Express middleware factory — runs after auth so it has access to
  *  req.orgId. On `block` returns 429 with a Retry-After header set to
  *  the start of the next billing period. */
-export function billingMiddleware(svc: BillingService) {
+/** Hosted quotas apply only where hosted billing exists. A self-hosted
+ *  gateway has no Stripe and no subscription rows, so every org resolved
+ *  to the Free plan and was refused after 1,000 checks a month — the
+ *  MIT-licensed build silently stopped deciding calls. Found by the
+ *  AgentDojo run (~5,000 checks per gateway), which the compatibility
+ *  matrix (76) never reached. Enforcement is on when STRIPE_WEBHOOK_SECRET
+ *  is configured or AEGIS_BILLING=enforce, off for AEGIS_BILLING=off. */
+export function quotaEnforced(env: NodeJS.ProcessEnv = process.env): boolean {
+  const mode = (env.AEGIS_BILLING ?? '').trim().toLowerCase();
+  if (mode === 'enforce') return true;
+  if (mode === 'off') return false;
+  return Boolean(env.STRIPE_WEBHOOK_SECRET?.trim());
+}
+
+export function billingMiddleware(svc: BillingService, env: NodeJS.ProcessEnv = process.env) {
+  const enforced = quotaEnforced(env);
   return async (req: any, res: any, next: any) => {
+    if (!enforced) return next();
     const orgId = req.orgId ?? 'default';
     try {
       const verdict = await svc.checkQuota(orgId);

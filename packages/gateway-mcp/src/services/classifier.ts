@@ -526,3 +526,46 @@ export function defaultRiskForCategory(category: ToolCategory): 'LOW' | 'MEDIUM'
   }
   return map[category]
 }
+
+// ── Read-only tools ──────────────────────────────────────────────────────────
+//
+// A hold is for a call that acts. Reading mail, listing files or looking up
+// a hotel's price changes nothing, and the harm an injection can do with a
+// read needs a later call that writes, sends or pays — which is where the
+// hold belongs. Before this, any tool the name-keyword map filed under
+// `communication` was held for a person (search_emails exactly like
+// send_email), and the provenance pack held every lookup whose arguments
+// came from an earlier tool result: on AgentDojo that cut clean-task
+// utility from 69% to 33% (research/agentdojo, 2026-10-13).
+//
+// Decided from the name's own verbs: a tool is read-only when one of its
+// first three words is a read verb and none of its words is a write verb.
+// Conservative by construction — an unknown or mixed name is not read-only.
+const READ_VERBS = new Set(['get', 'search', 'list', 'read', 'view', 'find', 'check', 'lookup', 'look',
+  'retrieve', 'count', 'describe', 'show', 'query', 'fetch', 'browse', 'peek', 'inspect', 'preview'])
+const WRITE_VERBS = new Set(['send', 'post', 'put', 'delete', 'remove', 'drop', 'update', 'create', 'add',
+  'insert', 'write', 'set', 'edit', 'modify', 'transfer', 'pay', 'withdraw', 'deposit', 'buy', 'sell',
+  'order', 'book', 'reserve', 'cancel', 'schedule', 'invite', 'share', 'forward', 'reply', 'upload',
+  'publish', 'deploy', 'push', 'execute', 'exec', 'run', 'grant', 'revoke', 'move', 'rename', 'copy',
+  'download', 'append', 'manage', 'submit', 'approve', 'reject', 'kill', 'terminate', 'purge', 'reset'])
+// `fetch` and `browse` read, but over the network: a URL is an exfiltration
+// channel (the query string is the payload), so network reads stay in scope.
+const NETWORK_READ_HINTS = ['url', 'webpage', 'web_page', 'http', 'browse', 'fetch']
+
+export function toolWords(name: string): string[] {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map(w => w.toLowerCase())
+}
+
+export function isReadOnlyTool(name: string): boolean {
+  const words = toolWords(name)
+  if (words.length === 0) return false
+  if (words.some(w => WRITE_VERBS.has(w))) return false
+  const lower = name.toLowerCase()
+  if (NETWORK_READ_HINTS.some(h => lower.includes(h))) return false
+  return words.slice(0, 3).some(w => READ_VERBS.has(w))
+}

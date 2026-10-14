@@ -104,6 +104,9 @@ const dsl: PolicyDsl = {
       when: {
         all: [
           { 'provenance.degraded': false },
+          // a read the injection named is harmless until something acts on
+          // it; the act is held by the rules below (see isReadOnlyTool)
+          { 'tool.read_only': false },
           { 'provenance.tool_named_in_untrusted': { '>': 0.5 } },
           { 'provenance.user_licence': { '<': 0.2 } },
         ],
@@ -119,7 +122,10 @@ const dsl: PolicyDsl = {
       // The general case, escalated rather than blocked: the authority is
       // untrusted but the action is not obviously harmful.
       name: 'provenance-untrusted-authority-review',
-      when: { 'provenance.authorised_by': 'untrusted' },
+      // Acting calls only. A lookup whose arguments came from an earlier
+      // tool result is how multi-step work looks; holding it held 671
+      // ordinary reads in 97 clean AgentDojo tasks.
+      when: { all: [{ 'provenance.authorised_by': 'untrusted' }, { 'tool.read_only': false }] },
       then: {
         decision: 'pending',
         reason:

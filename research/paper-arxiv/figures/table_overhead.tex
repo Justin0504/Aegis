@@ -1,0 +1,22 @@
+% Generated from research/perf/results/loadtest.json (node research/perf/loadtest.mjs) — do not edit by hand.
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{3.5pt}
+\caption{Gateway overhead under load: one gateway process, loopback, 20\,s per level, 1{,}000 sessions with seeded ledgers, calls drawn from the instantiated corpus. Latency is \texttt{/check} as the client sees it. Zero errors at every level. Measured on a Apple~M4 Pro laptop under other load (load average $\approx$16, 8.5\,GB swap); maximum latencies of 1.7--3.1\,s appeared in both configurations and even with one client, and are not attributed to the gateway here.}
+\label{tab:overhead}
+\begin{tabular}{lrrrrr}
+\toprule
+Config & Clients & Checks/s & p50 & p95 & p99 (ms) \\
+\midrule
+Rules & 1 & 1{,}454 & 0.44 & 1.09 & 1.89 \\
+ & 8 & 2{,}485 & 2.52 & 5.91 & 7.67 \\
+ & 32 & 3{,}045 & 9.67 & 18.31 & 21.21 \\
+ & 128 & 2{,}891 & 41.99 & 52.19 & 84.31 \\
+\midrule
++ L$_\mathrm{p}$ pack & 1 & 1{,}752 & 0.48 & 1.28 & 2.01 \\
+ & 8 & 2{,}213 & 2.78 & 6.76 & 12.16 \\
+ & 32 & 2{,}302 & 10.10 & 21.80 & 30.27 \\
+ & 128 & 2{,}588 & 45.53 & 66.65 & 93.35 \\
+\bottomrule
+\end{tabular}
+\end{table}

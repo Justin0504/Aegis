@@ -1,0 +1,45 @@
+{
+ "pairs": 829,
+ "by_cfg": {
+  "none": {
+   "asr": 249,
+   "util_attack": 338,
+   "n": 829
+  },
+  "spotlighting_with_delimiting": {
+   "asr": 210,
+   "util_attack": 378,
+   "n": 829
+  },
+  "repeat_user_prompt": {
+   "asr": 84,
+   "util_attack": 434,
+   "n": 829
+  },
+  "tool_filter": {
+   "asr": 45,
+   "util_attack": 540,
+   "n": 829
+  },
+  "aegis_rules": {
+   "asr": 131,
+   "util_attack": 318,
+   "n": 829
+  },
+  "aegis": {
+   "asr": 10,
+   "util_attack": 243,
+   "n": 829
+  },
+  "aegis_rules_v2": {
+   "asr": 137,
+   "util_attack": 387,
+   "n": 829
+  },
+  "aegis_v2": {
+   "asr": 12,
+   "util_attack": 341,
+   "n": 829
+  }
+ }
+}

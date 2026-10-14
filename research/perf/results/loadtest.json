@@ -1,0 +1,156 @@
+{
+ "rules": {
+  "idle_rss_mb": 194,
+  "levels": [
+   {
+    "concurrency": 1,
+    "requests": 29075,
+    "rps": 1454,
+    "p50_ms": 0.44,
+    "p95_ms": 1.09,
+    "p99_ms": 1.89,
+    "max_ms": 3107.03,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 27941,
+     "block": 260,
+     "pending": 874
+    },
+    "rss_mb": 445
+   },
+   {
+    "concurrency": 8,
+    "requests": 49709,
+    "rps": 2485,
+    "p50_ms": 2.52,
+    "p95_ms": 5.91,
+    "p99_ms": 7.67,
+    "max_ms": 62.5,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 47764,
+     "block": 448,
+     "pending": 1497
+    },
+    "rss_mb": 363
+   },
+   {
+    "concurrency": 32,
+    "requests": 60933,
+    "rps": 3045,
+    "p50_ms": 9.67,
+    "p95_ms": 18.31,
+    "p99_ms": 21.21,
+    "max_ms": 181.33,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 58546,
+     "block": 550,
+     "pending": 1837
+    },
+    "rss_mb": 315
+   },
+   {
+    "concurrency": 128,
+    "requests": 57941,
+    "rps": 2891,
+    "p50_ms": 41.99,
+    "p95_ms": 52.19,
+    "p99_ms": 84.31,
+    "max_ms": 2678.44,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 55668,
+     "block": 524,
+     "pending": 1749
+    },
+    "rss_mb": 375
+   }
+  ]
+ },
+ "pack": {
+  "idle_rss_mb": 197,
+  "levels": [
+   {
+    "concurrency": 1,
+    "requests": 35040,
+    "rps": 1752,
+    "p50_ms": 0.48,
+    "p95_ms": 1.28,
+    "p99_ms": 2.01,
+    "max_ms": 15.36,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 24399,
+     "block": 1851,
+     "pending": 8790
+    },
+    "rss_mb": 402
+   },
+   {
+    "concurrency": 8,
+    "requests": 44936,
+    "rps": 2213,
+    "p50_ms": 2.78,
+    "p95_ms": 6.76,
+    "p99_ms": 12.16,
+    "max_ms": 317.85,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 31283,
+     "block": 2376,
+     "pending": 11277
+    },
+    "rss_mb": 391
+   },
+   {
+    "concurrency": 32,
+    "requests": 46062,
+    "rps": 2302,
+    "p50_ms": 10.1,
+    "p95_ms": 21.8,
+    "p99_ms": 30.27,
+    "max_ms": 1683.79,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 32007,
+     "block": 2446,
+     "pending": 11609
+    },
+    "rss_mb": 312
+   },
+   {
+    "concurrency": 128,
+    "requests": 51955,
+    "rps": 2588,
+    "p50_ms": 45.53,
+    "p95_ms": 66.65,
+    "p99_ms": 93.35,
+    "max_ms": 2752.74,
+    "errors": 0,
+    "first_error": null,
+    "decisions": {
+     "allow": 36093,
+     "block": 2761,
+     "pending": 13101
+    },
+    "rss_mb": 398
+   }
+  ]
+ },
+ "meta": {
+  "duration_s": 20,
+  "sessions": 1000,
+  "corpus_calls": 663,
+  "node": "v22.21.1",
+  "cpu": "Apple M4 Pro",
+  "date": "2026-10-14T02:41:07.919Z"
+ }
+}

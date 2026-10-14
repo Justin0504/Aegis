@@ -268,3 +268,26 @@ describe('Stripe webhook', () => {
     expect((await store.getSubscription('acme')).status).toBe('past_due');
   });
 });
+
+describe('quota enforcement is hosted-only', () => {
+  const { quotaEnforced, billingMiddleware } = require('../services/billing');
+
+  test('self-hosted (no Stripe, no AEGIS_BILLING) does not enforce', () => {
+    expect(quotaEnforced({} as any)).toBe(false);
+  });
+  test('Stripe configured enforces; AEGIS_BILLING overrides both ways', () => {
+    expect(quotaEnforced({ STRIPE_WEBHOOK_SECRET: 'whsec_x' } as any)).toBe(true);
+    expect(quotaEnforced({ AEGIS_BILLING: 'enforce' } as any)).toBe(true);
+    expect(quotaEnforced({ STRIPE_WEBHOOK_SECRET: 'whsec_x', AEGIS_BILLING: 'off' } as any)).toBe(false);
+  });
+  test('self-hosted middleware passes check 1,001 and beyond without consulting the plan', async () => {
+    const svc = { checkQuota: jest.fn(async () => ({ decision: 'block', plan: 'free', monthly_cap: 1000, remaining: 0 })) };
+    const mw = billingMiddleware(svc as any, {} as any);
+    const next = jest.fn();
+    const res: any = { setHeader: jest.fn(), status: jest.fn(() => res), json: jest.fn() };
+    for (let i = 0; i < 1005; i++) await mw({ orgId: 'default' }, res, next);
+    expect(next).toHaveBeenCalledTimes(1005);
+    expect(svc.checkQuota).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
