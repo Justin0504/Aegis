@@ -749,6 +749,19 @@ the next version owes. What the table does establish is the split of
 labour: L$_\mathrm{p}$ decides in under a millisecond which calls need a
 second look, and only those pay for one.
 
+\paragraph{Against the systems that rebuild the agent.} The closest
+systems report on the same benchmark with stronger agents, so their
+numbers are context, not a row of the table. Progent, with gpt-4o as the
+agent and as the policy generator, reports attack success falling from
+39.9\% to 1.0\%~\cite{shi2025progent}; CaMeL solves 77\% of tasks with
+provable security against 84\% undefended, and with Gemini~2.5~Pro brings
+successful attacks from 300 of 949 to none~\cite{debenedetti2025camel}.
+\system's 1.4\% sits in the same range as Progent's without a model in
+the decision path, and CaMeL's guarantee is one no detector, ours
+included, can give. What \system trades for not rebuilding the agent is
+utility: CaMeL loses 7 points of task completion, \system 31 with no one
+answering its holds and 12 with the auditor answering them.
+
 \subsection{Overhead}
 \label{sec:overhead}
 
