@@ -1,0 +1,44 @@
+{
+ "none": {
+  "utility": [
+   19,
+   37
+  ],
+  "util_attack": [
+   101,
+   249
+  ],
+  "asr": [
+   47,
+   249
+  ]
+ },
+ "aegis_v2": {
+  "utility": [
+   8,
+   37
+  ],
+  "util_attack": [
+   0,
+   0
+  ],
+  "asr": [
+   0,
+   0
+  ]
+ },
+ "aegis_v2_audit": {
+  "utility": [
+   9,
+   37
+  ],
+  "util_attack": [
+   56,
+   249
+  ],
+  "asr": [
+   0,
+   249
+  ]
+ }
+}
