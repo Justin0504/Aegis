@@ -42,6 +42,10 @@ export interface CheckOptions {
   timeoutMs?: number;
   /** If false, don't buffer for the next /check call. Default true. */
   recordForCheck?: boolean;
+  /** Session whose context the SDK reports (default: AEGIS_SESSION_ID).
+   *  With it, the gateway shows the auditor the tool output the agent
+   *  read, so argument values can be checked against evidence. */
+  sessionId?: string;
 }
 
 export async function check(opts: CheckOptions): Promise<AlignmentVerdict> {
@@ -57,6 +61,8 @@ export async function check(opts: CheckOptions): Promise<AlignmentVerdict> {
     timeoutMs = 10_000,
     recordForCheck = true,
   } = opts;
+  const sessionId =
+    opts.sessionId ?? (typeof process !== 'undefined' ? process.env?.AEGIS_SESSION_ID : undefined);
 
   if (!agentId) throw new Error('agentId is required');
   if (!declaredGoal) throw new Error('declaredGoal is required');
@@ -76,6 +82,7 @@ export async function check(opts: CheckOptions): Promise<AlignmentVerdict> {
       arguments: proposedAction.arguments ?? {},
     },
   };
+  if (sessionId) body.session_id = sessionId;
   if (provider) body.provider = provider;
   if (model) body.model = model;
 

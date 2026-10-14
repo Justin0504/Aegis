@@ -52,6 +52,15 @@ describe('alignmentCheck()', () => {
     assert.equal(body.proposed_action.tool_name, 'exec_sql');
   });
 
+  it('forwards the session id so the auditor sees the tool output', async () => {
+    const calls = stubFetchOnce({ body: { score: 1, drifted: false } });
+    await alignmentCheck({
+      agentId: 'a', declaredGoal: 'g', proposedAction: { tool_name: 't' },
+      gatewayUrl: 'http://gw.test', sessionId: 'sess-1',
+    });
+    assert.equal(JSON.parse(calls[0].init.body).session_id, 'sess-1');
+  });
+
   it('buffers verdict for closed-loop by default', async () => {
     stubFetchOnce({ body: { score: 0.4, drifted: true } });
     await alignmentCheck({
