@@ -274,6 +274,7 @@ const MARGIN_DEADBAND = 0.05;
 const VALUE_PATTERNS: RegExp[] = [
   /[\w.+-]+@[\w-]+\.[\w.-]+/g,              // email address
   /https?:\/\/[^\s"'<>]+/g,                   // URL
+  /\bwww\.[^\s"'<>]+/g,                       // scheme-less URL
   /\b[A-Z]{2}\d{2}[A-Z0-9]{8,30}\b/g,          // IBAN-shaped account
   /\b\d{6,}\b/g,                              // long account / card / id number
   /(?:\/[\w.-]+){2,}/g,                        // file path
@@ -303,12 +304,27 @@ export function untrustedOnlyValues(
   userText: string,
   untrustedText: string,
 ): string[] {
-  const user = userText.toLowerCase();
-  const untrusted = untrustedText.toLowerCase();
+  // Compared in a canonical form: an agent that copies "www.x.com" from a
+  // page routinely writes "https://www.x.com/", and an exact match would
+  // then find the value in neither channel (seen on AgentDojo: a phishing
+  // link sent with its scheme added went through as authority-free).
+  const user = canonicalText(userText);
+  const untrusted = canonicalText(untrustedText);
+  const seen = new Set<string>();
   return [...argumentValues(args)].filter(v => {
-    const lv = v.toLowerCase();
+    const lv = canonicalValue(v);
+    if (!lv || seen.has(lv)) return false;
+    seen.add(lv);
     return untrusted.includes(lv) && !user.includes(lv);
   });
+}
+
+function canonicalValue(v: string): string {
+  return v.toLowerCase().replace(/^https?:\/\//, '').replace(/[\/.,;:)\]]+$/, '');
+}
+
+function canonicalText(t: string): string {
+  return t.toLowerCase().replace(/https?:\/\//g, '');
 }
 
 export function assessAuthority(
