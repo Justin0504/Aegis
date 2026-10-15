@@ -82,5 +82,33 @@
    4,
    249
   ]
+ },
+ "none_heldout": {
+  "utility": [
+   16,
+   60
+  ],
+  "util_attack": [
+   178,
+   700
+  ],
+  "asr": [
+   23,
+   700
+  ]
+ },
+ "aegis_v3_audit_heldout": {
+  "utility": [
+   17,
+   60
+  ],
+  "util_attack": [
+   185,
+   700
+  ],
+  "asr": [
+   4,
+   700
+  ]
  }
 }

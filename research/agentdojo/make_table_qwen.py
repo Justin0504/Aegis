@@ -66,11 +66,20 @@ def main():
     summ = {}
     for c, label in rows:
         u = [r for k, r in U.items() if k[0] == c and k[1] in ("banking", "slack")]
-        s = [r for k, r in S.items() if k[0] == c]
+        s = [r for k, r in S.items() if k[0] == c and k[1] in ("banking", "slack")]
         uk = sum(r["utility"] for r in u); ak = sum(r["utility"] for r in s); sk = sum(r["security"] for r in s)
         summ[c] = {"utility": [uk, len(u)], "util_attack": [ak, len(s)], "asr": [sk, len(s)]}
         ex = f"{sk - art.get(c, 0)}" if s else "---"
         L.append(f"{label} & {cell(uk, len(u))} & {cell(ak, len(s))} & {cell(sk, len(s))} & {ex} \\\\")
+    # Held out: suites none of the changes above were made on.
+    L.append("\\midrule")
+    L.append("\\multicolumn{5}{l}{\\emph{Held out --- workspace and travel (60 user tasks, 700 attack pairs), changed nothing}} \\\\")
+    for c, label in (("none", "No defense"), ("aegis_v3_audit", "\\quad shipped gateway")):
+        u = [r for k, r in U.items() if k[0] == c and k[1] in ("workspace", "travel")]
+        s_ = [r for k, r in S.items() if k[0] == c and k[1] in ("workspace", "travel")]
+        uk = sum(r["utility"] for r in u); ak = sum(r["utility"] for r in s_); sk = sum(r["security"] for r in s_)
+        summ[c + "_heldout"] = {"utility": [uk, len(u)], "util_attack": [ak, len(s_)], "asr": [sk, len(s_)]}
+        L.append(f"{label} & {cell(uk, len(u))} & {cell(ak, len(s_))} & {cell(sk, len(s_))} & {sk} \\\\")
     L += ["\\bottomrule", "\\end{tabular}", "\\end{table*}"]
     OUT.write_text("\n".join(L) + "\n")
     (RES / "summary-qwen3.json").write_text(json.dumps(summ, indent=1))
