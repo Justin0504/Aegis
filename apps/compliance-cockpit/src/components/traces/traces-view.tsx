@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RunTimeline } from './run-timeline'
 import { TracesList } from './traces-list'
 import { TraceDetails } from './trace-details'
 import { DecisionGraph } from './decision-graph'
@@ -87,8 +88,8 @@ export function TracesView() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Traces</h1>
-          <p className="text-muted-foreground">Forensic audit trail of all agent actions</p>
+          <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
+          <p className="text-muted-foreground">Every agent run, step by step: what it was asked, what it did, and what AEGIS decided.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -112,13 +113,18 @@ export function TracesView() {
         </div>
       </div>
 
-      <Tabs defaultValue="list" className="space-y-4">
+      <Tabs defaultValue="runs" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="list">Trace List</TabsTrigger>
+          <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="list">All actions</TabsTrigger>
           <TabsTrigger value="graph">Decision Graph</TabsTrigger>
           <TabsTrigger value="timetravel">Time Travel</TabsTrigger>
           <TabsTrigger value="compare">Agent Compare</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="runs" className="space-y-4">
+          <RunTimeline />
+        </TabsContent>
 
         <TabsContent value="list" className="space-y-4">
           <TraceSearchBar onResults={setSearchResults} />

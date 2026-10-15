@@ -3,7 +3,7 @@ import { chromium } from 'playwright'
 import fs from 'node:fs'
 const [cockpit, gateway, key, out] = process.argv.slice(2)
 fs.mkdirSync(out, { recursive: true })
-const pages = ['/', '/approvals', '/traces', '/violations', '/policies', '/dsl', '/agents', '/audit-log', '/alignment', '/coverage', '/scan', '/proxy', '/rollbacks', '/compliance', '/memory', '/settings']
+const pages = process.env.SHOOT_PAGES ? process.env.SHOOT_PAGES.split(',') : ['/', '/approvals', '/traces', '/violations', '/policies', '/dsl', '/agents', '/audit-log', '/alignment', '/coverage', '/scan', '/proxy', '/rollbacks', '/compliance', '/memory', '/settings']
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'light' })
 await ctx.addInitScript(({ key, gateway }) => {
@@ -32,7 +32,11 @@ for (const p of pages) {
       const btn = page.getByRole('button', { name: /^Audit$/ }).first()
       if (await btn.count()) { await btn.click(); await page.waitForTimeout(45000) }
     }
-    if (p === '/traces') {
+    if (p === '/traces' && process.env.SHOOT_RUNS) {
+      // the Runs tab: open a run that was held, and expand the held step
+      const held = page.getByText('Held for review').first()
+      if (await held.count()) { await held.click(); await page.waitForTimeout(900) }
+    } else if (p === '/traces') {
       const first = page.locator('[data-trace-row], [data-testid="trace-row"]').first()
       if (await first.count()) { await first.click(); await page.waitForTimeout(900) }
       else {

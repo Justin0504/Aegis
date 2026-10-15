@@ -214,6 +214,9 @@ export class TraceAPI {
         const params: any[] = [orgId];
 
         if (query.agent_id) { baseSql += ' AND agent_id = ?'; params.push(query.agent_id); }
+        // One agent run, in order: the Cockpit's execution timeline.
+        const sessionId = typeof req.query.session_id === 'string' ? req.query.session_id : undefined;
+        if (sessionId) { baseSql += ' AND session_id = ?'; params.push(sessionId); }
         if (query.start_time) { baseSql += ' AND timestamp >= ?'; params.push(query.start_time); }
         if (query.end_time) { baseSql += ' AND timestamp <= ?'; params.push(query.end_time); }
         if (query.risk_level) {
@@ -546,7 +549,8 @@ export class TraceAPI {
             SUM(cost_usd) as total_cost_usd,
             SUM(input_tokens + output_tokens) as total_tokens,
             SUM(CASE WHEN json_extract(observation, '$.error') IS NOT NULL THEN 1 ELSE 0 END) as error_count,
-            GROUP_CONCAT(json_extract(tool_call, '$.tool_name'), ',') as tool_names
+            GROUP_CONCAT(json_extract(tool_call, '$.tool_name'), ',') as tool_names,
+            MIN(json_extract(input_context, '$.prompt')) as request
           FROM traces ${where}
           GROUP BY session_id, agent_id
           ORDER BY last_seen_at DESC

@@ -22,22 +22,36 @@ import { AccountWidget } from '@/components/dashboard/account-widget'
 // users see the item with a small badge; clicking still navigates,
 // but the target page renders a TierGate upsell instead of the
 // feature. Absent = available to Free tier.
-const navigation: Array<{ name: string; href: string; icon: any; tier?: 'pro' | 'team' | 'enterprise' }> = [
-  { name: 'Overview',    href: '/',           icon: LayoutDashboard },
-  { name: 'Activity',    href: '/traces',     icon: FileText        },
-  { name: 'Approvals',   href: '/approvals',  icon: CheckCircle     },
-  { name: 'Rollbacks',   href: '/rollbacks',  icon: Undo2           },
-  { name: 'Violations',  href: '/violations', icon: AlertTriangle   },
-  { name: 'Agents',      href: '/agents',     icon: UserRound       },
-  { name: 'Policies',    href: '/policies',   icon: Shield          },
-  { name: 'Coverage',    href: '/coverage',   icon: Layers                                     , tier: 'team' },
-  { name: 'Memory',      href: '/memory',     icon: Brain                                      , tier: 'pro'  },
-  { name: 'Audit Log',   href: '/audit-log',  icon: ClipboardList   },
-  { name: 'Compliance',  href: '/compliance', icon: FileCheck2      },
-  { name: 'EU AI Act',   href: '/compliance/eu-ai-act', icon: FileCheck2                       , tier: 'team' },
-  { name: 'Policy Packs',href: '/dsl/packs',  icon: Shield          },
-  { name: 'Settings',    href: '/settings',   icon: Settings        },
+type NavDef = { name: string; href: string; icon: any; tier?: 'pro' | 'team' | 'enterprise' }
+// Grouped by the question an operator comes with: what is happening,
+// what protects us, and what we can prove. Settings stays last.
+const navGroups: Array<{ label: string | null; items: NavDef[] }> = [
+  { label: null, items: [
+    { name: 'Overview',    href: '/',           icon: LayoutDashboard },
+    { name: 'Activity',    href: '/traces',     icon: FileText        },
+    { name: 'Approvals',   href: '/approvals',  icon: CheckCircle     },
+  ] },
+  { label: 'Protect', items: [
+    { name: 'Security 360', href: '/coverage',  icon: Layers, tier: 'team' },
+    { name: 'Policies',    href: '/policies',   icon: Shield          },
+    { name: 'Policy Packs',href: '/dsl/packs',  icon: Shield          },
+    { name: 'Violations',  href: '/violations', icon: AlertTriangle   },
+    { name: 'Rollbacks',   href: '/rollbacks',  icon: Undo2           },
+  ] },
+  { label: 'Agents', items: [
+    { name: 'Agents',      href: '/agents',     icon: UserRound       },
+    { name: 'Memory',      href: '/memory',     icon: Brain, tier: 'pro' },
+  ] },
+  { label: 'Prove', items: [
+    { name: 'Audit Log',   href: '/audit-log',  icon: ClipboardList   },
+    { name: 'Compliance',  href: '/compliance', icon: FileCheck2      },
+    { name: 'EU AI Act',   href: '/compliance/eu-ai-act', icon: FileCheck2, tier: 'team' },
+  ] },
+  { label: null, items: [
+    { name: 'Settings',    href: '/settings',   icon: Settings        },
+  ] },
 ]
+const navigation: NavDef[] = navGroups.flatMap(g => g.items)
 
 // Developer / setup tools — folded by default. Ops users rarely open these.
 const developerNav = [
@@ -177,8 +191,16 @@ function SidebarContent({ pathname, connected, lastUpdate, notifPermission, requ
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-        {navigation.map(item => (
-          <NavLink key={item.name} item={item} pathname={pathname} onLinkClick={onLinkClick} />
+        {navGroups.map((g, gi) => (
+          <div key={gi} className={gi ? 'pt-3' : ''}>
+            {g.label && (
+              <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em]"
+                 style={{ color: 'hsl(var(--muted-foreground) / 0.8)' }}>{g.label}</p>
+            )}
+            {g.items.map(item => (
+              <NavLink key={item.name} item={item} pathname={pathname} onLinkClick={onLinkClick} />
+            ))}
+          </div>
         ))}
         <DeveloperFold pathname={pathname} onLinkClick={onLinkClick} />
       </nav>

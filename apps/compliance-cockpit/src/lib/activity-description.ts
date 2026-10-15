@@ -190,7 +190,7 @@ export function describeActivity(trace: any): RichActivity {
   }
 
   // ── PAYMENT ──────────────────────────────────────────────────────
-  if (/stripe|charge|payment|refund|transfer/.test(tool)) {
+  if (/stripe/.test(tool)) {
     const amt = args.amount_cents ?? args.amount ?? null
     const usd = typeof amt === 'number'
       ? (amt > 999 ? `$${(amt / 100).toFixed(2)}` : `$${amt}`)
@@ -198,10 +198,40 @@ export function describeActivity(trace: any): RichActivity {
     const action = /refund/.test(tool) ? 'Refunded' : /transfer/.test(tool) ? 'Transferred' : 'Charged'
     return {
       text: usd ? `${action} ${usd}` : `${action} via Stripe`,
-      iconKey: tool.includes('stripe') ? tool : 'stripe_charge',
+      iconKey: tool,
     }
   }
 
-  // ── FALLBACK ─────────────────────────────────────────────────────
-  return { text: tool.replace(/_/g, ' '), iconKey: tool }
+  // ── FALLBACK: verb + object + the thing it acts on ───────────────
+  return { text: genericSentence(tool, args), iconKey: tool, recipientHost: hostIn(args) ?? undefined }
+}
+
+const PAST: Record<string, string> = {
+  send: 'Sent', get: 'Fetched', fetch: 'Fetched', read: 'Read', list: 'Listed', update: 'Updated',
+  set: 'Set', create: 'Created', add: 'Added', remove: 'Removed', delete: 'Deleted', invite: 'Invited',
+  post: 'Posted', schedule: 'Scheduled', search: 'Searched', run: 'Ran', open: 'Opened', share: 'Shared',
+  transfer: 'Transferred', pay: 'Paid', book: 'Booked', cancel: 'Cancelled', reserve: 'Reserved',
+}
+
+function hostIn(args: Args): string | null {
+  for (const v of Object.values(args ?? {})) {
+    if (typeof v !== 'string') continue
+    const m = v.match(/^(?:https?:\/\/)?((?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:\/\S*)?$/i)
+    if (m && (/^https?:/.test(v) || v.startsWith('www.'))) return m[1]
+  }
+  return null
+}
+
+function genericSentence(tool: string, args: Args): string {
+  const words = tool.split(/[_\s-]+/).filter(Boolean)
+  if (!words.length) return 'Called a tool'
+  const verb = PAST[words[0]] ?? (words[0].charAt(0).toUpperCase() + words[0].slice(1))
+  const ACR = new Set(['iban', 'url', 'id', 'api', 'sql', 'pdf', 'csv', 'dm', 'sms', 'ip'])
+  const object = words.slice(1).map(w => ACR.has(w) ? w.toUpperCase() : w).join(' ')
+  const who = ['recipient', 'to', 'user', 'email', 'channel', 'destination', 'account']
+    .map(k => args?.[k]).find(v => typeof v === 'string' && v.length < 64) as string | undefined
+  const host = hostIn(args)
+  const amount = typeof args?.amount === 'number' ? args.amount.toLocaleString() : null
+  const target = [amount, who ? truncate(who, 28) : null, !who ? host : null].filter(Boolean).join(' to ')
+  return `${verb} ${object}`.trim() + (target ? ` \u00b7 ${target}` : '')
 }

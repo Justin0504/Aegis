@@ -119,7 +119,7 @@ export interface AuthorityReport {
 export interface CallEvidence {
   user_request: string;
   untrusted_only_values: string[];
-  excerpts: { source?: string; text: string; highlight?: string; truncated_before: boolean }[];
+  excerpts: { source?: string; text: string; highlight?: string; truncated_before: boolean; truncated_after?: boolean }[];
 }
 
 // A session's context can grow without bound; the ledger holds a window.
@@ -195,12 +195,13 @@ export class ContextLedger {
       if (!hit) continue;
       const at = low.indexOf(hit);
       const from = Math.max(0, at - 160);
-      excerpts.push({ source: e.source, text: e.text.slice(from, at + hit.length + 160), highlight: e.text.substr(at, hit.length), truncated_before: from > 0 });
+      const to = Math.min(e.text.length, at + hit.length + 160);
+      excerpts.push({ source: e.source, text: e.text.slice(from, to), highlight: e.text.substr(at, hit.length), truncated_before: from > 0, truncated_after: to < e.text.length });
       if (excerpts.length >= 3) break;
     }
     if (!excerpts.length && untrusted.length) {
       const e = untrusted[untrusted.length - 1];
-      excerpts.push({ source: e.source, text: e.text.slice(0, 400), truncated_before: false });
+      excerpts.push({ source: e.source, text: e.text.slice(0, 400), truncated_before: false, truncated_after: e.text.length > 400 });
     }
     return { user_request, untrusted_only_values: values, excerpts };
   }

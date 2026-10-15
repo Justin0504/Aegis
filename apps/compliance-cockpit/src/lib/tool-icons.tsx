@@ -20,7 +20,7 @@
 
 import {
   Globe, FileText, Database, Mail, Terminal, FileCode2, Zap,
-  FileEdit, Trash2, Search, Lock, Cog,
+  FileEdit, Trash2, Search, Lock, Cog, Landmark, MessageSquare, UserPlus,
   type LucideIcon,
 } from 'lucide-react'
 import { BrandIcon } from '@/components/ui/brand-icon'
@@ -89,6 +89,7 @@ type ToolKey =
   | 'search'  | 'file_read' | 'file_write' | 'file_delete'
   | 'db'      | 'shell'     | 'email'      | 'http'
   | 'code'    | 'secret'    | 'config'     | 'other'
+  | 'money'   | 'message'   | 'people'
 
 const ICON: Record<ToolKey, LucideIcon> = {
   search:      Search,
@@ -103,6 +104,9 @@ const ICON: Record<ToolKey, LucideIcon> = {
   secret:      Lock,
   config:      Cog,
   other:       Zap,
+  money:       Landmark,
+  message:     MessageSquare,
+  people:      UserPlus,
 }
 
 const COLOR: Record<ToolKey, string> = {
@@ -118,11 +122,18 @@ const COLOR: Record<ToolKey, string> = {
   secret:      '#D97706',
   config:      '#6B7280',
   other:       '#9CA3AF',
+  money:       '#0F9D58',
+  message:     '#7C5CFF',
+  people:      '#0EA5E9',
 }
 
 function classify(toolName: string | null | undefined): ToolKey {
   if (!toolName) return 'other'
   const n = toolName.toLowerCase()
+  if (/money|iban|balance|transaction|payment|(^|_)pay(_|$)|transfer|invoice|refund|deposit|withdraw/.test(n)) return 'money'
+  if (/message|channel|(^|_)dm(_|$)|chat|(^|_)post_to/.test(n)) return 'message'
+  if (/invite|(^|_)users?(_|$)|member/.test(n)) return 'people'
+  if (/webpage|browse|(^|_)url(_|$)/.test(n)) return 'http'
   if (/search|lookup|find|query_(?:wiki|kb|knowledge)|fancy_lookup/.test(n)) return 'search'
   if (/(?:^|_)delete[_-]?(?:file|object)|rm$|unlink/.test(n))    return 'file_delete'
   if (/write|append|put_(?:file|object)|upload|save/.test(n))    return 'file_write'
