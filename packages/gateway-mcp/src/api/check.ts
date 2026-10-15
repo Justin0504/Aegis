@@ -135,6 +135,12 @@ export class CheckAPI {
       CREATE INDEX IF NOT EXISTS idx_pending_decision ON pending_checks (decision, expires_at);
       CREATE INDEX IF NOT EXISTS idx_pending_agent ON pending_checks (agent_id, decision);
     `)
+    // Added after release: what the reviewer needs to decide. Existing
+    // databases gain the columns in place; rows from before read as null.
+    const cols = new Set((this.db.prepare(`PRAGMA table_info(pending_checks)`).all() as any[]).map(c => c.name))
+    for (const [name, type] of [['session_id', 'TEXT'], ['rule', 'TEXT'], ['evidence', 'TEXT']]) {
+      if (!cols.has(name)) this.db.exec(`ALTER TABLE pending_checks ADD COLUMN ${name} ${type}`)
+    }
   }
 
   private setupRoutes() {
@@ -479,8 +485,9 @@ export class CheckAPI {
 
           this.db.prepare(`
             INSERT INTO pending_checks
-              (check_id, agent_id, tool_name, arguments, category, risk_level, signals, violations, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (check_id, agent_id, tool_name, arguments, category, risk_level, signals, violations, expires_at,
+               session_id, rule, evidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             checkId,
             body.agent_id,
@@ -496,6 +503,13 @@ export class CheckAPI {
               : (anomalyResult?.decision === 'escalate') ? [`Behavioural anomaly (score=${anomalyResult.composite_score})`]
               : (validation.violations ?? [])),
             expiresAt,
+            body.session_id ?? null,
+            dslPending ? (dslMatch?.ruleName ?? null) : null,
+            (() => {
+              const ev = this.contextLedgers?.evidence(requestOrgId ?? "default", body.session_id, body.arguments as Record<string, unknown>)
+              const prov = this.contextLedgers?.assess(requestOrgId ?? "default", body.session_id, body.tool_name, body.arguments as Record<string, unknown>)
+              return ev ? JSON.stringify({ ...ev, authorised_by: prov?.authorised_by ?? null, authority_margin: prov?.authority_margin ?? null }) : null
+            })(),
           )
 
           this.logger.warn({
@@ -671,6 +685,7 @@ export class CheckAPI {
             arguments: JSON.parse(r.arguments),
             signals: r.signals ? JSON.parse(r.signals) : [],
             violations: r.violations ? JSON.parse(r.violations) : [],
+            evidence: r.evidence ? JSON.parse(r.evidence) : null,
           })),
           total: rows.length,
         })

@@ -116,6 +116,12 @@ export interface AuthorityReport {
   degraded: boolean;
 }
 
+export interface CallEvidence {
+  user_request: string;
+  untrusted_only_values: string[];
+  excerpts: { source?: string; text: string; highlight?: string; truncated_before: boolean }[];
+}
+
 // A session's context can grow without bound; the ledger holds a window.
 // 64 events and 256 KB per session is far more than the licence measure
 // needs (it is a bag-of-tokens comparison) and bounds a long-running
@@ -171,6 +177,32 @@ export class ContextLedger {
       used += t.length;
     }
     return out;
+  }
+
+  /** What a reviewer needs to decide a held call: the principal's latest
+   *  request, and the tool output the call drew on — the passages that
+   *  contain an argument value the user never gave, or failing that the
+   *  most recent tool output. Bounded; text only, never instructions. */
+  evidenceFor(args: Record<string, unknown> | null | undefined): CallEvidence {
+    const users = this.events.filter((e) => e.channel === 'user' && e.text);
+    const user_request = users.length ? users[users.length - 1].text.slice(0, 600) : '';
+    const values = untrustedOnlyValues(args, this.userText(), this.untrustedText());
+    const excerpts: CallEvidence['excerpts'] = [];
+    const untrusted = this.events.filter((e) => e.channel === 'untrusted' && e.text);
+    for (const e of [...untrusted].reverse()) {
+      const low = e.text.toLowerCase();
+      const hit = values.map((v) => v.toLowerCase().replace(/^https?:\/\//, '')).find((v) => low.includes(v));
+      if (!hit) continue;
+      const at = low.indexOf(hit);
+      const from = Math.max(0, at - 160);
+      excerpts.push({ source: e.source, text: e.text.slice(from, at + hit.length + 160), highlight: e.text.substr(at, hit.length), truncated_before: from > 0 });
+      if (excerpts.length >= 3) break;
+    }
+    if (!excerpts.length && untrusted.length) {
+      const e = untrusted[untrusted.length - 1];
+      excerpts.push({ source: e.source, text: e.text.slice(0, 400), truncated_before: false });
+    }
+    return { user_request, untrusted_only_values: values, excerpts };
   }
 
   hasUserTurn(): boolean {
@@ -311,7 +343,12 @@ export function untrustedOnlyValues(
   const user = canonicalText(userText);
   const untrusted = canonicalText(untrustedText);
   const seen = new Set<string>();
-  return [...argumentValues(args)].filter(v => {
+  // One destination can match two patterns (an IBAN's digit tail is also
+  // phone-shaped); keep the longest so it counts once.
+  const all = [...argumentValues(args)];
+  const canon = all.map(canonicalValue);
+  const maximal = all.filter((_, i) => !canon.some((c, j) => j !== i && c.length > canon[i].length && c.includes(canon[i])));
+  return maximal.filter(v => {
     const lv = canonicalValue(v);
     if (!lv || seen.has(lv)) return false;
     seen.add(lv);

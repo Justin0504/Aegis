@@ -118,6 +118,15 @@ export class ContextLedgerStore {
     return entry.ledger.recentUntrusted(maxChars);
   }
 
+  /** Evidence for a held call (see ContextLedger.evidenceFor), or
+   *  undefined when the session has no ledger. Org-scoped like assess(). */
+  evidence(orgId: string, sessionId: string | undefined, args: Record<string, unknown> | undefined) {
+    if (!sessionId) return undefined;
+    const entry = this.sessions.get(this.key(orgId, sessionId));
+    if (!entry || Date.now() - entry.lastSeen > this.ttlMs) return undefined;
+    return entry.ledger.evidenceFor(args ?? {});
+  }
+
   /** Called when a session ends, so a long-lived gateway does not hold
    *  text from finished conversations until the TTL. */
   forget(orgId: string, sessionId: string): void {

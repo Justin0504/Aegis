@@ -353,6 +353,7 @@ def main():
     ap.add_argument("--workers", type=int, default=32)
     ap.add_argument("--limit", type=int, default=0, help="user tasks per suite, for a smoke run")
     ap.add_argument("--summarise", action="store_true")
+    ap.add_argument("--resume", action="store_true", help="skip user tasks already in the rows file")
     a = ap.parse_args()
     RESULTS.mkdir(exist_ok=True)
     import logging
@@ -375,6 +376,16 @@ def main():
                 keep.append(j); seen[(j[0], j[1])] += 1
         jobs = keep
     out_path = RESULTS / f"rows-{a.mode}{TAG}.jsonl"
+    if a.resume and out_path.exists():
+        have = set()
+        for l in out_path.open():
+            r = json.loads(l)
+            if "error" not in r:
+                have.add((r["cfg"], r["suite"], r["user_task"]))
+        jobs = [j for j in jobs if (j[0], j[1], j[2]) not in have]
+        print(f"resume: {len(jobs)} user tasks left", flush=True)
+    dec_path = RESULTS / f"decisions-{a.mode}{TAG}.jsonl"
+    flushed = 0
     done = 0
     t0 = time.time()
     try:
@@ -390,12 +401,16 @@ def main():
                 except Exception as e:  # noqa: BLE001 — one task must not end the run
                     out.write(json.dumps({"cfg": j[0], "suite": j[1], "user_task": j[2], "error": f"{type(e).__name__}: {str(e)[:300]}"}) + "\n")
                     out.flush()
+                with DECISIONS_LOCK, open(dec_path, "a") as df:  # decisions survive an interrupted run
+                    for d in DECISIONS[flushed:]:
+                        df.write(json.dumps(d) + "\n")
+                    flushed = len(DECISIONS)
                 done += 1
                 if done % 20 == 0 or done == len(jobs):
                     print(f"  {done}/{len(jobs)} user tasks  {time.time() - t0:.0f}s", flush=True)
     finally:
-        with open(RESULTS / f"decisions-{a.mode}{TAG}.jsonl", "a") as f:
-            for d in DECISIONS:
+        with open(dec_path, "a") as f:
+            for d in DECISIONS[flushed:]:
                 f.write(json.dumps(d) + "\n")
         for g in GATEWAYS.values():
             g.stop()
