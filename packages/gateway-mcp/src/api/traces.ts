@@ -663,8 +663,20 @@ export class TraceAPI {
     try { return JSON.parse(json); } catch { return fallback; }
   }
 
+  /** What AEGIS decided for this call, in the vocabulary /check uses.
+   *  Stored traces carry it implicitly (approval status, validation); every
+   *  Cockpit panel reads `decision`, and before this each derived its own
+   *  answer — the overview called a rejected transfer allowed. */
+  private static decisionOf(approval: string | null | undefined, sv: any): 'allow' | 'block' | 'pending' {
+    const a = String(approval ?? '').toUpperCase()
+    if (a === 'REJECTED' || sv?.passed === false) return 'block'
+    if (a.startsWith('PENDING')) return 'pending'
+    return 'allow'
+  }
+
   private parseTrace = (t: any) => ({
     ...t,
+    decision: t.decision ?? TraceAPI.decisionOf(t.approval_status, this.safeJsonParse(t.safety_validation, null)),
     input_context:     this.safeJsonParse(t.input_context, {}),
     thought_chain:     this.safeJsonParse(t.thought_chain, { raw_tokens: '' }),
     tool_call:         this.safeJsonParse(t.tool_call, {}),

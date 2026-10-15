@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { formatDate, getStatusColor } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { traceSummary } from '@/lib/trace-summary'
+import { describeActivity } from '@/lib/activity-description'
+import { ToolIcon } from '@/lib/tool-icons'
+import { friendlyAgent, friendlyDecision } from '@/lib/friendly-names'
 import { USE_MOCK, mockTraces } from '@/lib/mock-traces'
 import { SkeletonRows } from '@/components/ui/skeleton'
 
@@ -28,17 +31,21 @@ export function RecentTraces() {
     <div className="space-y-4">
       {traces?.traces?.map((trace: any) => (
         <div key={trace.trace_id} className="flex items-center space-x-4">
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {traceSummary(trace)}
+          <ToolIcon name={describeActivity(trace).iconKey ?? trace.tool_call?.tool_name} size={22} />
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-sm font-medium leading-snug truncate">
+              {describeActivity(trace).text || traceSummary(trace)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {(trace.agent_id ?? '').substring(0, 8)}… • {formatDate(trace.timestamp)}
+              {friendlyAgent(trace.agent_id)} · {formatDate(trace.timestamp)}
             </p>
           </div>
-          <Badge className={getStatusColor(trace.approval_status || 'PENDING')}>
-            {trace.approval_status || 'UNREVIEWED'}
-          </Badge>
+          {(() => {
+            const d = friendlyDecision(trace.decision, !!trace.observation?.error)
+            const c = { allow: ['hsl(152 60% 30%)', 'hsl(152 60% 36% / 0.10)'], block: ['hsl(0 72% 42%)', 'hsl(0 72% 50% / 0.10)'],
+                        review: ['hsl(32 95% 36%)', 'hsl(36 100% 50% / 0.13)'], error: ['hsl(0 0% 40%)', 'hsl(var(--secondary))'] }[d.tone]
+            return <span className="rounded-full px-2.5 py-1 text-[11.5px] font-medium flex-shrink-0" style={{ color: c[0], background: c[1] }}>{d.label}</span>
+          })()}
         </div>
       ))}
       {(!traces?.traces || traces.traces.length === 0) && (

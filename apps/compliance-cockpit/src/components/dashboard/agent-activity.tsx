@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, AlertCircle, ShieldAlert } from 'lucide-react'
+import { CheckCircle, AlertCircle, ShieldAlert, Hourglass } from 'lucide-react'
 import { ToolIcon } from '@/lib/tool-icons'
 import { describeActivity } from '@/lib/activity-description'
 import { EmailAvatar } from '@/lib/avatar'
@@ -46,6 +46,7 @@ export function AgentActivity() {
         const hasError = !!trace.observation?.error
         const decision = String(trace.decision ?? '').toUpperCase()
         const blocked = decision === 'BLOCK'
+        const held = decision === 'PENDING'
         const durationMs = trace.observation?.duration_ms
 
         return (
@@ -78,6 +79,8 @@ export function AgentActivity() {
             <div className="flex-shrink-0">
               {blocked
                 ? <ShieldAlert className="h-3.5 w-3.5" style={{ color: 'hsl(0 45% 45%)' }} />
+                : held
+                  ? <Hourglass className="h-3.5 w-3.5" style={{ color: 'hsl(32 95% 40%)' }} />
                 : hasError
                   ? <AlertCircle className="h-3.5 w-3.5" style={{ color: 'hsl(0 18% 50%)' }} />
                   : <CheckCircle className="h-3.5 w-3.5" style={{ color: 'hsl(150 18% 44%)' }} />}
