@@ -19,7 +19,7 @@ const PLANS: Plan[] = [
     name: 'Free',
     price: '$0',
     blurb: 'Self-host or use our hosted gateway. Same engine.',
-    features: ['1 org, 5 agents', '1,000 checks / month', '7-day retention', 'Cryptographic audit log'],
+    features: ['1 org, 1 agent', '100 checks / month', '24-hour retention', 'Core rules + community packs'],
     cta: 'Current plan',
   },
   {

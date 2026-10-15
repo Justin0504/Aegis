@@ -38,7 +38,7 @@ export default function SignupPage() {
       <Link href="/" className="brand">AEGIS</Link>
       <h1>Create an org.</h1>
       <p className="lede">
-        Free tier — 1,000 tool-call checks / month, 7-day retention. No
+        Free tier — 1 agent, 100 tool-call checks / month, 24-hour retention. No
         card required.
       </p>
 

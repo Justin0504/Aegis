@@ -18,14 +18,14 @@ const tiers = [
     id: 'free',
     name: 'Free',
     price: '$0',
-    period: 'forever',
-    blurb: 'For solo devs kicking the tires. Self-host, tap the core detectors, ship your first agent under guard today.',
-    cta:   { label: 'Download AEGIS', href: '/download' },
+    period: 'to try it',
+    blurb: 'One agent, a hundred checks: enough to watch AEGIS hold and block a real call. Not sized for production — that is Pro.',
+    cta:   { label: 'Try it free', href: '/download' },
     featured: false,
     quotas: [
-      '3 agents',
-      '1,000 tool-call checks / month',
-      '7-day trace retention',
+      '1 agent',
+      '100 tool-call checks / month',
+      '24-hour trace retention',
       '1 seat',
     ],
     features: [
@@ -177,7 +177,7 @@ const faqLd = {
       name:    'What is a "check" and how do I count them?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free (1k/mo) covers a solo developer; Pro (100k/mo) covers small production deployments; Team (1M/mo) covers most mid-market usage.',
+        text:    'A check is one call to /api/v1/check — the gateway endpoint the SDK hits before every tool invocation to decide allow / deny / require human approval. One user prompt to an agent typically produces 3–10 checks depending on how many tools the agent chains. Free (100/mo) is enough to try AEGIS on one agent; Pro (100k/mo) covers small production deployments; Team (1M/mo) covers most mid-market usage.',
       },
     },
     {
@@ -210,7 +210,7 @@ const faqLd = {
 
 <Layout
   title="Pricing — AEGIS"
-  description="AEGIS pricing — Free (1k requests/mo, self-host), Pro ($29/mo, 100k requests, LLM-judge + OIDC), Team ($99/mo, 1M requests, SAML + crypto audit + self-host EE license), Enterprise (BYOC, SOC 2, 24/7)."
+  description="AEGIS pricing — Free trial (1 agent, 100 checks/mo), Pro ($29/mo, 100k requests, LLM-judge + OIDC), Team ($99/mo, 1M requests, SAML + crypto audit + self-host EE license), Enterprise (BYOC, SOC 2, 24/7)."
 >
   <Header current="pricing" />
 
@@ -308,9 +308,10 @@ const faqLd = {
 
         <details>
           <summary>What happens at the cap?</summary>
-          <p>On Free, requests over 1,000/month return a 429 with a
-            soft window — your agent retries the next month at zero
-            disruption. On paid plans, overages are billed per
+          <p>On Free, the 101st check in a month returns a 429 and the
+            agent's call is refused until you upgrade or the month
+            rolls over — Free is for trying AEGIS, not for running on it.
+            On paid plans, overages are billed per
             10,000-check block ($1 on Pro, $0.50 on Team) — no
             request is ever dropped on a paid plan.</p>
         </details>

@@ -45,10 +45,13 @@ export interface PlanQuota {
 /** Authoritative plan-quota table. Mirror to marketing site +
  *  Stripe price metadata when you change a row. */
 export const PLAN_QUOTAS: Record<PlanId, PlanQuota> = {
+  // Free is a trial, not a tier to run on: enough checks to watch one
+  // agent get held and blocked (~10–30 agent tasks), not enough to put
+  // anything in production. Mirror: apps/marketing pricing.astro.
   free: {
-    monthly_checks: 1_000,
-    retention_days: 7,
-    max_agents: 5,
+    monthly_checks: 100,
+    retention_days: 1,
+    max_agents: 1,
     max_seats: 1,
     allow_overage: false,
     overage_cents_per_10k: 0,

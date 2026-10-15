@@ -183,12 +183,12 @@ export const TIER_RANK: Record<LicenseTier, number> = {
  * get registered — they're just flagged `audit_only` so the gateway
  * traces them without ever blocking. Prevents "we can't ship because
  * you'll block prod" while giving the buyer a concrete upgrade signal.
- *   community  →   3   (solo dev evaluating)
+ *   community  →   1   (one agent, to evaluate)
  *   pro        →  20   (small team gating production agents)
  *   team+      → unlimited
  */
 export const AGENT_ENFORCEMENT_LIMITS: Record<LicenseTier, number> = {
-  community: 3,
+  community: 1,
   pro:       20,
   team:      Number.POSITIVE_INFINITY,
   enterprise: Number.POSITIVE_INFINITY,
