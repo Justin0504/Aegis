@@ -40,5 +40,47 @@
    0,
    249
   ]
+ },
+ "aegis_v2_audit_hold": {
+  "utility": [
+   11,
+   37
+  ],
+  "util_attack": [
+   63,
+   249
+  ],
+  "asr": [
+   1,
+   249
+  ]
+ },
+ "aegis_v2_audit_obs": {
+  "utility": [
+   17,
+   37
+  ],
+  "util_attack": [
+   71,
+   249
+  ],
+  "asr": [
+   6,
+   249
+  ]
+ },
+ "aegis_v3_audit": {
+  "utility": [
+   13,
+   37
+  ],
+  "util_attack": [
+   61,
+   249
+  ],
+  "asr": [
+   4,
+   249
+  ]
  }
 }

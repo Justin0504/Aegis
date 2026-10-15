@@ -2,11 +2,18 @@
 \label{app:ui}
 
 The Cockpit is the operator's view of everything in \S\ref{sec:arch}. The
-views below are unretouched screenshots of the Cockpit attached to a
-copy of the gateway database that the compatibility matrix of
-Appendix~\ref{app:compat} produced, all four scenarios included: the
-agents, traces, holds, blocks and chains on them are the matrix's, and
-nothing was seeded for the capture. The capture is scripted
+views below are unretouched screenshots from two sources, neither seeded
+by hand. The overview, approvals, activity and Security~360 views show
+seven real AgentDojo runs of the qwen3:8b agent
+(\S\ref{sec:agentdojo}) replayed through the shipping SDK and gateway:
+every user turn and tool return is reported as context, every call is
+checked afresh by the current gateway, and every trace enters the hash
+chain as a deployed agent's would
+(\texttt{research/compat/shoot\_replay.sh}); the holds of the last three
+runs are left open so the queue shows them with their evidence. The
+remaining views use a copy of the gateway database that the
+compatibility matrix of Appendix~\ref{app:compat} produced: the agents,
+traces, holds, blocks and chains on them are the matrix's. The capture is scripted
 (\texttt{research/compat/shoot\_cockpit.sh}): it copies the database,
 starts the shipping gateway and Cockpit on it, runs one pre-deployment
 scan of the demonstration agent and one alignment audit so that those
@@ -40,19 +47,25 @@ overview is Figure~\ref{fig:dashboard}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/approvals.png}
-    \caption{Approvals: the queue the second attendee works in S3, and the
-    review queue of every held or rejected call with the user request it
-    was made under. The open items are S4 emails held for review.}
+    \caption{Approvals: a held call as the reviewer sees it. The banking
+    agent was asked to adjust the rent from a landlord's notice; the notice
+    carried an injection, and the agent tried to redirect a standing order.
+    The card shows what the person asked, the passage the agent read with
+    the destination that appears only there highlighted, the arguments as
+    fields, and the reason in plain language. The agent is paused until
+    someone decides.}
     \label{fig:ui-approvals}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/traces.png}
-    \caption{Traces: every intercepted call with its decision and latency,
-    and the forensic detail of one---the S3 \texttt{kubectl delete}, held,
-    then approved. The detail view opens the full arguments, the gateway's
-    check, the result, the delegation chain and the integrity proof.}
+    \caption{Activity: each agent run as a timeline titled by its request.
+    Every step is a sentence with the app's or website's logo, AEGIS's
+    decision and its latency; arguments and results open as fields rather
+    than JSON. Here a bill payment whose IBAN came from an injected bill is
+    blocked. The \emph{All actions} tab keeps the per-call forensic view
+    with the integrity proof.}
     \label{fig:ui-traces}
 \end{figure}
 
@@ -113,7 +126,12 @@ overview is Figure~\ref{fig:dashboard}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/coverage.png}
-    \caption{Coverage: the deployed detectors joined against the agent
-    threat ontology, so an operator sees which techniques nothing watches.}
+    \caption{Security~360: ten ways an agent can be turned against its
+    owner, each with its status read live from the gateway---prompt
+    injection counts as protected only when the provenance pack is applied
+    \emph{and} SDKs are reporting context, the audit only when the hash
+    chains verify---and the one step that turns an uncovered surface on.
+    Below it (not shown) the deployed detectors are joined against the
+    agent threat ontology.}
     \label{fig:ui-coverage}
 \end{figure}

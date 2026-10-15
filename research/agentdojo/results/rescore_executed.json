@@ -54,6 +54,16 @@
   "scored": 2,
   "executed": 0
  },
+ "local-qwen3-8b-aegis_v3_audit.pre-url": {
+  "pairs": 21,
+  "scored": 3,
+  "executed": 0
+ },
+ "local-qwen3-8b-aegis_v3_audit": {
+  "pairs": 21,
+  "scored": 3,
+  "executed": 0
+ },
  "local-qwen3-8b": {
   "pairs": 21,
   "scored": 12,

@@ -14,6 +14,22 @@ scores recorded traces after the fact on eight dimensions---safety,
 helpfulness, correctness, compliance, efficiency, privacy, robustness,
 transparency---and feeds the Cockpit's evaluation views.
 
+\paragraph{The auditor reads what the agent read.} A held call is usually
+held because its arguments came from a tool, and a judge shown only the
+goal and the call cannot tell a bill's IBAN from an attacker's: in the
+first AgentDojo runs the auditor refused legitimate calls ``without
+evidence of having reviewed the file'' and approved a transfer of the
+whole balance to an ``unfamiliar recipient account''. Given a
+\texttt{session\_id}, the gateway now adds that session's recent tool
+output from the context ledger (\S\ref{sec:provenance}), scoped to the
+caller's tenant and fenced as data, with one instruction: an action that
+carries out an instruction found only inside the data, and not asked for
+by the goal, has drifted. Showing a judge the injected text is itself a
+risk---the judge can be injected too---which is why the change is
+reported with its attack success, not only its utility
+(\S\ref{sec:agentdojo}). The Python and JavaScript helpers forward the
+session the SDK already reports context under.
+
 \paragraph{Calibration is reported, not assumed.}
 A judge that says ``block, confidence 0.9'' is only useful if 0.9 means
 something. The gateway ships a calibration harness that runs a judge

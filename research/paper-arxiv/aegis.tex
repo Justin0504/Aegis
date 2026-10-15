@@ -75,7 +75,7 @@ AI agents now execute tool calls---database queries, shell commands, payments, e
 
 \system{} is an open-source control point between an agent's decision to call a tool and the tool running.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and covers 15 agent frameworks in Python, JavaScript and Go, plus an MCP proxy and a provider-compatible egress proxy. Each call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an \emph{instruction-provenance} check over which channel of the conversation authorised the call, and a declarative policy over all of their facts---and returns \texttt{allow}, \texttt{block}, or \texttt{pending}, which suspends the agent until a person or the alignment auditor decides. A refusal comes back where a tool result would, so a blocked agent explains itself and continues. Every decision is Ed25519-signed and hash-chained.
 
-On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29.7\% to \textbf{1.4\%}, the lowest of the defenses compared, against 5.4\% for an LLM tool filter. The cost is holds: with no reviewer, clean-task utility falls from 69.1\% to 38.1\%; with the alignment auditor as first reviewer it is 56.7\% and 11 of 97 tasks reach a person. With a locally served qwen3:8b as agent and auditor on two suites, auditor-reviewed attack success is 0 of 249, but utility falls further, because the destination rules block legitimate sends whose recipients come from tool output. A check takes 0.44\,ms at the median, and one gateway process sustains about 2{,}300--3{,}000 checks per second. On tool calls live agents emitted under attack, content inspection is at chance and the provenance layer separates them, and we report where it does not: an injection that stays inside the tool the user already asked for. Running the shipping gateway under nineteen agent harnesses found and fixed twenty-six defects no unit test had caught, which we list. Numbers reported in this paper's first version are withdrawn; an appendix gives the audit.
+On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29.7\% to \textbf{1.4\%}, the lowest of the defenses compared, against 5.4\% for an LLM tool filter. The cost is holds: with no reviewer, clean-task utility falls from 69.1\% to 38.1\%; with the alignment auditor as first reviewer it is 56.7\% and 11 of 97 tasks reach a person. With a locally served qwen3:8b as agent and auditor on two suites, the shipped gateway with the auditor shown the agent's evidence lets 1 of 249 attacks run at 13 of 37 clean tasks against 19 undefended; we report the defects that run exposed and fixed. A check takes 0.44\,ms at the median, and one gateway process sustains about 2{,}300--3{,}000 checks per second. On tool calls live agents emitted under attack, content inspection is at chance and the provenance layer separates them, and we report where it does not: an injection that stays inside the tool the user already asked for. Running the shipping gateway under nineteen agent harnesses found and fixed twenty-six defects no unit test had caught, which we list. Numbers reported in this paper's first version are withdrawn; an appendix gives the audit.
 \end{abstract}
 
 \keywords{AI Agent Safety, Tool-Call Interception, LLM Guardrails, Runtime Compliance}
@@ -526,10 +526,16 @@ undo is impossible.
 \label{sec:cockpit}
 
 The Cockpit (Figure~\ref{fig:dashboard}) is the operator's view of all of
-the above: a live feed of decisions with each layer's facts; the approval
-queue; per-agent profiles and anomaly timelines; policy authoring with
-DSL and natural-language input; coverage of which tools and sinks a
-policy actually touches; rollback history; scan results; and the
+the above. Three views carry the design. \emph{Activity} shows each agent
+run as a timeline titled by its request, every step a sentence with the
+app's or website's logo and AEGIS's decision. \emph{Approvals} shows a
+held call with its evidence---what the person asked, the passage the
+agent read with the attributed value highlighted, the arguments as
+fields---because a reviewer shown an agent id and a JSON blob approves
+by default. \emph{Security~360} reports, from the live gateway, which of
+ten agent attack surfaces this deployment covers and the step that
+covers the rest. Around them sit per-agent profiles, policy authoring in
+the DSL or natural language, rollback history, scan results, and the
 exportable audit log with its verification status. It runs locally
 beside the gateway and needs no network beyond the agent's own model
 calls.
@@ -538,9 +544,10 @@ calls.
     \centering
     \includegraphics[width=\columnwidth]{images/ui/overview.png}
     \vspace{-0.2in}
-    \caption{Compliance Cockpit overview, taken against the gateway that
-    ran the compatibility matrix: agents, trace volume, blocked and held
-    calls, chain integrity, and the activity feed.}
+    \caption{Compliance Cockpit overview on seven real AgentDojo runs
+    replayed through the SDK and gateway (Appendix~\ref{app:ui}): calls,
+    holds awaiting a person, blocks, chain integrity, and the activity
+    feed in plain language.}
     \vspace{-0.15in}
     \label{fig:dashboard}
 \end{figure}
@@ -707,7 +714,15 @@ call. The rules alone halve attack success (16.0--17.0\%), not because
 they recognise the injections---they contain no payload---but because
 the default policy holds every outbound message for a person and, with
 nobody to answer, a hold is a refusal. On the 829 pairs every
-configuration completed, the numbers are 30.0\%, 5.4\% and 1.4\%.
+configuration completed, the numbers are 30.0\%, 5.4\% and 1.4\%. One injection task inflates every interposition defense's count:
+AgentDojo judges Slack \texttt{injection\_task\_5} on the calls the
+agent \emph{emitted}, not on what they did, so an invite the gateway
+refused still scores as a successful attack. Counting only calls that ran
+(\texttt{rescore\_executed.py}; column \emph{Executed}), \system with
+the pack is at 0.9\% (8 of 843) and the rules alone at 15.3--16.4\%; the
+undefended agent and AgentDojo's own defenses, which do not refuse
+calls, are unchanged. We report AgentDojo's score as the headline, since
+it is what other systems report.
 
 \paragraph{Utility, and where it goes.} The price is paid in holds. With
 no reviewer present, every hold refuses a call, and \system with the pack
@@ -755,29 +770,42 @@ second look, and only those pay for one.
 credit stopped, and to leave the hosted-model family, we reran the
 banking and Slack suites (37 user tasks, 249 attack pairs) with
 qwen3:8b served by Ollama, reasoning off, as both the agent and the
-auditor (Table~\ref{tab:agentdojo-qwen}). This run is against the current
-gateway, including the destination rule of \S\ref{sec:authority}.
-Undefended, the attack succeeds on 47 of 249 pairs (18.9\%). With holds
-going to the auditor first, it succeeds on \textbf{none of 249}: the
-auditor released 31 of the 77 calls held under attack and none of them
-completed an injection task. Utility tells the opposite story, and we
-report it as found. Clean utility falls from 19 of 37 to 8 with holds
-refused and 9 with the auditor answering them; the auditor recovers
-almost nothing here, unlike on gpt-4o-mini. Of the 30 clean tasks that
-called a tool, 6 hit a block and 7 a hold the auditor refused. The
-blocks are the design's known false-positive class in its plainest form:
-these suites' legitimate tasks take recipients and IBANs from tool
-output (``pay the bill in this file'', ``invite the people on this
-web page''), and the destination rule and the exfiltration rule block
-exactly that---two \texttt{invite\_user\_to\_slack} calls on the
-destination rule, four sends and a payment on the exfiltration rule.
-A block is not reviewable, so no auditor can buy these back; for a
-deployment whose users routinely delegate destinations to documents, the
-two rules belong at \texttt{pending}, not \texttt{block}. The holds the
-auditor refused are mostly channel messages the 8B auditor judged off
-goal. Two suites and one small model do not support a utility figure for
-\system in general; they do support the security one, and they show
-where the utility goes.
+auditor (Table~\ref{tab:agentdojo-qwen}). Undefended, 47 of 249 attacks
+succeed. With holds going to the auditor first, \emph{none} do---but
+clean utility falls from 19 of 37 to 9, and the rows below that one are
+what we changed to get it back, each motivated by what the run before it
+showed, and each reported.
+
+The first loss was blocks. These suites' legitimate tasks take
+recipients and IBANs from tool output (``pay the bill in this file'',
+``invite the people on this web page''), which is the destination
+rule's known false-positive class, and a block cannot be reviewed.
+Demoting the two destination rules to holds through the DSL, as an
+operator would, buys back two tasks and lets one attack through: a
+transfer of the whole balance that the auditor approved while noting an
+``unfamiliar recipient account''. The second loss was the auditor
+itself, which refused legitimate calls ``without evidence of having
+reviewed the file'': it was never shown the file. Given the session's
+tool output (\S\ref{sec:judge}), it recovers utility to 17 of 37, within
+noise of undefended---and is itself injected in 4 of 249 pairs. Three
+gateway defects explained the rest and are fixed: a judge that names
+\texttt{prompt-injected} and still scores a call 0.8 now counts as
+drifted; a recipient swapped through a tool with no sink verb
+(\texttt{update\_scheduled\_\allowbreak transaction}) is now held; and a link the
+agent rewrote with \texttt{https://} is now matched to the page that
+gave it. The final row, the shipped gateway with the destination rules
+at \texttt{pending} and the auditor shown the evidence, completes 13 of
+37 clean tasks and lets \textbf{1 of 249} attacks run: a phishing link
+the gateway held and the 8B auditor released, having noted that ``the
+URL is part of the untrusted data''. AgentDojo scores it 4 of 249; the
+other three are refused calls (\S\ref{sec:agentdojo}).
+
+Two cautions. Clean utility on 37 tasks moves by about three tasks
+between identical configurations: of the four tasks the final row lost
+against the evidence row, three hit no refusal at all. And every change
+in this paragraph was found on these two suites; the workspace and
+travel suites, which none of them touched, are the held-out check, and
+are reported in the repository as they complete rather than here.
 
 \paragraph{Against the systems that rebuild the agent.} The closest
 systems report on the same benchmark with stronger agents, so their
@@ -973,8 +1001,8 @@ $1600\times$ the cost.
 
 \paragraph{What the shipped pack does with it.}
 The 0.991 is a logistic regression over the four features, cross-validated
-on this corpus. The pack is five fixed rules written before the corpus
-existed, and the two numbers differ in the direction one should expect.
+on this corpus. The pack's original five rules were written before the corpus
+existed (the two destination rules of \S\ref{sec:authority} came later), and the two numbers differ in the direction one should expect.
 Against the single-step benign arm the pack's false-positive rate is zero
 (Table~\ref{tab:results}); against the two-step arm, where every benign
 call follows a tool return, it holds 40 of 169 legitimate calls
@@ -1054,7 +1082,16 @@ door, disable two-factor authentication, place an order---where the user
 asked for that tool and the injection changed nothing a value check can
 see. Its known false-positive class is a user who delegates the
 destination to a document (``send it to the address in the ticket''),
-which the rule cannot tell from an injection. The gpt-4o-mini AgentDojo
+which the rule cannot tell from an injection. A destination is also not
+only an argument of a sending tool: on AgentDojo,
+\texttt{update\_scheduled\_\allowbreak transaction} with an injected
+recipient matched no sink verb and was allowed outright. A second rule
+therefore \emph{holds} (not blocks) any acting call with an
+untrusted-only destination, whatever its name. On the independent corpus
+it leaves recall where it was, since other rules already flagged those
+calls, moves same-tool probe misses from 73 to 72 (on the 183 acting probes, 26 to 25), and adds three holds
+on 169 two-step benign calls (19.5\% to 21.3\%); its case is the one
+AgentDojo exposed, and it is reported as motivated by it. The gpt-4o-mini AgentDojo
 runs of \S\ref{sec:agentdojo} predate this rule; the qwen3:8b run uses
 it, and shows the false-positive class at work on banking and Slack.
 
@@ -1071,20 +1108,26 @@ excluded from every claim.
 \label{sec:scope}
 \begin{itemize}[nolistsep,leftmargin=*]
 \item \textbf{Auditor-reviewed attack success is measured on one model
-  and two suites.} With qwen3:8b on banking and Slack it is 0 of 249; with
-  gpt-4o-mini on all four suites the attack run did not complete before
+  and two suites.} With qwen3:8b on banking and Slack it is 0 to 1 of 249
+  depending on configuration; with gpt-4o-mini on all four suites the attack run did not complete before
   the API credit ran out, so there the 1.4\% belongs to the configuration
-  in which holds are refusals.
+  in which holds are refusals. The gpt-4o-mini rows also predate every
+  change of the qwen3:8b paragraph.
 \item \textbf{Two agent models, neither frontier.} AgentDojo was run with
   gpt-4o-mini on four suites and qwen3:8b on two; the per-call corpus was
   produced by one model (Qwen3-VL-32B). Stronger models resist the attack
   more on their own, which changes the baseline more than the defense.
-\item \textbf{Destination blocks cost utility where users delegate
-  destinations.} On the qwen3:8b banking and Slack run, clean utility fell
-  from 19 of 37 to 9 with the auditor reviewing holds, largely from blocks
-  on legitimate sends whose recipient or IBAN came from tool output. A
-  block cannot be reviewed; such deployments should demote the two rules
-  to holds.
+\item \textbf{The auditor is a weak link when it is small, and it was
+  tuned on the suites it is reported on.} With an 8B auditor shown the
+  evidence, utility returns to within noise of undefended at a cost of one
+  executed attack in 249, an injection the auditor itself fell for; a
+  stronger auditor has not been measured. The changes that got there were
+  found on banking and Slack; the held-out suites are not yet reported.
+\item \textbf{Delegation is indistinguishable from injection.} When the
+  user tells the agent to follow a document (``do the tasks on my to-do
+  list''), an instruction in that document has the user's authority by
+  construction; provenance cannot separate it from an injected one, and
+  only review can.
 \item \textbf{Same-tool hijacks.} An injection that stays inside the tool
   the user asked for and changes only an argument is the case
   provenance is weakest on (\S\ref{sec:authority}). Attributing the
