@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Layers, Clock, AlertCircle, ChevronRight, CheckCircle } from 'lucide-react'
 import { traceSummary } from '@/lib/trace-summary'
+import { fmtWhen } from '@/lib/time'
 import { SkeletonRows } from '@/components/ui/skeleton'
 
 const TOOL_VERBS: Record<string, string> = {
@@ -177,7 +178,7 @@ export function SessionsPanel() {
                     {s.trace_count} traces
                   </p>
                   <p className="text-[10px]" style={{ color: MUTED }}>
-                    {timeAgo(s.last_seen_at)}
+                    {fmtWhen(s.last_seen_at)}
                   </p>
                 </div>
               </div>

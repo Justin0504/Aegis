@@ -444,7 +444,7 @@ export function TraceDetails({ traceId, onExport, onSelectTrace }: TraceDetailsP
                 {trace.tool_call?.tool_name ?? 'unknown tool'}
               </CardTitle>
               <p className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>
-                by {friendlyAgent(trace.agent_id)}
+                by {friendlyAgent(trace.agent_id, trace.agent_name)}
               </p>
             </div>
             {trace.pii_detected > 0 && (

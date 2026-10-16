@@ -27,10 +27,12 @@ overview is Figure~\ref{fig:dashboard}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/violations.png}
-    \caption{Violations: every pre-execution block and hold, with the rule
-    that produced it. The \texttt{send\_email} rows are S4: the agent read
-    a file, the file told it to forward itself, and the instruction-provenance
-    pack blocked the call because nothing the user said accounts for it.}
+    \caption{Violations: every call refused or held, as sentences with the
+    app's logo and the verdict, grouped under the protection that caught it
+    in plain words (``Outbound call nobody asked for'') with the reason
+    beneath each. The rows are the replayed AgentDojo runs: transfers to an
+    injected IBAN blocked by the exfiltration rule, an invitation held for a
+    person.}
     \label{fig:ui-violations}
 \end{figure}
 
@@ -72,9 +74,11 @@ overview is Figure~\ref{fig:dashboard}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/agents.png}
-    \caption{Agents: the registry, created on first sight. Every matrix
-    harness appears under the id it sent; an operator promotes an agent
-    to \emph{active}, declares its tool scope, or suspends it here.}
+    \caption{Agents: one row per agent, created on first sight, with the
+    apps it has touched as logos and how often \system{} has had to step
+    in---calls, held, blocked---beside when it was last seen. An operator
+    promotes an agent to \emph{active}, declares its tool scope, or
+    suspends it from the row's detail panel.}
     \label{fig:ui-agents}
 \end{figure}
 
@@ -109,8 +113,9 @@ overview is Figure~\ref{fig:dashboard}.
     \centering
     \includegraphics[width=\columnwidth]{images/ui/audit-log.png}
     \caption{Audit log: the signed record with chain verification and
-    the SOC~2 evidence pack; editing one record in the export is the
-    attendee activity of \S\ref{sec:demo}.}
+    the SOC~2 evidence pack. Entries read as sentences (``Deployment mode
+    set to custom''), not as the JSON they are stored as; editing one
+    record in the export is the attendee activity of \S\ref{sec:demo}.}
     \label{fig:ui-audit}
 \end{figure}
 

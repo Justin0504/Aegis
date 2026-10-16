@@ -227,6 +227,8 @@ export async function initializeDatabase(dbPath: string): Promise<Database.Datab
     // Tool classifier (Step 1 — category + risk signals)
     `ALTER TABLE traces ADD COLUMN tool_category TEXT`,
     `ALTER TABLE traces ADD COLUMN risk_signals TEXT`,
+    // The operator's name for the agent, beside the schema's UUID
+    `ALTER TABLE traces ADD COLUMN agent_name TEXT`,
     // Blocking mode (Step 3 — pending check)
     `ALTER TABLE traces ADD COLUMN blocked INTEGER DEFAULT 0`,
     `ALTER TABLE traces ADD COLUMN block_reason TEXT`,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   UserRound, Plus, Shield, ShieldAlert, ShieldOff, KeyRound,
@@ -9,6 +9,9 @@ import {
 import { USE_MOCK, mockAgents } from '@/lib/mock-traces'
 import { ToolIcon } from '@/lib/tool-icons'
 import { EmailAvatar } from '@/lib/avatar'
+import { fmtWhen } from '@/lib/time'
+import { PageHeader } from '@/components/ui/page-header'
+import { friendlyAgent } from '@/lib/friendly-names'
 
 const BORDER = 'hsl(var(--border))'
 const MUTED  = 'hsl(var(--muted-foreground))'
@@ -42,8 +45,7 @@ const STATUS_STYLE: Record<Status, { bg: string; color: string; border: string; 
 }
 
 function fmtTs(s?: string): string {
-  if (!s) return '—'
-  try { return new Date(s).toLocaleString() } catch { return s }
+  return s ? fmtWhen(s) : '—'
 }
 
 function StatusBadge({ s }: { s: Status }) {
@@ -167,120 +169,104 @@ export function AgentsView() {
     }
   }
 
+  // Activity per agent, from the runs the gateway has: which apps it
+  // touched (logos), how many calls, how many were held or blocked, and
+  // when it was last seen. Traces key agents by UUID with the operator's
+  // name alongside; the registry keys by the name. Match on either.
+  const { data: sdata } = useQuery({
+    queryKey: ['sessions-for-agents'], enabled: !USE_MOCK, refetchInterval: 15000,
+    queryFn: async () => (await fetch('/api/gateway/traces/sessions?limit=200')).json(),
+  })
+  const { data: tdata } = useQuery({
+    queryKey: ['traces-for-agents'], enabled: !USE_MOCK, refetchInterval: 15000,
+    queryFn: async () => (await fetch('/api/gateway/traces?limit=500')).json(),
+  })
+  const activity = useMemo(() => {
+    const byKey = new Map<string, { tools: Set<string>; calls: number; held: number; blocked: number; runs: number; last?: string }>()
+    const get = (k: string) => { if (!byKey.has(k)) byKey.set(k, { tools: new Set(), calls: 0, held: 0, blocked: 0, runs: 0 }); return byKey.get(k)! }
+    for (const s of (sdata?.sessions ?? []) as any[]) {
+      for (const k of [s.agent_name, s.agent_id].filter(Boolean)) { const a = get(k); a.runs++; for (const t of String(s.tool_names ?? '').split(',').filter(Boolean)) a.tools.add(t) }
+    }
+    for (const t of (tdata?.traces ?? []) as any[]) {
+      for (const k of [t.agent_name, t.agent_id].filter(Boolean)) {
+        const a = get(k); a.calls++
+        const d = String(t.decision ?? '')
+        if (d === 'block') a.blocked++; else if (d === 'pending') a.held++
+        if (!a.last || String(t.timestamp) > a.last) a.last = String(t.timestamp)
+      }
+    }
+    return byKey
+  }, [sdata, tdata])
+  const actOf = (a: any) => activity.get(a.name) ?? activity.get(a.id)
+
   return (
-    <div className="space-y-4" style={{ color: TEXT }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold flex items-center gap-2">
-            <UserRound className="h-5 w-5" style={{ color: 'hsl(var(--primary))' }} />
-            Agents
-          </h1>
-        </div>
-        <button
-          onClick={() => { setShowRegister(true); setForm(BLANK); setFormError('') }}
-          className="text-sm px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 border transition-colors hover:opacity-80"
-          style={{ background: 'transparent', borderColor: BORDER, color: TEXT }}
-        >
-          <Plus className="h-3.5 w-3.5" /> Register agent
-        </button>
-      </div>
-
-      {/* Status filter */}
-      <div className="flex gap-1">
-        {(['all', 'active', 'unregistered', 'suspended', 'deprecated'] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className="text-[11px] px-2 py-1 rounded border"
-            style={{
-              background: filter === s ? 'hsl(var(--accent))' : 'transparent',
-              borderColor: filter === s ? 'hsl(var(--border))' : 'transparent',
-              color: filter === s ? 'hsl(var(--accent-foreground))' : MUTED,
-            }}
-          >
-            {s === 'all' ? 'All' : STATUS_STYLE[s].label}
+    <div style={{ color: TEXT }}>
+      <PageHeader title="Agents" subtitle="Every agent that has called the gateway, what it touches, and how often AEGIS has had to step in."
+        actions={
+          <button onClick={() => { setShowRegister(true); setForm(BLANK); setFormError('') }}
+            className="text-[13px] font-medium px-3.5 h-9 rounded-full inline-flex items-center gap-1.5 transition-opacity hover:opacity-85"
+            style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}>
+            <Plus className="h-3.5 w-3.5" /> Register agent
           </button>
-        ))}
-      </div>
+        }>
+        <div className="inline-flex rounded-full border p-0.5" style={{ borderColor: BORDER }}>
+          {(['all', 'active', 'unregistered', 'suspended', 'deprecated'] as const).map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              className="px-3.5 py-1.5 rounded-full text-[12.5px] font-medium transition-colors"
+              style={{ background: filter === s ? 'hsl(var(--foreground))' : 'transparent', color: filter === s ? 'hsl(var(--background))' : MUTED }}>
+              {s === 'all' ? 'All' : STATUS_STYLE[s].label}
+            </button>
+          ))}
+        </div>
+      </PageHeader>
 
-      {/* Table */}
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor: BORDER, background: BG }}>
-        <table className="w-full text-sm">
-          <thead style={{ background: 'transparent', borderBottom: `1px solid ${BORDER}`, color: MUTED }}>
-            <tr className="text-[10px] uppercase tracking-wider font-medium">
-              <th className="text-left px-4 py-2">Status</th>
-              <th className="text-left px-4 py-2">Name / ID</th>
-              <th className="text-left px-4 py-2">Owner</th>
-              <th className="text-left px-4 py-2">Scope</th>
-              <th className="text-left px-4 py-2">Secret</th>
-              <th className="text-left px-4 py-2">Last seen</th>
-              <th className="text-right px-4 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: MUTED }}>
-                <Loader2 className="h-4 w-4 mx-auto animate-spin" />
-              </td></tr>
-            )}
-            {!isLoading && agents.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-xs" style={{ color: MUTED }}>
-                No agents yet. Register your first one or wait for the SDK to call in.
-              </td></tr>
-            )}
-            {agents.map((a: any) => (
-              <tr
-                key={a.id}
-                className="border-t cursor-pointer hover:bg-[hsl(var(--accent))]"
-                style={{ borderColor: BORDER }}
-                onClick={() => setSelected(a)}
-              >
-                <td className="px-4 py-2.5"><StatusBadge s={a.status} /></td>
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    {/* Brand of where the agent runs (Vercel/AWS/GitHub…) */}
-                    {a.last_seen_brand && <ToolIcon name={a.last_seen_brand} size={20} />}
-                    <div>
-                      {/* An agent that was never named is still an agent the
-                          operator has to recognise; its id is its name. */}
-                      <div className={a.name ? 'font-medium' : 'font-medium font-mono text-xs'}>{a.name ?? a.id.slice(0, 32)}</div>
-                      {a.name && <div className="text-[10px] font-mono" style={{ color: MUTED }}>{a.id.slice(0, 24)}</div>}
+      {isLoading && <div className="h-40 rounded-2xl animate-pulse" style={{ background: 'hsl(var(--secondary))' }} />}
+      {!isLoading && agents.length === 0 && (
+        <div className="rounded-2xl border py-16 text-center" style={{ borderColor: BORDER }}>
+          <UserRound className="mx-auto h-7 w-7 opacity-40" style={{ color: MUTED }} />
+          <p className="mt-3 text-[14px] font-medium">No agents yet</p>
+          <p className="mt-1 text-[12.5px]" style={{ color: MUTED }}>An agent appears here the first time its SDK calls the gateway.</p>
+        </div>
+      )}
+      {!isLoading && agents.length > 0 && (
+        <ul className="rounded-2xl border overflow-hidden" style={{ borderColor: BORDER, background: BG }}>
+          {agents.map((a: any) => {
+            const act = actOf(a)
+            const tools = act ? Array.from(act.tools).slice(0, 7) : []
+            const label = friendlyAgent(a.id, a.name)
+            const initial = label.replace(/^Agent /, '').charAt(0).toUpperCase()
+            return (
+              <li key={a.id} className="border-t first:border-t-0" style={{ borderColor: BORDER }}>
+                <button onClick={() => setSelected(a)} className="w-full text-left px-5 py-4 grid gap-x-6 gap-y-2 items-center hover:bg-[hsl(var(--secondary)/0.5)] transition-colors"
+                        style={{ gridTemplateColumns: 'minmax(220px, 1.4fr) minmax(160px, 1fr) repeat(3, minmax(64px, auto)) minmax(90px, auto) 24px' }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-[15px] font-semibold"
+                          style={{ background: 'hsl(var(--secondary))', color: TEXT }}>{initial}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[14.5px] font-semibold truncate">{label}</p>
+                        <StatusBadge s={a.status} />
+                      </div>
+                      <p className="text-[12px] truncate" style={{ color: MUTED }}>
+                        {a.owner_email ? a.owner_email : a.name && a.name !== a.id ? <span className="font-mono">{a.id.slice(0, 24)}</span> : 'No owner set'}
+                      </p>
                     </div>
                   </div>
-                </td>
-                <td className="px-4 py-2.5 text-xs">
-                  {a.owner_email
-                    ? <span className="inline-flex items-center gap-2" style={{ color: MUTED }}>
-                        <EmailAvatar email={a.owner_email} size={20} />
-                        <span>{a.owner ? `${a.owner} · ${a.owner_email}` : a.owner_email}</span>
-                      </span>
-                    : <span style={{ color: MUTED }}>—</span>}
-                </td>
-                <td className="px-4 py-2.5 text-xs" style={{ color: MUTED }}>
-                  {a.scope
-                    ? <span className="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide" style={{
-                        background: a.scope === 'restricted' ? 'hsl(0 55% 95%)' : 'hsl(150 30% 95%)',
-                        color:      a.scope === 'restricted' ? 'hsl(0 55% 38%)' : 'hsl(150 30% 35%)',
-                      }}>{a.scope}</span>
-                    : a.declared_tools?.length ? `${a.declared_tools.length} tool(s)` : <em>any</em>}
-                </td>
-                <td className="px-4 py-2.5 text-xs font-mono" style={{ color: MUTED }}>
-                  {a.secret ?? (a.has_secret ? <span style={{ color: 'hsl(150 18% 40%)' }}>✓</span> : '—')}
-                </td>
-                <td className="px-4 py-2.5 text-xs" style={{ color: MUTED }}>{fmtTs(a.last_seen ?? a.last_seen_at)}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelected(a) }}
-                    className="text-[11px] px-2 py-1 rounded border"
-                    style={{ borderColor: BORDER, color: MUTED }}
-                  >Details →</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {tools.length ? tools.map(tn => <ToolIcon key={tn} name={tn} size={18} />) : <span className="text-[12px]" style={{ color: MUTED }}>No calls yet</span>}
+                    {act && act.tools.size > 7 && <span className="text-[11.5px]" style={{ color: MUTED }}>+{act.tools.size - 7}</span>}
+                  </div>
+                  <Stat n={act?.calls ?? 0} label="calls" />
+                  <Stat n={act?.held ?? 0} label="held" tone={act?.held ? 'hsl(32 95% 36%)' : undefined} />
+                  <Stat n={act?.blocked ?? 0} label="blocked" tone={act?.blocked ? 'hsl(0 72% 42%)' : undefined} />
+                  <span className="text-[12.5px] text-right" style={{ color: MUTED }}>{fmtTs(act?.last ?? a.last_seen ?? a.last_seen_at)}</span>
+                  <span className="text-right" style={{ color: MUTED }}>→</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
 
       {/* Register modal */}
       {showRegister && (
@@ -487,5 +473,14 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
       <div style={{ color: MUTED }}>{k}</div>
       <div className="col-span-2" style={{ color: TEXT }}>{v}</div>
     </div>
+  )
+}
+
+function Stat({ n, label, tone }: { n: number; label: string; tone?: string }) {
+  return (
+    <span className="text-right leading-tight">
+      <span className="block text-[15px] font-semibold tabular-nums" style={{ color: n ? (tone ?? 'hsl(var(--foreground))') : 'hsl(var(--muted-foreground))' }}>{n.toLocaleString()}</span>
+      <span className="block text-[11px]" style={{ color: 'hsl(var(--muted-foreground))' }}>{label}</span>
+    </span>
   )
 }

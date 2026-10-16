@@ -7,7 +7,9 @@
  */
 
 /** "agent-customer-support" / "agent_customer_support" / UUID → "Customer Support" */
-export function friendlyAgent(agentId: string | null | undefined): string {
+export function friendlyAgent(agentId: string | null | undefined, name?: string | null): string {
+  // The operator's name, when the gateway has one, beats any guess from the id.
+  if (name && name.trim()) return friendlyAgent(name.trim())
   if (!agentId) return 'Unknown agent'
 
   // UUID — keep a stable short suffix so two unnamed agents stay distinguishable

@@ -172,7 +172,8 @@ export function PoliciesView() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Policies</h1>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em]">Policies</h1>
+          <p className="mt-1.5 text-[14.5px]" style={{ color: MUTED }}>What is checked before every call, and which rules are actually firing.</p>
         </div>
         <div className="flex items-center gap-2">
           <button

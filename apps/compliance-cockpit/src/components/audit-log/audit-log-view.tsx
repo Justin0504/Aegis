@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/page-header'
+import { fmtWhen } from '@/lib/time'
 import { useQuery } from '@tanstack/react-query'
 import { gw } from '@/lib/gateway'
 import { FileText, Download, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react'
@@ -97,14 +99,51 @@ function renderDetails(d: string | Record<string, unknown> | null | undefined): 
 }
 
 function fmtTime(s: string): string {
-  try {
-    return new Date(s + (s.endsWith('Z') ? '' : 'Z')).toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    })
-  } catch {
-    return s
+  return fmtWhen(s)
+}
+
+/** What happened, in a sentence, for the actions the gateway writes most. */
+function describeAudit(action: string, d: any): string | null {
+  if (!d || typeof d !== 'object') return null
+  switch (action) {
+    case 'tenant.config.update': {
+      const L = d.layers ?? {}
+      const on = ['l1', 'l2', 'l3'].filter(k => L[k]?.enabled !== false && L[k] != null).map(k => k.toUpperCase())
+      const parts = [d.deploymentMode ? `deployment mode set to ${d.deploymentMode}` : null,
+                     on.length ? `${on.join(', ')} on` : null,
+                     d.retentionDays ? `retention ${d.retentionDays} days` : null].filter(Boolean)
+      return parts.length ? parts.join(' · ').replace(/^\w/, c => c.toUpperCase()) : 'Tenant configuration updated'
+    }
+    case 'judge.trace':
+      return d.kind === 'alignment'
+        ? `Alignment auditor scored ${Number(d.score ?? 0).toFixed(2)}${d.drifted ? ', drifted' : ''}${Array.isArray(d.signals) && d.signals.length ? ` (${d.signals.join(', ')})` : ''}`
+        : `Trace judged${d.score != null ? `: ${d.score}` : ''}`
+    case 'policy.toggle': return d.enabled ? 'Policy enabled' : 'Policy disabled'
+    case 'policy.create': return `Policy created${d.name ? `: ${d.name}` : ''}${d.risk_level ? ` (${String(d.risk_level).toLowerCase()})` : ''}`
+    case 'policy.delete': return 'Policy deleted'
+    case 'policy.pack_install': return `Pack ${d.name ?? ''} installed: ${d.created_count ?? 0} rules added${d.skipped_count ? `, ${d.skipped_count} kept as customised` : ''}`
+    case 'apikey.create': return `API key created${d.name ? `: ${d.name}` : ''}${d.prefix ? ` (${d.prefix}…)` : ''}`
+    case 'apikey.revoke': return 'API key revoked'
+    case 'apikey.regenerate': return 'API key regenerated'
+    case 'retention.update': return `Retention set to ${d.retention_days} days${d.enabled === false ? ' (disabled)' : ''}`
+    case 'retention.purge': return 'Expired traces purged'
+    case 'user.invite': return `Invited ${d.email ?? 'a user'}${d.role ? ` as ${d.role}` : ''}`
+    case 'user.create': return `User created${d.email ? `: ${d.email}` : ''}`
+    case 'user.update': return `User updated${Array.isArray(d.changed_keys) ? `: ${d.changed_keys.join(', ')}` : ''}`
+    case 'org.create': return `Organisation created${d.name ? `: ${d.name}` : ''}`
+    case 'admin.bulk_register': return `${d.succeeded ?? 0} of ${d.requested ?? 0} agents registered`
+    case 'rollback.compensate': return 'Rollback step executed'
+    case 'predeploy.scan': return 'Pre-deployment scan run'
+    case 'data.export': return 'Data exported'
+    default: return null
   }
+}
+
+/** Fallback: the top-level fields as "key value" pairs, never raw JSON. */
+function detailPairs(d: any): Array<[string, string]> {
+  if (!d || typeof d !== 'object') return []
+  return Object.entries(d).slice(0, 5).map(([k, v]) => [k.replace(/[_-]+/g, ' '),
+    typeof v === 'object' ? (Array.isArray(v) ? `${v.length} items` : 'details') : String(v)])
 }
 
 function csvEscape(v: unknown): string {
@@ -216,11 +255,7 @@ export function AuditLogView() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ color: TEXT }}>
-          Audit Log
-        </h1>
-      </div>
+      <PageHeader title="Audit Log" subtitle="Every change an operator made and every verdict a judge gave, hash-chained so it cannot be edited after the fact." />
 
       {/* Two-column row of compliance affordances: integrity verify
           (read-only check) + evidence-pack download (frozen snapshot
@@ -421,12 +456,16 @@ export function AuditLogView() {
                   <td className="px-3 py-1.5 align-top" style={{ color: MUTED }}>
                     {e.org_id ?? '—'}{e.user_email ? ` · ${e.user_email}` : ''}
                   </td>
-                  <td className="px-3 py-1.5 align-top font-mono text-[11px]" style={{ color: MUTED, maxWidth: '50ch' }}>
+                  <td className="px-3 py-1.5 align-top text-[12.5px]" style={{ color: TEXT, maxWidth: '60ch' }}>
                     {(() => {
-                      const detailsStr = renderDetails(e.details)
+                      const d = typeof e.details === 'string' ? (() => { try { return JSON.parse(e.details) } catch { return e.details } })() : e.details
+                      const sentence = describeAudit(e.action, d)
+                      if (sentence) return <span className="block truncate" title={renderDetails(e.details)}>{sentence}</span>
+                      const pairs = detailPairs(d)
+                      if (!pairs.length) return <span style={{ color: MUTED }}>{typeof d === 'string' ? d : '—'}</span>
                       return (
-                        <span className="block truncate" title={detailsStr}>
-                          {detailsStr}
+                        <span className="flex flex-wrap gap-x-3 gap-y-0.5" title={renderDetails(e.details)}>
+                          {pairs.map(([k, v]) => <span key={k}><span style={{ color: MUTED }}>{k}</span> {v}</span>)}
                         </span>
                       )
                     })()}

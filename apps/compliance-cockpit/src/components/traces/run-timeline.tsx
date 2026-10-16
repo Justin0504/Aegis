@@ -19,6 +19,7 @@ import { describeActivity } from '@/lib/activity-description'
 import { friendlyAgent } from '@/lib/friendly-names'
 import { BrandIcon } from '@/components/ui/brand-icon'
 import { ValueView } from '@/components/ui/value-view'
+import { fmtWhen } from '@/lib/time'
 
 const MUTED = 'hsl(var(--muted-foreground))'
 const TEXT = 'hsl(var(--foreground))'
@@ -87,7 +88,7 @@ function resultOf(obs: any): unknown {
  *  its first message; the agent id is secondary. */
 function runTitle(s: any): string {
   const r = typeof s?.request === 'string' ? s.request.trim() : ''
-  if (!r || /^[a-z_]+$/.test(r)) return friendlyAgent(s?.agent_id)
+  if (!r || /^[a-z_]+$/.test(r)) return friendlyAgent(s?.agent_id, s?.agent_name)
   return r.length > 70 ? r.slice(0, 68) + '\u2026' : r
 }
 
@@ -220,7 +221,7 @@ export function RunTimeline() {
                         style={{ background: active ? 'hsl(var(--secondary))' : undefined }}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13.5px] font-medium truncate" style={{ color: TEXT }}>{runTitle(s)}</span>
-                    <span className="text-[11.5px] flex-shrink-0" style={{ color: MUTED }}>{fmtTime(s.last_seen_at)}</span>
+                    <span className="text-[11.5px] flex-shrink-0" style={{ color: MUTED }}>{fmtWhen(s.last_seen_at)}</span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-1.5">
                     {tools.map(tn => <ToolIcon key={tn} name={tn} size={16} />)}
@@ -240,7 +241,7 @@ export function RunTimeline() {
         {current && (
           <header className="mb-5">
             <h3 className="text-[17px] font-semibold" style={{ color: TEXT }}>{runTitle(current)}</h3>
-            <p className="mt-0.5 text-[12.5px]" style={{ color: MUTED }}>{friendlyAgent(current.agent_id)}</p>
+            <p className="mt-0.5 text-[12.5px]" style={{ color: MUTED }}>{friendlyAgent(current.agent_id, current.agent_name)}</p>
             <p className="mt-1 text-[12.5px]" style={{ color: MUTED }}>
               {steps.length} steps · {counts.allow} allowed
               {counts.held ? ` · ${counts.held} held` : ''}

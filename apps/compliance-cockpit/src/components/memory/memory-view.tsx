@@ -20,6 +20,7 @@
  */
 
 import { useState } from 'react'
+import { PageHeader } from '@/components/ui/page-header'
 import {
   Brain, Users, EyeOff, AlertTriangle, Shield, ArrowRight,
 } from 'lucide-react'
@@ -64,12 +65,10 @@ export function MemoryView() {
       {/* Header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Memory &amp; Cross-Agent</h1>
-          <p className="text-sm mt-1" style={{ color: MUTED }}>
-            Signals that don&apos;t fit Activity, Approvals, or Violations —
-            tainted recall, undeclared agent-to-agent data crossings,
-            and PII that appears in tool arguments before any prompt
-            mentions it.
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em]">Memory</h1>
+          <p className="mt-1.5 text-[14.5px] max-w-[68ch]" style={{ color: MUTED }}>
+            Tainted recall, undeclared agent-to-agent data crossings, and personal data that
+            reaches a tool before any prompt mentioned it.
           </p>
         </div>
         <div className="flex gap-3 text-xs" style={{ color: MUTED }}>

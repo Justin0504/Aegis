@@ -285,13 +285,18 @@ export class AgentRegistryService {
    *  Optionally backfills provenance fields when the SDK reported them
    *  via X-AEGIS-Build-Artifact / X-AEGIS-Source-Commit and the row's
    *  provenance is still empty. */
-  touch(opts: { orgId: string; agentId: string; provenance?: { build_artifact?: string; source_commit?: string } }): void {
+  touch(opts: { orgId: string; agentId: string; name?: string; provenance?: { build_artifact?: string; source_commit?: string } }): void {
     try {
       const row = this.getRow(opts.agentId);
       if (row) {
         this.db.prepare(
           `UPDATE agents SET last_seen_at = datetime('now') WHERE id = ?`,
         ).run(opts.agentId);
+        // A name the SDK reports fills an empty label; an operator-set
+        // name is never overwritten.
+        if (opts.name && !row.name) {
+          this.db.prepare(`UPDATE agents SET name = ?, updated_at = datetime('now') WHERE id = ?`).run(opts.name, opts.agentId);
+        }
         // Backfill provenance fields if SDK reported them and we don't
         // have them yet. Operator-set provenance is never overwritten.
         if (opts.provenance && !row.provenance) {
@@ -315,9 +320,9 @@ export class AgentRegistryService {
           })
         : null;
       const result = this.db.prepare(
-        `INSERT OR IGNORE INTO agents (id, org_id, status, last_seen_at, provenance)
-         VALUES (?, ?, 'unregistered', datetime('now'), ?)`,
-      ).run(opts.agentId, opts.orgId, prov);
+        `INSERT OR IGNORE INTO agents (id, org_id, status, last_seen_at, provenance, name)
+         VALUES (?, ?, 'unregistered', datetime('now'), ?, ?)`,
+      ).run(opts.agentId, opts.orgId, prov, opts.name ?? null);
       if (result.changes > 0) {
         this.applyTierOverflow(opts.orgId, opts.agentId);
         // Emit first-sighting event on the in-process bus. Wrapped in a

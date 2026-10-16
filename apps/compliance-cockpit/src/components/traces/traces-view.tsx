@@ -88,8 +88,8 @@ export function TracesView() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
-          <p className="text-muted-foreground">Every agent run, step by step: what it was asked, what it did, and what AEGIS decided.</p>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em]">Activity</h1>
+          <p className="mt-1.5 text-[14.5px] max-w-[68ch]" style={{ color: 'hsl(var(--muted-foreground))' }}>Every agent run, step by step: what it was asked, what it did, and what AEGIS decided.</p>
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -1,3 +1,4 @@
+import { fmtWhen } from './time'
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -13,15 +14,7 @@ export function cn(...inputs: ClassValue[]) {
  * error on SSR. Explicit fields produce the same output everywhere.
  */
 export function formatDate(date: string | Date) {
-  const d = new Date(date)
-  const month = d.toLocaleString('en-US', { month: 'short' })
-  const day   = d.getDate()
-  const year  = d.getFullYear()
-  let hour    = d.getHours()
-  const min   = d.getMinutes().toString().padStart(2, '0')
-  const ampm  = hour >= 12 ? 'PM' : 'AM'
-  hour = hour % 12 || 12
-  return `${month} ${day}, ${year} at ${hour}:${min} ${ampm}`
+  return fmtWhen(date)
 }
 
 export function getRiskLevelColor(level: string) {

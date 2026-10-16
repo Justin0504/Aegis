@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { PageHeader } from '@/components/ui/page-header'
 import { useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
@@ -72,9 +73,7 @@ export function ApprovalsView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Approvals</h1>
-      </div>
+      <PageHeader title="Approvals" subtitle="Calls AEGIS held for a person. The agent is paused until you decide; the evidence is on the card." />
 
       {/* Blocking mode — real-time pending checks (PRIMARY) */}
       <div className="rounded-xl border p-5" style={{ borderColor: 'hsl(var(--border))', background: 'hsl(var(--card))' }}>
@@ -201,7 +200,7 @@ export function ApprovalsView() {
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold" style={{ color: TEXT }}>
-                          {friendlyAgent(trace.agent_id)}
+                          {friendlyAgent(trace.agent_id, trace.agent_name)}
                         </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide border" style={{
                           background: 'transparent',

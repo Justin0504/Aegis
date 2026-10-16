@@ -84,6 +84,9 @@ def replay(gw: str, key: str, path: Path, keep_pending: bool) -> dict:
                     inst._note_decision(name, args, dict(r, decision="pending"))
                     if not keep_pending:
                         inst._resolve_hold(name, False, r.get("reason"))
+                        if r.get("check_id"):  # the gateway's hold ends too, as a timeout would end it
+                            client.patch(f"{gw}/api/v1/check/{r['check_id']}", headers=h,
+                                         json={"decision": "block", "decided_by": "timeout"})
                 else:
                     out["block"] += dec == "block"
                     inst._note_decision(name, args, r)

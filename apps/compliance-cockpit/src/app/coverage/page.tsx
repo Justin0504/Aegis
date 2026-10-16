@@ -8,8 +8,8 @@ export default function CoveragePage() {
     <DashboardLayout>
       <div className="space-y-8">
         <header>
-          <h1 className="text-3xl font-bold tracking-tight">Security 360</h1>
-          <p className="mt-1 text-[15px]" style={{ color: 'hsl(var(--muted-foreground))' }}>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em]">Security 360</h1>
+          <p className="mt-1.5 text-[14.5px] max-w-[68ch]" style={{ color: 'hsl(var(--muted-foreground))' }}>
             Every way an agent can be turned against you, and whether this deployment covers it right now.
           </p>
         </header>

@@ -37,7 +37,7 @@ export function RecentTraces() {
               {describeActivity(trace).text || traceSummary(trace)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {friendlyAgent(trace.agent_id)} · {formatDate(trace.timestamp)}
+              {friendlyAgent(trace.agent_id, trace.agent_name)} · {formatDate(trace.timestamp)}
             </p>
           </div>
           {(() => {

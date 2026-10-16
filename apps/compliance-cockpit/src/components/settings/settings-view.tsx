@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { PageHeader } from '@/components/ui/page-header'
 import { AlertRules } from './alert-rules'
 import { DeploymentMode } from './deployment-mode'
 import { LicensePanel } from './license-panel'
@@ -246,10 +247,7 @@ export function SettingsView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p style={{ color: MUTED }}>Gateway configuration, alert rules, and SDK setup</p>
-      </div>
+      <PageHeader title="Settings" subtitle="License, deployment mode, alert rules and SDK setup." />
 
       {/* License activation — paid tier unlock via aegistraces.com */}
       <Section title="License">

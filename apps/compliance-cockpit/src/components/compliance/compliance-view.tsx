@@ -124,7 +124,10 @@ export function ComplianceView() {
     <div style={{ color: TEXT }} className="space-y-6">
       {/* Header */}
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Compliance</h1>
+        <div>
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.02em]">Compliance</h1>
+          <p className="mt-1.5 text-[14.5px]" style={{ color: MUTED }}>Control-by-control evidence, generated from the audit chain and signed for hand-off.</p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => bundleM.mutate(framework)}
@@ -246,7 +249,7 @@ export function ComplianceView() {
 
               {/* Collapsible: evidence JSON */}
               <Section
-                title="evidence"
+                title="Evidence"
                 icon={<Hash className="h-3 w-3" />}
                 open={expanded === 'evidence'}
                 onToggle={() => setExpanded(expanded === 'evidence' ? null : 'evidence')}
@@ -266,7 +269,7 @@ export function ComplianceView() {
           {bundle && (
             <div className="rounded border" style={{ borderColor: BORDER, background: BG }}>
               <Section
-                title="signature"
+                title="Signature"
                 icon={<Stamp className="h-3 w-3" />}
                 open={expanded === 'signature'}
                 onToggle={() => setExpanded(expanded === 'signature' ? null : 'signature')}
@@ -295,7 +298,7 @@ export function ComplianceView() {
 
               {/* Verify recipe — copyable */}
               <Section
-                title="verify offline"
+                title="Verify offline"
                 icon={<Hash className="h-3 w-3" />}
                 open={expanded === 'curl'}
                 onToggle={() => setExpanded(expanded === 'curl' ? null : 'curl')}

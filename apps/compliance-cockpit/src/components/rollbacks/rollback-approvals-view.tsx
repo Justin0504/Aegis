@@ -18,6 +18,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { PageHeader } from '@/components/ui/page-header'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Clock, CheckCircle2, XCircle, AlertTriangle, Sparkles, ShieldAlert, ListTree } from 'lucide-react'
@@ -131,17 +132,8 @@ export function RollbackApprovalsView() {
   }
 
   return (
-    <div style={{ maxWidth: 1120, margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
-      <header style={{ marginBottom: '1.4rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0, color: TEXT, letterSpacing: '-0.01em' }}>
-          Rollback approvals
-        </h1>
-        <p style={{ margin: '0.35rem 0 0', color: MUTED, fontSize: '0.9rem', lineHeight: 1.55, maxWidth: '70ch' }}>
-          Sagas paused waiting on human approval before compensating.
-          Any rollback whose compensator is <b>high-cost</b> or whose origin
-          is <b>Ring-3 (LLM decision)</b> lands here.
-        </p>
-      </header>
+    <div>
+      <PageHeader title="Rollbacks" subtitle={<>Undo steps waiting for a person before they run. Any rollback that is <b>costly to compensate</b> or that an <b>LLM decided</b> on its own lands here.</>} />
 
       {/* Summary strip */}
       <div style={{
@@ -150,14 +142,12 @@ export function RollbackApprovalsView() {
         border: `1px solid ${BORDER}`, marginBottom: '1.2rem',
         fontSize: '0.86rem', color: MUTED,
       }}>
-        <span style={{ color: TEXT }}><b>{sagas.length}</b> pending</span>
+        <span style={{ color: TEXT }}><b>{sagas.length}</b> waiting</span>
         <span>·</span>
-        <span>{sagas.filter(s => s.origin_ring === 3).length} Ring-3 (LLM origin)</span>
+        <span>{sagas.filter(s => s.origin_ring === 3).length} decided by an LLM</span>
         <span>·</span>
-        <span>{sagas.filter(s => (s.pause_reason ?? '').startsWith('high-cost')).length} high-cost compensator</span>
-        <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, monospace', fontSize: '0.78rem' }}>
-          auto-refresh 5s
-        </span>
+        <span>{sagas.filter(s => (s.pause_reason ?? '').startsWith('high-cost')).length} costly to undo</span>
+        <span style={{ marginLeft: 'auto', fontSize: '0.78rem' }}>refreshes every 5 s</span>
       </div>
 
       {isLoading && <p style={{ color: MUTED, fontSize: '0.9rem' }}>Loading paused sagas…</p>}
@@ -171,10 +161,10 @@ export function RollbackApprovalsView() {
           padding: '3rem 1.5rem', textAlign: 'center', border: `1px dashed ${BORDER}`,
           borderRadius: 12, color: MUTED,
         }}>
-          <CheckCircle2 size={26} style={{ color: 'hsl(var(--accent-positive, 150 32% 42%))', marginBottom: '0.4rem' }} />
-          <p style={{ margin: 0, fontSize: '0.95rem' }}>No pending rollback approvals.</p>
+          <CheckCircle2 size={26} style={{ color: 'hsl(var(--accent-positive, 150 32% 42%))', margin: '0 auto 0.5rem', display: 'block' }} />
+          <p style={{ margin: 0, fontSize: '0.95rem', color: TEXT, fontWeight: 500 }}>Nothing waiting to be undone</p>
           <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem' }}>
-            Any high-cost or LLM-originated rollback will surface here.
+            A rollback that is costly to undo, or that an LLM decided on its own, pauses here for a person.
           </p>
         </div>
       )}
@@ -348,9 +338,7 @@ export function RollbackApprovalsView() {
 
       <footer style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: `1px solid ${BORDER}`, color: MUTED, fontSize: '0.8rem' }}>
         <p style={{ margin: 0 }}>
-          Every approve / reject writes an audited{' '}
-          <code style={{ background: BG, padding: '0.05em 0.35em', borderRadius: 3 }}>saga_step</code>
-          {' '}row with the approver's identity. Approvals fire the compensator immediately.
+          Every approve or reject is written to the audit log with the approver's identity. An approval runs the undo step immediately.
         </p>
       </footer>
 

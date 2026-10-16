@@ -57,6 +57,12 @@ function inferOperation(toolName: string, toolCall: any): 'chat' | 'text_complet
 // `services/ → api/` layering violation the old definition caused.
 export { computeContentHash };
 
+/** The operator's agent name, if the SDK sent one beside the UUID. */
+function agentNameOf(raw: any): string | null {
+  const n = raw?.agent_name ?? raw?.metadata?.agent_name;
+  return typeof n === 'string' && n.trim() && n.length <= 200 ? n.trim() : null;
+}
+
 export class TraceAPI {
   public readonly router: Router;
 
@@ -120,15 +126,19 @@ export class TraceAPI {
   /** Record the sighting so the agents table, last_seen_at, and the
    *  first-sighting event bus all stay in sync with the trace ingest
    *  hot path. Provenance gets backfilled from SDK headers when present. */
-  private noteSighting(req: Request, agentId: string): void {
+  private noteSighting(req: Request, agentId: string, agentName?: string | null): void {
     if (!this.agentRegistry) return;
+    // The SDK keys /check on the operator's agent name and the trace
+    // schema on a UUID derived from it. Registering the trace sighting
+    // under the name keeps one registry row per agent instead of two.
+    if (agentName) agentId = agentName;
     const orgId = (req as any).orgId ?? 'default';
     const buildArtifact = req.headers['x-aegis-build-artifact'] as string | undefined;
     const sourceCommit  = req.headers['x-aegis-source-commit']  as string | undefined;
     const provenance = (buildArtifact || sourceCommit)
       ? { build_artifact: buildArtifact, source_commit: sourceCommit }
       : undefined;
-    this.agentRegistry.touch({ orgId, agentId, provenance });
+    this.agentRegistry.touch({ orgId, agentId, name: agentName ?? undefined, provenance });
   }
 
   private setupRoutes() {
@@ -147,7 +157,7 @@ export class TraceAPI {
         }
 
         await this.storeTrace(trace, req.body, this.ingestOrgId(req));
-        this.noteSighting(req, trace.agent_id as string);
+        this.noteSighting(req, trace.agent_id as string, agentNameOf(req.body));
         res.status(201).json({ trace_id: trace.trace_id });
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -171,7 +181,7 @@ export class TraceAPI {
           for (const { parsed, raw } of rows) this.insertTrace(parsed, raw, ingestOrg);
         });
         transaction(validTraces);
-        for (const { parsed } of validTraces) this.noteSighting(req, parsed.agent_id as string);
+        for (const { parsed, raw } of validTraces) this.noteSighting(req, parsed.agent_id as string, agentNameOf(raw));
         res.status(201).json({ created: validTraces.length, trace_ids: validTraces.map(({ parsed }) => parsed.trace_id) });
       } catch (error) {
         this.logger.error({ error }, 'Failed to create batch traces');
@@ -543,6 +553,7 @@ export class TraceAPI {
           SELECT
             session_id,
             agent_id,
+            MAX(agent_name) as agent_name,
             COUNT(*) as trace_count,
             MIN(timestamp) as started_at,
             MAX(timestamp) as last_seen_at,
@@ -792,7 +803,8 @@ export class TraceAPI {
         session_id, pii_detected, content_hash,
         delegation_id, parent_delegation_id, org_id,
         workflow_node_id, workflow_binding_id,
-        parent_agent_id, delegation_reason, capability_grant, a2a_envelope_hash
+        parent_agent_id, delegation_reason, capability_grant, a2a_envelope_hash,
+        agent_name
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
@@ -803,7 +815,8 @@ export class TraceAPI {
         ?, ?, ?,
         ?, ?, ?,
         ?, ?,
-        ?, ?, ?, ?
+        ?, ?, ?, ?,
+        ?
       )
     `).run(
       String(trace.trace_id),
@@ -840,6 +853,7 @@ export class TraceAPI {
       delegationReason,
       capabilityGrant,
       a2aEnvelopeHash,
+      agentNameOf(raw),
     );
 
     // Emit OTEL span async, non-blocking

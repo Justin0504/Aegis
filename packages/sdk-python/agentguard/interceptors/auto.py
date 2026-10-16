@@ -317,7 +317,7 @@ class AutoInstrument:
             "passed":     decision != "block",
             "risk_level": result.get("risk_level", "LOW"),
             "approval":   {"allow": "AUTO_APPROVED", "pending": "PENDING_APPROVAL"}.get(decision, "REJECTED"),
-            "reason":     result.get("reason") if decision == "block" else None,
+            "reason":     result.get("reason") if decision in ("block", "pending") else None,
             "check_id":   result.get("check_id"),
         }
 
@@ -2202,13 +2202,17 @@ class AutoInstrument:
                 integrity_hash=integrity_hash,
             )
 
+            # Beside the schema's UUID, the operator's name for the agent —
+            # the identity /check, policies and the Cockpit key on — so the
+            # gateway registers one agent, not a name and a UUID.
+            trace_dict = trace.model_dump(mode="json")
             session_id = getattr(cfg, 'session_id', None)
             if session_id:
-                trace_dict = trace.model_dump(mode="json")
                 trace_dict['session_id'] = session_id
-                self._guard._transport.send_trace_dict(trace_dict)
-            else:
-                self._guard._transport.send_trace(trace)
+            name = cfg.agent_id if cfg.agent_id and cfg.agent_id != str(self._guard._agent_uuid) else None
+            if name:
+                trace_dict['agent_name'] = name
+            self._guard._transport.send_trace_dict(trace_dict)
 
             self._guard._previous_hash = integrity_hash
 

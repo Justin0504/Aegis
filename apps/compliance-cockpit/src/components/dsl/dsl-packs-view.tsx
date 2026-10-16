@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/page-header'
 import { toast } from 'sonner'
 import {
   Loader2, ShieldCheck, ChevronDown, ChevronRight, FileText, Download, Check, AlertTriangle,
@@ -51,6 +52,12 @@ const DECISION_STYLE: Record<'allow' | 'pending' | 'block',
   allow:   { fg: 'hsl(150 24% 32%)', bg: 'hsl(150 30% 92%)', label: 'allow'   },
   pending: { fg: 'hsl(36 28% 38%)',  bg: 'hsl(36 45% 90%)',  label: 'pending' },
   block:   { fg: 'hsl(0 42% 40%)',   bg: 'hsl(0 28% 92%)',   label: 'block'   },
+}
+
+const PACK_TITLES: Record<string, string> = {
+  'bfsi-glba': 'GLBA Safeguards', 'bfsi-pci-dss': 'PCI DSS v4.0', 'bfsi-sox': 'Sarbanes-Oxley', 'bfsi-dora': 'EU DORA',
+  'healthcare-hipaa': 'HIPAA', 'gov-fedramp': 'FedRAMP Moderate', 'fintech-agent-payments': 'Agent payments',
+  'security-instruction-provenance': 'Instruction provenance',
 }
 
 export function DslPacksView() {
@@ -141,17 +148,8 @@ export function DslPacksView() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold" style={{ color: TEXT }}>
-          Compliance Policy Packs
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: MUTED }}>
-          One-click regulation-aligned DSL rule sets. Applying a pack MERGES its rules
-          into your current tenant DSL — rules you have already customised (same name)
-          are preserved.
-        </p>
-      </div>
+    <div>
+      <PageHeader title="Policy Packs" subtitle="Rule sets written to a regulation, applied in one click. A pack merges into your rules; anything you already customised with the same name is kept." />
 
       {groups.map(([vertical, list]) => (
         <div key={vertical} className="mb-8">
@@ -173,10 +171,10 @@ export function DslPacksView() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4" style={{ color: ACCENT }} />
-                        <span className="font-mono text-sm font-medium"
-                              style={{ color: TEXT }}>
-                          {p.name}
+                        <span className="text-[15px] font-semibold" style={{ color: TEXT }}>
+                          {PACK_TITLES[p.name] ?? (p as any).title ?? p.name}
                         </span>
+                        <span className="font-mono text-[11px]" style={{ color: MUTED }}>{p.name}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded"
                               style={{ color: MUTED, backgroundColor: CODE_BG, fontFamily: MONO }}>
                           {p.rule_count} rule{p.rule_count === 1 ? '' : 's'}
@@ -221,7 +219,7 @@ export function DslPacksView() {
                         <button onClick={() => setConfirming(p.name)}
                           className="text-xs px-2 py-1 rounded font-medium"
                           style={{ backgroundColor: ACCENT, color: 'white' }}>
-                          <Download className="h-3 w-3 inline mr-1" /> Apply to tenant
+                          <Download className="h-3 w-3 inline mr-1" /> Apply
                         </button>
                       )}
                     </div>

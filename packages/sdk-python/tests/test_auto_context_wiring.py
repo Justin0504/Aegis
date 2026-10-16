@@ -98,3 +98,19 @@ def test_gemini_content_parts_are_classified():
 
 def test_bare_string_contents_is_the_principal():
     assert [s.channel for s in derive_spans(AutoInstrument._messages_from_contents("do the thing"))] == ["user"]
+
+
+def test_traces_carry_the_agent_name_beside_the_uuid(monkeypatch):
+    """/check is keyed on the operator's agent name and the trace schema on a
+    UUID derived from it; the trace must say which name it belongs to, or
+    the gateway registers two agents."""
+    from agentguard import AgentGuard
+    from agentguard.core.config import AgentGuardConfig
+    from agentguard.interceptors.auto import AutoInstrument
+    guard = AgentGuard(AgentGuardConfig(gateway_url="http://gw.test", agent_id="billing-agent",
+                                        enable_signing=False, enable_async=False))
+    sent = {}
+    monkeypatch.setattr(guard._transport, "send_trace_dict", lambda d: sent.update(d) or True)
+    AutoInstrument(guard)._send_trace(tool_name="t", input_prompt="p", arguments={}, result="ok", start_time=0.0, error=None)
+    assert sent["agent_name"] == "billing-agent"
+    assert sent["agent_id"] == str(guard._agent_uuid)

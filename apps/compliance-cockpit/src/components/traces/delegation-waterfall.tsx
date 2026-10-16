@@ -171,7 +171,7 @@ export function DelegationWaterfall({ traceId, onSelectTrace }: Props) {
                   {hop.tool_name ?? '(unknown)'}
                 </span>
                 <span className="text-[10px]" style={{ color: MUTED }}>
-                  {friendlyAgent(hop.agent_id).slice(0, 14)}
+                  {friendlyAgent(hop.agent_id, (hop as any).agent_name).slice(0, 14)}
                 </span>
                 <span className="ml-auto text-[10px] tabular-nums" style={{ color: MUTED }}>
                   {hop.duration_ms != null ? `${Math.round(hop.duration_ms)}ms` : ''}

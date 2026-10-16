@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { PageHeader } from '@/components/ui/page-header'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
@@ -187,12 +188,7 @@ function EmptyState() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Real-time monitoring of AI agent activities and compliance
-        </p>
-      </div>
+      <PageHeader title="Overview" subtitle="What your agents are doing right now, and what AEGIS stopped." />
 
       <div
         className="rounded-lg p-8 md:p-10 text-center space-y-4"
@@ -392,12 +388,8 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <div className="w-80 flex-shrink-0">
-          <GlobalSearch />
-        </div>
-      </div>
+      <PageHeader title="Overview" subtitle="What your agents are doing right now, and what AEGIS stopped."
+        actions={<div className="w-80"><GlobalSearch /></div>} />
 
       <UpsellBanner />
 

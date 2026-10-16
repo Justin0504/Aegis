@@ -242,7 +242,7 @@ export function TracesList({ traces, selectedTrace, onSelectTrace, onSelectAgent
           const isActive = selectedTrace === trace.trace_id
           const isNew    = newIds.current.has(trace.trace_id)
 
-          const agentLabel = friendlyAgent(trace.agent_id)
+          const agentLabel = friendlyAgent(trace.agent_id, trace.agent_name)
           const decision   = friendlyDecision(trace.decision, hasError)
           const risk       = friendlyRisk(trace.risk_level)
           const pill       = PILL[decision.tone]
