@@ -507,8 +507,16 @@ export class CheckAPI {
             dslPending ? (dslMatch?.ruleName ?? null) : null,
             (() => {
               const ev = this.contextLedgers?.evidence(requestOrgId ?? "default", body.session_id, body.arguments as Record<string, unknown>)
+              if (!ev) return null
               const prov = this.contextLedgers?.assess(requestOrgId ?? "default", body.session_id, body.tool_name, body.arguments as Record<string, unknown>)
-              return ev ? JSON.stringify({ ...ev, authorised_by: prov?.authorised_by ?? null, authority_margin: prov?.authority_margin ?? null }) : null
+              // What the agent read is evidence only when provenance is why the
+              // call is held: a provenance rule fired, or a value in the call
+              // came from tool output. A hold on a plain rule (a kubectl
+              // delete, a message to a channel) shows the person's request and
+              // the call; attaching the last tool result would be a red herring.
+              const provenanceHold = (dslPending && /^provenance-/.test(dslMatch?.ruleName ?? '')) || ev.untrusted_only_values.length > 0
+              return JSON.stringify({ ...ev, excerpts: provenanceHold ? ev.excerpts : [],
+                                      authorised_by: prov?.authorised_by ?? null, authority_margin: prov?.authority_margin ?? null })
             })(),
           )
 

@@ -9,6 +9,9 @@
 # Cockpit is started fresh after the gateway, because a Cockpit that
 # outlives a gateway restart comes back with empty panels.
 set -euo pipefail
+# Browsers live inside js/node_modules (installed with PLAYWRIGHT_BROWSERS_PATH=0),
+# so a cache clean-up cannot remove them between captures.
+export PLAYWRIGHT_BROWSERS_PATH=0
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 SRC=${1:-$(ls -t /tmp/aegis-compat-main-*.db | head -1)}

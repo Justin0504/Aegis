@@ -18,8 +18,9 @@ traces, holds, blocks and chains on them are the matrix's. The capture is script
 starts the shipping gateway and Cockpit on it, runs one pre-deployment
 scan of the demonstration agent and one alignment audit so that those
 two views show a result, and photographs every view. The alignment
-auditor ran on a local model (Qwen2.5-7B through Ollama), the
-deployment the fallback of \S\ref{sec:fallback} describes. The interface
+auditor ran on a local model (qwen3:8b through Ollama, the model of
+\S\ref{sec:agentdojo}), the deployment the fallback of
+\S\ref{sec:fallback} describes. The interface
 uses one typeface and no colour except where it carries a decision: red
 for a block, amber for a hold, black for the primary action. The
 overview is Figure~\ref{fig:dashboard}.
@@ -93,6 +94,28 @@ overview is Figure~\ref{fig:dashboard}.
 
 \begin{figure}[H]
     \centering
+    \includegraphics[width=\columnwidth]{images/ui/dsl-packs.png}
+    \caption{Policy packs: rule sets written to a regulation---GLBA, PCI
+    DSS v4.0, SOX, DORA, FedRAMP, HIPAA---and the instruction-provenance
+    pack of \S\ref{sec:provenance}, each citing the clauses it implements,
+    applied in one click. A pack merges into the tenant's rules; a rule the
+    operator has customised under the same name is kept.}
+    \label{fig:ui-packs}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/settings.png}
+    \caption{Settings: the licence, which decides what unlocks
+    (\S\ref{sec:availability}), and the deployment mode---\emph{dev},
+    \emph{standard}, \emph{strict}, \emph{financial}, \emph{healthcare}---each
+    a preset of which layers run, what is held for a person, and how long
+    traces are kept. Changes hot-reload; the gateway is not restarted.}
+    \label{fig:ui-settings}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
     \includegraphics[width=\columnwidth]{images/ui/alignment.png}
     \caption{Alignment auditor (\S\ref{sec:judge}): a declared goal, the
     thought chain and a proposed call, scored by a local model in 8.9\,s
@@ -140,3 +163,64 @@ overview is Figure~\ref{fig:dashboard}.
     agent threat ontology.}
     \label{fig:ui-coverage}
 \end{figure}
+
+\subsection{The demonstration, as photographed}
+\label{app:demo-shots}
+
+Figure~\ref{fig:demo} crops these. They are the live demonstration agent
+of \S\ref{sec:demo} (Claude Haiku 4.5, the two-line integration shown
+there) driven exactly as an attendee drives it, by typing the scenario's
+prompt into its chat page
+(\texttt{research/compat/shoot\_demo\_flow.sh}), and the Cockpit beside
+it. Nothing in a transcript is edited; the model does not emit the S2
+call on every turn, and a turn that produced no tool call is reset and
+retried.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/demo/agent-S1.png}
+    \caption{S1, the agent's own page: a benign \texttt{query\_database}
+    call allowed and answered. The turn completes at its normal speed with
+    the gateway in the path.}
+    \label{fig:demo-s1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/demo/agent-S2.png}
+    \caption{S2, the agent's own page: asked for a routine install, the
+    agent emits \texttt{curl \ldots | sh}; the call is blocked at L1 and
+    the refusal returns as the tool's result, so the agent explains what
+    happened and proposes two alternatives rather than failing.}
+    \label{fig:demo-s2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/demo/approvals-s3.png}
+    \caption{S3, the Cockpit's Approvals page photographed while the agent
+    is suspended: the held \texttt{kubectl delete}, the rule that held it,
+    the attendee's request, the command as a field, and the two buttons.
+    A second person presses Allow and the agent resumes within one
+    polling cycle.}
+    \label{fig:demo-s3-cockpit}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/demo/agent-S3.png}
+    \caption{S3, the agent's own page after the approval: the held call
+    shows as approved, the (simulated) command ran, and the agent reports
+    what happened.}
+    \label{fig:demo-s3-agent}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/demo/cockpit/traces.png}
+    \caption{The demonstration session in the Cockpit's Activity view:
+    the three scenarios as one run, each step with its verdict---allowed,
+    blocked, held then allowed---and its latency.}
+    \label{fig:demo-activity}
+\end{figure}
+

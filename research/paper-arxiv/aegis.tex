@@ -1258,6 +1258,10 @@ the same script with \texttt{AD\_MODEL=qwen3:8b}, \texttt{AD\_BASE\_URL}
 pointing at a local OpenAI-compatible server and \texttt{AD\_TAG=-qwen3},
 then \texttt{make\_table\_qwen.py}, for Table~\ref{tab:agentdojo-qwen};
 \texttt{node research/perf/loadtest.mjs} for Table~\ref{tab:overhead};
+\texttt{research/compat/shoot\_demo\_flow.sh} runs the three scenarios of
+\S\ref{sec:demo} on the live agent and photographs them, and
+\texttt{shoot\_replay.sh} replays AgentDojo transcripts through the SDK
+and gateway for the Cockpit views of Appendix~\ref{app:ui};
 \texttt{python -m selective.provenance\_gateway\_eval} and
 \texttt{selective.same\_tool\_probe} for the gateway rows of
 Table~\ref{tab:results} and the same-tool probe;

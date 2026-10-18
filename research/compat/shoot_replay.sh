@@ -9,6 +9,9 @@
 # with their evidence. Transcripts: qwen3:8b, final configuration
 # (research/agentdojo/results/logs/local-qwen3-8b-aegis_v3_audit).
 set -euo pipefail
+# Browsers live inside js/node_modules (installed with PLAYWRIGHT_BROWSERS_PATH=0),
+# so a cache clean-up cannot remove them between captures.
+export PLAYWRIGHT_BROWSERS_PATH=0
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 OUT=${1:-$REPO/research/paper-arxiv/images/ui}

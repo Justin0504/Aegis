@@ -35,6 +35,11 @@ CROPS = ROOT / "figures_src" / "crops"
 # Fractional box of images/agent-s2.png to show: set after looking at the
 # screenshot (the blocked tool card plus the opening of the reply).
 S2_CROP = (0.20, 0.12, 0.80, 0.47)
+# Fractional boxes of images/demo/approvals-s3.png: the held card's head
+# (what the agent wants to run, who, why it is held) and its foot (the two
+# buttons the second attendee chooses between).
+S3_HEAD = (0.19, 0.228, 0.97, 0.356)
+S3_FOOT = (0.19, 0.566, 0.97, 0.630)
 
 ICONS = {
     "ok":      "tabler:circle-check",
@@ -137,7 +142,7 @@ def build() -> Scene:
     # Crop of the live demo agent's chat page (research/compat/js/shoot_demo.mjs):
     # the blocked tool card and the first lines of the agent's reply.
     sc.add(Image(x + 15, 133,
-                 str(crop("agent-s2.png", S2_CROP)),
+                 str(crop("demo/agent-S2.png", S2_CROP)),
                  w=col - 30, h=196, fit="meet"))
     sc.add(Text(x + 14, 346, "the agent's own conversation, unretouched",
                 size=11, color=P.INK_SOFT, italic=True))
@@ -153,10 +158,13 @@ def build() -> Scene:
     sc.code(x + 12, 94, col - 24, 28, "policy: require_approval", size=11.5)
     sc.add(Box(x + 12, 130, col - 24, 102, fill=P.WHITE, stroke=P.STROKE_SOFT,
                radius=7))
-    # Crop of the Cockpit's Approvals page (images/ui/approvals.png): the
-    # first held card, its arguments, and the Block / Allow buttons.
-    sc.add(Image(x + 15, 133, str(crop("ui/approvals.png", (0.19, 0.20, 0.97, 0.44))),
-                 w=col - 30, h=96, fit="meet"))
+    # Crop of the Cockpit's Approvals page photographed while the S3 call
+    # was held (images/demo/approvals-s3.png, research/compat/shoot_demo_flow.sh):
+    # the held kubectl delete with its evidence and the Block / Allow buttons.
+    sc.add(Image(x + 15, 133, str(crop("demo/approvals-s3.png", S3_HEAD)),
+                 w=col - 30, h=52, fit="meet"))
+    sc.add(Image(x + 15, 187, str(crop("demo/approvals-s3.png", S3_FOOT)),
+                 w=col - 30, h=42, fit="meet"))
     sc.add(Text(x + 14, 246, "the held call \u2014 a second person presses one",
                 size=11, color=P.INK_SOFT, italic=True))
 

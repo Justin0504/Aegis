@@ -218,13 +218,40 @@ def derive_spans(messages: Any) -> list[ContextSpan]:
     """
     if not isinstance(messages, Sequence) or isinstance(messages, (str, bytes)):
         return []
+    # A tool result names its call by id, not by tool; the assistant turn
+    # that issued the call has both. Resolve the id so the ledger records
+    # the tool the text came from ("read_file"), which is what a reviewer
+    # is shown, rather than "toolu_01…".
+    names = _tool_names_by_id(messages)
     out: list[ContextSpan] = []
     for message in messages:
         try:
-            out.extend(_spans_from_message(message))
+            for span in _spans_from_message(message):
+                if span.channel == "untrusted" and span.source in names:
+                    span = ContextSpan(span.channel, span.text, names[span.source])
+                out.append(span)
         except Exception:  # noqa: BLE001
             # One malformed message must not cost the whole ledger. The
             # result is less context, which degrades to a weaker verdict,
             # never to a wrong one.
             continue
     return out
+
+
+def _tool_names_by_id(messages: Any) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for message in messages:
+        try:
+            content = message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
+            if not isinstance(content, (list, tuple)):
+                continue
+            for block in content:
+                if _block_type(block) not in ("tool_use", "function_call"):
+                    continue
+                bid = block.get("id") if isinstance(block, dict) else getattr(block, "id", None)
+                name = block.get("name") if isinstance(block, dict) else getattr(block, "name", None)
+                if isinstance(bid, str) and isinstance(name, str):
+                    names[bid] = name
+        except Exception:  # noqa: BLE001
+            continue
+    return names

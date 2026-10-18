@@ -178,7 +178,7 @@ function HeldCallCard({ check, loading, onDecide }: {
 
       {/* the evidence: what was asked, and what the agent read */}
       {ev && (
-        <div className="grid md:grid-cols-2 gap-3 px-5 pb-4">
+        <div className={`grid gap-3 px-5 pb-4 ${(ev.excerpts ?? []).length ? 'md:grid-cols-2' : ''}`}>
           <section className="rounded-xl border p-3.5" style={{ borderColor: BORDER }}>
             <h4 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: MUTED }}>
               <User className="h-3.5 w-3.5" /> The person asked
@@ -187,6 +187,7 @@ function HeldCallCard({ check, loading, onDecide }: {
               {ev.user_request ? `\u201c${ev.user_request}\u201d` : <span style={{ color: MUTED }}>No request was reported for this session.</span>}
             </p>
           </section>
+          {(ev.excerpts ?? []).length > 0 && (
           <section className="rounded-xl border p-3.5" style={{ borderColor: BORDER }}>
             <h4 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: MUTED }}>
               <FileText className="h-3.5 w-3.5" /> The agent read
@@ -204,6 +205,7 @@ function HeldCallCard({ check, loading, onDecide }: {
               </div>
             ))}
           </section>
+          )}
         </div>
       )}
 

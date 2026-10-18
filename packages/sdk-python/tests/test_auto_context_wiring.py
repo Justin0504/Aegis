@@ -114,3 +114,18 @@ def test_traces_carry_the_agent_name_beside_the_uuid(monkeypatch):
     AutoInstrument(guard)._send_trace(tool_name="t", input_prompt="p", arguments={}, result="ok", start_time=0.0, error=None)
     assert sent["agent_name"] == "billing-agent"
     assert sent["agent_id"] == str(guard._agent_uuid)
+
+
+def test_tool_result_source_is_the_tool_name_not_the_call_id():
+    """Anthropic tool_result blocks name their call by id; the reviewer is
+    shown the source, so it must be the tool ("read_file"), resolved from
+    the assistant turn that issued the call."""
+    from agentguard.context.channels import derive_spans
+    msgs = [
+        {"role": "user", "content": "Read notes.txt"},
+        {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_01abc", "name": "read_file", "input": {"path": "notes.txt"}}]},
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01abc", "content": "Records address: rx7@qz9.io"}]},
+    ]
+    spans = derive_spans(msgs)
+    untrusted = [s for s in spans if s.channel == "untrusted"]
+    assert untrusted and untrusted[0].source == "read_file"
