@@ -40,8 +40,9 @@ cleanup() { kill $GW >/dev/null 2>&1 || true; for p in $CK_PORT $AG_PORT; do lso
 trap cleanup EXIT
 for i in $(seq 1 60); do curl -sf "http://127.0.0.1:$GW_PORT/health" >/dev/null && break; sleep 0.5; done
 KEY=$(curl -s "http://127.0.0.1:$GW_PORT/api/v1/auth/key" | python3 -c "import sys,json; print(json.load(sys.stdin)['api_key'])")
-curl -s -XPOST "http://127.0.0.1:$GW_PORT/api/v1/dsl/packs/security-instruction-provenance/apply" \
-  -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{}' >/dev/null
+# The gateway as sec:demo describes it: default policies plus the two hold
+# rules the demo agent installs itself. The instruction-provenance pack is
+# not applied here; it is the subject of S4 in the compatibility matrix.
 
 ( cd "$REPO/apps/compliance-cockpit" && PORT=$CK_PORT GATEWAY_URL="http://127.0.0.1:$GW_PORT" NEXT_PUBLIC_GATEWAY_URL="http://127.0.0.1:$GW_PORT" npx next start -p $CK_PORT > "$HERE/results/demo-cockpit.log" 2>&1 ) &
 ( cd "$REPO/demo/live-agent" && AEGIS_API_KEY=$KEY "$PY" app.py --port $AG_PORT --gateway "http://127.0.0.1:$GW_PORT" > "$HERE/results/demo-agent.log" 2>&1 ) &

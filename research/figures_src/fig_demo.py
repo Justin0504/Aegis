@@ -38,8 +38,8 @@ S2_CROP = (0.20, 0.12, 0.80, 0.47)
 # Fractional boxes of images/demo/approvals-s3.png: the held card's head
 # (what the agent wants to run, who, why it is held) and its foot (the two
 # buttons the second attendee chooses between).
-S3_HEAD = (0.19, 0.228, 0.97, 0.356)
-S3_FOOT = (0.19, 0.566, 0.97, 0.630)
+S3_HEAD = (0.19, 0.228, 0.66, 0.352)   # what, who, why it is held
+S3_FOOT = (0.78, 0.522, 0.955, 0.582)  # the two buttons
 
 ICONS = {
     "ok":      "tabler:circle-check",
@@ -162,9 +162,9 @@ def build() -> Scene:
     # was held (images/demo/approvals-s3.png, research/compat/shoot_demo_flow.sh):
     # the held kubectl delete with its evidence and the Block / Allow buttons.
     sc.add(Image(x + 15, 133, str(crop("demo/approvals-s3.png", S3_HEAD)),
-                 w=col - 30, h=52, fit="meet"))
-    sc.add(Image(x + 15, 187, str(crop("demo/approvals-s3.png", S3_FOOT)),
-                 w=col - 30, h=42, fit="meet"))
+                 w=col - 30, h=58, fit="meet"))
+    sc.add(Image(x + col - 15 - 150, 196, str(crop("demo/approvals-s3.png", S3_FOOT)),
+                 w=150, h=31, fit="meet"))
     sc.add(Text(x + 14, 246, "the held call \u2014 a second person presses one",
                 size=11, color=P.INK_SOFT, italic=True))
 

@@ -21,7 +21,7 @@ const PROMPTS = {
 // declines on its own). The paper's point is what happens when it does, so
 // a run that produced no tool call is reset and retried; nothing in the
 // transcript is edited.
-const WANT = { S1: 'success', S2: 'blocked', S3: 'success' }[scenario];
+const WANT = { S1: 'allowed', S2: 'blocked', S3: 'allowed' }[scenario];  // the card's badge text
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1180, height: 1500 }, deviceScaleFactor: 2 });
 let ok = false;
