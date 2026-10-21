@@ -94,3 +94,4 @@ cleanup-project.sh
 .env.production
 .vercel
 .env*
+research/external/

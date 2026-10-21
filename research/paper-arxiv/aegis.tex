@@ -746,8 +746,8 @@ utility rises from 33.0\% to 38.1\%, at an unchanged 1.4\% attack
 success. Because the revision was motivated by this benchmark, the
 first version stays in the table, and the revision is checked on the
 independent corpus of \S\ref{sec:instantiate}: there it costs per-call
-recall (95.4\% to 77.2\%, the data-stealing reads it now allows) and
-barely moves two-step false positives (23.7\% to 19.5\%), which is the
+recall (95.4\% to 75.5\%, the data-stealing reads it now allows) and
+barely moves two-step false positives (23.7\% to 20.7\%), which is the
 honest shape of the trade.
 
 \paragraph{With the auditor as first reviewer.} A deployment does not
@@ -956,7 +956,7 @@ misses are dominated by one tool, \texttt{NortonIdentitySafeSearchPasswords}
 (8), whose arguments are empty and whose name shares no word with the
 injection. That is the pack as first shipped. The revised pack, which
 holds only calls that act (\S\ref{sec:agentdojo}), flags 183 of 237
-(77.2\%), still none of the benign calls: what it now allows are the
+(75.5\%), still none of the benign calls: what it now allows are the
 data-stealing reads---\texttt{ExpediaSearchReservations} (21) leads---whose
 harm needs a later send or post, which it still holds. Per call this is
 a loss; end to end, on AgentDojo, attack success is unchanged at 1.4\%.
@@ -1111,6 +1111,50 @@ on the common real case of tool output that legitimately carries
 imperatives. They are shown in italics in Table~\ref{tab:provenance} and
 excluded from every claim.
 
+\paragraph{Scoping the sink rules to acting calls.} Replaying AgentDrift
+(below) showed the exfiltration rule blocking reads: its name pattern
+matches \texttt{read\_email} through ``mail'' and
+\texttt{ViewSavedPaymentMethods} through ``pay''. A read moves nothing
+out; by the principle of \S\ref{sec:agentdojo}, the later send or payment
+is the sink and is still held or blocked. The exfiltration and
+unclear-authority rules now apply only to calls that act. On the corpus
+this costs five flags (77.6\% to 75.5\% recall), all reads that were
+blocked for the wrong reason, among them \texttt{BankManagerSearchPayee};
+the 183 acting same-tool probes are unchanged (22 blocks, 25 misses) and
+two-step holds fall from 36 to 35. The numbers above and in
+Table~\ref{tab:results} are after this change.
+
+\subsection{Step-Level Detection on AgentDrift}
+\label{sec:agentdrift}
+
+\input{figures/table_agentdrift}
+
+The corpus of \S\ref{sec:instantiate} has 237 attacks. AgentDrift
+\cite{pinjari2026agentdrift} is a public corpus of 12,536 synthetic
+tool-call trajectories over five domains in which every one of 71,024
+steps is labelled---benign, the injection point, hijacked, or a failed
+injection---and which includes delayed and partial hijacks and 1,500 hard
+negatives written to look like hijacks. We replay its task-disjoint test
+and validation splits through the shipping gateway exactly as the SDK
+reports a live agent: the task is the user turn, each call is checked
+with the ledger holding every earlier observation, and each observation
+is appended after its call. The gateway sees no label
+(\texttt{research/selective/agentdrift\_eval.py}).
+Table~\ref{tab:agentdrift} gives the result. Per step the layer recovers
+62.8\% of hijacked calls against the dataset's reported 55.4\%, at a
+lower F1 (54.8 against 64.7) because its precision is 48.5\%: it holds
+14.5\% of benign steps and 51\% of the hard negatives, and more than half
+of the clean trajectories receive at least one hold. That is the
+review rule doing what \S\ref{sec:authority} says it does---a benign
+multi-step task takes its arguments from tool output---now measured on
+20,000 steps rather than 169 calls. Recall is even across the dataset's
+attack types (71--80\%), including delayed and multi-step hijacks the
+surface baseline finds 8--23\% of, which is what reading the channel
+split rather than the step buys. The corpus is synthetic and its hijacks
+are, by construction, calls an injection asked for; we report it as a
+second, larger, independently labelled measurement of the same trade,
+not as a new claim.
+
 \subsection{Limitations}
 \label{sec:scope}
 \begin{itemize}[nolistsep,leftmargin=*]
@@ -1145,7 +1189,7 @@ excluded from every claim.
   a destination the user delegated to a document is blocked with it.
 \item \textbf{The read-only revision trades recall for holds.} It was
   motivated by AgentDojo; on the independent corpus it costs per-call
-  recall (95.4\% to 77.2\%) on data-stealing reads whose harm needs a
+  recall (95.4\% to 75.5\%) on data-stealing reads whose harm needs a
   later, still-held call. The first version is reported alongside it.
 \item \textbf{Coverage of the provenance layer.} It needs the request-side
   hook: the Python SDK has it for every model client it patches; the JS

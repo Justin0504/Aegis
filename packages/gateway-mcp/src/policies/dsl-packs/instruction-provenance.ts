@@ -58,6 +58,12 @@ const dsl: PolicyDsl = {
       when: {
         all: [
           { 'provenance.authorised_by': 'untrusted' },
+          // The name pattern below also matches reads (read_email,
+          // ViewSavedPaymentMethods via "mail" and "pay"). A read moves
+          // nothing out; the later send or payment is the sink, and is
+          // still held or blocked. Measured on AgentDrift: this rule
+          // blocked 369 non-hijacked steps, most of them reads.
+          { 'tool.read_only': false },
           {
             'tool.name': {
               matches:
@@ -195,6 +201,7 @@ const dsl: PolicyDsl = {
       when: {
         all: [
           { 'provenance.authorised_by': 'unclear' },
+          { 'tool.read_only': false },
           { 'provenance.user_licence': { '<': 0.15 } },
           {
             'tool.name': {
