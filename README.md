@@ -106,9 +106,9 @@ Watch it trace tool calls, block SQL injection, detect PII, and pause for human 
 
 <br>
 
-**The Compliance Cockpit: traces, policies, cost tracking, sessions, approvals.**
+**The three live scenarios, photographed.** A benign call allowed in ~1 ms; a `curl … | sh` install blocked at the gateway with the refusal returned to the agent in-band; a `kubectl delete` held until a second person presses Allow. Reproduce with `bash research/compat/shoot_demo_flow.sh`.
 
-<img src="docs/images/readme_demo1.gif" alt="Dashboard walkthrough" width="820">
+<img src="docs/images/demo_walkthrough.png" alt="S1 benign call · S2 interception · S3 human approval" width="900">
 
 </div>
 
@@ -116,77 +116,89 @@ Watch it trace tool calls, block SQL injection, detect PII, and pause for human 
 
 ## Inside the Compliance Cockpit
 
-Six operator views cover the end-to-end lifecycle: what agents did, who did it, what got blocked, and what your MITRE-style threat coverage looks like.
+Seven operator views, all read live from the gateway. Every screenshot below is unretouched and was taken on real agent runs replayed through the SDK and gateway (`bash research/compat/shoot_replay.sh`).
 
 <table>
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/overview.png"><img src="docs/images/cockpit/overview.png" alt="Overview — 24h activity, KPIs, agent activity feed" width="100%"></a>
+<a href="docs/images/cockpit/overview.png"><img src="docs/images/cockpit/overview.png" alt="Overview" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
 ### <sub>01</sub> Overview
-Rolling 24-hour activity curve for every agent. Four load-bearing KPIs at the top: **actions**, **agents**, **blocked**, **pending review**. The lower panel streams recent agent actions and traces so ops always sees the last thing that happened without leaving the page.
+What your agents are doing right now and what AEGIS stopped: a banner for calls awaiting a person, four KPIs (**actions · agents · pending · blocked**), the last 24 hours, and the activity feed in plain language with the app's logo on every row.
 
 </td>
 </tr>
 
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/activity.png"><img src="docs/images/cockpit/activity.png" alt="Activity — forensic trace list + per-trace explainer" width="100%"></a>
+<a href="docs/images/cockpit/activity.png"><img src="docs/images/cockpit/activity.png" alt="Activity — runs timeline" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
 ### <sub>02</sub> Activity
-Forensic audit trail of every tool call. Filterable list on the left; on the right, a per-trace explainer with **What it tried**, **Result**, **Quality** tabs. Every blocked action shows the exact policy that fired and the DSL condition that matched — no guessing which rule caught it.
+Each agent run as a timeline titled by its request, like a chat. Every step is a sentence (“Sent money · 129.99 to US13…”) with the app's or website's logo, AEGIS's verdict and its latency; arguments and results open as fields, never as JSON. The **All actions** tab keeps the per-call forensic view with the integrity proof.
 
 </td>
 </tr>
 
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/agents.png"><img src="docs/images/cockpit/agents.png" alt="Agents — registry with owner, scope, last-seen" width="100%"></a>
+<a href="docs/images/cockpit/approvals.png"><img src="docs/images/cockpit/approvals.png" alt="Approvals — evidence-first" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
-### <sub>03</sub> Agents
-The agent registry: every agent that has ever touched the gateway, with the human owner, the operational scope (**PRODUCTION** / **STAGING** / **RESTRICTED**), a hashed secret, and last-seen timestamp. Status filters for **Active / Unregistered / Suspended / Deprecated** so out-of-lifecycle agents can't slip through unnoticed.
+### <sub>03</sub> Approvals
+A held call with its evidence: what the person asked, the passage the agent read with the attributed value highlighted (here an injected IBAN in a landlord's notice), the arguments as fields, the reason in plain words, and two buttons. The agent is paused until someone decides. The same evidence is shown to the alignment auditor when it reviews holds first.
 
 </td>
 </tr>
 
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/violation.png"><img src="docs/images/cockpit/violation.png" alt="Violations — grouped by policy with severity" width="100%"></a>
+<a href="docs/images/cockpit/agents.png"><img src="docs/images/cockpit/agents.png" alt="Agents" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
-### <sub>04</sub> Violations
-Every block, grouped by the policy that fired: `no-privileged-file-access`, `no-arbitrary-shell-execution`, `no-destructive-sql`, `block-personal-email-in-checkout`, and any custom rule you write. Severity chips (**CRITICAL / HIGH / MEDIUM / LOW**) let a compliance lead triage by risk in one glance.
+### <sub>04</sub> Agents
+One row per agent, created on first sight: the apps it has touched as logos, how often AEGIS has had to step in (**calls · held · blocked**), last seen, and status (**Active / Unregistered / Suspended / Deprecated**). Owner, declared tool scope, secret rotation and promotion live in the row's detail panel.
 
 </td>
 </tr>
 
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/coverage.png"><img src="docs/images/cockpit/coverage.png" alt="Coverage — MITRE-style threat matrix" width="100%"></a>
+<a href="docs/images/cockpit/violation.png"><img src="docs/images/cockpit/violation.png" alt="Violations" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
-### <sub>05</sub> Threat coverage
-MITRE-ATLAS-style coverage: how many of the 40 agent-attack techniques you've written a detector for. Per-tactic bars for **Initial Compromise · Execution · Privilege Escalation · Credential Access · Data Exfiltration · Persistence · Discovery · Impact · Defense Evasion · Lateral Movement**. Green = fully closed, sand = open, red = uncovered — so gaps are impossible to miss.
+### <sub>05</sub> Violations
+Every call refused or held, grouped under the protection that caught it in plain words (“Outbound call nobody asked for”, “Destination came from untrusted content”), with the verdict and the reason on each row and the call itself one click away.
 
 </td>
 </tr>
 
 <tr>
 <td width="50%">
-<a href="docs/images/cockpit/memory.png"><img src="docs/images/cockpit/memory.png" alt="Memory & cross-agent — beyond-the-call signals" width="100%"></a>
+<a href="docs/images/cockpit/coverage.png"><img src="docs/images/cockpit/coverage.png" alt="Security 360" width="100%"></a>
 </td>
 <td width="50%" valign="top">
 
-### <sub>06</sub> Memory & Cross-Agent
-The signals that _don't_ fit an activity row: **tainted memory recall** (agent retrieved a poisoned item from its knowledge base), **undeclared agent-to-agent data crossings**, and **pre-instruction PII** (personal data present in tool arguments before any prompt mentioned it). Each event carries a severity and a concrete fix hint (`Quarantine the memory item`, `Reset the agent's short-term memory window`, …).
+### <sub>06</sub> Security 360
+Ten ways an agent can be turned against its owner — prompt injection, data exfiltration, irreversible actions, goal drift, MCP supply chain, memory poisoning, tamper-evident audit, … — each with its status read live from this gateway and the one step that turns an uncovered surface on. A surface counts only when its protection is switched on **and** receiving data. Below it, the deployed detectors joined against the 40-technique agent threat ontology.
+
+</td>
+</tr>
+
+<tr>
+<td width="50%">
+<a href="docs/images/cockpit/memory.png"><img src="docs/images/cockpit/memory.png" alt="Memory & cross-agent" width="100%"></a>
+</td>
+<td width="50%" valign="top">
+
+### <sub>07</sub> Memory & Cross-Agent
+The signals that don't fit an activity row: **tainted memory recall**, **undeclared agent-to-agent data crossings**, and **pre-instruction PII** (personal data in tool arguments before any prompt mentioned it). Each carries a severity and a concrete fix hint.
 
 </td>
 </tr>
@@ -256,7 +268,20 @@ That's it. Every tool call is now classified, policy-checked, and recorded in a 
 
 ---
 
-## Recently shipped (last batch)
+## Recently shipped (October 2026)
+
+| Capability | Where | What it solves |
+|---|---|---|
+| **Instruction provenance (L<sub>p</sub>)** | `POST /api/v1/context` · [provenance.ts](packages/core-schema/src/provenance.ts) · pack `security-instruction-provenance` | A successful indirect injection produces an ordinary-looking call; content inspection fires on 0.4% of them. The SDK reports which spans of context came from the user and which crossed the trust boundary; the gateway asks which channel *licenses* the call's vocabulary, in under a millisecond, with no model call. |
+| **Argument-level authority** | `provenance.untrusted_only_values` · rules `provenance-destination-from-untrusted(-any-action)` | The same-tool hijack: the user asked for `send_email`, the injection swapped the recipient. Destination-like values (addresses, URLs, IBANs, paths) that appear only in untrusted content are attributed, whatever the tool is called. |
+| **Evidence-first holds** | `GET /api/v1/check/pending` → `evidence` · [pending-checks.tsx](apps/compliance-cockpit/src/components/approvals/pending-checks.tsx) | A reviewer shown an agent id and a JSON blob approves by default. Every hold now carries the person's request, the passage the agent read with the attributed value highlighted, and the reason in plain words. |
+| **The auditor reads what the agent read** | `POST /api/v1/alignment/check` with `session_id` | The alignment auditor used to refuse legitimate held calls “without evidence of having reviewed the file”: it was never shown the file. It now gets the session's tool output, fenced as data; a named attack signal forces a drift verdict. |
+| **One agent, one identity** | traces carry `agent_name`; sighting registered under the name | `/check` keyed agents by name and the trace schema by a derived UUID, so every named agent registered twice. Fixed at the source in SDK and gateway. |
+| **Activity as runs** | Cockpit `/traces` → Runs | Each session as a timeline titled by its request; steps as sentences with the app's logo, verdict and latency; fields, not JSON. |
+| **Security 360** | Cockpit `/coverage` | Ten agent-era attack surfaces, status read live from the gateway, each with the step that turns it on. |
+| **Reproducible evaluation** | [research/agentdojo](research/agentdojo) · [research/selective](research/selective) · [research/compat](research/compat) | AgentDojo end to end (two agent models, held-out suites), the instantiated per-call corpus, a same-tool probe, an adaptive attacker with an agent model in the loop, AgentDrift step-level replay, a 19-harness compatibility matrix, a load test, and the scripts that photograph the demo and the Cockpit. Every number in the paper is one command. |
+
+## Shipped in the batch before
 
 | Capability | Endpoint / file | What it solves |
 |---|---|---|
@@ -273,6 +298,23 @@ That's it. Every tool call is now classified, policy-checked, and recorded in a 
 | **Ed25519-signed release artifacts** | [tools/release-sign/](tools/release-sign/) + [.well-known/aegis-release-pubkey.pem](.well-known/aegis-release-pubkey.pem) | Every npm tarball + PyPI wheel ships with a signature manifest verifiable offline against the AEGIS-pinned public key. Defeats mirror tampering / in-transit forgery. |
 
 Ontology coverage at the time of this batch: **28/40 (70%)** across the 10 tactics. See live status at `GET /api/v1/ontology/coverage` or in the Cockpit's `/coverage` page.
+
+---
+
+## What the numbers are
+
+Measured on the shipping gateway, reported with their cost. Full tables, intervals and the commands that produce them are in [the paper](research/paper-arxiv/) (`research/paper-arxiv/aegis.pdf`); the numbers in the paper's first arXiv version are withdrawn and the audit is in its appendix.
+
+| Measurement | Result | The honest cost |
+|---|---|---|
+| **AgentDojo v1.2.1**, gpt-4o-mini, 4 suites, 949 attack pairs | attack success **29.7% → 1.4%** (0.9% counting only calls that ran); lowest of the defenses compared (LLM tool filter 5.4%) | clean-task utility 69.1% → 38.1% with no reviewer; 56.7% with the alignment auditor answering holds first |
+| **AgentDojo**, qwen3:8b served locally, held-out suites (workspace + travel, 700 pairs) | attacks **23 → 4** of 700 | no utility cost (17 of 60 vs 16) |
+| **Per-call corpus** (237 attacks live agents emitted under injection) | content inspection at chance; provenance flags 75.5% at 0% false positives on single-step benign calls | holds 20.7% of benign two-step calls, the known class |
+| **AgentDrift** (public, 19,517 labelled steps) | 62.8% of hijacked steps caught (dataset baseline 55.4%), even across attack types incl. delayed hijacks | precision 48.5%: 14.5% of benign steps held |
+| **Overhead** | 0.44 ms median per check; ~2,300–3,000 checks/s per gateway process | p99 84–93 ms at 128 concurrent clients on one laptop |
+| **Compatibility** | 19 agent harnesses × 4 scenarios | found and fixed 26 defects no unit test had caught; listed in the paper |
+
+Where it does not work, and the paper says so: an injection that stays inside the tool the user asked for and changes nothing a value check can see; a user who delegates to a document (“do what my to-do list says”), which provenance cannot tell from an injection; an auditor small enough to be injected itself.
 
 ---
 
@@ -990,26 +1032,6 @@ Open [localhost:8501](http://localhost:8501) and follow the guided prompts:
 
 ---
 
-## Paper
-
-If you use AEGIS in your research, please cite our paper:
-
-> **AEGIS: No Tool Call Left Unchecked -- A Pre-Execution Firewall and Audit Layer for AI Agents**
-> Aojie Yuan, Zhiyuan Su, Yue Zhao
-> *arXiv:2603.12621*, 2026
-> [[PDF]](https://arxiv.org/abs/2603.12621)
-
-```bibtex
-@article{yuan2026aegis,
-  title={AEGIS: No Tool Call Left Unchecked -- A Pre-Execution Firewall and Audit Layer for AI Agents},
-  author={Yuan, Aojie and Su, Zhiyuan and Zhao, Yue},
-  journal={arXiv preprint arXiv:2603.12621},
-  year={2026}
-}
-```
-
----
-
 ## Contributing
 
 Issues and PRs welcome. Development setup:
@@ -1025,6 +1047,8 @@ docker compose -f docker-compose.dev.yml up    # hot-reload enabled
 ## Paper & citation
 
 AEGIS is described in the paper **[AEGIS: No Tool Call Left Unchecked — A Pre-Execution Firewall and Audit Layer for AI Agents](https://arxiv.org/abs/2603.12621)** (arXiv:2603.12621) by [Aojie (Justin) Yuan](https://aojieyuan.com), Zhiyuan Su, and [Yue Zhao](https://viterbi-web.usc.edu/~yzhao010/) at [USC FORTIS Lab](https://viterbi-web.usc.edu/~yzhao010/lab).
+
+**Version 2 (October 2026)** is a system paper: AgentDojo end to end, the instruction-provenance layer measured on calls live agents emitted under attack, an adaptive attacker, AgentDrift, the compatibility matrix, and a load test, with every number produced by a command in this repository at the commit tagged `arxiv-v2`. Source and PDF: [`research/paper-arxiv/`](research/paper-arxiv/). The numbers reported in version 1 are withdrawn; the appendix gives the audit of how they were produced.
 
 - Plain-language explainer: [Why Every AI Agent Needs an Audit Layer](https://aojieyuan.com/blog/why-ai-agents-need-an-audit-layer)
 - Press: [USC Viterbi News — *Giving AI Agents the Keys? USC Engineers Develop Tools to Audit and Monitor AI Agents*](https://viterbischool.usc.edu/news/2026/08/giving-ai-agents-the-keys-usc-engineers-develop-tools-to-audit-and-monitor-ai-agents/) (Aug 2026)
