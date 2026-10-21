@@ -156,6 +156,39 @@ The "ready to be deployed somewhere that matters" line.
 
 ---
 
+## Research-driven (Q4 2026) — tracking the field
+
+Each item is tied to a 2026 result we verified at source, and each
+ships as a measurement in the paper, not only as code.
+
+- [x] **AgentDrift step-level replay** (arXiv:2609.06972). The
+  provenance layer as a detector on 19,517 labelled steps: 62.8% of
+  hijacked steps caught against the dataset's 55.4% baseline, precision
+  48.5%. `python -m selective.agentdrift_eval`.
+- [ ] **Adaptive attacker with an agent in the loop** (the objection in
+  arXiv:2606.26479: static injection sets overstate every defense). An
+  attacker model rewrites what the agent reads with verdict or white-box
+  feedback; an agent model emits the call; only a realised attack counts.
+  Running; result lands in the paper's evaluation. Next: a frontier
+  attacker model.
+- [ ] **Per-message caller identity + receipts** (the gap aiAuthZ,
+  arXiv:2607.05518, names in CaMeL/Progent: in-process defenses share
+  the attacker's trust domain). HMAC-signed SDK→gateway messages with a
+  nonce, and a verifiable receipt returned with every allow that the tool
+  executor can check.
+- [ ] **Role-stratified thresholds with a finite-sample guarantee**
+  (arXiv:2607.24343). Separate thresholds and risk budgets for target,
+  command, credential and content arguments, calibrated by split
+  conformal (`selective/conformal.py`), reported as a budget per role.
+- [ ] **MCP tool pinning in the proxy** (OWASP MCP Top 10, MCP03 tool
+  poisoning: description injection, shadowing, rug pulls). Pin a tool's
+  description at approval, alert and hold on change, scan descriptions
+  for instructions; status on Security 360.
+- [ ] **Anthropic deployment surfaces.** Agent SDK hooks and Managed
+  Agents custom tools (which run in the customer's application, outside
+  the sandbox and credential vault) as first-class integrations with
+  their own compatibility-matrix rows.
+
 ## Out of scope (for now)
 
 We are explicitly **not** doing any of these in 2026. Logged here so
