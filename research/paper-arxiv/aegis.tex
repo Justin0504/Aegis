@@ -1176,6 +1176,18 @@ not as a new claim.
   found on banking and Slack; on the held-out workspace and travel suites
   they cost no utility and cut attacks from 23 to 4 of 700, with the same
   small auditor.
+\item \textbf{No adaptive attacker is reported.} Every injection above
+  is as recorded; an attacker who sees the verdict, or the rules, may do
+  better. The harness exists
+  (\texttt{research/selective/adaptive\_attacker.py}: an attacker model
+  rewrites what the agent reads, an agent model emits the next call, and
+  only a realised attack---same tool, the attacker's own arguments and
+  destinations---counts), and it taught us one thing before it taught us
+  anything about the defense: an 8B local agent offered the attacker's
+  tool among decoys reproduces the \emph{recorded} attack from the
+  \emph{original} injection in 5\% of cases, so with that victim the
+  loop measures the victim. The experiment needs a deployed model in the
+  agent seat and is the first thing the next version owes.
 \item \textbf{Delegation is indistinguishable from injection.} When the
   user tells the agent to follow a document (``do the tasks on my to-do
   list''), an instruction in that document has the user's authority by
