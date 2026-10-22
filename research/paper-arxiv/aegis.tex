@@ -402,7 +402,14 @@ rule, not the prose, is what runs.
 
 \paragraph{Decision.}
 The call resolves to one of three outcomes, each with a distinct return
-path. \texttt{allow}: the tool runs and its result returns normally.
+path. \texttt{allow}: the tool runs and its result returns normally,
+together with a \emph{receipt}---the check id, agent, tool and a hash of
+the arguments, signed with the gateway's Ed25519 key---so an executor or
+a downstream service can verify offline that this gateway allowed this
+call with these arguments, rather than take the agent's word for it; an
+agent that skipped the check, or changed an argument after it, holds no
+valid receipt (\texttt{GET /api/v1/check/receipt-key},
+\texttt{agentguard.receipts.verify\_receipt}).
 \texttt{block}: the tool never runs, and a structured refusal is
 returned \emph{in the slot a tool result would have occupied}---which is
 why a blocked agent explains itself and continues the conversation
