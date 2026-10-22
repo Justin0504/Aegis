@@ -238,7 +238,15 @@ For agents that reach tools over the Model Context Protocol, a stdio or
 HTTP proxy sits between the host and the MCP server, forwards
 \texttt{tools/call} requests through schema validation, L1 and the policy
 DSL in-process, with the kill switch, and rewrites refused calls into tool
-errors. Nothing in the host changes.
+errors. Nothing in the host changes. The proxy also pins the server's
+tool list: a tool's name, description and schema are hashed at first
+sight, a later change marks it \emph{changed}, and a description that
+reads like an instruction to the model marks it \emph{suspicious}; either
+is refused until an operator re-pins it, with both texts in front of
+them. This is the supply-chain case---a server that changes a tool's
+description after approval, OWASP's MCP03---which a check on the call
+alone cannot see, because the description that induced the call is
+not in the call.
 
 \paragraph{Egress proxy.}
 For stacks where neither is available, the gateway accepts the model

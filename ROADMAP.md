@@ -171,11 +171,15 @@ ships as a measurement in the paper, not only as code.
   feedback; an agent model emits the call; only a realised attack counts.
   Running; result lands in the paper's evaluation. Next: a frontier
   attacker model.
-- [ ] **Per-message caller identity + receipts** (the gap aiAuthZ,
-  arXiv:2607.05518, names in CaMeL/Progent: in-process defenses share
-  the attacker's trust domain). HMAC-signed SDK→gateway messages with a
-  nonce, and a verifiable receipt returned with every allow that the tool
-  executor can check.
+- [x] **Decision receipts** (half of the gap aiAuthZ, arXiv:2607.05518,
+  names: in-process defenses share the attacker's trust domain). Every
+  allow returns an Ed25519-signed receipt bound to check, agent, tool and
+  argument hash; a held call allowed by a person names who; verifiable
+  offline against `GET /api/v1/check/receipt-key`
+  (`agentguard.receipts.verify_receipt`).
+- [ ] **Per-message caller identity.** The other half: HMAC-signed
+  SDK→gateway messages with a nonce and timestamp in place of the bare
+  agent secret, so a captured request cannot be replayed.
 - [ ] **Role-stratified thresholds with a finite-sample guarantee**
   (arXiv:2607.24343). Separate thresholds and risk budgets for target,
   command, credential and content arguments, calibrated by split

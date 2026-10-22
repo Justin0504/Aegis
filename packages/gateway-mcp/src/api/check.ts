@@ -109,10 +109,23 @@ export class CheckAPI {
     /** Per-session context ledgers. Absent in deployments that do not
      *  report context; every provenance rule is then inert. */
     private contextLedgers?: import('../services/context-ledger-store').ContextLedgerStore,
+    /** Signed decision receipts (services/receipts.ts). Absent only in
+     *  tests that construct the API without a signing key. */
+    private receipts?: import('../services/receipts').ReceiptService,
   ) {
     this.router = Router()
     this.initTable()
     this.setupRoutes()
+  }
+
+  /** A receipt for an allowed call, or undefined when receipts are off. */
+  private receiptFor(orgId: string, checkId: string, agentId: string, toolName: string, args: unknown, decidedBy?: string): string | undefined {
+    try {
+      return this.receipts?.issue({ checkId, orgId, agentId, toolName, args, decidedBy })
+    } catch (err) {
+      this.logger.warn({ err }, 'receipt issue failed')
+      return undefined
+    }
   }
 
   private initTable() {
@@ -169,10 +182,12 @@ export class CheckAPI {
           const _agentRow = this.agentRegistry.get(body.agent_id);
           if (_agentRow?.audit_only) {
             const latencyMs = Date.now() - start;
+            const auditOnlyId = randomUUID();
             return res.json({
               decision: 'allow',
               reason:   'agent in audit-only mode (org exceeded license-tier cap)',
-              check_id: randomUUID(),
+              check_id: auditOnlyId,
+              receipt:  this.receiptFor(orgId, auditOnlyId, body.agent_id, body.tool_name, body.arguments),
               risk_level: 'LOW',
               category:  'audit-only-bypass',
               latency_ms: latencyMs,
@@ -638,6 +653,7 @@ export class CheckAPI {
         return res.json({
           decision,
           check_id:   checkId,
+          receipt:    decision === 'allow' ? this.receiptFor(requestOrgId, checkId, body.agent_id, body.tool_name, body.arguments) : undefined,
           risk_level: validation.risk_level,
           category:   classification.category,
           signals:    classification.signals,
@@ -677,6 +693,18 @@ export class CheckAPI {
       }
     })
 
+    // ── Receipts: the key to verify them with, and a verifier ────────────────
+    this.router.get('/receipt-key', (_req: Request, res: Response) => {
+      if (!this.receipts) return res.status(404).json({ error: 'receipts not enabled' })
+      res.json(this.receipts.publicKey())
+    })
+    this.router.post('/receipt/verify', (req: Request, res: Response) => {
+      if (!this.receipts) return res.status(404).json({ error: 'receipts not enabled' })
+      const { receipt, tool_name, arguments: args, agent_id } = req.body ?? {}
+      if (typeof receipt !== 'string') return res.status(400).json({ error: 'receipt required' })
+      res.json(this.receipts.verify(receipt, { toolName: tool_name, args, agentId: agent_id }))
+    })
+
     // ── GET /pending  — dashboard list ───────────────────────────────────────
     this.router.get('/pending', (req: Request, res: Response) => {
       try {
@@ -707,7 +735,7 @@ export class CheckAPI {
     this.router.get('/:checkId/decision', (req: Request, res: Response) => {
       try {
         const row = this.db.prepare(
-          'SELECT decision, risk_level, decided_by FROM pending_checks WHERE check_id = ?'
+          'SELECT decision, risk_level, decided_by, agent_id, tool_name, arguments FROM pending_checks WHERE check_id = ?'
         ).get(req.params.checkId) as any
 
         if (!row) {
@@ -732,6 +760,10 @@ export class CheckAPI {
           decision:   row.decision,
           risk_level: row.risk_level,
           decided_by: row.decided_by,
+          receipt:    row.decision === 'allow'
+            ? this.receiptFor((req as any).orgId ?? 'default', req.params.checkId, row.agent_id, row.tool_name,
+                              (() => { try { return JSON.parse(row.arguments) } catch { return {} } })(), row.decided_by ?? undefined)
+            : undefined,
         })
       } catch (error) {
         this.logger.error({ error }, 'Failed to get check decision')

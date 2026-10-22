@@ -38,6 +38,7 @@ import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
 import { ProxyRegistryAPI } from './api/proxy-registry';
 import { McpToolsAPI } from './api/mcp-tools';
+import { ReceiptService } from './services/receipts';
 import { SlidingWindowStats } from './services/sliding-window';
 import { AnomalyDetector } from './services/anomaly-detector';
 import { TenantBaselineService } from './services/tenant-baseline';
@@ -686,6 +687,7 @@ async function main() {
     agentRegistry,
     gatewayMetrics,
     contextLedgers,
+    new ReceiptService(new SigningService(db, logger)),
   ).router);
 
   // ── Management routes (auth required) ────────────────────────────────────

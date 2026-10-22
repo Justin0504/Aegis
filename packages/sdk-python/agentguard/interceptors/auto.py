@@ -4,6 +4,7 @@ Zero user code changes required. Supports both sync and async APIs.
 """
 
 import os
+from collections import OrderedDict
 import time
 import asyncio
 import threading
@@ -61,6 +62,19 @@ HTTP_TOOL_ENDPOINTS: Dict[str, str] = {
     # Data / observability
     'https://api.segment.io/':      'segment',
 }
+
+
+# Receipts of allowed calls, by (tool, arguments) key, kept for the executor
+# to fetch right after the check (agentguard.receipt_for). Bounded.
+_RECEIPTS: "OrderedDict[str, str]" = OrderedDict()
+_RECEIPTS_MAX = 256
+
+
+def receipt_for(tool_name: str, arguments: Any) -> Optional[str]:
+    """The gateway's signed receipt for the most recent allow of this exact
+    call, or None. Verify with agentguard.receipts.verify_receipt."""
+    key = AutoInstrument._decision_key(tool_name, arguments)
+    return _RECEIPTS.get(key)
 
 
 def _build_identity_headers(cfg, guard=None) -> Dict[str, str]:
@@ -319,14 +333,22 @@ class AutoInstrument:
             "approval":   {"allow": "AUTO_APPROVED", "pending": "PENDING_APPROVAL"}.get(decision, "REJECTED"),
             "reason":     result.get("reason") if decision in ("block", "pending") else None,
             "check_id":   result.get("check_id"),
+            # The gateway's signed proof that it allowed this call; an executor
+            # verifies it with agentguard.receipts.verify_receipt.
+            "receipt":    result.get("receipt"),
         }
+        if result.get("receipt"):
+            _RECEIPTS[self._decision_key(tool_name, arguments)] = result["receipt"]
 
-    def _resolve_hold(self, tool_name: str, approved: bool, reason: Optional[str]) -> None:
+    def _resolve_hold(self, tool_name: str, approved: bool, reason: Optional[str], receipt: Optional[str] = None) -> None:
         for key, d in self._decisions.items():
             if key.startswith(tool_name + "|") and d.get("approval") == "PENDING_APPROVAL":
                 d["approval"] = "APPROVED" if approved else "REJECTED"
                 d["passed"] = approved
                 d["reason"] = None if approved else reason
+                if receipt:
+                    d["receipt"] = receipt
+                    _RECEIPTS[key] = receipt
 
     def _pop_decision(self, tool_name: str, arguments: Any):
         d = self._decisions.pop(self._decision_key(tool_name, arguments), None)
@@ -463,7 +485,7 @@ class AutoInstrument:
 
                 if decision == "allow":
                     print(f"[AEGIS] ✅ '{tool_name}' approved by {result.get('decided_by', 'human')}")
-                    self._resolve_hold(tool_name, True, None)
+                    self._resolve_hold(tool_name, True, None, result.get("receipt"))
                     return
                 if decision == "block":
                     self._resolve_hold(tool_name, False, "Rejected by human reviewer")
@@ -590,7 +612,7 @@ class AutoInstrument:
 
                 if decision == "allow":
                     print(f"[AEGIS] ✅ '{tool_name}' approved by {result.get('decided_by', 'human')}")
-                    self._resolve_hold(tool_name, True, None)
+                    self._resolve_hold(tool_name, True, None, result.get("receipt"))
                     return
                 if decision == "block":
                     self._resolve_hold(tool_name, False, "Rejected by human reviewer")

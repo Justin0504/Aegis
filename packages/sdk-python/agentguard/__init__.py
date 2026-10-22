@@ -203,6 +203,14 @@ _default_instrument = None
 _REFUSAL_PREFIX = "[AEGIS] Tool call blocked before execution: "
 
 
+def receipt_for(tool_name: str, arguments: dict) -> "str | None":
+    """The gateway's signed receipt for the most recent allow of this exact
+    call, to hand to the tool executor; verify with
+    :func:`agentguard.receipts.verify_receipt`."""
+    from .interceptors.auto import receipt_for as _rf
+    return _rf(tool_name, dict(arguments or {}))
+
+
 def check(tool_name: str, arguments: dict) -> None:
     """Decide one tool call before it runs.
 
