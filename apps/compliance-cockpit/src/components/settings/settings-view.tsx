@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { AlertRules } from './alert-rules'
 import { DeploymentMode } from './deployment-mode'
 import { LicensePanel } from './license-panel'
+import { McpToolsPanel } from './mcp-tools-panel'
 import { useRuleEvaluator } from './use-rule-evaluator'
 import { CheckCircle, XCircle, Loader2, Copy, Check, Eye, EyeOff, RefreshCw, Database, Play } from 'lucide-react'
 
@@ -258,6 +259,13 @@ export function SettingsView() {
       <Section title="Deployment Mode">
         <DeploymentMode />
       </Section>
+
+      {/* MCP tool pins (OWASP MCP03): descriptions and schemas frozen at approval */}
+      <div id="mcp">
+        <Section title="MCP tools">
+          <McpToolsPanel />
+        </Section>
+      </div>
 
       {/* Gateway */}
       <Section title="Gateway">

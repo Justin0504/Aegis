@@ -16,9 +16,12 @@ Usage (Claude Desktop / Cursor config):
 
 The proxy:
   1. Forwards all MCP messages from the client to the upstream server
-  2. Intercepts tools/call requests → POST /api/v1/check → block/allow
-  3. Forwards allowed calls, returns error for blocked calls
-  4. Logs all tool calls as AEGIS traces
+  2. Pins the upstream's tool list at the gateway (POST /api/v1/mcp/tools):
+     a tool whose description changes after approval, or reads like an
+     instruction to the model, is refused until an operator re-pins it
+  3. Intercepts tools/call requests → POST /api/v1/check → block/allow
+  4. Forwards allowed calls, returns error for blocked calls
+  5. Logs all tool calls as AEGIS traces
 
 Requires: pip install agentguard-aegis mcp
 """
@@ -83,6 +86,44 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
     return d
 
 
+def _report_tools(tools: list, gateway_url: str, agent_id: str, server_id: str) -> dict[str, dict]:
+    """Pin the upstream's tool list at the gateway (POST /api/v1/mcp/tools).
+
+    A tool's description enters the model's context, and a server can
+    change it after the operator approved it. The gateway hashes name,
+    description and schema, pins each tool at first sight, marks a tool
+    `changed` when the hash moves and `suspicious` when the description
+    reads like an instruction to the model. Returns {tool: {status,
+    markers}}; an unreachable gateway returns {} and the proxy proceeds,
+    the same fail-open as the check itself."""
+    payload = json.dumps({"server_id": server_id, "agent_id": agent_id, "tools": [
+        {"name": t.name, "description": t.description or "", "input_schema": getattr(t, "inputSchema", None)}
+        for t in tools]}).encode()
+    req = urllib.request.Request(f"{gateway_url}/api/v1/mcp/tools", data=payload,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            d = json.loads(r.read())
+    except Exception as e:  # noqa: BLE001
+        print(f"[AEGIS] tool pinning unavailable ({e}); proceeding without it", file=sys.stderr)
+        return {}
+    return {t["name"]: t for t in d.get("tools", [])}
+
+
+def _tool_refusal(name: str, pin: dict | None, on_change: str) -> str | None:
+    """Why a call to this tool is refused before the gateway even checks
+    the arguments, or None. `on_change` is hold (default) or allow."""
+    if not pin or on_change == "allow":
+        return None
+    if pin.get("status") == "changed":
+        return (f"[AEGIS BLOCKED] Tool '{name}' changed after it was approved: its description or schema "
+                f"differs from the pinned version. Re-pin it in the AEGIS Cockpit (MCP tools) to allow it again.")
+    if pin.get("status") == "suspicious":
+        return (f"[AEGIS BLOCKED] Tool '{name}' has a description that reads like an instruction to the model "
+                f"({', '.join(pin.get('markers') or [])}). Review and re-pin it in the AEGIS Cockpit to allow it.")
+    return None
+
+
 _INSTRUMENTS: dict = {}
 
 
@@ -132,6 +173,8 @@ async def proxy(
     upstream_cmd: list[str],
     gateway_url: str = GATEWAY_URL,
     agent_id: str = AGENT_ID,
+    server_id: Optional[str] = None,
+    on_change: str = "hold",
 ):
     """
     Start an MCP stdio proxy.
@@ -168,6 +211,11 @@ async def proxy(
             await session.initialize()
             tools_result = await session.list_tools()
             upstream_tools = tools_result.tools
+            sid = server_id or " ".join(upstream_cmd)[:200]
+            pins = _report_tools(upstream_tools, gateway_url, agent_id, sid)
+            refused = [n for n, p in pins.items() if p.get("status") != "pinned"]
+            if refused:
+                print(f"[AEGIS] {len(refused)} tool(s) refused until re-pinned: {', '.join(refused)}", file=sys.stderr)
 
             print(
                 f"[AEGIS] MCP proxy connected — {len(upstream_tools)} tools from upstream, "
@@ -186,6 +234,14 @@ async def proxy(
             # ── Call tool handler ──────────────────────────────────────────
             @server.call_tool()
             async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+                # A changed or suspicious tool is refused before its arguments are
+                # looked at: the description that induced the call is the attack.
+                refusal = _tool_refusal(name, pins.get(name), on_change)
+                if refusal:
+                    print(f"[AEGIS] BLOCK {name} — tool pin", file=sys.stderr)
+                    _send_trace(name, arguments, None, gateway_url, agent_id,
+                                decision={"decision": "block", "reason": refusal, "risk_level": "HIGH"}, error=refusal)
+                    raise RuntimeError(refusal)
                 # Pre-execution check
                 loop   = asyncio.get_event_loop()
                 result_check = await loop.run_in_executor(
@@ -274,9 +330,12 @@ Examples:
     parser.add_argument("--server",   nargs="+", required=True, help="Upstream MCP server command")
     parser.add_argument("--gateway",  default="http://localhost:8080")
     parser.add_argument("--agent-id", default="mcp-proxy")
+    parser.add_argument("--server-id", default=None, help="Stable name for this upstream (default: its command line)")
+    parser.add_argument("--on-change", choices=["hold", "allow"], default="hold",
+                        help="What to do with a tool whose description changed after it was pinned (default: refuse until re-pinned)")
     args = parser.parse_args()
 
-    asyncio.run(proxy(args.server, args.gateway, args.agent_id))
+    asyncio.run(proxy(args.server, args.gateway, args.agent_id, args.server_id, args.on_change))
 
 
 if __name__ == "__main__":

@@ -180,10 +180,12 @@ ships as a measurement in the paper, not only as code.
   (arXiv:2607.24343). Separate thresholds and risk budgets for target,
   command, credential and content arguments, calibrated by split
   conformal (`selective/conformal.py`), reported as a budget per role.
-- [ ] **MCP tool pinning in the proxy** (OWASP MCP Top 10, MCP03 tool
-  poisoning: description injection, shadowing, rug pulls). Pin a tool's
-  description at approval, alert and hold on change, scan descriptions
-  for instructions; status on Security 360.
+- [x] **MCP tool pinning in the proxy** (OWASP MCP Top 10, MCP03 tool
+  poisoning: description injection, shadowing, rug pulls). The proxy
+  reports every tool it is offered; the gateway pins name, description
+  and schema at first sight, marks changes and descriptions that instruct
+  the model, refuses those until re-pinned in Settings, and writes each
+  event to the audit log; Security 360 reads the state.
 - [ ] **Anthropic deployment surfaces.** Agent SDK hooks and Managed
   Agents custom tools (which run in the customer's application, outside
   the sandbox and credential vault) as first-class integrations with

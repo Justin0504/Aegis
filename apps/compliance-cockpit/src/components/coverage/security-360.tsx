@@ -54,9 +54,9 @@ function useSignals() {
     queryKey: ['security-360'],
     refetchInterval: 15_000,
     queryFn: async () => {
-      const [dsl, ctx, proxy, integ, align] = await Promise.all([
+      const [dsl, ctx, proxy, integ, align, mcp] = await Promise.all([
         getJson('dsl'), getJson('context/stats'), getJson('proxy/stats'),
-        getJson('integrity/verify-all'), getJson('alignment/recent?limit=1'),
+        getJson('integrity/verify-all'), getJson('alignment/recent?limit=1'), getJson('mcp/tools'),
       ])
       const rules: string[] = (dsl?.dsl?.rules ?? []).map((r: any) => String(r.name ?? ''))
       return {
@@ -65,6 +65,8 @@ function useSignals() {
         proxied: Array.isArray(proxy) ? proxy.length : Array.isArray(proxy?.servers) ? proxy.servers.length : 0,
         chains: { total: Number(integ?.total_agents ?? integ?.total ?? 0), broken: Number(integ?.broken_agents ?? integ?.broken ?? 0) },
         audited: (align?.items ?? []).length > 0,
+        mcp: { tools: (mcp?.tools ?? []).length, servers: Number(mcp?.servers ?? 0),
+               changed: Number(mcp?.changed ?? 0), suspicious: Number(mcp?.suspicious ?? 0) },
       }
     },
   })
@@ -123,10 +125,13 @@ function surfaces(s: NonNullable<ReturnType<typeof useSignals>['data']>): Surfac
     {
       key: 'mcp', title: 'MCP & tool supply chain', Icon: Plug,
       threat: 'Malicious or tampered MCP servers and tool descriptions.',
-      status: s.proxied > 0 ? 'on' : 'off',
-      detail: s.proxied > 0 ? `${s.proxied} MCP server${s.proxied === 1 ? '' : 's'} routed through the AEGIS proxy.`
-        : 'No MCP servers are routed through the proxy.',
-      action: { label: 'Pre-deploy scan', href: '/scan' },
+      status: s.mcp.changed + s.mcp.suspicious > 0 ? 'alert' : (s.mcp.tools > 0 || s.proxied > 0) ? 'on' : 'off',
+      detail: s.mcp.changed + s.mcp.suspicious > 0
+        ? `${s.mcp.changed ? `${s.mcp.changed} tool${s.mcp.changed === 1 ? '' : 's'} changed after approval` : ''}${s.mcp.changed && s.mcp.suspicious ? '; ' : ''}${s.mcp.suspicious ? `${s.mcp.suspicious} with a description that instructs the model` : ''}. Refused until re-pinned.`
+        : s.mcp.tools > 0 ? `${s.mcp.tools} tool${s.mcp.tools === 1 ? '' : 's'} from ${s.mcp.servers} server${s.mcp.servers === 1 ? '' : 's'} pinned by description and schema; a change is refused until re-pinned.`
+        : s.proxied > 0 ? `${s.proxied} MCP server${s.proxied === 1 ? '' : 's'} routed through the proxy; no tool list pinned yet.`
+        : 'No MCP servers are routed through the AEGIS proxy, so tool descriptions are not pinned.',
+      action: s.mcp.changed + s.mcp.suspicious > 0 ? { label: 'Review MCP tools', href: '/settings#mcp' } : { label: 'Wrap a server with the proxy', href: '/welcome' },
     },
     {
       key: 'secrets', title: 'Secrets & generated code', Icon: KeyRound,

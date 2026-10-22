@@ -132,6 +132,10 @@ function describeAudit(action: string, d: any): string | null {
     case 'user.update': return `User updated${Array.isArray(d.changed_keys) ? `: ${d.changed_keys.join(', ')}` : ''}`
     case 'org.create': return `Organisation created${d.name ? `: ${d.name}` : ''}`
     case 'admin.bulk_register': return `${d.succeeded ?? 0} of ${d.requested ?? 0} agents registered`
+    case 'mcp.tool_pinned': return 'MCP tool pinned at first sight'
+    case 'mcp.tool_changed': return 'MCP tool changed after approval; refused until re-pinned'
+    case 'mcp.tool_suspicious': return `MCP tool description instructs the model${Array.isArray(d.markers) && d.markers.length ? ` (${d.markers.join(', ')})` : ''}`
+    case 'mcp.tool_repinned': return 'MCP tool re-pinned by an operator'
     case 'rollback.compensate': return 'Rollback step executed'
     case 'predeploy.scan': return 'Pre-deployment scan run'
     case 'data.export': return 'Data exported'

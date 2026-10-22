@@ -37,6 +37,7 @@ import { KillSwitchService } from './services/kill-switch';
 import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
 import { ProxyRegistryAPI } from './api/proxy-registry';
+import { McpToolsAPI } from './api/mcp-tools';
 import { SlidingWindowStats } from './services/sliding-window';
 import { AnomalyDetector } from './services/anomaly-detector';
 import { TenantBaselineService } from './services/tenant-baseline';
@@ -693,6 +694,7 @@ async function main() {
   app.use('/api/v1/webhooks',  requireAuth, new WebhookAPI(webhooks).router);
   app.use('/api/v1/agents',    requireAuth, new AgentsAPI(db, logger, agentRegistry, auditLog, agentIdCards).router);
   app.use('/api/v1/proxy',     requireAuth, new ProxyRegistryAPI(db, logger).router);
+  app.use('/api/v1/mcp',       requireAuth, new McpToolsAPI(db, logger, auditLog).router);
 
   // First-run onboarding wizard hooks. SSE stream pushes
   // agent.first_sighting events as soon as the SDK ingests its first

@@ -25,13 +25,14 @@ export type AuditAction =
   | 'rollback.compensate' | 'rollback.chain' | 'rollback.delegation'
   | 'outbox.enqueue' | 'outbox.cancel' | 'outbox.fire'
   | 'predeploy.scan'
-  | 'policy.pack_install';
+  | 'policy.pack_install'
+  | 'mcp.tool_pinned' | 'mcp.tool_changed' | 'mcp.tool_suspicious' | 'mcp.tool_repinned';
 
 export type ResourceType =
   | 'policy' | 'approval' | 'apikey' | 'agent'
   | 'user' | 'organization' | 'retention'
   | 'judge' | 'webhook' | 'trace' | 'system'
-  | 'delegation';
+  | 'delegation' | 'mcp_tool';
 
 export interface AuditEntry {
   org_id?: string;
