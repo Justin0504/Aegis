@@ -95,14 +95,14 @@ const payments: PolicyPack = {
     {
       id: 'aml-sanctions-screening',
       name: 'AML · Sanctions screening',
-      description: 'Blocks tool calls whose recipient/counterparty country code matches OFAC-sanctioned jurisdictions (CU, IR, KP, RU subset, SY).',
+      description: 'Blocks tool calls whose recipient/counterparty country code matches OFAC-sanctioned jurisdictions (CU, IR, KP, RU subset).',
       risk_level: 'CRITICAL',
       policy_schema: {
         type: 'object',
         properties: {
-          country:        { type: 'string', not: { pattern: '^(CU|IR|KP|SY|cuba|iran|north[ -]?korea|syria)$' } },
-          recipient_country: { type: 'string', not: { pattern: '^(CU|IR|KP|SY|cuba|iran|north[ -]?korea|syria)$' } },
-          destination:    { type: 'string', not: { pattern: '(?:^|[^A-Z])(CU|IR|KP|SY)(?:$|[^A-Z])' } },
+          country:        { type: 'string', not: { pattern: '^(CU|IR|KP|cuba|iran|north[ -]?korea)$' } },
+          recipient_country: { type: 'string', not: { pattern: '^(CU|IR|KP|cuba|iran|north[ -]?korea)$' } },
+          destination:    { type: 'string', not: { pattern: '(?:^|[^A-Z])(CU|IR|KP)(?:$|[^A-Z])' } },
         },
         additionalProperties: true,
       },
@@ -281,12 +281,12 @@ const finance: PolicyPack = {
     {
       id: 'ofac-sanctions-block',
       name: 'OFAC · Sanctions list block',
-      description: 'Blocks the call when a counterparty name matches the OFAC SDN list (sample subset: Cuba, Iran, NK, Syria, Russia restricted).',
+      description: 'Blocks the call when a counterparty name matches the OFAC SDN list (sample subset: Cuba, Iran, NK, Russia restricted).',
       risk_level: 'CRITICAL',
       policy_schema: {
         type: 'object',
         properties: {
-          counterparty_country: { type: 'string', not: { pattern: '^(CU|IR|KP|SY|RU)$' } },
+          counterparty_country: { type: 'string', not: { pattern: '^(CU|IR|KP|RU)$' } },
         },
         additionalProperties: true,
       },
