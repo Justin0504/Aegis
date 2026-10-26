@@ -32,6 +32,7 @@ import { ProfileManager } from '../services/profile-manager';
 import { SlidingWindowStats } from '../services/sliding-window';
 import { DslPolicyService } from '../services/policy-dsl';
 import { TenantConfigService } from '../services/tenant-config';
+import { config } from '../config';
 import { MatchResult } from '../policies/dsl/evaluator';
 import { GatewayMetricsService } from '../services/gateway-metrics';
 import { setSpanAttributes, emitGuardrailSpan } from '../services/otel';
@@ -112,10 +113,55 @@ export class CheckAPI {
     /** Signed decision receipts (services/receipts.ts). Absent only in
      *  tests that construct the API without a signing key. */
     private receipts?: import('../services/receipts').ReceiptService,
+    /** Counts refusals per agent and suspends one past the configured
+     *  limit (services/kill-switch.ts). */
+    private killSwitch?: import('../services/kill-switch').KillSwitchService,
   ) {
     this.router = Router()
     this.initTable()
     this.setupRoutes()
+  }
+
+  /** First reviewer for a held call. Off unless AEGIS_HOLD_REVIEWER=auditor.
+   *  Releases the call when the alignment auditor, shown the user's request,
+   *  the agent's recent reasoning and the tool output it read (fenced as
+   *  data), finds it serves the request: not drifted and score at least
+   *  AEGIS_AUDITOR_RELEASE_SCORE (0.5), the rule the paper's runs used.
+   *  Anything else — a refusal, no user turn in the ledger, no model, an
+   *  error — leaves the hold for a person, with the auditor's verdict on it. */
+  private async firstReview(orgId: string, checkId: string, body: any): Promise<void> {
+    if ((process.env.AEGIS_HOLD_REVIEWER ?? 'person').toLowerCase() !== 'auditor') return
+    const note = (v: unknown) => {
+      try { this.db.prepare(`UPDATE pending_checks SET auditor = ? WHERE check_id = ?`).run(JSON.stringify(v), checkId) } catch { /* best effort */ }
+    }
+    const input = this.contextLedgers?.reviewInput(orgId, body.session_id)
+    if (!input) { note({ skipped: 'no user turn reported for this session' }); return }
+    try {
+      const { AlignmentChecker } = await import('../services/alignment-checker')
+      const { resolveConfig } = await import('./alignment')
+      const cfg = resolveConfig({ agent_id: String(body.agent_id), declared_goal: input.goal,
+        thought_chain: [], proposed_action: { tool_name: String(body.tool_name), arguments: body.arguments ?? {} } } as any)
+      if ('error' in cfg) { note({ skipped: cfg.error }); return }
+      const r = await new AlignmentChecker(cfg, this.logger).check({
+        agent_id: String(body.agent_id), declared_goal: input.goal.slice(0, 4096), thought_chain: input.thoughts,
+        observations: input.observations,
+        proposed_action: { tool_name: String(body.tool_name), arguments: (body.arguments ?? {}) as Record<string, unknown> },
+      } as any)
+      const minScore = Number(process.env.AEGIS_AUDITOR_RELEASE_SCORE ?? 0.5)
+      const release = !r.drifted && r.score >= minScore
+      note({ score: r.score, drifted: r.drifted, signals: r.signals, reason: (r as any).reason, model: r.model, released: release })
+      if (release) {
+        const changed = this.db.prepare(
+          `UPDATE pending_checks SET decision = 'allow', decided_by = 'alignment-auditor', decided_at = datetime('now')
+           WHERE check_id = ? AND decision = 'pending'`,
+        ).run(checkId).changes
+        if (changed) this.eventBus.push({ id: checkId, event: 'decided', agent_id: body.agent_id, tool_name: body.tool_name,
+          category: 'auditor', risk_level: 'LOW', reason: 'released by the alignment auditor', timestamp: new Date().toISOString() } as any)
+      }
+    } catch (err) {
+      note({ error: (err as Error).message.slice(0, 200) })
+      this.logger.warn({ err: (err as Error).message, check_id: checkId }, 'first review by the auditor failed; left for a person')
+    }
   }
 
   /** A receipt for an allowed call, or undefined when receipts are off. */
@@ -151,7 +197,7 @@ export class CheckAPI {
     // Added after release: what the reviewer needs to decide. Existing
     // databases gain the columns in place; rows from before read as null.
     const cols = new Set((this.db.prepare(`PRAGMA table_info(pending_checks)`).all() as any[]).map(c => c.name))
-    for (const [name, type] of [['session_id', 'TEXT'], ['rule', 'TEXT'], ['evidence', 'TEXT']]) {
+    for (const [name, type] of [['session_id', 'TEXT'], ['rule', 'TEXT'], ['evidence', 'TEXT'], ['auditor', 'TEXT']]) {
       if (!cols.has(name)) this.db.exec(`ALTER TABLE pending_checks ADD COLUMN ${name} ${type}`)
     }
   }
@@ -180,6 +226,18 @@ export class CheckAPI {
           // exceeded its license-tier cap still trace, but never block.
           // Short-circuit here so policy / anomaly / DSL never escalate.
           const _agentRow = this.agentRegistry.get(body.agent_id);
+          // An agent the operator suspended, or the kill switch revoked, is
+          // refused before anything else is read — and gets no receipt.
+          if (_agentRow && (_agentRow.status === 'suspended' || _agentRow.status === 'deprecated')) {
+            return res.json({
+              decision: 'block',
+              reason:   `agent ${_agentRow.status}: its access was revoked by an operator or the kill switch`,
+              check_id: randomUUID(),
+              risk_level: 'CRITICAL',
+              category:  'agent-suspended',
+              latency_ms: Date.now() - start,
+            });
+          }
           if (_agentRow?.audit_only) {
             const latencyMs = Date.now() - start;
             const auditOnlyId = randomUUID();
@@ -249,6 +307,10 @@ export class CheckAPI {
               body.arguments as Record<string, unknown>,
               profile,
               validation.risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+              0,
+              // An agent scored with little history of its own is seeded
+              // from its tenant's aggregate baseline (TenantBaselineService).
+              requestOrgId,
             )
 
             // Record in sliding window for future evaluations
@@ -480,6 +542,12 @@ export class CheckAPI {
           );
         }
 
+        // One refusal per call towards the kill switch, whichever layer made it.
+        if (dslBlocks || (BLOCKING_RISK_LEVELS.has(validation.risk_level) && !validation.passed)
+            || anomalyResult?.decision === 'block') {
+          if (config.killSwitch.auto) this.killSwitch?.countBlock(body.agent_id).catch(() => {})
+        }
+
         // Communication tools (email, messaging) always require human review in blocking mode
         // A communication tool that acts gets a person; one that only reads
         // (search_emails, get_channels) does not — see isReadOnlyTool.
@@ -560,6 +628,11 @@ export class CheckAPI {
           })
 
           this.gatewayMetrics?.recordCheck('pending', requestOrgId)
+          // The auditor as first reviewer (AEGIS_HOLD_REVIEWER=auditor): it
+          // answers the hold the way the evaluation's harness did, and a
+          // person sees only what it would not release. The agent is told
+          // `pending` now and learns the outcome from its decision poll.
+          void this.firstReview(requestOrgId ?? 'default', checkId, body)
           return res.json({
             decision:   'pending',
             check_id:   checkId,

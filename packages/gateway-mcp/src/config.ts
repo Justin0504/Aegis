@@ -24,6 +24,11 @@ const envSchema = z.object({
   // Kill switch
   KILL_SWITCH_MAX_VIOLATIONS: z.coerce.number().int().min(1).default(3),
   KILL_SWITCH_WINDOW:         z.coerce.number().int().min(60).default(3600),
+  // Count /check refusals towards the kill switch. Off by default: at the
+  // default of 3 per hour it would suspend an agent under a sustained
+  // injection attack, which an operator must choose. Manual suspension
+  // and revocation are honoured either way.
+  KILL_SWITCH_AUTO:           z.enum(['0', '1', 'true', 'false']).default('0').transform(v => v === '1' || v === 'true'),
 
   // Rate limiting
   RATE_LIMIT_MAX:    z.coerce.number().int().min(1).default(100),
@@ -115,6 +120,7 @@ export const config = {
   killSwitch: {
     maxViolations: env.KILL_SWITCH_MAX_VIOLATIONS,
     violationWindow: env.KILL_SWITCH_WINDOW,
+    auto: env.KILL_SWITCH_AUTO,
   },
   rateLimit: {
     max: env.RATE_LIMIT_MAX,

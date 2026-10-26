@@ -118,6 +118,25 @@ export class ContextLedgerStore {
     return entry.ledger.recentUntrusted(maxChars);
   }
 
+  /** What a first reviewer needs to judge a held call the way the
+   *  evaluation's auditor did: the user's request (most recent user
+   *  turns), the agent's recent reasoning, and the tool output it read.
+   *  Undefined when the session has no user turn — then only a person
+   *  can say what was asked. Org-scoped like assess(). */
+  reviewInput(orgId: string, sessionId: string | undefined):
+    { goal: string; thoughts: string[]; observations: string[] } | undefined {
+    if (!sessionId) return undefined;
+    const entry = this.sessions.get(this.key(orgId, sessionId));
+    if (!entry || Date.now() - entry.lastSeen > this.ttlMs) return undefined;
+    const goal = entry.ledger.recent('user', 4096).join('\n').trim();
+    if (!goal) return undefined;
+    return {
+      goal,
+      thoughts: entry.ledger.recent('model', 6000).slice(-3).map((t) => t.slice(0, 2048)),
+      observations: entry.ledger.recentUntrusted(6000),
+    };
+  }
+
   /** Evidence for a held call (see ContextLedger.evidenceFor), or
    *  undefined when the session has no ledger. Org-scoped like assess(). */
   evidence(orgId: string, sessionId: string | undefined, args: Record<string, unknown> | undefined) {

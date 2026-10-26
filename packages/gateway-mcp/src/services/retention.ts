@@ -68,14 +68,25 @@ export class RetentionService {
       }
 
       try {
-        let sql = `DELETE FROM ${mapping.table} WHERE ${mapping.dateCol} < datetime('now', '-${policy.retention_days} days')`;
+        const days = Math.max(1, Math.floor(Number(policy.retention_days) || 0));
+        let sql = `DELETE FROM ${mapping.table} WHERE ${mapping.dateCol} < datetime('now', ?)`;
+        const params: unknown[] = [`-${days} days`];
 
-        // Scope to org if policy is org-specific and table has org_id
-        if (policy.org_id && ['traces'].includes(policy.resource_type)) {
-          sql += ` AND org_id = '${policy.org_id}'`;
+        // A tenant's policy deletes that tenant's rows and nobody else's.
+        // Before, only `traces` was scoped: a tenant's policy on violations,
+        // audit log, anomaly or judge rows purged every tenant's.
+        if (policy.org_id) {
+          const scope = this.tenantScope(mapping.table);
+          if (!scope) {
+            this.logger.warn({ resource: policy.resource_type, org_id: policy.org_id },
+              'Retention policy is per-tenant but the table cannot be scoped to a tenant; skipped');
+            continue;
+          }
+          sql += ` AND ${scope}`;
+          params.push(policy.org_id);
         }
 
-        const result = this.db.prepare(sql).run();
+        const result = this.db.prepare(sql).run(...params);
         const count = result.changes;
 
         if (count > 0) {
@@ -95,6 +106,19 @@ export class RetentionService {
     }
 
     return { purged };
+  }
+
+  /** The WHERE clause that limits a table to one tenant (one `?`), or
+   *  null when the table carries neither an org_id nor an agent_id that
+   *  resolves to one. */
+  private tenantScope(table: string): string | null {
+    const cols = new Set((this.db.prepare(`PRAGMA table_info(${table})`).all() as any[]).map(c => c.name));
+    if (cols.has('org_id')) return 'org_id = ?';
+    if (cols.has('agent_id')) {
+      const agentCols = new Set((this.db.prepare(`PRAGMA table_info(agents)`).all() as any[]).map(c => c.name));
+      if (agentCols.has('org_id')) return 'agent_id IN (SELECT id FROM agents WHERE org_id = ?)';
+    }
+    return null;
   }
 
   // ── Policy CRUD ────────────────────────────────────────────────────────────

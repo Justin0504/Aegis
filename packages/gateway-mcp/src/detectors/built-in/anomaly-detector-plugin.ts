@@ -50,6 +50,9 @@ export class AnomalyDetectorPlugin implements Detector {
       ctx.tool.name,
       ctx.tool.args,
       profile,
+      'LOW',
+      0,
+      ctx.tenant?.id,   // seed a short-history agent from its tenant's baseline
     );
 
     if (result.composite_score < 0.1) return [];   // noise floor

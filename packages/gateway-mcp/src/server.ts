@@ -688,6 +688,7 @@ async function main() {
     gatewayMetrics,
     contextLedgers,
     new ReceiptService(new SigningService(db, logger)),
+    killSwitch,
   ).router);
 
   // ── Management routes (auth required) ────────────────────────────────────
