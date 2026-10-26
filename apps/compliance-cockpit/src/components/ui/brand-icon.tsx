@@ -163,8 +163,14 @@ export function BrandIcon({ brand, size = 16, className, title }: Props) {
   // Skip 'override' stage when no explicit URL is set.
   const effectiveStage = stage === 'override' && !resolved.iconUrl ? 'google' : stage
 
+  // Fetching a favicon tells a third party which hosts the agents touch.
+  // NEXT_PUBLIC_AEGIS_OFFLINE=1 keeps every logo local: bundled icons only,
+  // a placeholder otherwise — the Cockpit then makes no outside request.
+  const offline = process.env.NEXT_PUBLIC_AEGIS_OFFLINE === '1'
   let src: string | null = null
-  if (effectiveStage === 'override' && resolved.iconUrl) {
+  if (offline) {
+    src = resolved.iconUrl?.startsWith('/') ? resolved.iconUrl : null
+  } else if (effectiveStage === 'override' && resolved.iconUrl) {
     src = resolved.iconUrl
   } else if (effectiveStage === 'google') {
     src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(resolved.domain)}&sz=64`

@@ -13,7 +13,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Clock, ShieldCheck, ShieldAlert, ShieldX, Hourglass, Layers } from 'lucide-react'
+import { ChevronDown, Clock, ShieldCheck, ShieldAlert, ShieldX, Hourglass, Layers, BadgeCheck } from 'lucide-react'
 import { ToolIcon } from '@/lib/tool-icons'
 import { describeActivity } from '@/lib/activity-description'
 import { friendlyAgent } from '@/lib/friendly-names'
@@ -92,6 +92,42 @@ function runTitle(s: any): string {
   return r.length > 70 ? r.slice(0, 68) + '\u2026' : r
 }
 
+/** The receipt the gateway signed for an allowed call, checked against the
+ *  gateway's key when the step is opened. Only the signature and the tool
+ *  are compared: stored arguments are PII-redacted, so their hash need not
+ *  equal the one signed over the arguments as sent. */
+function Receipt({ token, tool }: { token: string; tool?: string }) {
+  const { data } = useQuery({
+    queryKey: ['receipt', token],
+    queryFn: async () => {
+      const r = await fetch('/api/gateway/check/receipt/verify', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ receipt: token, tool_name: tool }),
+      })
+      return r.ok ? r.json() : { valid: false, reason: `gateway ${r.status}` }
+    },
+    staleTime: Infinity,
+  })
+  const ok = data?.valid && data?.matches_call !== false
+  const p = data?.payload
+  return (
+    <section className="rounded-xl border p-3.5 lg:col-span-2" style={{ borderColor: BORDER }}>
+      <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: MUTED }}>
+        <BadgeCheck className="h-3.5 w-3.5" /> Signed receipt
+      </h4>
+      <p className="text-[12.5px] leading-relaxed" style={{ color: TEXT }}>
+        {!data ? 'Checking the signature…'
+          : ok ? <>Signed by this gateway{p?.by ? `, allowed by ${p.by}` : ''}{p?.iat ? ` at ${new Date(p.iat * 1000).toLocaleTimeString()}` : ''}. An executor can verify it offline against the gateway's public key.</>
+          : <span style={{ color: 'hsl(0 72% 42%)' }}>Does not verify: {data.reason ?? 'issued for a different call'}.</span>}
+      </p>
+      <p className="mt-1.5 font-mono text-[11.5px] break-all" style={{ color: MUTED }}>
+        {token.length > 64 ? token.slice(0, 40) + '…' + token.slice(-16) : token}
+        {p?.args && <> · args sha256 {String(p.args).slice(0, 12)}…</>}
+      </p>
+    </section>
+  )
+}
+
 function Step({ t, last }: { t: any; last: boolean }) {
   const [open, setOpen] = useState(false)
   const rich = describeActivity(t)
@@ -151,6 +187,7 @@ function Step({ t, last }: { t: any; last: boolean }) {
               ? <p className="text-[12.5px] italic" style={{ color: MUTED }}>{toneOf(t) === 'allow' ? 'Nothing recorded' : 'Did not run'}</p>
               : <ValueView value={result} />}
           </section>
+          {t.safety_validation?.receipt && <Receipt token={t.safety_validation.receipt} tool={t.tool_call?.tool_name} />}
         </div>
       )}
       <div className={last ? 'pb-1' : 'pb-6'} />
