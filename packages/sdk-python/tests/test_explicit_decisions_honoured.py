@@ -1,6 +1,6 @@
 """An explicit gateway decision is honoured whatever the risk tier.
 
-`block_threshold` (default HIGH) is a precision control over the
+`block_threshold` (default LOW since 2026-10-26; HIGH before) is a precision control over the
 gateway's risk-level verdicts. It was applied before the decision was
 read, so a policy hold at risk LOW returned as allow: the tool ran and
 the agent never waited. Every S3 row of the compatibility matrix was
@@ -84,3 +84,15 @@ def test_low_risk_block_without_a_rule_is_still_audited_only():
     fake, _ = _gateway({"decision": "block", "risk_level": "LOW", "check_id": "c3", "reason": "risk tier"})
     with patch("urllib.request.urlopen", fake):
         inst._check_block("read_file", {"path": "notes.txt"})   # no raise
+
+
+def test_default_config_enforces_a_medium_risk_gateway_block():
+    """The paper's runs enforce every gateway block, and so do the JS and
+    Go SDKs; the Python default used to audit anything below HIGH."""
+    from agentguard.core.config import AgentGuardConfig
+    inst = _instrument()
+    inst._guard.config.block_threshold = AgentGuardConfig(agent_id="a").block_threshold
+    fake, _ = _gateway({"decision": "block", "risk_level": "MEDIUM", "check_id": "c2", "category": "network",
+                        "reason": "plaintext URL"})
+    with patch("urllib.request.urlopen", fake), pytest.raises(AgentGuardBlockedError):
+        inst._check_block("fetch", {"url": "http://example.invalid"})

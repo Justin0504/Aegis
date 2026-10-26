@@ -59,6 +59,11 @@ export const SafetyValidationSchema = z.object({
   passed: z.boolean(),
   violations: z.array(z.string()).nullable().optional(),
   risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  // The gateway check this verdict came from and, for an allow, its signed
+  // receipt (services/receipts.ts). Not covered by the trace hash; the
+  // receipt carries its own signature.
+  check_id: z.string().max(100).nullable().optional(),
+  receipt: z.string().max(4096).nullable().optional(),
 });
 
 /**

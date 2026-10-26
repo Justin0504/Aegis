@@ -290,7 +290,8 @@ async def proxy(
                 if refusal:
                     print(f"[AEGIS] BLOCK {name} — tool pin", file=sys.stderr)
                     _send_trace(name, arguments, None, gateway_url, agent_id,
-                                decision={"decision": "block", "reason": refusal, "risk_level": "HIGH"}, error=refusal)
+                                decision={"decision": "block", "reason": refusal, "risk_level": "HIGH",
+                                          "policy_name": "mcp-tool-pin"}, error=refusal)
                     raise RuntimeError(refusal)
                 # Pre-execution check
                 loop   = asyncio.get_event_loop()

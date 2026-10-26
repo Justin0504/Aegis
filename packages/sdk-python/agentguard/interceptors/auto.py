@@ -336,6 +336,9 @@ class AutoInstrument:
             # The gateway's signed proof that it allowed this call; an executor
             # verifies it with agentguard.receipts.verify_receipt.
             "receipt":    result.get("receipt"),
+            # Who decided: the gateway's /check, or a refusal made before it
+            # (the MCP proxy's tool pin), which the gateway counts separately.
+            "policy":     result.get("policy_name") or "gateway",
         }
         if result.get("receipt"):
             _RECEIPTS[self._decision_key(tool_name, arguments)] = result["receipt"]
@@ -355,9 +358,10 @@ class AutoInstrument:
         if not d:
             return None, None
         from agentguard_core_schema import SafetyValidation
-        sv = SafetyValidation(policy_name="gateway", passed=bool(d["passed"]),
+        sv = SafetyValidation(policy_name=d.get("policy", "gateway"), passed=bool(d["passed"]),
                               violations=[d["reason"]] if d.get("reason") else None,
-                              risk_level=d.get("risk_level") if d.get("risk_level") in ("LOW", "MEDIUM", "HIGH", "CRITICAL") else "LOW")
+                              risk_level=d.get("risk_level") if d.get("risk_level") in ("LOW", "MEDIUM", "HIGH", "CRITICAL") else "LOW",
+                              check_id=d.get("check_id"), receipt=d.get("receipt"))
         return sv, d.get("approval")
 
     # ── Shared pre-check helpers ────────────────────────────────────────────

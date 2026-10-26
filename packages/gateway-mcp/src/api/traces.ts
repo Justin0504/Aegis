@@ -856,6 +856,22 @@ export class TraceAPI {
       agentNameOf(raw),
     );
 
+    // A call refused before it reached /check — today, the MCP proxy
+    // refusing a tool whose pinned description changed — is still a block,
+    // and counts as one. /check-decided blocks are recorded by /check; they
+    // carry another policy_name, so nothing is counted twice.
+    const sv: any = trace.safety_validation;
+    if (sv && sv.passed === false && sv.policy_name === 'mcp-tool-pin') {
+      try {
+        this.db.prepare(
+          `INSERT INTO violations (agent_id, policy_id, trace_id, violation_type, details) VALUES (?, ?, ?, ?, ?)`,
+        ).run(String(trace.agent_id), 'mcp-tool-pin', String(trace.trace_id), 'mcp_tool_pin',
+              JSON.stringify({ tool: trace.tool_call?.tool_name, reason: sv.violations?.[0] ?? null }));
+      } catch (err) {
+        this.logger.warn({ err }, 'mcp pin violation insert failed');
+      }
+    }
+
     // Emit OTEL span async, non-blocking
     const toolName = trace.tool_call?.tool_name ?? trace.tool_call?.function ?? 'unknown';
     const riskLevel = trace.safety_validation?.risk_level ?? 'LOW';

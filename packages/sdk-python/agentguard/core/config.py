@@ -132,11 +132,13 @@ class AgentGuardConfig(BaseModel):
     # ── Precision controls (prevent over-blocking) ─────────────────────────
 
     block_threshold: str = Field(
-        default="HIGH",
+        default="LOW",
         description=(
-            "Minimum risk level to block. Options: LOW | MEDIUM | HIGH | CRITICAL. "
-            "E.g. 'CRITICAL' only blocks the most dangerous calls, lets HIGH/MEDIUM through. "
-            "Default 'HIGH' blocks HIGH and CRITICAL, audits MEDIUM/LOW."
+            "Minimum risk level at which a gateway `block` is enforced. Options: "
+            "LOW | MEDIUM | HIGH | CRITICAL. Default 'LOW' enforces every block the "
+            "gateway returns — the behaviour the paper measures, and the JS and Go "
+            "SDKs' only behaviour. Raising it audits lower-risk blocks instead of "
+            "enforcing them (a DSL rule's block or any hold is always enforced)."
         )
     )
     enforce_at: str = Field(

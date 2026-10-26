@@ -65,6 +65,11 @@ class SafetyValidation(BaseModel):
     passed: bool
     violations: Optional[List[str]] = None
     risk_level: RiskLevel
+    # The gateway check this verdict came from, and for an allow its signed
+    # receipt (AEG1.<payload>.<sig>). The trace hash does not cover this
+    # object; the receipt is what makes an allow verifiable on its own.
+    check_id: Optional[str] = None
+    receipt: Optional[str] = None
 
 
 class AgentActionTrace(BaseModel):

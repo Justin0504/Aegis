@@ -93,7 +93,7 @@ def auto(
     session_id: Optional[str] = None,
     tool_categories: Optional[dict] = None,
     # ── Precision controls ─────────────────────────────────────────────────
-    block_threshold: str = "HIGH",
+    block_threshold: str = "LOW",
     enforce_at: str = "response",
     allow_tools: Optional[list] = None,
     allow_categories: Optional[list] = None,
@@ -295,7 +295,7 @@ if _env_url:
         gateway_url=_env_url,
         agent_id=os.environ.get("AGENTGUARD_AGENT_ID") or None,
         blocking_mode=os.environ.get("AGENTGUARD_BLOCKING", "").lower() in ("1", "true", "yes"),
-        block_threshold=os.environ.get("AGENTGUARD_BLOCK_LEVEL", "HIGH"),
+        block_threshold=os.environ.get("AGENTGUARD_BLOCK_LEVEL", "LOW"),
         audit_only=os.environ.get("AGENTGUARD_AUDIT_ONLY", "").lower() in ("1", "true", "yes"),
         allow_tools=_csv("AGENTGUARD_ALLOW_TOOLS"),
         allow_categories=_csv("AGENTGUARD_ALLOW_CATEGORIES"),
