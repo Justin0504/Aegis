@@ -11,10 +11,17 @@ await ctx.addInitScript(({ key, gateway }) => {
 }, { key, gateway })
 const page = await ctx.newPage()
 for (const p of pages) {
-  const name = p === '/' ? 'overview' : p.slice(1).replace(/\//g, '-')
+  // '/settings#mcp=mcp-tools' shoots the #mcp section of /settings as mcp-tools.png
+  const [path, frag] = p.split('#')
+  const [anchor, alias] = (frag || '').split('=')
+  const name = alias || (path === '/' ? 'overview' : path.slice(1).replace(/\//g, '-'))
   try {
-    await page.goto(cockpit + p, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(cockpit + path, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForTimeout(1200)
+    if (anchor) {
+      await page.evaluate((id) => document.getElementById(id)?.scrollIntoView({ block: 'start' }), anchor)
+      await page.waitForTimeout(600)
+    }
     // toasts are live-feed noise, not evidence; the traces page shows the
     // detail pane for the first row, which is what the caption describes
     await page.addStyleTag({ content: '[data-sonner-toaster]{display:none !important}' })

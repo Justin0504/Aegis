@@ -1,0 +1,14 @@
+{
+ "provenance_mechanism": {
+  "numbers": [
+   "0.00",
+   "0.14",
+   "0.17",
+   "0.18",
+   "0.25",
+   "0.32",
+   "219"
+  ],
+  "source": "F2 worked example: cascade/provenance.py on corpus record ds_enhanced::219 (attack arm); see the docstring of figures_src/fig_provenance.py"
+ }
+}

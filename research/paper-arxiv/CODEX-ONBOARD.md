@@ -1,75 +1,170 @@
-# Codex onboarding — AEGIS demo paper, arXiv v2 (replaces 2603.12621)
+# Codex onboarding — AEGIS paper, arXiv v2 (replaces 2603.12621)
 
-You are joining a paper + product that are kept honest against each other:
-every claim in `aegis.tex` was checked against `packages/` on 2026-10-12/13,
-and a compatibility matrix in `research/compat/` drives the shipping gateway
-with nineteen real agent harnesses. Your job is to finish what is listed
-under **Open tasks**, in the same discipline: nothing goes in the paper that
-the code does not do, and nothing goes in a figure that the brief does not
-state.
+Updated 2026-10-26 for **round 3** (figures). The paper and the product are
+kept honest against each other: every claim in `aegis.tex` was checked
+against `packages/`, and figures are checked against result files by a
+script, not by eye. Your job is the figure round below, in that
+discipline: nothing goes in a figure that a file does not say, and nothing
+goes in a caption that the product does not do.
+
+## Read, in this order (≈20 min)
+
+1. This file, all of it.
+2. `CODEX-FIGURE-BRIEF-v3.md` — what to draw (every slot, its content, its data).
+3. `CODEX-FIGURE-BRIEF.md` — **only** "Palette and type" and "Checks"; they apply to every figure.
+4. `aegis.pdf` — find each grey `PLACEHOLDER` box and read the paragraph around it.
+5. `figdata/plots.json`, `figdata/gallery.json` (search `"pick"`), `figdata/captures/`.
+
+## Environment (verified on this machine 2026-10-26)
+
+| need | how |
+|---|---|
+| figkit (figures) | system `python3` (3.14) **run from `research/`** — `figkit/` is a package there, not installed; needs `python-pptx`, `Pillow` (present). Fonts Geist / Geist Mono are in `~/Library/Fonts`. Icons are cached in `research/figkit/assets/icons/tabler/`; fetching a new one needs network and a non-default User-Agent (see `figkit/icons.py`). |
+| SDK, MCP, captures | `research/compat/.venv/bin/python` — has `agentguard` (editable, from `packages/sdk-python`), `mcp`, `cryptography`. System python cannot import `agentguard` (`agentguard_core_schema` missing). |
+| gateway | `cd packages/gateway-mcp && npm run build` → `node dist/server.js`. Use **nvm Node 22** (`~/.nvm/versions/node/v22.21.1`), not 20 and not Homebrew's — better-sqlite3 is built against 22. |
+| Cockpit | `apps/compliance-cockpit`, built (`.next/` is current as of 10-21; rebuild with `npm run build` if you change it). `next start` needs `GATEWAY_URL` (server-side proxy), not only `NEXT_PUBLIC_*`. |
+| screenshots | Playwright browsers live in `research/compat/js/node_modules` — always `export PLAYWRIGHT_BROWSERS_PATH=0`. |
+| paper | `cd research/paper-arxiv && tectonic aegis.tex`; `pdffonts`, `pdftotext`, `pdfinfo`, `pdftoppm` (poppler) are installed. |
+| Docker | CLI installed, **daemon not running**; only R2 needs it (`open -a Docker`). |
+
+A fresh gateway for any capture (temp DB, tenant key from the bootstrap route):
+
+```
+PORT=18086 DB_PATH=$(mktemp -d)/x.db AEGIS_LICENSE_TIER=enterprise RATE_LIMIT_MAX=1000000 LOG_LEVEL=warn \
+  node packages/gateway-mcp/dist/server.js > /tmp/gw.log 2>&1 &  GW_PID=$!
+KEY=$(curl -s http://127.0.0.1:18086/api/v1/auth/key | python3 -c "import sys,json;print(json.load(sys.stdin)['api_key'])")
+# … use it …
+kill $GW_PID
+```
+
+`AEGIS_LICENSE_TIER=enterprise` matters: on the free tier agents beyond the
+cap go audit-only and nothing is blocked.
+
+### Ports (one owner each — check `lsof -iTCP:<port> -sTCP:LISTEN` first)
+
+| port | used by |
+|---|---|
+| 18080 / 18081 | compatibility matrix gateways (`run_compat.py`) |
+| 18085 / 13003 | `shoot_replay.sh`, `shoot_cockpit.sh` (gateway / Cockpit) |
+| 18086 | ad-hoc gateway for R2/R3 and experiments |
+| 18087 / 13004 | `shoot_mcp.sh` (gateway / Cockpit) |
+
+**Never `pkill -f` or kill by name** — other agents and sessions run
+gateways and model servers on this machine. Kill only the PIDs you
+started (`$!`), as the shoot scripts do with `trap`.
 
 ## Map
 
 | path | what |
 |---|---|
-| `research/paper-arxiv/aegis.tex` + `sections/*.tex` | the paper (acmart sigconf). `tectonic aegis.tex` builds it; 31 pages with round-3 placeholders (2026-10-26), 0 undefined refs is the bar. |
-| `research/paper-arxiv/figures/table_compat.tex` | **generated** by `research/compat/make_table.py` — never edit by hand |
-| `research/paper-arxiv/images/ui/*.png` | Cockpit screenshots, taken by `research/compat/js/shoot.mjs` against a live gateway — never mock |
-| `research/paper-arxiv/images/{cascade,fallback,judge,deployment,receipts_pins,frontier,load,agentdrift}.pdf`, `images/gallery/*`, `images/deploy/*`, `images/ui/{mcp-tools,run-step,approval-evidence,security-360}.png` | **round-3 placeholders** you replace — spec in `CODEX-FIGURE-BRIEF-v3.md` |
-| `research/paper-arxiv/figdata/{plots,gallery}.json` | **generated** by `python -m figures_src.figure_data` from the result files — the only source of numbers and quoted strings for round 3 |
-| `research/figures_src/placeholders.py` | draws any missing slot at its canvas; never overwrites an existing file unless `--force <id>` |
-| `research/paper-arxiv/package_for_arxiv.py` | clean-room tarball; run it before any hand-off |
-| `research/compat/` | the matrix: `run_compat.py` (gateways + approver), `harnesses.py` (one function per harness), `common.py` (scenarios, tools, DSL rule), `make_table.py`, `js/`, `go/`, `results/` |
-| `packages/gateway-mcp` | the gateway (Node/Express/SQLite). `npm run build` → `dist/`; `npx jest` must stay green (1360 tests) |
-| `packages/sdk-python` | `agentguard.auto(blocking_mode=True)` patches 15 targets; `integrations/claude_agent_sdk.py` is the PreToolUse hook |
-| `packages/sdk-js`, `packages/sdk-go` | JS (`auto()`), Go (`Wrap`) |
-| `apps/compliance-cockpit` | Next.js Cockpit; real data by default; `NEXT_PUBLIC_USE_MOCK_TRACES=true` opts into the demo fixtures |
+| `research/paper-arxiv/aegis.tex` + `sections/*.tex` | the paper (acmart sigconf). Builds to 31 pages with placeholders, **0 undefined references** is the bar. |
+| `research/paper-arxiv/figdata/plots.json`, `gallery.json` | **generated** by `python3 -m figures_src.figure_data` (from `research/`) out of the result files the tables use. The only source of numbers and quoted strings. Do not edit; re-generate. |
+| `research/paper-arxiv/figdata/captures/` | recorded runs: `g9_*` (MCP rug pull, done); you add `r1_*`–`r3_*` |
+| `research/paper-arxiv/figdata/sourced_numbers.json` | the few numbers a figure may print that are in no result file, each with its source (today: F2's worked example) |
+| `research/figures_src/placeholders.py` | the slot list (`SLOTS`: canvas, printed width, brief section). Draws missing slots; never overwrites a file unless `--force <stem>`. |
+| `research/figures_src/check_figures.py` | **the acceptance gate** — see below |
+| `research/figures_src/fig_*.py` | round-2 figures (architecture, provenance, rollout, audit, capability, demo) — the pattern for yours |
+| `research/compat/mcp_rugpull_demo.py`, `shoot_mcp.sh` | the MCP rug pull through the shipping proxy (G9 data, U1 screenshot) |
+| `research/compat/shoot_replay.sh`, `shoot_cockpit.sh`, `js/shoot.mjs` | Cockpit captures (`SHOOT_PAGES="/settings#mcp=mcp-tools"` shoots an anchored section under another name) |
+| `research/paper-arxiv/package_for_arxiv.py` | clean-room tarball; run it at the end |
+| `packages/gateway-mcp`, `packages/sdk-python`, `apps/compliance-cockpit` | gateway, SDK (+ `mcp_proxy.py`, `receipts.py`), Cockpit |
 
-## How to run the matrix
+## The acceptance gate
+
+```
+cd research
+python3 -m figures_src.check_figures            # every slot
+python3 -m figures_src.check_figures F6 gallery/G1
+```
+
+Per slot it checks: the file exists; it is no longer the placeholder; its
+aspect is within 3 % of the slot's canvas (so pages do not reflow); every
+font is embedded; the smallest word is ≥ 5 pt at the printed width; every
+number it prints is in `figdata/`, the paper's sources or the brief (axis
+ticks allowed on plots); and gallery cards contain their record's tool
+name and reason verbatim. It warns when a glyph fell back from Geist to a
+system font. **A slot is done when it passes here _and_ you have looked
+at its rendered page** — the script cannot see collisions or whether the
+figure says what the brief asks. If the gate is wrong about something,
+say so in your report; do not loosen it to pass.
+
+Today: the five drawn figures pass except **F4 `capability`**, whose
+smallest text prints at 3.7 pt (task 3 below); everything else is a
+placeholder.
+
+## Open tasks (priority order)
+
+1. **Round-3 figures** — `CODEX-FIGURE-BRIEF-v3.md`. To do: F6 cascade,
+   F7 fallback, F8 judge (+ reliability diagram), F9 deployment, F10
+   receipts/pins; D1–D3 as figkit scripts reading `figdata/plots.json` at
+   render time; gallery cards G1–G9, C1–C2 from `gallery.json` and
+   `captures/g9_*`; terminal cards R1–R3. F1′ is a four-item revision of
+   the existing architecture figure on its current canvas. Done already:
+   U1 and G9's data. G6, G7 (false positives) and G8 (a miss) stay — they
+   are what make the rest credible.
+   Captions and figure environments are already in the LaTeX; **if what
+   you draw contradicts a caption, stop and report** rather than edit the
+   caption to fit.
+2. **Fallback glyphs** in F3 (`Menlo`) and F5 (`Monaco`): find the glyph
+   Geist lacks (likely an arrow or `‖`) and replace it with one Geist has,
+   or draw it as a path.
+3. **F4 `capability` print size**: redraw in `fig_capability.py` so its
+   smallest text is ≥ 6 pt at `\columnwidth` (≈ 241 pt): the page is 486 pt
+   wide today, so text must be ≥ 12 pt in the PDF — or narrow the canvas.
+   Numbers unchanged.
+4. **P1 (product, optional — ask first)**: receipts are issued and
+   verified, but the Cockpit never shows them, because the SDK drops the
+   receipt when it builds the trace (`interceptors/auto.py`,
+   `_pop_decision` keeps only `passed`/`risk_level`/`reason`). Carrying
+   it to the run step (`components/traces/run-timeline.tsx`) would let
+   the appendix show it; until then no caption may claim it.
+5. **P2 (product, optional — ask first)**: the Cockpit's status bar counts
+   "blocked" from `/check` decisions, so a call the MCP proxy refused on a
+   tool pin (never reaches `/check`) is not counted (U1's bar shows
+   `0 blocked`). Either report pin refusals as blocks or label the count.
+
+## Rules
+
+- **Numbers** come from a file you can name. In figures: `figdata/`, or
+  `sourced_numbers.json` with a source a reader could re-run.
+- **Do not edit** `research/benchmark/data/**` (a corpus file trips GitHub
+  secret scanning on a model-generated fake SID; the owner unblocks it on
+  GitHub), any `figures/table_*.tex` (generated), or a caption to fit a
+  figure.
+- **Do not push.** `main` is ahead of `origin` and the push is waiting on
+  the owner. Commit locally, one topic per commit, message says *why*,
+  ending `Co-Authored-By: <the model that wrote it> <noreply@…>` if a
+  model wrote it with you.
+- **Keys**: the matrix reads `ANTHROPIC_API_KEY` from `~/.anthropic.env`,
+  `OPENAI_API_KEY` from `~/chronoception/.env`, `GEMINI_API_KEY` from
+  `~/Dynabridge/backend/.env`. Round 3 needs no model key. Never print a
+  key into a capture.
+- The arXiv upload needs co-author sign-off (Zhiyuan Su, Yue Zhao); you do
+  not submit.
+
+## Hand back
+
+1. The files, in place, and `check_figures` output with every slot PASS
+   (or each FAIL explained).
+2. For each figure: every number it prints → the JSON path or capture
+   line it came from.
+3. `tectonic aegis.tex` page count before/after and the PNG of each page
+   that carries a new figure (`pdftoppm -r 110 -f N -l N -png aegis.pdf`).
+4. Anything in the brief you found wrong, with the evidence.
+
+## Running the compatibility matrix (not needed for round 3)
 
 ```
 cd research/compat
-.venv/bin/python run_compat.py                 # all 19 rows × 4 scenarios (S4 = indirect injection, Lp), ~45 min, writes results/
-.venv/bin/python run_compat.py crewai S2       # (harness names: see harnesses.py HARNESSES)
+.venv/bin/python run_compat.py                 # 19 harnesses × 4 scenarios, ~45 min
+.venv/bin/python run_compat.py crewai S2       # one row (names: harnesses.py HARNESSES)
 .venv/bin/python make_table.py                 # → paper table + results/COMPAT.md
 ```
-Keys: `ANTHROPIC_API_KEY` from `~/.anthropic.env`, `OPENAI_API_KEY` from
-`~/chronoception/.env` (the runner reads both; file keys override the shell),
-`GEMINI_API_KEY` from `~/Dynabridge/backend/.env`. Ollama must be running with
-`qwen3:8b` and `qwen2.5:7b` pulled. Each harness runs in its own process
-because `auto()` patches SDKs process-wide. Port 18080/18081 must be free
-(`pkill -f "node dist/server.js"`). Use the nvm Node 22, not Homebrew's
-(better-sqlite3 is built against it).
 
-## How to screenshot the Cockpit
+Ollama must serve `qwen3:8b` and `qwen2.5:7b`. Each harness runs in its
+own process because `auto()` patches SDKs process-wide.
 
-```
-cd research/compat && bash shoot_cockpit.sh /tmp/aegis-compat-main-<ts>.db   # → paper-arxiv/images/ui/*.png
-```
-
-The script does the whole thing: `sqlite3 .backup` of the matrix DB (never
-`cp` — WAL), a gateway on :18085 with the model keys loaded, `next start`
-on :13003 with `GATEWAY_URL` set (the Cockpit's server-side proxy reads
-that env, `NEXT_PUBLIC_` alone is not enough), then `js/shoot.mjs`, which
-hides toasts, opens the first trace's detail pane, runs a scan on the demo
-agent and an alignment audit before capturing. Build the Cockpit first
-(`npm run build`); demo fixtures are opt-in (`NEXT_PUBLIC_USE_MOCK_TRACES=true`),
-a plain build shows the gateway.
-
-## Open tasks (in priority order)
-
-0. **Round-3 figures (2026-10-26) — start here.** Read
-   `CODEX-FIGURE-BRIEF-v3.md` end to end, then `CODEX-FIGURE-BRIEF.md`'s
-   palette and checks. 26 slots: F1′ revision; body diagrams F6 cascade,
-   F7 fallback, F8 judge (+ reliability diagram), F9 deployment, F10
-   receipts/pins; plots D1–D3 as figkit scripts over `figdata/plots.json`;
-   appendix gallery cards G1–G9, C1–C2 over `figdata/gallery.json` (G6,
-   G7 are false positives and G8 is a miss — they stay); four Cockpit
-   captures U1–U4; three terminal captures R1–R3. Figure environments and
-   captions are already in `aegis.tex`, `sections/fallback.tex`,
-   `sections/judge.tex`, `sections/appendix_gallery.tex`,
-   `sections/appendix_ui.tex` — if what you draw contradicts a caption,
-   stop and report; do not edit a caption to fit a figure.
+## History (done; for context)
 
 1. ~~Figures F1, F2, F3, F5~~ — drawn 2026-10-13 with figkit
    (`figures_src/fig_architecture.py`, `fig_provenance.py`, `fig_rollout.py`,
@@ -132,18 +227,3 @@ a plain build shows the gateway.
    its own; Haiku emits it 5/5 with the neutral system prompt and ~1/3
    with a prompt that names the firewall. Do not put "AEGIS" or
    "compliance" back into the agent's system prompt.
-
-## Rules
-
-- Numbers in the paper come from `research/compat/results/`, the research
-  harness (`research/selective`, `research/benchmark`), or the code. If you
-  cannot point to the file, the number does not go in.
-- Figures: `reference/figkit` language — white, Geist, hairlines, colour
-  only for allow/block/pending/untrusted and one accent; 12-unit type floor
-  on a 1000-wide canvas; look at the rendered PNG, not the code.
-- Commits: one topic per commit, message explains *why*, ends with
-  `Co-Authored-By: <the model that wrote it> <noreply@anthropic.com>` if Claude
-  wrote it with you. Do not push `research/compat/results/` transcripts
-  that contain keys (they should not; check).
-- The arXiv upload needs co-author sign-off (Zhiyuan Su, Yue Zhao): v2
-  withdraws a shared result.

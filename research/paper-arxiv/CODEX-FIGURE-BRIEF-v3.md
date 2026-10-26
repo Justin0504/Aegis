@@ -38,7 +38,7 @@ before drawing; the line is given.
 
 | id | file (`images/`) | canvas | printed | slot | kind |
 |---|---|---|---|---|---|
-| F1′ | `architecture.*` | 1000 × 620 | `\textwidth` | Fig. 1 (exists) | **revise** |
+| F1′ | `architecture.*` | 1000 × 508 (the current page, 750 × 381 pt — keep it) | `\textwidth` | Fig. 1 (exists) | **revise** |
 | F6 | `cascade.*` | 1000 × 430 | `\textwidth` | §2.3 after *Decision* | diagram |
 | F7 | `fallback.*` | 1000 × 360 | `\textwidth` | §2.x Failure Modes and Fallback | diagram |
 | F8 | `judge.*` | 1000 × 420 | `\textwidth` | §2.x LLM as Judge | diagram + data |
@@ -49,7 +49,7 @@ before drawing; the line is given.
 | D3 | `agentdrift.*` | 500 × 300 | `\columnwidth` | §5 AgentDrift | plot |
 | G1–G8, C1–C2 | `gallery/G1.*` … `gallery/C2.*` | 500 × 300 each | `\columnwidth` | App. Interception Gallery | cards |
 | G9 | `gallery/G9.*` | 500 × 300 | `\columnwidth` | same | card from a capture you make |
-| U1–U4 | `ui/mcp-tools.png`, `ui/run-step.png`, `ui/approval-evidence.png`, `ui/security-360.png` | 1440 × 900 screenshot | `\columnwidth` | App. UI | capture |
+| U1 | `ui/mcp-tools.png` | 1440 × 900 screenshot | `\columnwidth` | App. UI | **done** (2026-10-26, `shoot_mcp.sh`) |
 | R1–R3 | `deploy/mcp-host.*`, `deploy/compose.*`, `deploy/receipt-verify.*` | 500 × 280 | `\columnwidth` | App. Deployment | terminal card from a capture |
 
 Diagrams (F, G, R) are drawn with `figkit` like round 2. Plots (D) are
@@ -350,53 +350,65 @@ Outcome pill colour = `outcome` (`blocked before execution` → red,
 The appendix must carry G6, G7 and G8. A gallery with only wins is not
 believable; these three are what make the other eight credible.
 
-**G9 capture.** Write `research/compat/mcp_rugpull_demo.py`: a stdio MCP
-server whose `tools/list` returns description A on the first listing and
-description B (with an `<IMPORTANT>` line asking to read `~/.ssh/id_rsa`)
-on the second. Run it under `python -m agentguard.mcp_proxy` against a
-local gateway (`docker compose up` or `npm run dev` in
-`packages/gateway-mcp`), list twice, then call the tool. Record the
-gateway's `GET /api/v1/mcp/tools` JSON and the proxy's refusal text into
-`paper-arxiv/figdata/captures/g9_*.json|txt`, and draw G9 from those
-files. That run also produces U1.
+**G9 data is recorded** (2026-10-26) in `figdata/captures/`:
+`g9_run1.json` (first start: `get_weather` listed and allowed),
+`g9_run2.json` (after the server changed the description: the tool is
+withheld from the list, and a call from a cached list is refused —
+verbatim text in `result`), `g9_pins.json` (the gateway's pins: both
+texts, status, markers), `g9_proxy.txt` (the proxy's stderr). Draw the
+card from those: approved text vs. new text side by side, the
+`[AEGIS BLOCKED] … changed after it was approved` refusal, and a footer
+`withheld from the model's tool list · refused until re-pinned`. The
+demo (`research/compat/mcp_rugpull_demo.py`) asserts every one of these
+facts and fails otherwise; re-running it rewrites the files.
 
-## Appendix U — four more product views (screenshots)
+## Appendix U — product views
 
-Use the existing capture tooling: `research/compat/shoot_cockpit.sh`,
-`shoot_replay.sh` (real AgentDojo transcripts through the SDK),
-`shoot_demo_flow.sh` (live demo agent), `js/shoot.mjs`. Playwright
-browsers are project-local (`PLAYWRIGHT_BROWSERS_PATH=0`). 1440 × 900,
-light theme, no dev overlays, no personal email in the header (use the
-demo org).
+**U1 is done** (2026-10-26): `bash research/compat/shoot_mcp.sh` starts a
+fresh gateway, runs the rug-pull demo through the shipping proxy and
+photographs Settings → MCP tools with one tool in each state (Changed with
+both texts, Suspicious with its markers, Pinned). Re-run it only if the
+Cockpit's look changes; it rewrites G9's data too.
 
-| id | view | state to capture |
-|---|---|---|
-| U1 | Settings → MCP tools | after the G9 run: one `Changed` row expanded showing both texts, one `Suspicious`, the rest `Pinned` |
-| U2 | Runs → a run → expanded step | a replayed AgentDojo banking run with one blocked step expanded: provenance verdict, matched rule, receipt id on an allowed step |
-| U3 | Approvals → a held call | the evidence-first card with the auditor's verdict and the fenced tool output |
-| U4 | Security 360 | after the replay, so every tile has data |
-
-Add each to `sections/appendix_ui.tex` in the same `figure` pattern as
-its neighbours (placeholders already present).
+U2–U4 (expanded run step, approval with evidence, Security 360) were
+dropped: the appendix already carries those views (`ui/traces.png`,
+`ui/approvals.png`, `ui/coverage.png`, captured from the AgentDojo replay by
+`shoot_replay.sh`). Do not add near-duplicates. If the Cockpit changes,
+refresh those three with `bash research/compat/shoot_replay.sh <scratch-dir>`
+and copy over only the files whose captions still describe them —
+**never point it at `images/ui/` directly**: its default page list rewrites
+`overview.png`, which is the body's Figure~2.
 
 ## Appendix R — the deployment, as it actually runs
 
 Terminal cards (figkit, mono text on `#FAFAFA`, a 3-dot title bar), drawn
-from **recorded stdout**, not retyped. Record with `script` or `tee` into
-`paper-arxiv/figdata/captures/`.
+from **recorded output**, never retyped. Record with `… 2>&1 | tee
+paper-arxiv/figdata/captures/r<N>_<name>.txt`, then render the card from
+that file (trim lines; do not edit them). Replace any key with `aegis_…` /
+`sk-…`.
 
-- **R1 `deploy/mcp-host`** — the MCP host's config with the proxy
-  wrapping a server (the `mcpServers` block in README §"Claude Desktop (MCP)"), and
-  the host's tool error when the proxy refuses a call.
-- **R2 `deploy/compose`** — `docker compose up -d && docker compose ps`
-  (two healthy services) and a three-line agent run with `agentguard.auto()`
-  printing one allowed and one blocked call.
-- **R3 `deploy/receipt-verify`** — `curl …/api/v1/check/receipt-key`, then a
-  five-line Python session calling `verify_receipt` on a real receipt: once
-  with the right arguments (`valid True, matches_call True`), once with a
-  changed `to` (`matches_call False`).
-
-Redact nothing that is not a secret; replace any API key with `sk-…`.
+- **R1 `deploy/mcp-host`** — top: the `mcpServers` block from README
+  §"Any MCP server, through the AEGIS proxy" (a config file, so it may be
+  copied from the README as is). Bottom: the refusal the scripted host
+  received, from `figdata/captures/g9_run2.json` (`result`) and the two
+  `[AEGIS]` lines of `g9_proxy.txt`. Claude Desktop is not installed on
+  this machine; do not mock its UI.
+- **R2 `deploy/compose`** — needs the Docker daemon: `open -a Docker`, wait
+  for `docker info` to succeed. Then, at the repo root: `docker compose up
+  -d --build && docker compose ps` (services `gateway`, `cockpit`), then a
+  short agent run with `agentguard.auto()` against it printing one allowed
+  and one blocked call (`research/compat/.venv/bin/python`; a blocked call
+  is easiest with L1, e.g. a shell tool given `curl … | sh`). If Docker will
+  not start, **stop and report** — do not substitute a `node` launch under a
+  caption that says `docker compose`.
+- **R3 `deploy/receipt-verify`** — against any running gateway:
+  `curl -s -XPOST $GW/api/v1/check -H "x-api-key: $KEY" -H 'content-type:
+  application/json' -d '{"agent_id":"billing","tool_name":"send_email","arguments":{"to":"bob@acme.example","subject":"Q3"}}'`
+  (the response carries `receipt`; verified live 2026-10-26), `curl -s
+  $GW/api/v1/check/receipt-key`, then a short Python session with
+  `from agentguard.receipts import verify_receipt` printing `valid True,
+  matches_call True` for the same arguments and `matches_call False` with
+  `to` changed. Show the receipt truncated (`AEG1.eyJ…`).
 
 ---
 
@@ -406,9 +418,12 @@ Redact nothing that is not a secret; replace any API key with `sk-…`.
 2. F6, F7, F8, F9 (body, highest value), then F1′, F10.
 3. D1–D3 as scripts.
 4. Gallery cards G1–G8, C1–C2 from `gallery.json`.
-5. The G9 run → G9, U1; then U2–U4; then R1–R3.
-6. After each figure: the six checks, then `tectonic aegis.tex` and look
-   at the page it lands on. Report page count before/after.
+5. G9 from `figdata/captures/g9_*` (already recorded); then R1–R3.
+6. After each figure: `python3 -m figures_src.check_figures <slot>` (from
+   `research/`) must PASS — it automates checks 1, 4, 5, 6 of
+   `CODEX-FIGURE-BRIEF.md` plus aspect and verbatim gallery text — then
+   `tectonic aegis.tex` and **look** at the page it lands on (collisions,
+   greyscale, does it say the one sentence). Report page count before/after.
 
 Hand back: the files, a list of every number each figure prints with the
 JSON path it came from, and the rendered pages as PNGs.

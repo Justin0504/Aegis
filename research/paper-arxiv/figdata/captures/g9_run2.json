@@ -1,5 +1,10 @@
 {
- "listed": [],
+ "listed": [
+  {
+   "name": "get_time",
+   "description": "Get the current time in a time zone."
+  }
+ ],
  "call": {
   "tool": "get_weather",
   "args": {
