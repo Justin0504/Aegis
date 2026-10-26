@@ -229,7 +229,7 @@ export class ComplianceEvidenceAPI {
     const row = this.db.prepare(
       `SELECT COUNT(*) AS active_total,
               AVG((CAST(strftime('%s', expires_at) AS INTEGER) - CAST(strftime('%s', created_at) AS INTEGER))) AS avg_lifetime_seconds
-       FROM sessions WHERE expires_at > datetime('now')`,
+       FROM sessions WHERE datetime(expires_at) > datetime('now')`,
     ).get() as any;
     return {
       type: 'sessions',

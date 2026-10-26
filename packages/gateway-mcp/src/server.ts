@@ -1075,7 +1075,7 @@ async function main() {
 
       let pendingChecks = 0;
       try {
-        pendingChecks = (db.prepare("SELECT COUNT(*) as n FROM pending_checks WHERE decision = 'pending' AND expires_at > datetime('now')").get() as any).n;
+        pendingChecks = (db.prepare("SELECT COUNT(*) as n FROM pending_checks WHERE decision = 'pending' AND datetime(expires_at) > datetime('now')").get() as any).n;
       } catch (e) { logger.debug({ error: e }, 'pending_checks table not ready'); }
 
       let criticalCount = 0;

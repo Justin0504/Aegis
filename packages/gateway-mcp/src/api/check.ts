@@ -782,7 +782,7 @@ export class CheckAPI {
     this.router.get('/pending', (req: Request, res: Response) => {
       try {
         const { agent_id } = req.query as Record<string, string>
-        let sql = `SELECT * FROM pending_checks WHERE decision = 'pending' AND expires_at > datetime('now')`
+        let sql = `SELECT * FROM pending_checks WHERE decision = 'pending' AND datetime(expires_at) > datetime('now')`
         const params: any[] = []
         if (agent_id) { sql += ' AND agent_id = ?'; params.push(agent_id) }
         sql += ' ORDER BY created_at DESC LIMIT 100'
@@ -818,7 +818,7 @@ export class CheckAPI {
         // Check expired — auto-block for safety
         if (row.decision === 'pending') {
           const expired = this.db.prepare(
-            `SELECT 1 FROM pending_checks WHERE check_id = ? AND expires_at <= datetime('now')`
+            `SELECT 1 FROM pending_checks WHERE check_id = ? AND datetime(expires_at) <= datetime('now')`
           ).get(req.params.checkId)
 
           if (expired) {

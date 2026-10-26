@@ -57,7 +57,7 @@ export class ApprovalAPI {
             SELECT a.*, t.tool_call, t.agent_id, t.timestamp as trace_timestamp
             FROM approvals a
             JOIN traces t ON a.trace_id = t.trace_id
-            WHERE a.status = 'PENDING' AND a.expires_at > datetime('now')
+            WHERE a.status = 'PENDING' AND datetime(a.expires_at) > datetime('now')
             ORDER BY a.created_at DESC
           `)
           .all() as any[];

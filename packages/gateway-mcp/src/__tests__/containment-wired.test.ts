@@ -71,3 +71,25 @@ describe('retention is per tenant', () => {
     expect(left.map((r) => r.agent_id)).toEqual(['agent-b'])
   })
 })
+
+describe('hold expiry', () => {
+  test('a hold past its expiry resolves to block and leaves the queue (ISO expires_at vs datetime())', async () => {
+    const db = await initializeDatabase(':memory:')
+    const app = express(); app.use(express.json())
+    app.use('/api/v1/check', new CheckAPI(db, new PolicyEngine(db, silent), silent).router)
+    const server = await new Promise<Server>((r) => { const s = app.listen(0, () => r(s)) })
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1/check`
+    try {
+      const r = await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ agent_id: 'a', tool_name: 'send_email', arguments: { to: 'b@c.d' }, blocking: true }) }).then((x) => x.json() as any)
+      expect(r.decision).toBe('pending')
+      // five minutes past expiry, written the way the gateway writes it
+      db.prepare(`UPDATE pending_checks SET expires_at = ? WHERE check_id = ?`)
+        .run(new Date(Date.now() - 5 * 60 * 1000).toISOString(), r.check_id)
+      const listed = await fetch(`${base}/pending`).then((x) => x.json() as any)
+      expect(JSON.stringify(listed)).not.toContain(r.check_id)
+      const d = await fetch(`${base}/${r.check_id}/decision`).then((x) => x.json() as any)
+      expect(d.decision).toBe('block')
+    } finally { await new Promise<void>((r) => server.close(() => r())) }
+  })
+})
