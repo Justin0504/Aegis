@@ -166,13 +166,25 @@ from ..notifier import notify_block, notify_pending
 
 
 class AgentGuardBlockedError(RuntimeError):
-    """Raised when blocking mode is on and the gateway denies a tool call."""
-    def __init__(self, tool_name: str, reason: str, risk_level: str, check_id: str):
-        super().__init__(f"[AgentGuard] Blocked: '{tool_name}' — {reason}")
+    """Raised when blocking mode is on and the gateway denies a tool call —
+    or takes it: a call the effect outbox queued (``queued`` set) must not be
+    run by the agent either, because the gateway will dispatch it."""
+    def __init__(self, tool_name: str, reason: str, risk_level: str, check_id: str,
+                 queued: Optional[dict] = None):
+        verb = "Queued" if queued else "Blocked"
+        super().__init__(f"[AgentGuard] {verb}: '{tool_name}' — {reason}")
         self.tool_name = tool_name
         self.reason = reason
         self.risk_level = risk_level
         self.check_id = check_id
+        self.queued = queued
+
+
+def _refusal_text(e: BaseException) -> str:
+    """What the model reads in the tool's result slot."""
+    if getattr(e, "queued", None):
+        return f"[AEGIS] Tool call queued by the gateway, not run by the agent: {getattr(e, 'reason', e)}"
+    return _refusal_text(e)
 
 
 class AutoInstrument:
@@ -312,6 +324,7 @@ class AutoInstrument:
                 reason=reason,
                 risk_level=risk_level,
                 check_id=check_id,
+                queued=result.get("queued"),
             )
         if decision == "pending":
             notify_pending(tool_name, risk_level)
@@ -437,7 +450,7 @@ class AutoInstrument:
             # the approval queue filled with decisions nobody was waiting
             # for — every S3 row of the compatibility matrix "held" a call
             # that had already executed (found 2026-10-13).
-            explicit = result.get("decision") == "pending" or bool(result.get("dsl"))
+            explicit = result.get("decision") == "pending" or bool(result.get("dsl")) or bool(result.get("queued"))  # outbox: the gateway runs it
             if not self._is_above_threshold(risk_level) and not explicit:
                 if result.get("decision") == "block":
                     print(f"[AEGIS] 📋 '{tool_name}' ({risk_level}) below threshold — audited, not blocked")
@@ -492,6 +505,10 @@ class AutoInstrument:
                     self._resolve_hold(tool_name, True, None, result.get("receipt"))
                     return
                 if decision == "block":
+                    if result.get("queued"):   # approved, then taken by the effect outbox
+                        self._resolve_hold(tool_name, True, None)
+                        raise AgentGuardBlockedError(tool_name=tool_name, reason=result.get("reason", "queued"),
+                                                     risk_level=risk_level, check_id=check_id, queued=result["queued"])
                     self._resolve_hold(tool_name, False, "Rejected by human reviewer")
                     raise AgentGuardBlockedError(
                         tool_name=tool_name,
@@ -562,7 +579,7 @@ class AutoInstrument:
             # the approval queue filled with decisions nobody was waiting
             # for — every S3 row of the compatibility matrix "held" a call
             # that had already executed (found 2026-10-13).
-            explicit = result.get("decision") == "pending" or bool(result.get("dsl"))
+            explicit = result.get("decision") == "pending" or bool(result.get("dsl")) or bool(result.get("queued"))  # outbox: the gateway runs it
             if not self._is_above_threshold(risk_level) and not explicit:
                 return
 
@@ -619,6 +636,10 @@ class AutoInstrument:
                     self._resolve_hold(tool_name, True, None, result.get("receipt"))
                     return
                 if decision == "block":
+                    if result.get("queued"):   # approved, then taken by the effect outbox
+                        self._resolve_hold(tool_name, True, None)
+                        raise AgentGuardBlockedError(tool_name=tool_name, reason=result.get("reason", "queued"),
+                                                     risk_level=risk_level, check_id=check_id, queued=result["queued"])
                     self._resolve_hold(tool_name, False, "Rejected by human reviewer")
                     raise AgentGuardBlockedError(
                         tool_name=tool_name,
@@ -1039,7 +1060,7 @@ class AutoInstrument:
                 try:
                     await instrument._async_check_block(tool.name, args)
                 except AgentGuardBlockedError as e:
-                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                    return _refusal_text(e)
                 return await orig_invoke(ctx, input_json)
             try:
                 tool.on_invoke_tool = guarded
@@ -1417,7 +1438,7 @@ class AutoInstrument:
                 try:
                     _instr._check_block(tool_name, args)
                 except AgentGuardBlockedError as e:
-                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                    return _refusal_text(e)
                 start = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1454,7 +1475,7 @@ class AutoInstrument:
                 except AgentGuardBlockedError as e:
                     # CrewAI feeds a tool's return value to the model: the refusal
                     # goes back in the slot the result would have occupied.
-                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                    return _refusal_text(e)
                 start  = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1484,7 +1505,7 @@ class AutoInstrument:
                     try:
                         instrument._check_block(tool_name, tool_args)
                     except AgentGuardBlockedError as e:
-                        return f"[AEGIS] Tool call blocked before execution: {e}"
+                        return _refusal_text(e)
                     start = time.time()
                     error: Optional[str] = None
                     result = None
@@ -1712,7 +1733,7 @@ class AutoInstrument:
                     instrument._check_block(tool_name, tool_args)
                 except AgentGuardBlockedError as e:
                     from llama_index.core.tools.types import ToolOutput
-                    return ToolOutput(content=f"[AEGIS] Tool call blocked before execution: {e}", tool_name=tool_name,
+                    return ToolOutput(content=_refusal_text(e), tool_name=tool_name,
                                       raw_input=tool_args, raw_output=None, is_error=True)
                 start  = time.time()
                 error: Optional[str] = None
@@ -1746,7 +1767,7 @@ class AutoInstrument:
                     await instrument._async_check_block(tool_name, tool_args)
                 except AgentGuardBlockedError as e:
                     from llama_index.core.tools.types import ToolOutput
-                    return ToolOutput(content=f"[AEGIS] Tool call blocked before execution: {e}", tool_name=tool_name,
+                    return ToolOutput(content=_refusal_text(e), tool_name=tool_name,
                                       raw_input=tool_args, raw_output=None, is_error=True)
                 start  = time.time()
                 error: Optional[str] = None
@@ -1825,7 +1846,7 @@ class AutoInstrument:
                 try:
                     await instrument._async_check_block(name, args)
                 except AgentGuardBlockedError as e:
-                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                    return _refusal_text(e)
                 start = time.time()
                 error: Optional[str] = None
                 result = None
@@ -1865,7 +1886,7 @@ class AutoInstrument:
                 try:
                     await instrument._async_check_block(tool_name, args_dict)
                 except AgentGuardBlockedError as e:
-                    return f"[AEGIS] Tool call blocked before execution: {e}"
+                    return _refusal_text(e)
                 start = time.time()
                 error: Optional[str] = None
                 result = None

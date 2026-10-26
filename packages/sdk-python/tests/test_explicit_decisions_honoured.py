@@ -96,3 +96,19 @@ def test_default_config_enforces_a_medium_risk_gateway_block():
                         "reason": "plaintext URL"})
     with patch("urllib.request.urlopen", fake), pytest.raises(AgentGuardBlockedError):
         inst._check_block("fetch", {"url": "http://example.invalid"})
+
+
+def test_a_call_the_outbox_queued_is_not_run_and_reads_as_queued():
+    """The gateway answers an outbox-routed call with a block-shaped
+    decision so no SDK runs it; the model must read 'queued', not 'blocked'."""
+    import agentguard
+    from agentguard.interceptors.auto import _refusal_text
+    inst = _instrument()
+    fake, _ = _gateway({"decision": "block", "risk_level": "LOW", "check_id": "c3", "category": "queued-in-outbox",
+                        "reason": "Queued, not refused: the gateway will carry out this call at 12:00 UTC",
+                        "queued": {"outbox_id": 4, "dispatch_at": "12:00"}})
+    with patch("urllib.request.urlopen", fake), pytest.raises(AgentGuardBlockedError) as ei:
+        inst._check_block("publish_post", {"text": "hi"})
+    assert ei.value.queued == {"outbox_id": 4, "dispatch_at": "12:00"}
+    for text in (_refusal_text(ei.value), agentguard.refusal(ei.value)):
+        assert "queued" in text and "blocked" not in text

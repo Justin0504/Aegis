@@ -116,6 +116,10 @@ export class CheckAPI {
     /** Counts refusals per agent and suspends one past the configured
      *  limit (services/kill-switch.ts). */
     private killSwitch?: import('../services/kill-switch').KillSwitchService,
+    /** Pre-state capture for tools a tenant configured (rollback.snapshots). */
+    private snapshots?: import('../services/snapshot-capture').SnapshotCaptureService,
+    /** Delayed dispatch for tools a tenant configured (rollback.outbox). */
+    private outbox?: import('../services/effect-outbox').EffectOutboxService,
   ) {
     this.router = Router()
     this.initTable()
@@ -161,6 +165,45 @@ export class CheckAPI {
     } catch (err) {
       note({ error: (err as Error).message.slice(0, 200) })
       this.logger.warn({ err: (err as Error).message, check_id: checkId }, 'first review by the auditor failed; left for a person')
+    }
+  }
+
+  /** What happens to an allowed call before it may run, for tools the
+   *  tenant configured: its pre-state is captured (keyed by check id; the
+   *  trace carries the check id, so rollback finds it), and a tool routed
+   *  through the effect outbox is queued for the gateway to dispatch after
+   *  its delay instead of being run by the agent. Idempotent: the decision
+   *  poll calls it on every read. */
+  private async afterAllow(orgId: string, checkId: string, agentId: string, toolName: string, args: unknown):
+    Promise<{ queued?: { id?: number; dispatch_at?: string } }> {
+    const a = (args ?? {}) as Record<string, unknown>
+    try {
+      if (this.snapshots?.lookup(orgId, toolName) && !this.snapshots.get(checkId)) {
+        await this.snapshots.capture({ orgId, trace_id: checkId, tool_name: toolName, arguments: a })
+      }
+    } catch (err) {
+      this.logger.warn({ err: (err as Error).message, check_id: checkId }, 'snapshot capture failed')
+    }
+    if (!this.outbox?.lookup(orgId, toolName)) return {}
+    const existing = this.db.prepare(
+      `SELECT id, dispatch_at FROM effect_outbox WHERE trace_id = ? AND org_id = ?`).get(checkId, orgId) as any
+    if (existing) return { queued: { id: existing.id, dispatch_at: existing.dispatch_at } }
+    const r = this.outbox.enqueue({ orgId, trace_id: checkId, agent_id: agentId, tool_name: toolName,
+                                    payload: { tool_name: toolName, arguments: a, check_id: checkId } })
+    return r.enqueued ? { queued: { id: r.id, dispatch_at: r.dispatch_at } } : {}
+  }
+
+  /** The response for a call the outbox took. Shaped as a block so that no
+   *  SDK, old or new, runs the tool itself — the gateway will — and worded
+   *  so the agent tells its user what actually happened. */
+  private queuedResponse(checkId: string, q: { id?: number; dispatch_at?: string }) {
+    return {
+      // CRITICAL so that an SDK with any block threshold, including ones that
+      // predate the outbox, refuses to run the call itself.
+      decision: 'block' as const, check_id: checkId, category: 'queued-in-outbox', risk_level: 'CRITICAL',
+      queued: { outbox_id: q.id, dispatch_at: q.dispatch_at, cancel: 'POST /api/v1/outbox/cancel {trace_id: check_id}' },
+      reason: `Queued, not refused: the gateway will carry out this call at ${q.dispatch_at} UTC, `
+            + `and an operator can cancel it until then. Do not retry it.`,
     }
   }
 
@@ -723,6 +766,10 @@ export class CheckAPI {
           agentId: body.agent_id,
         })
 
+        if (decision === 'allow') {
+          const after = await this.afterAllow(requestOrgId ?? 'default', checkId, body.agent_id, body.tool_name, body.arguments)
+          if (after.queued) return res.json(this.queuedResponse(checkId, after.queued))
+        }
         return res.json({
           decision,
           check_id:   checkId,
@@ -805,7 +852,7 @@ export class CheckAPI {
     })
 
     // ── GET /:checkId/decision  — SDK polls this ─────────────────────────────
-    this.router.get('/:checkId/decision', (req: Request, res: Response) => {
+    this.router.get('/:checkId/decision', async (req: Request, res: Response) => {
       try {
         const row = this.db.prepare(
           'SELECT decision, risk_level, decided_by, agent_id, tool_name, arguments FROM pending_checks WHERE check_id = ?'
@@ -829,6 +876,11 @@ export class CheckAPI {
           }
         }
 
+        if (row.decision === 'allow') {
+          const args = (() => { try { return JSON.parse(row.arguments) } catch { return {} } })()
+          const after = await this.afterAllow((req as any).orgId ?? 'default', req.params.checkId, row.agent_id, row.tool_name, args)
+          if (after.queued) return res.json({ ...this.queuedResponse(req.params.checkId, after.queued), decided_by: row.decided_by })
+        }
         res.json({
           decision:   row.decision,
           risk_level: row.risk_level,

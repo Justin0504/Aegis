@@ -38,6 +38,7 @@ import { WebhookService } from './services/webhooks';
 import { WebhookAPI } from './api/webhooks';
 import { ProxyRegistryAPI } from './api/proxy-registry';
 import { McpToolsAPI } from './api/mcp-tools';
+import { ChainAnchorService } from './services/chain-anchor';
 import { ReceiptService } from './services/receipts';
 import { SlidingWindowStats } from './services/sliding-window';
 import { AnomalyDetector } from './services/anomaly-detector';
@@ -689,7 +690,28 @@ async function main() {
     contextLedgers,
     new ReceiptService(new SigningService(db, logger)),
     killSwitch,
+    snapshotCapture,
+    effectOutbox,
   ).router);
+
+  // Effect outbox, operator side: what is queued, and cancelling a call
+  // before the gateway dispatches it (zero side effect). trace_id is the
+  // check id /check returned with the queued decision.
+  app.get('/api/v1/outbox', requireAuth, (req, res) => {
+    const rows = db.prepare(
+      `SELECT id, trace_id, agent_id, tool_name, status, enqueued_at, dispatch_at, dispatched_at, error
+         FROM effect_outbox WHERE org_id = ? ORDER BY id DESC LIMIT 200`,
+    ).all((req as any).orgId ?? 'default');
+    res.json({ entries: rows });
+  });
+  app.post('/api/v1/outbox/cancel', requireAuth, (req, res) => {
+    const trace_id = typeof req.body?.trace_id === 'string' ? req.body.trace_id : '';
+    if (!trace_id) return res.status(400).json({ error: 'trace_id required' });
+    const r = effectOutbox.cancel({ orgId: (req as any).orgId ?? 'default', trace_id,
+      reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
+      actor: { ip_address: req.ip } });
+    res.status(r.ok ? 200 : 409).json(r);
+  });
 
   // ── Management routes (auth required) ────────────────────────────────────
   app.use('/api/v1/policies',  requireAuth, new PolicyAPI(db, policyEngine, logger, auditLog).router);
@@ -827,7 +849,11 @@ async function main() {
 
   // Audit-chain integrity — proves the "tamper-evident" claim by
   // recomputing each trace's hash and verifying the chain links.
-  app.use('/api/v1/integrity', requireAuth, new IntegrityAPI(db, logger).router);
+  // Trace chain heads into the transparency log, every AEGIS_CHAIN_ANCHOR_INTERVAL_S
+  // (default 600); verification then checks each chain against them.
+  const chainAnchors = new ChainAnchorService(db, transparencyLog, logger);
+  chainAnchors.start(Math.max(10, Number(process.env.AEGIS_CHAIN_ANCHOR_INTERVAL_S) || 600) * 1000);
+  app.use('/api/v1/integrity', requireAuth, new IntegrityAPI(db, logger, chainAnchors).router);
 
   // SOC 2 evidence pack — one-shot export of audit log + policies +
   // tenant config + integrity verdict, scoped to the requester's org.

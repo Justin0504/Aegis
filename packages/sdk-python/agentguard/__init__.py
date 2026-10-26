@@ -233,6 +233,8 @@ async def acheck(tool_name: str, arguments: dict) -> None:
 
 def refusal(err: "AgentGuardBlockedError") -> str:
     """The in-band refusal text for a blocked call, as the tool-level patches return it."""
+    if getattr(err, "queued", None):
+        return f"[AEGIS] Tool call queued by the gateway, not run by the agent: {err.reason}"
     return f"{_REFUSAL_PREFIX}{err.reason}"
 
 

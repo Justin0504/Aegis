@@ -829,11 +829,19 @@ export class RollbackService {
     return parseDepends(rows);
   }
 
+  private hasSafetyValidation?: boolean;
+
   private getTrace(traceId: string): TraceRow | null {
+    // safety_validation carries the check id a /check-time snapshot is
+    // keyed by; schemas without the column (minimal test tables) skip it.
+    if (this.hasSafetyValidation === undefined) {
+      this.hasSafetyValidation = (this.db.prepare(`PRAGMA table_info(traces)`).all() as any[])
+        .some((c) => c.name === 'safety_validation');
+    }
     return this.db.prepare(
       `SELECT trace_id, agent_id, timestamp, tool_call, observation,
               integrity_hash, rolled_back_at, reversibility_class,
-              workflow_node_id, workflow_binding_id
+              workflow_node_id, workflow_binding_id${this.hasSafetyValidation ? ', safety_validation' : ''}
          FROM traces WHERE trace_id = ?`,
     ).get(traceId) as TraceRow | null;
   }
@@ -848,7 +856,11 @@ export class RollbackService {
     // whatever the operator's bridge said the affected state was
     // (DB row, file bytes, external object). Feeding it into the
     // compensator gives the operator the "before" picture to restore.
-    const snapshot: SnapshotRow | null = this.snapshots?.get(trace.trace_id) ?? null;
+    // Captured at /check, before the trace existed, so keyed by the check
+    // id the trace records in its safety_validation.
+    const checkId = (() => { try { return JSON.parse((trace as any).safety_validation ?? 'null')?.check_id } catch { return undefined } })()
+    const snapshot: SnapshotRow | null = this.snapshots?.get(trace.trace_id)
+      ?? (checkId ? this.snapshots?.get(String(checkId)) ?? null : null);
 
     switch (compensator.kind) {
       case 'webhook':
