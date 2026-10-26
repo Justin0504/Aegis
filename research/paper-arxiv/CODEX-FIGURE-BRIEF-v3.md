@@ -92,10 +92,9 @@ F1 spec):**
 
 5. Row-2 card *Audit & integrity*: replace `Ed25519 per-agent signature`
    with `signed receipt on every allow`, and `SHA-256 chain → Merkle → log`
-   with `SHA-256 chain per agent`; keep `witnesses · offline verifier` but
-   write it as `Merkle log of gateway actions · witnesses`. Traces are not
-   individually signed in `auto()`, and trace chain heads are not in the
-   Merkle log (aegis.tex §2.5).
+   with `SHA-256 chain per agent → heads anchored in Merkle log`; keep
+   `witnesses · offline verifier`. Traces are not individually signed in
+   `auto()`; chain heads are anchored every 10 min (aegis.tex §2.5).
 6. The dashed arrow label `every decision, signed` becomes
    `every decision, chained`.
 7. The pending → auditor card from item 2 gets the mono note
@@ -166,9 +165,11 @@ each checked against the line in aegis.tex.
 and a bracket `Merkle root → transparency log → witnesses` over the trace
 chain. Neither holds for traces in this version (aegis.tex §2.5, rewritten
 2026-10-26). Redraw: each block's two mono lines become
-`content  sha256(input, call, result)` and `H = SHA256(… ‖ H_prev)`; drop
-the Merkle bracket (the Merkle log holds the gateway's own record, not
-trace heads). The caption in aegis.tex is already updated. Same canvas.
+`content  sha256(input, call, result)` and `H = SHA256(… ‖ H_prev)`. Keep
+the bracket but relabel it `head anchored → Merkle log (every 10 min) →
+witnesses`, and in the tampered row add a second failure mode: the whole
+chain re-hashed (links green) but `≠ anchored head` in red at the head.
+Same canvas.
 
 ## F7 — When something fails: four failure modes, each with a configured answer
 

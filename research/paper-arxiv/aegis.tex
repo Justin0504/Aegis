@@ -559,9 +559,7 @@ scans---is appended to a Merkle transparency log with signed roots, which
 registered external \emph{witnesses} can countersign, so an operator
 cannot quietly rewrite that history even with the gateway's key; an
 offline verifier checks inclusion, consistency and the witnesses'
-signatures. Trace chains are verified by the gateway
-(\texttt{/api/v1/integrity/verify}, \texttt{agentguard verify}); folding
-their heads into the same log is not yet done. The demonstration invites
+signatures. Every ten minutes by default the gateway also appends each agent's newest trace-chain head (sequence and hash) to that log, and verification (\texttt{/api/v1/integrity/verify}, \texttt{agentguard verify}) compares each chain with the heads the log committed to, reading the expected hash from the log entry itself. A chain rewritten wholesale, which still links, or cut short at the head, which leaves nothing to break, then fails; records removed from the old end by retention do not. The demonstration invites
 attendees to edit one stored record and watch verification fail
 (Figure~\ref{fig:audit}). Compliance evidence packs assemble
 traces, policies and verification results into the artefacts an audit
@@ -578,7 +576,7 @@ retained one.
 \label{sec:recovery}
 
 Not every harmful call is caught before it runs. For tools that register
-a compensating action, \system records enough to undo: a saga of applied steps, and a causal rollback that reverts a call together with the calls that depended on its output. Each tool is classed as reversible, compensable or irreversible, and rollback uses the class to say what it can and cannot undo. (A snapshot service that would capture state before effectful calls is implemented but not yet called, and the policy DSL does not see the class; the provenance pack's destructive-action rule matches tool names instead.)
+a compensating action, \system records enough to undo: for tools a tenant configures, the pre-state captured at \texttt{/check}, before the agent is told to proceed (the call's arguments, or what the operator's snapshot endpoint returns); a saga of applied steps; and a causal rollback that reverts a call together with the calls that depended on its output. Each tool is classed as reversible, compensable or irreversible, and rollback uses the class to say what it can and cannot undo. (The policy DSL does not see the class; the provenance pack's destructive-action rule matches tool names instead.)
 
 \input{sections/fallback}
 
@@ -734,9 +732,7 @@ The session is adversarial by design. Attendees are invited to:
       the \texttt{send\_email} it emits is blocked by the provenance pack
       in six of the matrix's harnesses. The demonstration agent has no
       e-mail tool, so this item is shown from the matrix's recorded runs.
-\item \textbf{Verify the audit trail.} Each trace is hash-chained to
-      the one before it (per-trace Ed25519 signatures exist but are off in
-      \texttt{auto()}); the Cockpit exports a PDF/CSV report, and
+\item \textbf{Verify the audit trail.} Each trace is hash-chained to the one before it and chain heads are anchored in the signed Merkle log (per-trace Ed25519 signatures exist but are off in \texttt{auto()}); the Cockpit exports a PDF/CSV report, and
       \texttt{agentguard verify} has the gateway recompute the chain.
       Attendees are encouraged to edit a stored record's content and
       watch verification fail.
