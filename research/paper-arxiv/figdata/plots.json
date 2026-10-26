@@ -1,0 +1,562 @@
+{
+ "_sources": [
+  "agentdojo/results/summary.json",
+  "agentdojo/results/summary-qwen3.json",
+  "agentdojo/results/rescore_executed.json",
+  "perf/results/loadtest.json",
+  "results/selective/agentdrift.json",
+  "../docs/CALIBRATION-REPORT-anthropic.md"
+ ],
+ "D1_agentdojo_gpt4omini": [
+  {
+   "config": "none",
+   "label": "No defense",
+   "utility": {
+    "num": 67,
+    "den": 97,
+    "pct": 69.1
+   },
+   "util_attack": {
+    "num": 368,
+    "den": 949,
+    "pct": 38.8
+   },
+   "asr": {
+    "num": 282,
+    "den": 949,
+    "pct": 29.7
+   },
+   "needs_person": {
+    "held": null,
+    "of": 0
+   }
+  },
+  {
+   "config": "repeat_user_prompt",
+   "label": "Prompt repetition",
+   "utility": {
+    "num": 64,
+    "den": 97,
+    "pct": 66.0
+   },
+   "util_attack": {
+    "num": 454,
+    "den": 907,
+    "pct": 50.1
+   },
+   "asr": {
+    "num": 96,
+    "den": 907,
+    "pct": 10.6
+   },
+   "needs_person": {
+    "held": null,
+    "of": 0
+   }
+  },
+  {
+   "config": "spotlighting_with_delimiting",
+   "label": "Spotlighting",
+   "utility": {
+    "num": 66,
+    "den": 97,
+    "pct": 68.0
+   },
+   "util_attack": {
+    "num": 416,
+    "den": 949,
+    "pct": 43.8
+   },
+   "asr": {
+    "num": 239,
+    "den": 949,
+    "pct": 25.2
+   },
+   "needs_person": {
+    "held": null,
+    "of": 0
+   }
+  },
+  {
+   "config": "tool_filter",
+   "label": "LLM tool filter",
+   "utility": {
+    "num": 62,
+    "den": 97,
+    "pct": 63.9
+   },
+   "util_attack": {
+    "num": 566,
+    "den": 949,
+    "pct": 59.6
+   },
+   "asr": {
+    "num": 51,
+    "den": 949,
+    "pct": 5.4
+   },
+   "needs_person": {
+    "held": null,
+    "of": 0
+   }
+  },
+  {
+   "config": "aegis_v2",
+   "label": "AEGIS (holds refused)",
+   "utility": {
+    "num": 37,
+    "den": 97,
+    "pct": 38.1
+   },
+   "util_attack": {
+    "num": 341,
+    "den": 843,
+    "pct": 40.5
+   },
+   "asr": {
+    "num": 12,
+    "den": 843,
+    "pct": 1.4
+   },
+   "needs_person": {
+    "held": 34,
+    "of": 97
+   }
+  },
+  {
+   "config": "aegis_v2_audit",
+   "label": "AEGIS + auditor",
+   "utility": {
+    "num": 55,
+    "den": 97,
+    "pct": 56.7
+   },
+   "util_attack": null,
+   "asr": null,
+   "needs_person": {
+    "held": 11,
+    "of": 97
+   }
+  }
+ ],
+ "D1_agentdojo_qwen3": [
+  {
+   "config": "none",
+   "label": "No defense",
+   "utility": {
+    "num": 19,
+    "den": 37,
+    "pct": 51.4
+   },
+   "util_attack": {
+    "num": 101,
+    "den": 249,
+    "pct": 40.6
+   },
+   "asr": {
+    "num": 47,
+    "den": 249,
+    "pct": 18.9
+   },
+   "slack_inj5_rescore": {
+    "pairs": 21,
+    "scored": 12,
+    "executed": 12
+   }
+  },
+  {
+   "config": "aegis_v2_audit",
+   "label": "AEGIS + auditor",
+   "utility": {
+    "num": 9,
+    "den": 37,
+    "pct": 24.3
+   },
+   "util_attack": {
+    "num": 56,
+    "den": 249,
+    "pct": 22.5
+   },
+   "asr": {
+    "num": 0,
+    "den": 249,
+    "pct": 0.0
+   },
+   "slack_inj5_rescore": {
+    "pairs": 21,
+    "scored": 0,
+    "executed": 0
+   }
+  },
+  {
+   "config": "aegis_v2_audit_hold",
+   "label": "+ destination rules held",
+   "utility": {
+    "num": 11,
+    "den": 37,
+    "pct": 29.7
+   },
+   "util_attack": {
+    "num": 63,
+    "den": 249,
+    "pct": 25.3
+   },
+   "asr": {
+    "num": 1,
+    "den": 249,
+    "pct": 0.4
+   },
+   "slack_inj5_rescore": {
+    "pairs": 21,
+    "scored": 0,
+    "executed": 0
+   }
+  },
+  {
+   "config": "aegis_v2_audit_obs",
+   "label": "+ auditor sees tool output",
+   "utility": {
+    "num": 17,
+    "den": 37,
+    "pct": 45.9
+   },
+   "util_attack": {
+    "num": 71,
+    "den": 249,
+    "pct": 28.5
+   },
+   "asr": {
+    "num": 6,
+    "den": 249,
+    "pct": 2.4
+   },
+   "slack_inj5_rescore": {
+    "pairs": 21,
+    "scored": 2,
+    "executed": 0
+   }
+  },
+  {
+   "config": "aegis_v3_audit",
+   "label": "Shipped gateway",
+   "utility": {
+    "num": 13,
+    "den": 37,
+    "pct": 35.1
+   },
+   "util_attack": {
+    "num": 61,
+    "den": 249,
+    "pct": 24.5
+   },
+   "asr": {
+    "num": 4,
+    "den": 249,
+    "pct": 1.6
+   },
+   "slack_inj5_rescore": {
+    "pairs": 21,
+    "scored": 3,
+    "executed": 0
+   }
+  },
+  {
+   "config": "none_heldout",
+   "label": "No defense (held-out suites)",
+   "utility": {
+    "num": 16,
+    "den": 60,
+    "pct": 26.7
+   },
+   "util_attack": {
+    "num": 178,
+    "den": 700,
+    "pct": 25.4
+   },
+   "asr": {
+    "num": 23,
+    "den": 700,
+    "pct": 3.3
+   },
+   "slack_inj5_rescore": null
+  },
+  {
+   "config": "aegis_v3_audit_heldout",
+   "label": "Shipped gateway (held-out suites)",
+   "utility": {
+    "num": 17,
+    "den": 60,
+    "pct": 28.3
+   },
+   "util_attack": {
+    "num": 185,
+    "den": 700,
+    "pct": 26.4
+   },
+   "asr": {
+    "num": 4,
+    "den": 700,
+    "pct": 0.6
+   },
+   "slack_inj5_rescore": null
+  }
+ ],
+ "D2_load": {
+  "rules": [
+   {
+    "concurrency": 1,
+    "rps": 1454,
+    "p50_ms": 0.44,
+    "p95_ms": 1.09,
+    "p99_ms": 1.89,
+    "errors": 0
+   },
+   {
+    "concurrency": 8,
+    "rps": 2485,
+    "p50_ms": 2.52,
+    "p95_ms": 5.91,
+    "p99_ms": 7.67,
+    "errors": 0
+   },
+   {
+    "concurrency": 32,
+    "rps": 3045,
+    "p50_ms": 9.67,
+    "p95_ms": 18.31,
+    "p99_ms": 21.21,
+    "errors": 0
+   },
+   {
+    "concurrency": 128,
+    "rps": 2891,
+    "p50_ms": 41.99,
+    "p95_ms": 52.19,
+    "p99_ms": 84.31,
+    "errors": 0
+   }
+  ],
+  "pack": [
+   {
+    "concurrency": 1,
+    "rps": 1752,
+    "p50_ms": 0.48,
+    "p95_ms": 1.28,
+    "p99_ms": 2.01,
+    "errors": 0
+   },
+   {
+    "concurrency": 8,
+    "rps": 2213,
+    "p50_ms": 2.78,
+    "p95_ms": 6.76,
+    "p99_ms": 12.16,
+    "errors": 0
+   },
+   {
+    "concurrency": 32,
+    "rps": 2302,
+    "p50_ms": 10.1,
+    "p95_ms": 21.8,
+    "p99_ms": 30.27,
+    "errors": 0
+   },
+   {
+    "concurrency": 128,
+    "rps": 2588,
+    "p50_ms": 45.53,
+    "p95_ms": 66.65,
+    "p99_ms": 93.35,
+    "errors": 0
+   }
+  ]
+ },
+ "D3_agentdrift": {
+  "dataset": "AgentDrift v2.0 task-disjoint test+val",
+  "n_trajectories": 3455,
+  "n_steps": 19517,
+  "step": {
+   "precision": 0.4855,
+   "recall": 0.6279,
+   "f1": 0.5476
+  },
+  "trajectory": {
+   "precision": 0.5331,
+   "recall": 0.7592,
+   "f1": 0.6263
+  },
+  "flag_rate_by_label": {
+   "benign": {
+    "flagged": 2052,
+    "n": 14176,
+    "rate": 0.1448
+   },
+   "failed_injection": {
+    "flagged": 24,
+    "n": 411,
+    "rate": 0.0584
+   },
+   "injection_point": {
+    "flagged": 188,
+    "n": 1528,
+    "rate": 0.123
+   },
+   "hijacked": {
+    "flagged": 2136,
+    "n": 3402,
+    "rate": 0.6279
+   }
+  },
+  "recall_by_attack_type": {
+   "branch_divergence": {
+    "caught": 163,
+    "n": 225,
+    "rate": 0.7244
+   },
+   "data_stealing": {
+    "caught": 198,
+    "n": 256,
+    "rate": 0.7734
+   },
+   "data_theft": {
+    "caught": 5,
+    "n": 5,
+    "rate": 1.0
+   },
+   "direct_harm": {
+    "caught": 227,
+    "n": 283,
+    "rate": 0.8021
+   },
+   "multi_step_spreading": {
+    "caught": 147,
+    "n": 206,
+    "rate": 0.7136
+   },
+   "parameter_manipulation": {
+    "caught": 240,
+    "n": 315,
+    "rate": 0.7619
+   },
+   "reasoning_corruption": {
+    "caught": 180,
+    "n": 238,
+    "rate": 0.7563
+   }
+  }
+ },
+ "F8b_judge_calibration": {
+  "judge": "anthropic/claude-haiku-4-5-20251001",
+  "n": 30,
+  "ece_pct": 29.2,
+  "mce_pct": 65.0,
+  "accuracy_pct": 63.3,
+  "mean_conf_pct": 92.5,
+  "bins": [
+   {
+    "bin": "0.0–0.1",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.1–0.2",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.2–0.3",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.3–0.4",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.4–0.5",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.5–0.6",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.6–0.7",
+    "conf": 0.65,
+    "acc": 0.0,
+    "n": 1
+   },
+   {
+    "bin": "0.7–0.8",
+    "conf": 0.0,
+    "acc": 0.0,
+    "n": 0
+   },
+   {
+    "bin": "0.8–0.9",
+    "conf": 0.85,
+    "acc": 0.6,
+    "n": 5
+   },
+   {
+    "bin": "0.9–1.0",
+    "conf": 0.95,
+    "acc": 0.67,
+    "n": 24
+   }
+  ],
+  "by_category": [
+   {
+    "category": "borderline",
+    "n": 5,
+    "acc": 0.0,
+    "conf": 91.8,
+    "ece": 91.8
+   },
+   {
+    "category": "normal",
+    "n": 10,
+    "acc": 60.0,
+    "conf": 87.4,
+    "ece": 27.4
+   },
+   {
+    "category": "indirect-injection",
+    "n": 3,
+    "acc": 66.7,
+    "conf": 93.0,
+    "ece": 26.3
+   },
+   {
+    "category": "jailbreak",
+    "n": 5,
+    "acc": 80.0,
+    "conf": 96.4,
+    "ece": 16.4
+   },
+   {
+    "category": "pii-egress",
+    "n": 2,
+    "acc": 100.0,
+    "conf": 97.0,
+    "ece": 3.0
+   },
+   {
+    "category": "block-clear",
+    "n": 5,
+    "acc": 100.0,
+    "conf": 97.4,
+    "ece": 2.6
+   }
+  ]
+ }
+}

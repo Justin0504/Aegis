@@ -259,6 +259,16 @@ for a person, a \texttt{pending} decision is treated as \texttt{block} and
 the audit record says so. A policy is written once and applies on all
 three paths; the behavioural and provenance layers below run on the SDK
 path, which reaches the full \texttt{/api/v1/check} pipeline.
+Figure~\ref{fig:deployment} places the three paths in a deployment:
+what runs on the operator's agent hosts, what runs in the control plane,
+and what crosses each boundary.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/deployment.pdf}
+    \caption{Deployment. Agent hosts change by one import, one MCP proxy, or one base URL; the gateway, its store, its signing key and the Cockpit run on the operator's side of the trust boundary; what leaves it---traces to a SIEM, Merkle roots to witnesses, receipts to a tool executor---is signed. The model endpoints the auditor and policy compiler use are selected by priority and can be cut to local-only with one switch (\S\ref{sec:fallback}).}
+    \label{fig:deployment}
+\end{figure*}
 
 \subsection{The Decision Pipeline}
 \label{sec:pipeline}
@@ -415,6 +425,24 @@ returned \emph{in the slot a tool result would have occupied}---which is
 why a blocked agent explains itself and continues the conversation
 rather than failing (Figure~\ref{fig:demo}). \texttt{pending}: the turn
 suspends until a person decides.
+Figure~\ref{fig:cascade} draws the pipeline as a whole, and
+Figure~\ref{fig:receipts-pins} the two mechanisms that reach past the
+call itself: the receipt an allowed call carries, and the pin on the
+description that induced it.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/cascade.pdf}
+    \caption{The decision pipeline. A call is attributed before it is read; each later layer sees more of the world than the one before it, from the call string to the agent's history to the conversation split by channel; layers emit facts, and one policy turns them into a decision that rules may tighten but never relax. The alignment auditor sits off the check path: the SDK calls it first and its score arrives as a fact. Inset: the egress proxy runs a detector chain into the same policy and turns a hold into a block.}
+    \label{fig:cascade}
+\end{figure*}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/receipts_pins.pdf}
+    \caption{Two things a check on the call cannot see. Top: an allowed call carries a receipt that binds the gateway's decision to this agent, tool and argument hash, so an executor refuses a call that skipped the check or changed an argument after it. Bottom: the MCP proxy pins each tool's description and schema; a description that changes after approval, or reads like an instruction to the model, is refused until an operator re-pins it (OWASP MCP03). Example descriptions are illustrative.}
+    \label{fig:receipts-pins}
+\end{figure}
 
 \begin{table}[t]
 \centering
@@ -718,8 +746,9 @@ tool runs, reports the conversation's new spans to the ledger exactly as
 the SDK's request-side hook classifies them, asks the shipping gateway's
 \texttt{/check}, and on a refusal returns the reason in the tool-result
 slot so the agent continues (\texttt{research/agentdojo/run\_agentdojo.py};
-one fresh gateway per configuration). AgentDojo's own defenses are run
-alongside for reference. Table~\ref{tab:agentdojo} gives the results.
+one fresh gateway per configuration). AgentDojo's own defenses---spotlighting
+\cite{hines2024spotlighting}, prompt repetition and an LLM tool filter
+\cite{debenedetti2024agentsec}---are run alongside for reference. Table~\ref{tab:agentdojo} gives the results.
 
 \paragraph{Security.} Undefended, the attack succeeds on 29.7\% of pairs.
 \system with the instruction-provenance pack brings that to
@@ -828,6 +857,15 @@ which only makes the agent \emph{say} that a hotel is worth visiting and
 issues no tool call for any gateway to see; two are the open class of
 \S\ref{sec:authority}, a deletion the user asked for whose target the
 injection swapped for a short file id with nothing to attribute it to.
+Figure~\ref{fig:frontier} sets both agent models' configurations on the
+same two axes.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/frontier.pdf}
+    \caption{Clean-task utility against executed attack success on AgentDojo, gpt-4o-mini (left) and qwen3:8b (right), with Wilson 95\% intervals; up and to the left is better. Values are those of Tables~\ref{tab:agentdojo} and~\ref{tab:agentdojo-qwen}. A hollow marker on the axis is a configuration whose attack run did not complete; held-out suites are drawn with a separate marker.}
+    \label{fig:frontier}
+\end{figure}
 
 \paragraph{Against the systems that rebuild the agent.} The closest
 systems report on the same benchmark with stronger agents, so their
@@ -858,6 +896,14 @@ so the scaling path is more processes behind sticky routing by session
 (the ledger is per process, \S\ref{sec:provenance}), which this
 measurement does not cover. An agent's own model call takes seconds; at
 the loads measured, a check is a fraction of a percent of a turn.
+Figure~\ref{fig:load} plots the same measurement.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/load.pdf}
+    \caption{One gateway process under load, with and without the provenance pack: checks per second (bars) and p50/p99 latency (lines) against concurrent clients. Same run as Table~\ref{tab:overhead}.}
+    \label{fig:load}
+\end{figure}
 
 \paragraph{The first version's numbers are withdrawn.}
 The 99.9\% block rate at 0.09\% false positives reported earlier came from a
@@ -1144,6 +1190,13 @@ Table~\ref{tab:results} are after this change.
 
 \input{figures/table_agentdrift}
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/agentdrift.pdf}
+    \caption{AgentDrift, replayed through the shipping gateway. Left: the share of steps the provenance pack flags, by the dataset's step label---including the benign steps it flags. Right: trajectory recall by attack type.}
+    \label{fig:agentdrift}
+\end{figure}
+
 The corpus of \S\ref{sec:instantiate} has 237 attacks. AgentDrift
 \cite{pinjari2026agentdrift} is a public corpus of 12,536 synthetic
 tool-call trajectories over five domains in which every one of 71,024
@@ -1155,7 +1208,7 @@ reports a live agent: the task is the user turn, each call is checked
 with the ledger holding every earlier observation, and each observation
 is appended after its call. The gateway sees no label
 (\texttt{research/selective/agentdrift\_eval.py}).
-Table~\ref{tab:agentdrift} gives the result. Per step the layer recovers
+Table~\ref{tab:agentdrift} and Figure~\ref{fig:agentdrift} give the result. Per step the layer recovers
 62.8\% of hijacked calls against the dataset's reported 55.4\%, at a
 lower F1 (54.8 against 64.7) because its precision is 48.5\%: it holds
 14.5\% of benign steps and 51\% of the hard negatives, and more than half
@@ -1238,53 +1291,94 @@ not as a new claim.
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Agent safety benchmarks.}
-ToolEmu~\cite{ruan2024toolemu} emulates tool execution for LLM-based risk
-scoring; AgentDojo~\cite{debenedetti2024agentsec} studies prompt
-injection in dynamic environments;
-InjecAgent~\cite{zhan2024injecagent} benchmarks indirect prompt
-injection. These are evaluation harnesses rather than runtime control
-points, and \S\ref{sec:eval} argues that distinction is load-bearing.
+\paragraph{Where defenses stand.} Defenses against indirect prompt
+injection now fall into four families, distinguished by where they act
+and what they assume about the agent.
 
-\paragraph{Runtime controls for agents.}
-The closest systems also decide tool calls before they run, and differ
-from \system in where they stand. CaMeL~\cite{debenedetti2025camel}
-defeats injection \emph{by design}: a privileged model plans over the
-user's query while a quarantined model handles untrusted data, and
-capabilities on values enforce policies on tool calls; it requires the
-agent to be built around that split, and in exchange gets a guarantee
-that no detector can. Progent~\cite{shi2025progent} enforces a
-per-task privilege policy over tool names and arguments, generated and
-updated by a model and checked deterministically, demonstrated inside
-LangChain and the OpenAI Agents SDK.
-IsolateGPT~\cite{wu2025isolategpt} isolates third-party apps from each
-other and from the hub at the architecture level.
-LlamaFirewall~\cite{chennabasappa2025llamafirewall} and NeMo
-Guardrails~\cite{rebedea2023nemo} are libraries the agent's own process
-calls: prompt and alignment scanners and a code scanner in the first,
-programmable dialogue rails in the second. \system shares the
-pre-execution stance and is deliberately the least invasive of these:
-it stands between an \emph{unmodified} agent and its tools, across
+\emph{In the model.} The instruction hierarchy~\cite{wallace2024hierarchy}
+trains a model to rank privileged instructions above data; StruQ
+\cite{chen2025struq} separates prompt and data into channels and
+fine-tunes on that split; SecAlign~\cite{chen2025secalign} uses
+preference optimisation to the same end. These change what the model
+does when it reads an injection, and they are complementary to \system,
+which assumes nothing about the model it guards and so can stand in front
+of one it cannot retrain.
+
+\emph{Around the prompt and the trajectory.}
+Spotlighting~\cite{hines2024spotlighting} marks untrusted input so the
+model can see its source; it is a row of Table~\ref{tab:agentdojo}, as
+are AgentDojo's tool filter and prompt repetition
+\cite{debenedetti2024agentsec}. Detectors classify the input:
+DataSentinel~\cite{liu2025datasentinel} trains one game-theoretically
+against adaptive injections, and LlamaFirewall
+\cite{chennabasappa2025llamafirewall} ships scanners the agent's own
+process calls. Task Shield~\cite{jia2024taskshield} asks a model whether
+each call serves the user's goal---the question \system's alignment
+auditor asks (\S\ref{sec:judge}), which \system asks only of the calls its
+cheaper layers hold. MELON~\cite{zhu2025melon} re-runs the trajectory
+with the user's request masked and flags actions that do not depend on
+it, a counterfactual form of the authority test L$_\mathrm{p}$ makes
+from the conversation's channel split without a second run.
+
+\emph{Out of band, by construction.} CaMeL~\cite{debenedetti2025camel}
+has a privileged model plan over the user's query while a quarantined
+model reads untrusted data, and enforces policies on values by
+capability; FIDES~\cite{costa2025fides} gives the planner confidentiality
+and integrity labels and enforces flow policies deterministically;
+Progent~\cite{shi2025progent} enforces a per-task privilege policy over
+tool names and arguments. These obtain guarantees no detector can, and
+pay for them by requiring the agent to be built around the split. Two
+2026 lines push on argument-level control: role-stratified conformal risk
+control~\cite{rahman2026rolestratified} calibrates a separate threshold
+and risk budget for each argument role, the statistical counterpart of
+the destination attribution of \S\ref{sec:authority}; and aiAuthZ
+\cite{kodathala2026aiauthz} argues that in-process defenses share the
+attacker's trust domain and moves the decision off the host, binding
+caller identity and issuing receipts, as \system's gateway and decision
+receipts do (\S\ref{sec:pipeline}).
+
+\emph{At the supply chain.} A tool's description is itself untrusted
+input; the OWASP MCP Top~10 lists tool poisoning---description
+injection, shadowing, and descriptions changed after approval---as
+MCP03~\cite{owaspmcp2025}, the case \system's MCP proxy pins.
+
+\paragraph{Where \system{} stands.} \system{} is the least invasive of
+these: it stands between an \emph{unmodified} agent and its tools, across
 frameworks and transports it does not control, and adds what a
 deployment needs around the decision---a hold that suspends the agent
-for a person, a signed and chained record of every decision, and
-fallback when the control point itself is slow or down. Its
-instruction-provenance layer (\S\ref{sec:provenance}) is a detector that
-borrows CaMeL's question, which channel authorised this, without
-CaMeL's rewrite; \S\ref{sec:eval} measures what that buys and what it
-cannot.
+for a person or the auditor, a signed receipt for every allow, a signed
+and chained record of every decision, and fallback when the control
+point is slow or down. Its provenance layer borrows CaMeL's question,
+which channel authorised this, without CaMeL's rewrite;
+\S\ref{sec:eval} measures what that buys and what it cannot.
 
-\paragraph{LLM trustworthiness and guardrails.}
-TrustLLM~\cite{huang2024position} and TrustEval~\cite{wang2024trusteval}
-evaluate trustworthiness at the model level; Llama
-Guard~\cite{inan2023llama} classifies text safety. \system differs in
-scope: it mediates structured tool calls on the execution path, and
-returns a decision the calling framework must honour.
+\paragraph{Evaluation, and the adaptive attacker.} AgentDojo
+\cite{debenedetti2024agentsec}, InjecAgent~\cite{zhan2024injecagent} and
+ToolEmu~\cite{ruan2024toolemu} are the harnesses this paper reports on or
+derives from; AgentDyn~\cite{li2026agentdyn} finds that nearly all
+published defenses either fail to stop injections in open-ended dynamic
+tasks or block too many legitimate actions, and AgentDrift
+\cite{pinjari2026agentdrift} labels every step of hijacked trajectories
+(\S\ref{sec:agentdrift}). The sharpest critique of the field is that
+static attack sets overstate every defense: adaptive attacks broke all
+eight indirect-injection defenses Zhan et al.\ tested
+\cite{zhan2025adaptive}, and twelve recent defenses, most of which had
+reported near-zero attack success, fell at mostly above 90\%
+to attackers who tuned against each one~\cite{nasr2025attacker}. An
+independent adaptive evaluation of out-of-band enforcement found Progent
+held, while warning that one template on a weak model is weak evidence
+\cite{narisetty2026adaptive}. \system{} has not yet been measured against
+an adaptive attacker (\S\ref{sec:scope}); the harness is released, and
+that number is the one a reader should most want.
 
-\paragraph{Observability platforms.}
-Langfuse~\cite{langfuse2024}, Helicone~\cite{helicone2024}, and
-Arize~\cite{arize2024} trace tool calls after they are issued. \system
-complements these by acting before side effects occur.
+\paragraph{Guardrails and observability.} TrustLLM~\cite{huang2024position}
+and TrustEval~\cite{wang2024trusteval} evaluate trustworthiness at the
+model level; Llama Guard~\cite{inan2023llama} classifies text safety;
+NeMo Guardrails~\cite{rebedea2023nemo} programs dialogue rails;
+IsolateGPT~\cite{wu2025isolategpt} isolates apps at the architecture
+level. Langfuse~\cite{langfuse2024}, Helicone~\cite{helicone2024} and
+Arize~\cite{arize2024} trace tool calls after they are issued; \system
+acts before side effects occur and keeps the trace as evidence.
 
 \input{table/comp}
 
@@ -1296,10 +1390,12 @@ integration in fifteen frameworks, a refusal that returns in-band, a hold
 that waits for a person, and a signed chain of every decision. On
 AgentDojo it brings attack success from 29.7\% to 1.4\%, mostly through
 asking which turn of the conversation authorised a call, in under a
-millisecond and without a model. Its cost is holds, and the alignment
-auditor answering them first returns most of the utility; whether that
-reviewer also releases attacks is the number this version could not
-afford to measure, and the first one the next owes. Around the decision
+millisecond and without a model. Its cost is holds. The alignment auditor answering them first returns
+most of the utility on gpt-4o-mini; on a locally served 8B model, given
+the agent's evidence, it lets 1 of 249 attacks run, and on two held-out
+suites the gateway costs no utility while cutting attacks from 23 to 4 of
+700. What this version does not measure is an adaptive attacker, and
+that is the number the next one owes. Around the decision
 sit the parts an operator needs before it is deployable: a behavioural
 layer that cannot block before it has learned, explicit fallback for a
 gateway that is slow, down or without a model, static analysis in the
@@ -1347,6 +1443,8 @@ figures are drawn from those outputs by the scripts in
 
 \newpage
 \appendix
+
+\input{sections/appendix_gallery}
 
 \input{sections/appendix_compat}
 

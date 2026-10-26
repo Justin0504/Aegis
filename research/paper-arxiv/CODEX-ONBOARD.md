@@ -12,10 +12,12 @@ state.
 
 | path | what |
 |---|---|
-| `research/paper-arxiv/aegis.tex` + `sections/*.tex` | the paper (acmart sigconf). `tectonic aegis.tex` builds it; 15 pages, 0 undefined refs is the bar. |
+| `research/paper-arxiv/aegis.tex` + `sections/*.tex` | the paper (acmart sigconf). `tectonic aegis.tex` builds it; 31 pages with round-3 placeholders (2026-10-26), 0 undefined refs is the bar. |
 | `research/paper-arxiv/figures/table_compat.tex` | **generated** by `research/compat/make_table.py` — never edit by hand |
 | `research/paper-arxiv/images/ui/*.png` | Cockpit screenshots, taken by `research/compat/js/shoot.mjs` against a live gateway — never mock |
-| `research/paper-arxiv/images/{provenance_mechanism,rollout_construction,audit_chain}.pdf` | **placeholders** you replace (see `CODEX-FIGURE-BRIEF.md`) |
+| `research/paper-arxiv/images/{cascade,fallback,judge,deployment,receipts_pins,frontier,load,agentdrift}.pdf`, `images/gallery/*`, `images/deploy/*`, `images/ui/{mcp-tools,run-step,approval-evidence,security-360}.png` | **round-3 placeholders** you replace — spec in `CODEX-FIGURE-BRIEF-v3.md` |
+| `research/paper-arxiv/figdata/{plots,gallery}.json` | **generated** by `python -m figures_src.figure_data` from the result files — the only source of numbers and quoted strings for round 3 |
+| `research/figures_src/placeholders.py` | draws any missing slot at its canvas; never overwrites an existing file unless `--force <id>` |
 | `research/paper-arxiv/package_for_arxiv.py` | clean-room tarball; run it before any hand-off |
 | `research/compat/` | the matrix: `run_compat.py` (gateways + approver), `harnesses.py` (one function per harness), `common.py` (scenarios, tools, DSL rule), `make_table.py`, `js/`, `go/`, `results/` |
 | `packages/gateway-mcp` | the gateway (Node/Express/SQLite). `npm run build` → `dist/`; `npx jest` must stay green (1360 tests) |
@@ -55,6 +57,19 @@ agent and an alignment audit before capturing. Build the Cockpit first
 a plain build shows the gateway.
 
 ## Open tasks (in priority order)
+
+0. **Round-3 figures (2026-10-26) — start here.** Read
+   `CODEX-FIGURE-BRIEF-v3.md` end to end, then `CODEX-FIGURE-BRIEF.md`'s
+   palette and checks. 26 slots: F1′ revision; body diagrams F6 cascade,
+   F7 fallback, F8 judge (+ reliability diagram), F9 deployment, F10
+   receipts/pins; plots D1–D3 as figkit scripts over `figdata/plots.json`;
+   appendix gallery cards G1–G9, C1–C2 over `figdata/gallery.json` (G6,
+   G7 are false positives and G8 is a miss — they stay); four Cockpit
+   captures U1–U4; three terminal captures R1–R3. Figure environments and
+   captions are already in `aegis.tex`, `sections/fallback.tex`,
+   `sections/judge.tex`, `sections/appendix_gallery.tex`,
+   `sections/appendix_ui.tex` — if what you draw contradicts a caption,
+   stop and report; do not edit a caption to fit a figure.
 
 1. ~~Figures F1, F2, F3, F5~~ — drawn 2026-10-13 with figkit
    (`figures_src/fig_architecture.py`, `fig_provenance.py`, `fig_rollout.py`,
@@ -127,7 +142,7 @@ a plain build shows the gateway.
   only for allow/block/pending/untrusted and one accent; 12-unit type floor
   on a 1000-wide canvas; look at the rendered PNG, not the code.
 - Commits: one topic per commit, message explains *why*, ends with
-  `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` if Claude
+  `Co-Authored-By: <the model that wrote it> <noreply@anthropic.com>` if Claude
   wrote it with you. Do not push `research/compat/results/` transcripts
   that contain keys (they should not; check).
 - The arXiv upload needs co-author sign-off (Zhiyuan Su, Yue Zhao): v2

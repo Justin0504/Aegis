@@ -4,6 +4,14 @@
 A control point on the hot path has to say what happens when it is
 slow, down, or unable to decide. \system's answers are explicit and
 configured, not emergent.
+Figure~\ref{fig:fallback} summarises the four cases below.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/fallback.pdf}
+    \caption{Four failure modes and the configured answer to each: what the agent sees, and what the operator sees. Every branch is a switch an operator sets; the decision pipeline (L1, L2, L$_\mathrm{p}$, policy) needs no model in any of them.}
+    \label{fig:fallback}
+\end{figure*}
 
 \paragraph{When the gateway is unreachable.}
 The SDK's blocking check carries a 3\,s timeout. What happens on timeout

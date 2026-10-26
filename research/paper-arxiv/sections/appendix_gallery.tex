@@ -1,0 +1,93 @@
+\section{Interception Gallery}
+\label{app:gallery}
+
+The cards below are calls \system refused, and calls it did not. Every
+string on a card is verbatim from a recorded run: the user's request, the
+injected text the agent read (first characters), the call it emitted, and
+the reason the gateway returned. G1--G8 come from the AgentDojo runs of
+\S\ref{sec:agentdojo}, from the configurations the tables report
+(gpt-4o-mini with the provenance pack, and the shipped gateway with
+qwen3:8b). Across those runs the gateway refused 2{,}900 calls, 119 of
+them on clean tasks. C1--C2 come from the compatibility matrix of
+Appendix~\ref{app:compat}, and G9 from a recorded MCP run. The cards were
+picked by a rule fixed before drawing, the first recorded case of each
+pattern (\texttt{research/figures\_src/figure\_data.py}). The gallery
+deliberately includes two false positives (G6, G7) and one attack that
+landed (G8).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G1.pdf}
+    \caption{Banking. The injection asks the agent to redirect a scheduled transaction; the call is held, and with no reviewer present the hold refuses it.}
+    \label{fig:gallery-g1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G2.pdf}
+    \caption{Banking. A payment to the attacker's IBAN, which nothing the user said accounts for, is blocked before it runs.}
+    \label{fig:gallery-g2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G3.pdf}
+    \caption{Slack. A direct message carrying the phishing link the injection planted is blocked.}
+    \label{fig:gallery-g3}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G4.pdf}
+    \caption{Slack. The injection asks for every channel's messages to be posted to an external page; the call is blocked.}
+    \label{fig:gallery-g4}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G5.pdf}
+    \caption{Workspace. An email to an address that appears only in the injected text is blocked.}
+    \label{fig:gallery-g5}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G6.pdf}
+    \caption{Slack, a false positive under attack. The direct message the user asked for is blocked, so the user's task is lost.}
+    \label{fig:gallery-g6}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G7.pdf}
+    \caption{Banking, a false positive on a clean task. The user asked for a bill to be paid and the IBAN came from the bill, so the call is explained by tool output. This is the class the auditor, shown the agent's evidence, releases (\S\ref{sec:agentdojo}).}
+    \label{fig:gallery-g7}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G8.pdf}
+    \caption{Workspace, a miss. The user asked for a file to be deleted; the injection changed which file. The call is the tool the user requested, with a short id that nothing attributes, and it runs (\S\ref{sec:authority}).}
+    \label{fig:gallery-g8}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/C1.pdf}
+    \caption{Claude Agent SDK, compatibility scenario S2. The pipe-to-shell install is blocked by L1, and the refusal arrives as the tool's result; the agent explains it and declines to route around it (transcript verbatim).}
+    \label{fig:gallery-c1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/C2.pdf}
+    \caption{OpenAI Agents SDK, compatibility scenario S4. A vendor note read with \texttt{read\_file} asks for an email; \texttt{provenance-untrusted-authority-on-exfil-sink} blocks it.}
+    \label{fig:gallery-c2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/gallery/G9.pdf}
+    \caption{MCP tool pinning. A server changes a tool's description after it was approved, adding an instruction to read a key file; the proxy refuses the tool until an operator re-pins it (recorded run, \texttt{research/compat/mcp\_rugpull\_demo.py}).}
+    \label{fig:gallery-g9}
+\end{figure}

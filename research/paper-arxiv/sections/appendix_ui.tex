@@ -224,3 +224,62 @@ retried.
     \label{fig:demo-activity}
 \end{figure}
 
+
+\paragraph{Views added in this version.}
+Figures~\ref{fig:ui-mcp}--\ref{fig:ui-360} are captured the same way, after
+the MCP run of card~G9 and the replay above.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/mcp-tools.png}
+    \caption{Settings, MCP tools, after the run of card~G9. The changed tool is expanded with the approved description beside the one the server sends now; it stays refused until re-pinned.}
+    \label{fig:ui-mcp}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/run-step.png}
+    \caption{A replayed banking run with one blocked step expanded: the provenance verdict, the matched rule and its reason. Allowed steps carry their receipt id.}
+    \label{fig:ui-run-step}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/approval-evidence.png}
+    \caption{A held call as a reviewer sees it: the user's request, the call, the tool output it was drawn from, fenced, and the alignment auditor's verdict.}
+    \label{fig:ui-approval-evidence}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/ui/security-360.png}
+    \caption{Security~360: one view across interception, provenance, behaviour, MCP supply chain, audit integrity and containment.}
+    \label{fig:ui-360}
+\end{figure}
+
+\section{Deployment, as It Runs}
+\label{app:deploy}
+
+Three recorded terminal sessions, rendered from their captured output
+(\texttt{paper-arxiv/figdata/captures/}); only API keys are elided.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/deploy/mcp-host.pdf}
+    \caption{An MCP host configured to reach its server through \texttt{agentguard.mcp\_proxy}, and the tool error the host shows when the proxy refuses a call.}
+    \label{fig:deploy-mcp}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/deploy/compose.pdf}
+    \caption{\texttt{docker compose up}: the gateway and the Cockpit, then an agent instrumented with \texttt{agentguard.auto()} making one allowed and one blocked call.}
+    \label{fig:deploy-compose}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{images/deploy/receipt-verify.pdf}
+    \caption{An executor verifying a receipt offline against the gateway's published key: valid for the call it was issued for, not for the same call with a changed recipient.}
+    \label{fig:deploy-receipt}
+\end{figure}

@@ -14,6 +14,13 @@ scores recorded traces after the fact on eight dimensions---safety,
 helpfulness, correctness, compliance, efficiency, privacy, robustness,
 transparency---and feeds the Cockpit's evaluation views.
 
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/judge.pdf}
+    \caption{The alignment auditor. Left: a held call is reviewed against the user's declared goal and the session's tool output, fenced as data and scoped to the tenant (the request and call are those of Appendix card~G1); the auditor releases the call or passes it to a person. Right: the calibration harness's reliability diagram for a Claude Haiku~4.5 judge on the built-in 30-case benchmark, with per-category ECE. Its confidence is not a probability, which is why its score is a fact the policy thresholds rather than a decision.}
+    \label{fig:judge}
+\end{figure*}
+
 \paragraph{The auditor reads what the agent read.} A held call is usually
 held because its arguments came from a tool, and a judge shown only the
 goal and the call cannot tell a bill's IBAN from an attacker's: in the
@@ -40,7 +47,7 @@ guard-model literature~\cite{liu2025calibration}, overall and per
 category. The built-in benchmark is small and deliberately mixed: 30
 cases---10 normal, 5 clear blocks, 5 jailbreaks, 3 indirect injections, 2
 PII egress, 5 borderline---so that a judge's calibration on the easy
-cases does not hide its behaviour on the hard ones. Judge adapters for
+cases does not hide its behaviour on the hard ones. Run with Claude Haiku~4.5 as the judge, it is confident and often wrong: accuracy 63.3\% at a mean confidence of 92.5\%, an expected calibration error of 29.2\% (Figure~\ref{fig:judge}, right). Judge adapters for
 Anthropic and OpenAI ship with retry; a mock judge runs the harness
 offline. The same mechanism is what \S\ref{sec:eval} uses to report that
 the judge is the only content-side configuration above chance on
