@@ -38,7 +38,7 @@ import Database from 'better-sqlite3';
 import type { Logger } from 'pino';
 import { computeContentHash } from './content-hash';
 
-export type IntegrityBreakReason = 'link_broken' | 'content_tamper';
+export type IntegrityBreakReason = 'link_broken' | 'content_tamper' | 'anchor_mismatch' | 'anchor_missing';
 
 export interface IntegrityBreak {
   reason: IntegrityBreakReason;
@@ -86,6 +86,8 @@ export class IntegrityService {
   constructor(
     private db: Database.Database,
     private logger?: Logger,
+    /** Chain heads committed to the transparency log (chain-anchor.ts). */
+    private anchors?: import('./chain-anchor').ChainAnchorService,
   ) {}
 
   /**
@@ -235,6 +237,23 @@ export class IntegrityService {
       }
 
       prevHash = row.integrity_hash;
+    }
+
+    // A chain that verifies on its own can still have been rewritten
+    // wholesale, or cut short at the head: compare it with the heads the
+    // transparency log committed to.
+    if (this.anchors) {
+      const brk = this.anchors.check(agent_id, new Map(rows.map((r) => [r.sequence_number, r.integrity_hash])));
+      if (brk) {
+        this.logger?.warn({ agent_id, sequence_number: brk.sequence_number }, `integrity: ${brk.reason} detected`);
+        return {
+          ok: false, agent_id, total: rows.length, latest_trace_id: rows[rows.length - 1].trace_id,
+          broken_at: { reason: brk.reason, sequence_number: brk.sequence_number,
+                       trace_id: rows.find((r) => r.sequence_number === brk.sequence_number)?.trace_id ?? '',
+                       expected: brk.expected, actual: brk.actual },
+          latency_ms: Date.now() - started,
+        };
+      }
     }
 
     return {

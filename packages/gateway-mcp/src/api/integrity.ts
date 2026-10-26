@@ -17,9 +17,9 @@ export class IntegrityAPI {
   public router: Router;
   private svc: IntegrityService;
 
-  constructor(db: Database.Database, private logger: Logger) {
+  constructor(db: Database.Database, private logger: Logger, anchors?: import('../services/chain-anchor').ChainAnchorService) {
     this.router = Router();
-    this.svc = new IntegrityService(db, logger);
+    this.svc = new IntegrityService(db, logger, anchors);
 
     this.router.get('/verify', (req: Request, res: Response) => {
       const agentId = (req.query.agent_id as string | undefined)?.trim();
