@@ -5,6 +5,7 @@ abstract: "Runtime policy enforcement and audit layer for AI agents: intercepts 
 authors:
   - family-names: "Yuan"
     given-names: "Aojie"
+    orcid: "https://orcid.org/0009-0007-4643-230X"
     website: "https://aojieyuan.com"
   - family-names: "Su"
     given-names: "Zhiyuan"
@@ -25,6 +26,7 @@ preferred-citation:
   authors:
     - family-names: "Yuan"
       given-names: "Aojie"
+      orcid: "https://orcid.org/0009-0007-4643-230X"
     - family-names: "Su"
       given-names: "Zhiyuan"
     - family-names: "Zhao"
