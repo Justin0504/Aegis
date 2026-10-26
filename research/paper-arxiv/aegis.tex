@@ -243,7 +243,9 @@ tool list: a tool's name, description and schema are hashed at first
 sight, a later change marks it \emph{changed}, and a description that
 reads like an instruction to the model marks it \emph{suspicious}; either
 is refused until an operator re-pins it, with both texts in front of
-them. This is the supply-chain case---a server that changes a tool's
+them, and is withheld from the tool list the host shows the model, since
+the description is the attack and would otherwise still reach the model's
+context and steer a call to some other tool. This is the supply-chain case---a server that changes a tool's
 description after approval, OWASP's MCP03---which a check on the call
 alone cannot see, because the description that induced the call is
 not in the call.

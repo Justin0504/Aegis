@@ -871,6 +871,26 @@ Ask Claude about your agents directly:
 
 Available tools: `query_traces`, `list_violations`, `get_agent_stats`, `list_policies`
 
+### Any MCP server, through the AEGIS proxy
+
+Wrap a server so every `tools/call` is checked and its tool descriptions are pinned (OWASP MCP03):
+
+```json
+{
+  "mcpServers": {
+    "fs": {
+      "command": "python",
+      "args": ["-m", "agentguard.mcp_proxy",
+               "--server", "npx", "-y", "@modelcontextprotocol/server-filesystem", "/",
+               "--gateway", "http://localhost:8080", "--agent-id", "claude-desktop"],
+      "env": { "AEGIS_API_KEY": "aegis_…" }
+    }
+  }
+}
+```
+
+The key is required for pinning (without it the proxy still checks calls and says pinning is disabled). The wrapped server gets the host's environment minus the AEGIS key. A tool whose description changes after approval, or reads like an instruction to the model, is withheld from the model's tool list and refused until re-pinned in Settings → MCP tools. Reproduce a rug pull end to end: `python research/compat/mcp_rugpull_demo.py run <gateway> <key>`.
+
 ### Claude Code
 
 One command to audit every tool call in Claude Code:

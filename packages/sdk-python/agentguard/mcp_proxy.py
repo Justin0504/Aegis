@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import urllib.request
 import urllib.error
@@ -42,6 +43,23 @@ AGENT_ID    = "mcp-proxy"
 
 
 HUMAN_APPROVAL_TIMEOUT_S = 300.0
+
+# The tenant key, sent as x-api-key on every gateway call. /check is open,
+# but pinning (/api/v1/mcp/tools) is tenant-scoped and refuses a request
+# without one — so a proxy without a key checks calls and pins nothing.
+_API_KEY: Optional[str] = None
+
+
+def _api_key(explicit: Optional[str] = None) -> Optional[str]:
+    return explicit or _API_KEY or os.environ.get("AEGIS_API_KEY") or os.environ.get("AGENTGUARD_API_KEY")
+
+
+def _headers(api_key: Optional[str] = None) -> dict:
+    h = {"Content-Type": "application/json"}
+    k = _api_key(api_key)
+    if k:
+        h["x-api-key"] = k
+    return h
 
 
 def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str) -> dict:
@@ -57,7 +75,7 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
     req = urllib.request.Request(
         f"{gateway_url}/api/v1/check",
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers=_headers(),
         method="POST",
     )
     try:
@@ -73,7 +91,8 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
         while time.time() < deadline:
             time.sleep(1.0)
             try:
-                with urllib.request.urlopen(f"{gateway_url}/api/v1/check/{d['check_id']}/decision", timeout=5) as r:
+                poll = urllib.request.Request(f"{gateway_url}/api/v1/check/{d['check_id']}/decision", headers=_headers())
+                with urllib.request.urlopen(poll, timeout=5) as r:
                     v = json.loads(r.read())
             except Exception:
                 continue
@@ -86,7 +105,17 @@ def _check_sync(tool_name: str, arguments: dict, gateway_url: str, agent_id: str
     return d
 
 
-def _report_tools(tools: list, gateway_url: str, agent_id: str, server_id: str) -> dict[str, dict]:
+def _upstream_env() -> dict:
+    """The environment the upstream server starts with: the host's, as it
+    would without the proxy (an MCP server's own credentials arrive this
+    way — without them a wrapped server simply fails), minus the AEGIS
+    tenant key. The upstream is what the proxy guards against; holding the
+    key, a server could re-pin its own changed description."""
+    return {k: v for k, v in os.environ.items() if k not in ("AEGIS_API_KEY", "AGENTGUARD_API_KEY")}
+
+
+def _report_tools(tools: list, gateway_url: str, agent_id: str, server_id: str,
+                  api_key: Optional[str] = None) -> dict[str, dict]:
     """Pin the upstream's tool list at the gateway (POST /api/v1/mcp/tools).
 
     A tool's description enters the model's context, and a server can
@@ -100,14 +129,31 @@ def _report_tools(tools: list, gateway_url: str, agent_id: str, server_id: str) 
         {"name": t.name, "description": t.description or "", "input_schema": getattr(t, "inputSchema", None)}
         for t in tools]}).encode()
     req = urllib.request.Request(f"{gateway_url}/api/v1/mcp/tools", data=payload,
-                                 headers={"Content-Type": "application/json"}, method="POST")
+                                 headers=_headers(api_key), method="POST")
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             d = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        # Not an outage: the gateway is up and refused us. Say so plainly,
+        # because the fallback below would otherwise hide it for good.
+        if e.code in (401, 403):
+            print(f"[AEGIS] tool pinning DISABLED: the gateway rejected the request ({e.code}). "
+                  f"Pass --api-key or set AEGIS_API_KEY to the tenant key.", file=sys.stderr)
+        else:
+            print(f"[AEGIS] tool pinning unavailable (HTTP {e.code}); proceeding without it", file=sys.stderr)
+        return {}
     except Exception as e:  # noqa: BLE001
         print(f"[AEGIS] tool pinning unavailable ({e}); proceeding without it", file=sys.stderr)
         return {}
     return {t["name"]: t for t in d.get("tools", [])}
+
+
+def _listed_tools(tools: list, pins: dict, on_change: str) -> list:
+    """The tools the host may show the model. A refused tool is withheld,
+    not only refused: its description is the attack, and it would still
+    reach the model's context — and could steer a call to some other tool —
+    even though a call to the tool itself fails."""
+    return [t for t in tools if _tool_refusal(t.name, pins.get(t.name), on_change) is None]
 
 
 def _tool_refusal(name: str, pin: dict | None, on_change: str) -> str | None:
@@ -137,7 +183,7 @@ def _instrument(gateway_url: str, agent_id: str):
         from .interceptors.auto import AutoInstrument
         # Synchronous sends: the proxy is a short-lived subprocess of its host, and
         # a background batch thread would die with it, trace still queued.
-        guard = AgentGuard(AgentGuardConfig(agent_id=agent_id, gateway_url=gateway_url,
+        guard = AgentGuard(AgentGuardConfig(agent_id=agent_id, gateway_url=gateway_url, api_key=_api_key(),
                                             enable_signing=False, enable_async=False))
         _INSTRUMENTS[key] = AutoInstrument(guard)
     return _INSTRUMENTS[key]
@@ -175,6 +221,7 @@ async def proxy(
     agent_id: str = AGENT_ID,
     server_id: Optional[str] = None,
     on_change: str = "hold",
+    api_key: Optional[str] = None,
 ):
     """
     Start an MCP stdio proxy.
@@ -197,6 +244,8 @@ async def proxy(
         )
         sys.exit(1)
 
+    global _API_KEY
+    _API_KEY = api_key or _API_KEY
     server = Server("aegis-mcp-proxy")
     upstream_tools: list[Tool] = []
 
@@ -204,6 +253,7 @@ async def proxy(
     params = StdioServerParameters(
         command=upstream_cmd[0],
         args=upstream_cmd[1:],
+        env=_upstream_env(),
     )
 
     async with stdio_client(params) as (read, write):
@@ -229,7 +279,7 @@ async def proxy(
                 # The proxy relays text content; dropping outputSchema keeps
                 # strict clients from rejecting results that carry none.
                 return [Tool(name=t.name, description=t.description, inputSchema=t.inputSchema)
-                        for t in upstream_tools]
+                        for t in _listed_tools(upstream_tools, pins, on_change)]
 
             # ── Call tool handler ──────────────────────────────────────────
             @server.call_tool()
@@ -333,9 +383,11 @@ Examples:
     parser.add_argument("--server-id", default=None, help="Stable name for this upstream (default: its command line)")
     parser.add_argument("--on-change", choices=["hold", "allow"], default="hold",
                         help="What to do with a tool whose description changed after it was pinned (default: refuse until re-pinned)")
+    parser.add_argument("--api-key", default=None,
+                        help="Tenant API key (default: $AEGIS_API_KEY or $AGENTGUARD_API_KEY); tool pinning needs it")
     args = parser.parse_args()
 
-    asyncio.run(proxy(args.server, args.gateway, args.agent_id, args.server_id, args.on_change))
+    asyncio.run(proxy(args.server, args.gateway, args.agent_id, args.server_id, args.on_change, args.api_key))
 
 
 if __name__ == "__main__":

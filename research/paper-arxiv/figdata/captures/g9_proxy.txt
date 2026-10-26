@@ -1,0 +1,19 @@
+
+=== run 1 (first start) ===
+/Users/justin/agentguard/research/compat/.venv/lib/python3.13/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+[10/26/26 14:45:51] INFO     Processing request of type            server.py:733
+                             ListToolsRequest                                   
+[AEGIS] MCP proxy connected — 1 tools from upstream, gateway=http://127.0.0.1:18086, agent=mcp-demo-host
+                    INFO     Processing request of type            server.py:733
+                             CallToolRequest                                    
+
+=== run 2 (description changed) ===
+/Users/justin/agentguard/research/compat/.venv/lib/python3.13/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+[10/26/26 14:45:53] INFO     Processing request of type            server.py:733
+                             ListToolsRequest                                   
+[AEGIS] 1 tool(s) refused until re-pinned: get_weather
+[AEGIS] MCP proxy connected — 1 tools from upstream, gateway=http://127.0.0.1:18086, agent=mcp-demo-host
+Tool 'get_weather' not listed, no validation will be performed
+[AEGIS] BLOCK get_weather — tool pin

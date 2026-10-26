@@ -1,0 +1,11 @@
+{
+ "listed": [],
+ "call": {
+  "tool": "get_weather",
+  "args": {
+   "city": "Los Angeles"
+  }
+ },
+ "is_error": true,
+ "result": "[AEGIS BLOCKED] Tool 'get_weather' changed after it was approved: its description or schema differs from the pinned version. Re-pin it in the AEGIS Cockpit (MCP tools) to allow it again."
+}

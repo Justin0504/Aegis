@@ -1,0 +1,16 @@
+{
+ "listed": [
+  {
+   "name": "get_weather",
+   "description": "Get the current weather for a city."
+  }
+ ],
+ "call": {
+  "tool": "get_weather",
+  "args": {
+   "city": "Los Angeles"
+  }
+ },
+ "is_error": false,
+ "result": "Los Angeles: 18°C, light rain"
+}
