@@ -314,7 +314,7 @@ Measured on the shipping gateway, reported with their cost. Full tables, interva
 | **Per-call corpus** (237 attacks live agents emitted under injection) | content inspection at chance; provenance flags 75.5% at 0% false positives on single-step benign calls | holds 20.7% of benign two-step calls, the known class |
 | **AgentDrift** (public, 19,517 labelled steps) | 62.8% of hijacked steps caught (dataset baseline 55.4%), even across attack types incl. delayed hijacks | precision 48.5%: 14.5% of benign steps held |
 | **Overhead** | 0.44 ms median per check; ~2,300–3,000 checks/s per gateway process | p99 84–93 ms at 128 concurrent clients on one laptop |
-| **Compatibility** | 19 agent harnesses × 4 scenarios | found and fixed 26 defects no unit test had caught; listed in the paper |
+| **Compatibility** | 19 agent harnesses × 4 scenarios | found and fixed 24 defects no unit test had caught; listed in the paper |
 
 Where it does not work, and the paper says so: an injection that stays inside the tool the user asked for and changes nothing a value check can see; a user who delegates to a document (“do what my to-do list says”), which provenance cannot tell from an injection; an auditor small enough to be injected itself.
 
@@ -1070,7 +1070,7 @@ docker compose -f docker-compose.dev.yml up    # hot-reload enabled
 
 AEGIS is described in the paper **[AEGIS: No Tool Call Left Unchecked — A Pre-Execution Firewall and Audit Layer for AI Agents](https://arxiv.org/abs/2603.12621)** (arXiv:2603.12621) by [Aojie (Justin) Yuan](https://aojieyuan.com), Zhiyuan Su, and [Yue Zhao](https://viterbi-web.usc.edu/~yzhao010/) at [USC FORTIS Lab](https://viterbi-web.usc.edu/~yzhao010/lab).
 
-**Version 2 (October 2026)** is a system paper: AgentDojo end to end, the instruction-provenance layer measured on calls live agents emitted under attack, an adaptive attacker, AgentDrift, the compatibility matrix, and a load test, with every number produced by a command in this repository at the commit tagged `arxiv-v2`. Source and PDF: [`research/paper-arxiv/`](research/paper-arxiv/). The numbers reported in version 1 are withdrawn; the appendix gives the audit of how they were produced.
+**Version 2 (October 2026)** is a system paper: AgentDojo end to end, the instruction-provenance layer measured on calls live agents emitted under attack, AgentDrift, the compatibility matrix, and a load test, with every number produced by a command in this repository at the commit tagged `arxiv-v2`. Source and PDF: [`research/paper-arxiv/`](research/paper-arxiv/). The numbers reported in version 1 are withdrawn; the appendix gives the audit of how they were produced.
 
 - Plain-language explainer: [Why Every AI Agent Needs an Audit Layer](https://aojieyuan.com/blog/why-ai-agents-need-an-audit-layer)
 - Press: [USC Viterbi News — *Giving AI Agents the Keys? USC Engineers Develop Tools to Audit and Monitor AI Agents*](https://viterbischool.usc.edu/news/2026/08/giving-ai-agents-the-keys-usc-engineers-develop-tools-to-audit-and-monitor-ai-agents/) (Aug 2026)

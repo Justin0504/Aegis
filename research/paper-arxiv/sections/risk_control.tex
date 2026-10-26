@@ -3,18 +3,7 @@
 
 A \texttt{pending} decision places the call, its arguments, every layer's
 facts and the matched rule in an approval queue; the agent polls and
-resumes within one cycle (2\,s) of a person choosing Allow or Block, and a
-hold that nobody decides expires after ten minutes as a block. Three
-controls contain an \emph{agent} rather than a call. A \emph{kill switch}
-revokes an agent's access after a configurable violation count, so an
-agent that is being repeatedly manipulated is stopped rather than argued
-with one call at a time. A \emph{budget guard} bounds spend per day,
-month, agent and session in dollars, with a configured action of
-\texttt{log}, \texttt{warn} or \texttt{block}. For actions that cannot be
-undone---sending mail, moving money, posting publicly---an \emph{effect
-outbox} holds an allowed call for a configurable window in which an
-operator can still cancel it, so even an allowed irreversible action
-keeps a pre-execution interval.
+resumes within one cycle (2\,s in Python, 1\,s in the JavaScript and Go SDKs) of a person choosing Allow or Block. A hold that nobody decides expires at the gateway after ten minutes as a block; the SDKs stop waiting sooner, after five minutes by default (\texttt{human\_approval\_timeout\_s}), and treat that as a block too. A deployment can put the alignment auditor in front of the person (\texttt{AEGIS\_HOLD\_REVIEWER=auditor}, \S\ref{sec:judge}): it releases a hold it finds serves the user's request, the release carries a receipt naming it, and the person sees only the holds it would not release, with its verdict attached. Two controls contain an \emph{agent} rather than a call. A \emph{kill switch} suspends an agent, by an operator's hand or after a configured number of refusals in a window (3 per hour by default; counted on the WebSocket MCP path always and on \texttt{/check} when \texttt{KILL\_SWITCH\_AUTO} is set, since at that rate it would also stop an agent that is merely under attack), and every path then refuses the agent's calls. A \emph{budget guard} bounds spend per day, month, agent and session in dollars, with a configured action of \texttt{log}, \texttt{warn} or \texttt{block}; in this version it runs on the egress-proxy path only. An \emph{effect outbox}, which would hold an allowed irreversible call for a window in which an operator can still cancel it, is implemented and its dispatcher runs, but nothing in this version enqueues calls into it.
 
 \paragraph{Learning without a labelled corpus.}
 The behavioural layer (L2) is the part of the system that learns, and it
@@ -24,23 +13,9 @@ While \emph{learning}, the layer only observes. While \emph{graduated},
 its decision is capped at \texttt{flag}: a profile that has seen too few
 calls to know what normal is cannot escalate or block. Only an
 \emph{active} profile may. Before the Isolation Forest has thirty samples
-it is replaced by a weighted fallback over nine fixed signals, and a new
-agent's feature statistics are seeded from its tenant's aggregate
-baseline, so the first call of a new agent is scored against its
-neighbours rather than against nothing. Raw scores are never thresholded
-directly: a split-conformal calibrator turns them into $p$-values at a
-configured miscoverage ($\alpha{=}0.02$ by default), so an operator's
-``escalate the top 2\%'' is a coverage guarantee, and ADWIN detects
-distribution drift and resets the window so thresholds adapt rather than
-decay. Every approve and reject a person makes in the Cockpit flows back
-into the forest's reservoir and the score tracker (active anomaly
-discovery), so the layer converges on the operator's notion of normal
-rather than a vendor's.
+it is replaced by a weighted fallback over nine fixed signals, and when an agent is first scored with too little history of its own, its feature statistics are seeded from its tenant's aggregate baseline. The decision thresholds the ensemble score against adaptive bounds (the agent's running mean plus a multiple of its deviation, or fixed defaults before there is one); a split-conformal $p$-value is computed and reported beside it, not used to decide. ADWIN detects distribution drift and resets the feature-normalisation statistics, keeping the forest's reservoir. An approve or reject a person makes on a held call that L2 scored above 0.3 flows back into the reservoir and the score tracker (active anomaly discovery), so the layer moves toward the operator's notion of normal.
 
 \paragraph{Across agents.}
-Two detectors look across agents. A cross-agent correlator watches for
-the coordinated patterns---one agent reading what another just wrote to
-a shared sink---that no single-agent view can see, and a lateral-movement
-detector surfaces compromise propagating across sessions. Each agent's
+Two detectors on the egress-proxy path look across agents: a cross-agent correlator flags an agent sharing a session with one that has already raised a critical signal, and a lateral-movement detector flags a credential or token from one agent's traffic replayed in another's arguments. (A detector for one agent reading what another just wrote to a shared sink is implemented but not registered in this version.) Each agent's
 profile, anomaly timeline and the operator's feedback on past alerts are
 visible in the Cockpit (Appendix~\ref{app:ui}).

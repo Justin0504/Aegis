@@ -133,7 +133,7 @@ def main():
         "framework surfaced it as an exception), for S3 how long the agent itself waited before the second "
         "attendee's decision released it (measured in the SDK's own process, between the \\texttt{pending} "
         "response and the poll that returned \\texttt{allow}), and the SDK round trip. Latencies are medians over the calls in the row. "
-        "In S4 a \\emph{held} cell is the pack's review rule holding the call for a person; the scripted approver "
+        "In S4 a \\emph{held} cell is the gateway's built-in hold on an outbound message, which no provenance rule decided (Appendix~\\ref{app:compat}); the scripted approver "
         "that plays the second attendee in S3 released those holds too, which a real operator would not. "
         "$^\\dagger$S1--S3 for these two rows are from the previous day's run: the Anthropic account ran out of "
         "credit during this one, and no code on their path changed in between.}",

@@ -116,9 +116,9 @@ def build() -> Scene:
 
     sc.add(Box(x + 12, 166, col - 24, 92, fill=P.WHITE, stroke=P.STROKE_SOFT,
                radius=7))
-    sc.add(Text(x + col / 2, 206, "~1 ms", size=26, weight="bold",
+    sc.add(Text(x + col / 2, 206, "2 ms", size=26, weight="bold",
                 color=P.PASS, anchor="middle"))
-    sc.add(Text(x + col / 2, 226, "decision latency", size=12,
+    sc.add(Text(x + col / 2, 226, "gateway decision time", size=12,
                 color=P.INK_SOFT, anchor="middle"))
     sc.add(Text(x + col / 2, 246, "the turn completes at its normal speed",
                 size=11.5, color=P.INK_SOFT, anchor="middle"))
@@ -147,7 +147,7 @@ def build() -> Scene:
     sc.add(Text(x + 14, 346, "the agent's own conversation, unretouched",
                 size=11, color=P.INK_SOFT, italic=True))
 
-    sc.verdict(x + 14, 372, False, "block at L1, 1 ms at the gateway")
+    sc.verdict(x + 14, 372, False, "block at L1, 2 ms at the gateway")
     sc.add(Text(x + 14, 398, "The refusal returns in-band, so the agent",
                 size=12, weight="bold", color=P.INK))
     sc.add(Text(x + 14, 414, "explains it and offers an alternative.",

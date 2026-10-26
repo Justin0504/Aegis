@@ -9,17 +9,16 @@ one, so most of its surface is connectors (Table~\ref{tab:connectors}).
 \setlength{\tabcolsep}{4pt}
 \caption{Where \system attaches. Inbound connectors deliver tool calls to the
 decision point; outbound connectors deliver decisions and evidence to the
-operator's systems. Every row is exercised by the gateway's test suite; the
-inbound rows are additionally exercised live in Appendix~\ref{app:compat}.}
+operator's systems. Every row has tests in the gateway's or its SDK's suite; the inbound rows are also exercised live in Appendix~\ref{app:compat}.}
 \label{tab:connectors}
 \begin{tabular}{lp{0.62\columnwidth}}
 \toprule
 \textbf{Inbound} & \\
 \midrule
-Python SDK & \texttt{auto()} patches 15 targets: Anthropic, OpenAI (chat and Responses), LangChain/LangGraph, CrewAI, AutoGen, Gemini, Bedrock, Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents, OpenAI Agents SDK (tool-level), Claude Agent SDK (PreToolUse hook), HTTP-tool shim \\
+Python SDK & \texttt{auto()} patches 15 targets: Anthropic, OpenAI (chat and Responses), LangChain/LangGraph, CrewAI, AutoGen, Gemini, Bedrock, Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents, OpenAI Agents SDK (tool-level), Google GenAI, HTTP-tool shim; the Claude Agent SDK by its own \texttt{PreToolUse} hook \\
 JS/TS SDK & Anthropic, OpenAI, LangChain; CommonJS build patched \\
 Go SDK & \texttt{Wrap(tool, args, fn)}: explicit check, hold, trace \\
-MCP proxy & stdio proxy for any MCP server (Claude Desktop, Cursor); refusals are tool errors \\
+MCP proxy & stdio proxy for any MCP server and client; refusals are tool errors; tool pinning \\
 Egress proxy & provider-shaped endpoints for OpenAI, Anthropic, Gemini, Mistral; self-hosted upstreams (vLLM, Ollama) by one variable \\
 \midrule
 \textbf{Outbound} & \\
@@ -43,6 +42,5 @@ destination by writing a config row, and the gateway picks it up on the
 next event without a release. Second, nothing outbound is on the
 decision path: sinks, alerts and exports are fire-and-forget with their
 own queues and dead-letter handling, so a slow SIEM cannot slow an agent.
-The gateway runs as one Node.js service with SQLite or PostgreSQL behind
-it, and ships with Docker Compose, a Helm chart and one-click
+The gateway runs as one Node.js service with SQLite behind it (PostgreSQL stores are implemented but not yet wired into the server), and ships with Docker Compose, a Helm chart and one-click
 configurations for the common hosts.

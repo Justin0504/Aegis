@@ -11,18 +11,21 @@ checked afresh by the current gateway, and every trace enters the hash
 chain as a deployed agent's would
 (\texttt{research/compat/shoot\_replay.sh}); the holds of the last three
 runs are left open so the queue shows them with their evidence. The
-remaining views use a copy of the gateway database that the
-compatibility matrix of Appendix~\ref{app:compat} produced: the agents,
-traces, holds, blocks and chains on them are the matrix's. The capture is scripted
+violations, policies, agents, packs, audit-log and compliance views were
+captured on the same replay. The DSL, settings, alignment and scan views
+use a copy of the gateway database that the compatibility matrix of
+Appendix~\ref{app:compat} produced. The capture is scripted
 (\texttt{research/compat/shoot\_cockpit.sh}): it copies the database,
 starts the shipping gateway and Cockpit on it, runs one pre-deployment
 scan of the demonstration agent and one alignment audit so that those
 two views show a result, and photographs every view. The alignment
 auditor ran on a local model (qwen3:8b through Ollama, the model of
-\S\ref{sec:agentdojo}), the deployment the fallback of
-\S\ref{sec:fallback} describes. The interface
-uses one typeface and no colour except where it carries a decision: red
-for a block, amber for a hold, black for the primary action. The
+\S\ref{sec:agentdojo}, set by environment; the script's default is
+qwen2.5:7b), the deployment the fallback of \S\ref{sec:fallback}
+describes. The interface uses one type family (Geist, with its mono for
+identifiers) and keeps colour for meaning: red for a block, amber for a
+hold, green for an allow or a covered surface; app logos keep their
+own colours. The
 overview is Figure~\ref{fig:dashboard}.
 
 \begin{figure}[H]
@@ -32,18 +35,19 @@ overview is Figure~\ref{fig:dashboard}.
     app's logo and the verdict, grouped under the protection that caught it
     in plain words (``Outbound call nobody asked for'') with the reason
     beneath each. The rows are the replayed AgentDojo runs: transfers to an
-    injected IBAN blocked by the exfiltration rule, an invitation held for a
-    person.}
+    injected IBAN blocked by the exfiltration rule. (The held invitation of
+    the same replay is in the approval queue, Figure~\ref{fig:ui-approvals}.)}
     \label{fig:ui-violations}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/policies.png}
-    \caption{Policies, with the rule hit rate: which rules actually fired
-    across the matrix---the L1 risk tier on the S2 payloads, the S3 hold,
-    and the provenance pack's exfiltration rule on S4---and how each split
-    between block and hold.}
+    \caption{Policies, with the rule hit rate on the replayed AgentDojo
+    runs: which of the provenance pack's rules fired and how each split
+    between block and hold---the exfiltration rule blocking three calls,
+    the destination rule holding two, the review and destructive rules one
+    each.}
     \label{fig:ui-policies}
 \end{figure}
 
@@ -68,7 +72,7 @@ overview is Figure~\ref{fig:dashboard}.
     decision and its latency; arguments and results open as fields rather
     than JSON. Here a bill payment whose IBAN came from an injected bill is
     blocked. The \emph{All actions} tab keeps the per-call forensic view
-    with the integrity proof.}
+    with each record's hash.}
     \label{fig:ui-traces}
 \end{figure}
 
@@ -77,17 +81,17 @@ overview is Figure~\ref{fig:dashboard}.
     \includegraphics[width=\columnwidth]{images/ui/agents.png}
     \caption{Agents: one row per agent, created on first sight, with the
     apps it has touched as logos and how often \system{} has had to step
-    in---calls, held, blocked---beside when it was last seen. An operator
-    promotes an agent to \emph{active}, declares its tool scope, or
-    suspends it from the row's detail panel.}
+    in---calls, held, blocked---beside when it was last seen. Registering
+    an agent makes it \emph{active} and declares its tool scope; an
+    active agent can be suspended from its row.}
     \label{fig:ui-agents}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/dsl.png}
-    \caption{Policy DSL: rules over dotted facts with a dry-run, the
-    shipped packs, and the natural-language compiler whose output is a
+    \caption{Policy DSL: rules over dotted facts with a dry-run, built-in
+    examples, and the natural-language compiler whose output is a
     rule the operator reads before it runs.}
     \label{fig:ui-dsl}
 \end{figure}
@@ -97,8 +101,7 @@ overview is Figure~\ref{fig:dashboard}.
     \includegraphics[width=\columnwidth]{images/ui/dsl-packs.png}
     \caption{Policy packs: rule sets written to a regulation---GLBA, PCI
     DSS v4.0, SOX, DORA, FedRAMP, HIPAA---and the instruction-provenance
-    pack of \S\ref{sec:provenance}, each citing the clauses it implements,
-    applied in one click. A pack merges into the tenant's rules; a rule the
+    pack of \S\ref{sec:provenance}, each citing the clauses it implements, applied with one click and a confirmation. A pack merges into the tenant's rules; a rule the
     operator has customised under the same name is kept.}
     \label{fig:ui-packs}
 \end{figure}
@@ -118,8 +121,9 @@ overview is Figure~\ref{fig:dashboard}.
     \centering
     \includegraphics[width=\columnwidth]{images/ui/alignment.png}
     \caption{Alignment auditor (\S\ref{sec:judge}): a declared goal, the
-    thought chain and a proposed call, scored by a local model in 8.9\,s
-    with a drift flag and a rationale. The score becomes a policy fact.}
+    thought chain and a proposed call, scored by a local model in 6.9\,s
+    with a verdict (here, aligned) and a rationale. The score becomes a
+    policy fact.}
     \label{fig:ui-alignment}
 \end{figure}
 
@@ -135,10 +139,9 @@ overview is Figure~\ref{fig:dashboard}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/ui/audit-log.png}
-    \caption{Audit log: the signed record with chain verification and
+    \caption{Audit log: the hash-chained record with its verification and
     the SOC~2 evidence pack. Entries read as sentences (``Deployment mode
-    set to custom''), not as the JSON they are stored as; editing one
-    record in the export is the attendee activity of \S\ref{sec:demo}.}
+    set to custom''), not as the JSON they are stored as; editing one stored record is the attendee activity of \S\ref{sec:demo}.}
     \label{fig:ui-audit}
 \end{figure}
 
@@ -146,7 +149,7 @@ overview is Figure~\ref{fig:dashboard}.
     \centering
     \includegraphics[width=\columnwidth]{images/ui/compliance.png}
     \caption{Compliance: controls of SOC~2, ISO~27001, the NIST AI RMF and
-    the EU AI Act mapped to live evidence, each with its signature and the
+    the EU AI Act mapped to live evidence, signed as one bundle, with the
     command that verifies it offline.}
     \label{fig:ui-compliance}
 \end{figure}
@@ -155,7 +158,8 @@ overview is Figure~\ref{fig:dashboard}.
     \centering
     \includegraphics[width=\columnwidth]{images/ui/coverage.png}
     \caption{Security~360: ten ways an agent can be turned against its
-    owner, each with its status read live from the gateway---prompt
+    owner, six with their status read live from the gateway and four
+    fixed by what the gateway always or never does---prompt
     injection counts as protected only when the provenance pack is applied
     \emph{and} SDKs are reporting context, the audit only when the hash
     chains verify---and the one step that turns an uncovered surface on.
@@ -191,7 +195,7 @@ retried.
     \caption{S2, the agent's own page: asked for a routine install, the
     agent emits \texttt{curl \ldots | sh}; the call is blocked at L1 and
     the refusal returns as the tool's result, so the agent explains what
-    happened and proposes two alternatives rather than failing.}
+    happened and proposes three alternatives rather than failing.}
     \label{fig:demo-s2}
 \end{figure}
 
@@ -199,10 +203,11 @@ retried.
     \centering
     \includegraphics[width=\columnwidth]{images/demo/approvals-s3.png}
     \caption{S3, the Cockpit's Approvals page photographed while the agent
-    is suspended: the held \texttt{kubectl delete}, the rule that held it,
-    the attendee's request, the command as a field, and the two buttons.
-    A second person presses Allow and the agent resumes within one
-    polling cycle.}
+    is suspended: the held \texttt{kubectl delete} with the reason the rule
+    gives, the attendee's request, the command as a field, and the two
+    buttons. In the scripted capture the second person's Allow is sent
+    through the API the button calls, and the agent resumes within two
+    polling cycles.}
     \label{fig:demo-s3-cockpit}
 \end{figure}
 
@@ -210,8 +215,9 @@ retried.
     \centering
     \includegraphics[width=\columnwidth]{images/demo/agent-S3.png}
     \caption{S3, the agent's own page after the approval: the held call
-    shows as approved, the (simulated) command ran, and the agent reports
-    what happened.}
+    shows as allowed, the command ran (the demonstration's shell tool
+    simulates execution in its code; the decision precedes it), and the
+    agent reports what happened.}
     \label{fig:demo-s3-agent}
 \end{figure}
 
@@ -219,8 +225,9 @@ retried.
     \centering
     \includegraphics[width=\columnwidth]{images/demo/cockpit/traces.png}
     \caption{The demonstration session in the Cockpit's Activity view:
-    the three scenarios as one run, each step with its verdict---allowed,
-    blocked, held then allowed---and its latency.}
+    the three scenarios as one run, each step with its verdict and its
+    latency: two allowed (the second after its hold, 4.0\,s) and one
+    blocked.}
     \label{fig:demo-activity}
 \end{figure}
 

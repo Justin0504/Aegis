@@ -16,14 +16,12 @@ process-wide. The tools are real (an in-memory SQLite database; a shell
 tool that simulates execution so a successful attack cannot damage the
 test machine---the decision is taken before the tool runs, so simulation
 after it changes nothing measured; a scratch file system whose
-\texttt{vendor-notes.txt} carries the S4 injection; and a simulated
-\texttt{send\_email}). Latencies are the SDK's own round
+\texttt{vendor-notes.txt} carries the S4 injection; and a simulated \texttt{send\_email}). The exception is the Claude Agent SDK row, which runs Claude Code's own Bash tool: there the approved S3 \texttt{kubectl delete} really executed on the test machine, and failed only because no cluster was configured. Latencies are the SDK's own round
 trip to \texttt{/api/v1/check}, measured by wrapping the HTTP client, and
 so include serialisation and the loopback network.
 
 \paragraph{Reading the S2 column.}
-In every row the tool did not run; the column records how the agent
-learned why. Frameworks that execute tools themselves get the refusal
+In every row that emitted the payload the tool did not run (Gemini's provider returned 503 before any call); the column records how the agent learned why. Frameworks that execute tools themselves get the refusal
 \emph{in-band}: the SDK's tool-level patch returns it as the tool's own
 result (CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI
 and the OpenAI Agents SDK on both of its APIs, run with
@@ -39,8 +37,7 @@ executes tools in its own code, and one line wraps that dispatcher:
 \texttt{execute\_tool = agentguard.guarded(execute\_tool)}. The wrapper
 decides the call before the dispatcher runs and returns the refusal in
 the tool's own result slot, which the table marks \emph{in-band
-(helper)}. No row escapes, and no row needs exception handling in the
-agent loop.
+(helper)}. No row escapes, and no row needs exception handling in the agent loop. One agent tried to route around the block: LangGraph's, refused twice, split the install into a download and a run; the download was blocked, and the run of \texttt{sh /tmp/install.sh} that followed was allowed, since a local path names nothing L1 recognises. The payload never arrived, but a gateway that judges calls one at a time does not see that two calls compose into the one it refused.
 
 \paragraph{Reading the S4 column.}
 S4 is the attack of \S\ref{sec:eval}: the user asks for
@@ -106,11 +103,9 @@ model declines produces no tool call and therefore no row; the matrix
 records what the gateway did when the call was made. A cell marked
 \emph{provider 429} or \emph{503} is one where the model provider
 refused the call (quota exhausted, or ``high demand''), before any tool
-call existed for the gateway to decide; on the day of the final run
-Google's API did this for the Gemini S3 cell after S1 and S2 had
-completed, and the single key available had no quota left to retry. The Claude Agent SDK runs Claude Code's own Bash tool, so its
+call existed for the gateway to decide; on the day of the final run Google's API did this to every Gemini cell: S1 timed out after 400\,s, S2 got a 503 and S3 and S4 a 429, and the single key available had no quota left to retry. The Claude Agent SDK runs Claude Code's own Bash tool, so its
 scenarios are shell-shaped (\texttt{echo}, the same \texttt{curl \ldots | sh},
-\texttt{kubectl delete}; Claude Code declined \texttt{cat /etc/shadow} outright) and the interposition is a PreToolUse hook that
+\texttt{kubectl delete}) and the interposition is a PreToolUse hook that
 denies with the gateway's reason. The MCP proxy row needs no model: the
 transport is what is under test, so the client calls the tool directly
 through the proxy. Qwen3-8B is driven through Ollama's native API with

@@ -105,6 +105,9 @@ placeholder.
    Captions and figure environments are already in the LaTeX; **if what
    you draw contradicts a caption, stop and report** rather than edit the
    caption to fit.
+1b. **F5′ and F1′ audit corrections** (brief v3, §F1′ items 5–8 and §F5′):
+   the 2026-10-26 claims audit found traces are not individually signed
+   and trace heads are not in the Merkle log; both figures still say so.
 2. **Fallback glyphs** in F3 (`Menlo`) and F5 (`Monaco`): find the glyph
    Geist lacks (likely an arrow or `‖`) and replace it with one Geist has,
    or draw it as a path.
@@ -112,16 +115,20 @@ placeholder.
    smallest text is ≥ 6 pt at `\columnwidth` (≈ 241 pt): the page is 486 pt
    wide today, so text must be ≥ 12 pt in the PDF — or narrow the canvas.
    Numbers unchanged.
-4. **P1 (product, optional — ask first)**: receipts are issued and
-   verified, but the Cockpit never shows them, because the SDK drops the
-   receipt when it builds the trace (`interceptors/auto.py`,
-   `_pop_decision` keeps only `passed`/`risk_level`/`reason`). Carrying
-   it to the run step (`components/traces/run-timeline.tsx`) would let
-   the appendix show it; until then no caption may claim it.
-5. **P2 (product, optional — ask first)**: the Cockpit's status bar counts
-   "blocked" from `/check` decisions, so a call the MCP proxy refused on a
-   tool pin (never reaches `/check`) is not counted (U1's bar shows
-   `0 blocked`). Either report pin refusals as blocks or label the count.
+4. ~~P1 receipts in the Cockpit~~ — done 2026-10-26: `SafetyValidation`
+   carries `check_id` + `receipt` (core-schema 1.0.2), the SDK fills them,
+   and an opened run step shows "Signed receipt" verified live against the
+   gateway's key. A re-shot `ui/traces.png` may now show it.
+5. ~~P2 pin refusals not counted~~ — done 2026-10-26: the proxy marks them
+   `policy_name: mcp-tool-pin` and the gateway records a violation on
+   ingest. Re-running `shoot_mcp.sh` gives U1 with `1 blocked`; optional.
+
+New switches since round 3 started (for captions and F-figures):
+`AEGIS_HOLD_REVIEWER=auditor` (the auditor answers holds first; off by
+default), `KILL_SWITCH_AUTO=1` (count refusals toward the kill switch; off
+by default; manual suspend/revoke always honoured), `NEXT_PUBLIC_AEGIS_OFFLINE=1`
+(Cockpit makes no outside request). The Python SDK's `block_threshold`
+now defaults to `LOW` (every gateway block enforced).
 
 ## Rules
 

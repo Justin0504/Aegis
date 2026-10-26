@@ -87,6 +87,23 @@ everything else pixel-identical where you can.
 `15 frameworks` stays (fifteen `auto()` targets, §2.2); do not change it to
 nineteen (that is harnesses, a different count).
 
+**Audit corrections (2026-10-26 claims audit — these override the round-2
+F1 spec):**
+
+5. Row-2 card *Audit & integrity*: replace `Ed25519 per-agent signature`
+   with `signed receipt on every allow`, and `SHA-256 chain → Merkle → log`
+   with `SHA-256 chain per agent`; keep `witnesses · offline verifier` but
+   write it as `Merkle log of gateway actions · witnesses`. Traces are not
+   individually signed in `auto()`, and trace chain heads are not in the
+   Merkle log (aegis.tex §2.5).
+6. The dashed arrow label `every decision, signed` becomes
+   `every decision, chained`.
+7. The pending → auditor card from item 2 gets the mono note
+   `opt-in · AEGIS_HOLD_REVIEWER=auditor` (it ships now; it is off by
+   default).
+8. The interposition note `proxies decide inline; no hold` is wrong for
+   the MCP proxy (it holds): make it `egress proxy: inline, no hold`.
+
 ---
 
 ## F6 — The cascade: what each layer may see, and how facts become one decision
@@ -143,6 +160,16 @@ each checked against the line in aegis.tex.
 
 ---
 
+## F5′ — revise the drawn audit-chain figure (audit correction)
+
+`audit_chain` (round 2) draws `sig  Ed25519(agent key)` in every block
+and a bracket `Merkle root → transparency log → witnesses` over the trace
+chain. Neither holds for traces in this version (aegis.tex §2.5, rewritten
+2026-10-26). Redraw: each block's two mono lines become
+`content  sha256(input, call, result)` and `H = SHA256(… ‖ H_prev)`; drop
+the Merkle bracket (the Merkle log holds the gateway's own record, not
+trace heads). The caption in aegis.tex is already updated. Same canvas.
+
 ## F7 — When something fails: four failure modes, each with a configured answer
 
 > A control point on the hot path must say what happens when it is slow,
@@ -162,17 +189,20 @@ trigger icon, red/green only where a call is refused/proceeds.
    production)` → red `refused · gateway-unreachable`. Operator band:
    `traces: retry 0.5 s → 30 s cap · breaker after 5 failures · disk queue,
    replayed on restart · memory queue ≤ 10,000`.
-2. **A person does not answer.** trigger `held call · 10 min` → red
-   `expires as block` → note `arrives in the slot an approval would`.
+2. **A person does not answer.** trigger `held call` → red
+   `expires as block` with two small timers: `SDK stops waiting · 5 min`
+   and `gateway expires · 10 min` → note `arrives in the slot an approval would`.
    Second line, smaller: `egress proxy: pending ⇒ block, tagged`.
 3. **A compensator fails.** trigger `undo fails after retries` →
-   `dead-letter queue` → operator band `inspect · retry · discard in the
-   Cockpit` and the note `a failed undo is a visible item`.
+   `dead-letter queue` → operator band `inspect · retry · discard via
+   /api/v1/rollback/dlq` (there is no Cockpit view) and the note
+   `a failed undo is a recorded item`.
 4. **There is no model.** trigger `no endpoint / air-gapped` → a priority
    ladder `local (vLLM · Ollama · LocalAI) → Anthropic → OpenAI`, a switch
    chip `AEGIS_OFFLINE` severing the last two, and the fall-back
-   `policy compiler → heuristic`. Operator band, bold: `L1 · L2 · Lp ·
-   policy need no model`.
+   `policy compiler → heuristic`. Applies to the policy compiler and the
+   auditor only — a faint footnote `trace judge: provider per request`.
+   Operator band, bold: `L1 · L2 · Lp · policy need no model`.
 
 One line under all four: *Every answer above is a configured switch; the
 decision pipeline itself never needed a model.*
@@ -236,7 +266,7 @@ boundaries labelled at the top:
    `MCP server` boxes;
    `any OpenAI-compatible client` + mono `OPENAI_BASE_URL=…/api/v1/proxy`.
 2. **AEGIS control plane.** One dashed group: `gateway` (Node · Express),
-   `store` (`SQLite · or Postgres via DATABASE_URL`), `signing key
+   `store` (`SQLite`; Postgres stores exist but are not wired — do not draw them), `signing key
    (Ed25519)`, `Cockpit` (Next.js). Mono at the bottom: `docker compose up
    — gateway + cockpit`. A small side card `model endpoints` with the F7
    priority ladder and `AEGIS_OFFLINE`.

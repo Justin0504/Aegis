@@ -73,9 +73,9 @@
 \begin{abstract}
 AI agents now execute tool calls---database queries, shell commands, payments, email---and most agent frameworks forward those calls to execution with nothing in between. Observability records what an agent did; it cannot stop it.
 
-\system{} is an open-source control point between an agent's decision to call a tool and the tool running.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and covers 15 agent frameworks in Python, JavaScript and Go, plus an MCP proxy and a provider-compatible egress proxy. Each call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an \emph{instruction-provenance} check over which channel of the conversation authorised the call, and a declarative policy over all of their facts---and returns \texttt{allow}, \texttt{block}, or \texttt{pending}, which suspends the agent until a person or the alignment auditor decides. A refusal comes back where a tool result would, so a blocked agent explains itself and continues. Every decision is Ed25519-signed and hash-chained.
+\system{} is an open-source control point between an agent's decision to call a tool and the tool running.\footnote{Open-source (MIT). Code, harnesses and corpus: \url{https://github.com/Justin0504/Aegis}.} Integration is two lines and covers 15 agent frameworks in Python, JavaScript and Go, plus an MCP proxy and a provider-compatible egress proxy. Each call is decided by layers ordered by what they may observe---pattern rules over the call string, a behavioural anomaly stack over the agent's own history, an \emph{instruction-provenance} check over which channel of the conversation authorised the call, and a declarative policy over all of their facts---and returns \texttt{allow}, \texttt{block}, or \texttt{pending}, which suspends the agent until a person---or, as a configured first reviewer, the alignment auditor---decides. A refusal comes back where a tool result would, so a blocked agent explains itself and continues. Every allow carries an Ed25519-signed receipt an executor can verify, and every decision is recorded in a hash-chained trace.
 
-On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29.7\% to \textbf{1.4\%}, the lowest of the defenses compared, against 5.4\% for an LLM tool filter. The cost is holds: with no reviewer, clean-task utility falls from 69.1\% to 38.1\%; with the alignment auditor as first reviewer it is 56.7\% and 11 of 97 tasks reach a person. With a locally served qwen3:8b as agent and auditor on two suites, the shipped gateway with the auditor shown the agent's evidence lets 1 of 249 attacks run at 13 of 37 clean tasks against 19 undefended; on two held-out suites it costs no utility (17 of 60 against 16) and cuts attacks from 23 to 4 of 700. A check takes 0.44\,ms at the median, and one gateway process sustains about 2{,}300--3{,}000 checks per second. On tool calls live agents emitted under attack, content inspection is at chance and the provenance layer separates them, and we report where it does not: an injection that stays inside the tool the user already asked for. Running the shipping gateway under nineteen agent harnesses found and fixed twenty-six defects no unit test had caught, which we list. Numbers reported in this paper's first version are withdrawn; an appendix gives the audit.
+On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29.7\% to \textbf{1.4\%}, the lowest of the defenses compared, against 5.4\% for an LLM tool filter. The cost is holds: with no reviewer, clean-task utility falls from 69.1\% to 38.1\%; with the alignment auditor as first reviewer it is 56.7\% and 11 of 97 tasks reach a person. With a locally served qwen3:8b as agent and auditor on two suites, the shipped gateway with the auditor shown the agent's evidence lets 1 of 249 attacks execute at 13 of 37 clean tasks against 19 undefended; on two held-out suites it costs no utility (17 of 60 against 16) and cuts attacks from 23 to 4 of 700. A check takes 0.44\,ms at the median, and one gateway process sustains about 2{,}300--3{,}000 checks per second. On tool calls live agents emitted under attack, content inspection is at chance and the provenance layer separates them, and we report where it does not: an injection that stays inside the tool the user already asked for. Running the shipping gateway under nineteen agent harnesses found and fixed twenty-four defects no unit test had caught, which we list. Numbers reported in this paper's first version are withdrawn; an appendix gives the audit.
 \end{abstract}
 
 \keywords{AI Agent Safety, Tool-Call Interception, LLM Guardrails, Runtime Compliance}
@@ -89,7 +89,7 @@ On AgentDojo, with a gpt-4o-mini agent, \system{} reduces attack success from 29
     \caption{\system on the tool-execution path, drawn as the loop it is.
 Outbound, a call reaches the Gateway one of three ways---the SDK's
 \texttt{auto()} across 15 frameworks, the MCP proxy, or the egress proxy
-(the proxies decide inline and cannot hold)---and the Gateway applies
+(the egress proxy decides inline and cannot hold)---and the Gateway applies
 layers ordered by \emph{observation scope} rather than only by cost: L1
 sees the call string, L2 the agent's own history, L$_\mathrm{p}$ the
 conversation's trust channels, the alignment auditor (L3) the user's
@@ -104,7 +104,7 @@ a refusal \emph{in the slot a tool result would occupy}---which is why a
 blocked agent explains itself and continues rather than failing
 (Figure~\ref{fig:demo}(b))---and \texttt{pending} suspends the turn until
 a person decides. Circled numbers mark the three places an attendee acts.
-Every decision is Ed25519-signed and hash-chained.}
+Every allow returns a signed receipt; every decision lands in a hash-chained trace.}
     \vspace{-0.1in}
     \label{fig:architecture}
 \end{figure*}
@@ -152,7 +152,8 @@ version fixes.
 \item A \textbf{pre-execution control point} for unmodified agents: two
       lines in 15 frameworks across Python, JavaScript and Go, an MCP
       proxy and an egress proxy, returning allow, block or a hold before
-      any side effect, in-band, with every decision signed and chained.
+      any side effect, in-band, with every decision in a hash-chained
+      trace and every allow carrying a signed receipt.
 \item \textbf{Instruction provenance} as a decision layer: a per-session
       ledger of the conversation's trust channels and a measure of which
       channel explains a call, enforced by a shipped policy pack, and its
@@ -165,7 +166,7 @@ version fixes.
       inspection is at chance; and the audit that withdraws this paper's
       first-version numbers (Appendix~\ref{sec:withdrawn}).
 \item A \textbf{compatibility matrix} of nineteen harnesses run against
-      the shipping gateway, and the twenty-six defects it found.
+      the shipping gateway, and the twenty-four defects it found.
 \end{enumerate}
 
 \section{System Architecture}
@@ -208,9 +209,11 @@ agentguard.auto()  # patches every detected SDK in-process
 
 \noindent \texttt{auto()} wraps the request method of each model client
 it finds---Anthropic and OpenAI (sync and async), LangChain and LangGraph
-(through \texttt{langchain\_core} tools), CrewAI, AutoGen, Gemini, Bedrock,
-Mistral, LiteLLM, LlamaIndex, Pydantic~AI, smolagents~\cite{smolagents2024},
-the OpenAI Agents SDK (at the tool), the Claude Agent SDK, and a generic HTTP-tool shim; fifteen targets---and
+(through \texttt{langchain\_core} tools), CrewAI, AutoGen, Gemini, the
+Google GenAI client, Bedrock, Mistral, LiteLLM, LlamaIndex, Pydantic~AI,
+smolagents~\cite{smolagents2024}, the OpenAI Agents SDK (at the tool), and a
+generic HTTP-tool shim; fifteen targets (the Claude Agent SDK is integrated
+separately, as a \texttt{PreToolUse} hook)---and
 exposes two hooks. On the \emph{response}
 side it extracts every \texttt{tool\_use} block, sends
 \texttt{(tool\_name, arguments, session\_id)} to the Gateway, and
@@ -223,8 +226,9 @@ definitions are untouched. Where the decision is \emph{enforced} is a
 switch, \texttt{enforce\_at}: at the response, the SDK raises out of the
 model call before dispatch; at the tool, the model-level patch only
 observes and a tool-level patch on the framework's own dispatch method
-(LangGraph, CrewAI, AutoGen, LlamaIndex, smolagents, Pydantic~AI, the
-OpenAI Agents SDK) returns the refusal as the tool's result, so the model
+(LangGraph, CrewAI, AutoGen, LlamaIndex, Pydantic~AI, the
+OpenAI Agents SDK) returns the refusal as the tool's result (on smolagents
+it raises, which that framework reports to the model as a tool error), so the model
 sees it in the slot a result would occupy. A stack with no such method
 to patch---a hand-written loop, LiteLLM, the Google GenAI client---gets
 the same behaviour from one line that wraps its dispatcher,
@@ -234,12 +238,14 @@ switch and \texttt{guarded} helper; the Go SDK is an explicit
 \texttt{Wrap(tool, args, fn)} that checks, holds, runs and traces.
 
 \paragraph{MCP proxy.}
-For agents that reach tools over the Model Context Protocol, a stdio or
-HTTP proxy sits between the host and the MCP server, forwards
-\texttt{tools/call} requests through schema validation, L1 and the policy
-DSL in-process, with the kill switch, and rewrites refused calls into tool
-errors. Nothing in the host changes. The proxy also pins the server's
-tool list: a tool's name, description and schema are hashed at first
+For agents that reach tools over the Model Context Protocol, a stdio
+proxy (\texttt{python -m agentguard.mcp\_proxy}) sits between the host
+and the MCP server, sends every \texttt{tools/call} through the full
+\texttt{/api/v1/check} pipeline, holds a \texttt{pending} until a person
+decides, and rewrites refused calls into tool errors. Nothing in the host
+changes. (The gateway also serves an MCP endpoint over WebSocket that
+runs schema validation, L1, the policy DSL and the kill switch
+in-process.) The stdio proxy also pins the server's tool list: a tool's name, description and schema are hashed at first
 sight, a later change marks it \emph{changed}, and a description that
 reads like an instruction to the model marks it \emph{suspicious}; either
 is refused until an operator re-pins it, with both texts in front of
@@ -252,15 +258,17 @@ not in the call.
 
 \paragraph{Egress proxy.}
 For stacks where neither is available, the gateway accepts the model
-provider's own API surface at \texttt{/api/v1/proxy}, so pointing
+provider's own API surface at \texttt{/api/v1/llm-proxy/}, so pointing
 \texttt{OPENAI\_BASE\_URL} or its equivalent at \system is a complete
 integration. The proxy decides inline: it runs the detector chain of
 \S\ref{sec:pipeline} and the tenant's policy over every tool call in the
 model's response, and because an inline HTTP response cannot be held
 for a person, a \texttt{pending} decision is treated as \texttt{block} and
 the audit record says so. A policy is written once and applies on all
-three paths; the behavioural and provenance layers below run on the SDK
-path, which reaches the full \texttt{/api/v1/check} pipeline.
+three paths, but what it can match differs: on the egress proxy a rule
+sees the tool, agent, tenant and workflow, not the classifier, anomaly,
+provenance or alignment facts, which the SDK and MCP paths get from the
+full \texttt{/api/v1/check} pipeline.
 Figure~\ref{fig:deployment} places the three paths in a deployment:
 what runs on the operator's agent hosts, what runs in the control plane,
 and what crosses each boundary.
@@ -284,7 +292,8 @@ see the conversation can resolve.
 \paragraph{Identity and scope.}
 Before any content is read, the call is attributed. The agent is looked
 up in the registry (and created on first sight), an agent the operator
-has suspended or the kill switch has revoked is refused, and an agent
+has suspended or the kill switch has revoked is refused with no receipt,
+and an agent
 with a \emph{declared tool scope} may only call the tools it declared:
 a call to an undeclared tool is blocked as \texttt{unattested-tool}
 before extraction. Scope is opt-in per agent, so an unscoped agent is not
@@ -309,12 +318,15 @@ the agent's own history. A 16-dimensional behaviour vector---tool novelty,
 frequency and recency; argument drift (Jaccard distance, length $z$-score,
 key-count ratio); hour and interval deviation; burst ratio; sequence
 surprise under a PPM-C model and bigram unlikeliness; cost $z$-score; risk
-ordinal and high-risk rate---is scored by an Isolation
+ordinal and high-risk rate; the agent's call rate and this tool's rate
+against their baselines---is scored by an Isolation
 Forest~\cite{zhao2019pyod}, half-space trees and Mahalanobis distance,
 calibrated into conformal $p$-values, with ADWIN~\cite{bifet2007adwin}
 flagging drift so thresholds adapt rather than decay. A new agent is
-cold-started from its tenant's aggregate baseline, and operator
-approve/reject feedback is folded back into the scorer. L2 can escalate
+observed, not scored, during a learning phase; once it is scored, an
+agent with too little history for statistics of its own is seeded from
+its tenant's aggregate baseline, and operator approve/reject feedback is
+folded back into the scorer. L2 can escalate
 or block an otherwise-allowed call and never relaxes one. It catches an
 agent behaving unlike itself; it does not catch a single ordinary-looking
 call, and \S\ref{sec:eval} measures that limit directly: on the rebuilt
@@ -346,8 +358,11 @@ and the call: \texttt{user\_licence} and \texttt{untrusted\_licence},
 the fraction of the call's vocabulary (tool name split on case, argument
 keys, argument values) that each channel accounts for;
 \texttt{authority\_margin}, their difference; and
-\texttt{tool\_named\_in\_untrusted}, whether untrusted text names the
-tool being called and the principal does not. The licence measure is
+\texttt{tool\_named\_in\_untrusted}, how much more untrusted text than
+the principal names the tool being called. A fifth fact,
+\texttt{untrusted\_only\_values}, lists the call's argument values that
+appear in untrusted text and nowhere in the user's turns; the pack's
+destination rules match on it. The licence measure is
 asymmetric by design---it scores how much of the \emph{call} a channel
 explains, not how similar two texts are---which is what makes the
 obvious evasion (copying the user's request into the injection) inert
@@ -403,7 +418,7 @@ Policies are written in a small DSL over dotted field paths---
 The DSL is \emph{fail-safe}: a rule can tighten a decision (allow $\to$
 pending $\to$ block) and can never relax a block imposed by schema
 validation or anomaly detection to allow. Rules are compiled once per
-tenant and evaluated in constant time per call. Eight packs ship
+tenant and evaluated by one bounded pass over the tenant's rules per call. Eight packs ship
 ready-made---GLBA, PCI~DSS, SOX, DORA, HIPAA, FedRAMP, a fintech
 agent-payments pack, and the instruction-provenance pack of
 \S\ref{sec:eval}---each carrying a citation to the clause it addresses so
@@ -480,7 +495,7 @@ description that induced it.
 \begin{table}[t]
 \centering
 \footnotesize
-\caption{L1 risk patterns as shipped (28 entries, 11 risk types). PII (11 types) is detected separately, in traces and by the proxy's detector chain.}
+\caption{L1 risk patterns as shipped (28 entries, 11 risk types). PII (ten types, eleven patterns) is detected separately, in traces and by the proxy's detector chain.}
 \vspace{-0.1in}
 \label{tab:patterns}
 \setlength{\tabcolsep}{2.5pt}
@@ -491,7 +506,7 @@ description that induced it.
 SQL injection       & 7 & \makecell[tl]{OR/UNION, blind (pg\_sleep, WAITFOR,\\BENCHMARK, SLEEP), hex, CONCAT, stacked} \\
 Path traversal      & 4 & \makecell[tl]{../, URL-encoded, double-encoded,\\null byte} \\
 Shell injection     & 4 & \makecell[tl]{Metachar, curl/wget+URL,\\\$\{IFS\} splitting, process subst.} \\
-Sensitive files     & 1 & \makecell[tl]{11 paths: passwd, shadow, .ssh,\\.aws, .kube, .terraform, .env} \\
+Sensitive files     & 1 & \makecell[tl]{16 paths: passwd, shadow, .ssh,\\.aws, .kube, .env, .npmrc, \ldots} \\
 Prompt injection    & 1 & \makecell[tl]{17 sub-patterns: ignore/forget/\\jailbreak/DAN/bypass/roleplay} \\
 Data exfiltration   & 2 & Large payload; payload + external URL \\
 Plaintext URL       & 1 & Unencrypted endpoint in arguments \\
@@ -510,10 +525,10 @@ Supply chain        & 8 & \makecell[tl]{Source-map leak (3), unsafe\\publish (3)
     \centering
     \includegraphics[width=\columnwidth]{images/audit_chain.pdf}
     \vspace{-0.15in}
-    \caption{Each trace is signed with the agent's Ed25519 key and commits
-    to its predecessor's hash. Editing one field of record $t$ fails
-    verification for $t$ and everything after it; attendees are invited to
-    do exactly this to an exported log.}
+    \caption{Each trace commits to its own content and to its predecessor's
+    hash. Editing one field of record $t$ fails verification for $t$ and
+    everything after it; attendees are invited to do exactly this to a
+    stored record.}
     \vspace{-0.15in}
     \label{fig:audit}
 \end{figure}
@@ -522,29 +537,39 @@ Agents carry an identity card---an EdDSA-signed JWT minted by the gateway
 and bound to the agent's registry status---which the proxy path verifies.
 Every decision, with the facts that produced it, becomes a trace: the
 SDK carries the gateway's verdict into the trace record it writes for
-the call (\texttt{safety\_validation}, \texttt{approval\_status}), so a
-blocked call, a held call and the person's answer to it are in the same
-chain as the calls that ran, and the gateway records the same decision
-in its violations table. Traces
-are signed with a per-agent Ed25519 key~\cite{bernstein2012eddsa} and
-linked into a SHA-256 hash chain in which each record commits to its
-predecessor; modifying or deleting any entry breaks the chain for every
-record after it. The chain belongs to the agent, not to a process: before
+the call (\texttt{safety\_validation}, \texttt{approval\_status}, and
+for an allow its check id and receipt), so a blocked call, a held call
+and the person's answer to it sit in the same chain as the calls that
+ran, and the gateway records the same decision in its violations table.
+Traces are linked into a SHA-256 hash chain in which each record commits
+to its predecessor and to its content (input, reasoning, call, result);
+editing that content, or inserting or deleting a record inside the
+chain, breaks verification for every record after it. Two limits: the
+decision fields are outside the hash, so it is the receipt, signed with
+the gateway's Ed25519 key~\cite{bernstein2012eddsa}, that makes an
+allow verifiable, and a block or hold is not signed; and per-trace
+signatures with a per-agent key exist in the SDK but are off in
+\texttt{auto()}. The chain belongs to the agent, not to a process: before
 its first trace, an SDK asks the gateway where the agent's chain ends and
 continues from there, so a restarted agent extends one chain rather than
 starting a second (a defect the compatibility matrix exposed, since every
-row there runs in a fresh process). Chain heads are periodically folded into a Merkle tree
-and the signed root is appended to a transparency log, which registered
-external \emph{witnesses} can countersign---so an operator cannot
-quietly rewrite their own history even with the gateway's key. Offline
-verification recomputes the chain and roots from an exported log and
-fails loudly on any discrepancy; the demonstration invites attendees to
-edit one record and watch it fail (Figure~\ref{fig:audit}). Compliance evidence packs assemble
+row there runs in a fresh process). The gateway's own record---admin
+actions, evidence packs, rollbacks, outbox releases, pre-deployment
+scans---is appended to a Merkle transparency log with signed roots, which
+registered external \emph{witnesses} can countersign, so an operator
+cannot quietly rewrite that history even with the gateway's key; an
+offline verifier checks inclusion, consistency and the witnesses'
+signatures. Trace chains are verified by the gateway
+(\texttt{/api/v1/integrity/verify}, \texttt{agentguard verify}); folding
+their heads into the same log is not yet done. The demonstration invites
+attendees to edit one stored record and watch verification fail
+(Figure~\ref{fig:audit}). Compliance evidence packs assemble
 traces, policies and verification results into the artefacts an audit
 expects (SOC~2 control evidence, EU AI Act Article 12 record-keeping).
 Retention is a policy too: per-tenant, per-resource retention periods
 (traces, violations, anomaly events, judge verdicts, admin audit log)
-are purged on a schedule, so a deployment can satisfy a deletion
+are purged on a schedule, each tenant's policy touching only its own
+rows, so a deployment can satisfy a deletion
 obligation without an operator deleting rows by hand---and a purge that
 removes the oldest records leaves the chain verifiable from the first
 retained one.
@@ -553,11 +578,7 @@ retained one.
 \label{sec:recovery}
 
 Not every harmful call is caught before it runs. For tools that register
-a compensating action, \system records enough to undo: snapshots before
-effectful calls, a saga of applied steps, and a causal rollback that
-reverts a call together with the calls that depended on its output.
-Reversibility is scored per tool so the policy can be stricter where
-undo is impossible.
+a compensating action, \system records enough to undo: a saga of applied steps, and a causal rollback that reverts a call together with the calls that depended on its output. Each tool is classed as reversible, compensable or irreversible, and rollback uses the class to say what it can and cannot undo. (A snapshot service that would capture state before effectful calls is implemented but not yet called, and the policy DSL does not see the class; the provenance pack's destructive-action rule matches tool names instead.)
 
 \input{sections/fallback}
 
@@ -577,13 +598,16 @@ app's or website's logo and AEGIS's decision. \emph{Approvals} shows a
 held call with its evidence---what the person asked, the passage the
 agent read with the attributed value highlighted, the arguments as
 fields---because a reviewer shown an agent id and a JSON blob approves
-by default. \emph{Security~360} reports, from the live gateway, which of
-ten agent attack surfaces this deployment covers and the step that
-covers the rest. Around them sit per-agent profiles, policy authoring in
+by default. \emph{Security~360} lists ten agent attack surfaces, whether this
+deployment covers each---six read from the live gateway, four fixed by
+what the gateway always or never does---and the step that covers the
+rest. Around them sit per-agent profiles, policy authoring in
 the DSL or natural language, rollback history, scan results, and the
 exportable audit log with its verification status. It runs locally
-beside the gateway and needs no network beyond the agent's own model
-calls.
+beside the gateway. Its only outside requests are for app logos (a
+favicon service, which learns the hosts an agent touched) and, when a
+licence key is entered, a licence check; \texttt{NEXT\_PUBLIC\_AEGIS\_OFFLINE=1}
+keeps logos local, and the Cockpit then makes none.
 
 \begin{figure}[t]
     \centering
@@ -607,7 +631,7 @@ they see is produced by the same gateway binary the repository ships.
 \paragraph{Setup.}
 A Claude-powered research agent is connected to a SQLite database, a
 scratch file system, and a shell tool. \system is enabled by adding two
-lines to the agent, shown in full:
+lines to the agent:
 
 \begin{center}\small
 \texttt{agentguard.auto(blocking\_mode=True, enforce\_at="tool")}\\
@@ -615,28 +639,33 @@ lines to the agent, shown in full:
 \end{center}
 
 \noindent
-No other change is made (\texttt{auto()} without the flag observes and
-audits but never blocks; the flag is the firewall). The first line patches
+(\texttt{auto()} without the flag observes and audits but never blocks;
+the flag is the firewall. The demo's own call also sets
+\texttt{fail\_open=False}, a 300\,s approval timeout and a 2\,s poll
+interval; the SDK's default is fail-open, \S\ref{sec:fallback}.) The first line patches
 the model client, so every tool call the model emits is traced; the
 second wraps the agent's own tool dispatcher, so the decision is taken
 there and a refusal is returned as the tool's result. An agent built on a
 framework with a tool-execution hook needs only the first line (the SDK
 patches the framework's dispatch entry point); this demo agent is a plain
-Anthropic loop, and so uses both. The agent code, the prompts, and the
-tool definitions are otherwise untouched---which is the property we most
-want attendees to check, and the first thing we invite them to verify by
-diffing the agent source against its upstream version.
+Anthropic loop, and so uses both. Beyond those lines the demo agent
+does three things for the demonstration's sake, all in
+\texttt{demo/live-agent/app.py}: it installs the DSL rule that holds S3,
+imports the SDK's exception type to print a block, and names AEGIS in
+its page header. Its tools and the model's prompts are not changed by
+the integration.
 
 \input{figures/fig_demo}
 
 \subsection{Three scenarios}
 
 \paragraph{S1 --- A benign call, and what mediation costs.}
-An attendee asks the agent to \emph{``summarise the feedback in the
-reviews table.''} The agent emits a \texttt{SELECT}; \system extracts the
+An attendee asks the agent to summarise the feedback in the reviews
+table (the scripted prompts name the tool, so that every run emits a
+call). The agent emits a \texttt{SELECT}; \system extracts the
 argument strings, finds no pattern, passes policy validation, and
-returns \texttt{allow}. The Cockpit's live feed shows the call appearing
-with its risk signals and a decision latency of roughly 1\,ms.
+returns \texttt{allow}. The gateway decides in about 2\,ms; the Cockpit's
+live feed shows the call, at 7\,ms for the step end to end.
 
 The point of running this first is calibration. A firewall that is only
 ever shown blocking things tells you nothing about what it costs when
@@ -650,19 +679,21 @@ An attendee asks the agent to ``install the monitoring agent the usual
 way'' and gives it the usual way: \texttt{curl -s https://\ldots/install.sh
 | sh}. The agent does as asked and emits
 \texttt{run\_shell(command="curl -s \ldots | sh")}. \system blocks it at
-L1 (shell-injection family: a remote fetch piped to a shell) in about a
-millisecond at the gateway. The same payload is the S2 of the
-compatibility matrix (Appendix~\ref{app:compat}), where every one of
-nineteen harnesses blocks it; the earlier version's \texttt{DROP TABLE}
+L1---the shell-metacharacter pattern, which fires on the pipe---in a few
+milliseconds. The same payload is the S2 of the
+compatibility matrix (Appendix~\ref{app:compat}), where it is blocked
+in all 18 harnesses that emitted it (Gemini's provider returned 503 and
+no call was made); the earlier version's \texttt{DROP TABLE}
 payload is one that current Claude models decline to emit on their own,
 which is a defence layer of its own but not the one being demonstrated,
 and the appendix records that choice.
 
 What we most want attendees to look at is not the block but
 Figure~\ref{fig:demo}(b): the agent receives a structured refusal, and
-continues the conversation---telling the user what was blocked, why
-(a pipe into a shell interpreter, an unverified remote script), and
-what it can do instead (download, inspect, then run). This matters for
+continues the conversation---telling the user what was blocked and why
+(a pipe into a shell interpreter), and offering alternatives (download
+the script and run it as a separate step, ask the operations team, or
+use a package manager). This matters for
 a demo audience because the common objection to blocking is that it
 breaks the agent. It does not: the decision is returned in-band as a
 tool result, so the model recovers the way it recovers from any tool
@@ -670,15 +701,16 @@ error.
 
 \paragraph{S3 --- Human-in-the-loop, live.}
 An attendee asks for something genuinely destructive
-(\texttt{kubectl delete pod}). The call matches a policy marked
-\texttt{require\_approval}, so \system returns \texttt{pending} and the
+(\texttt{kubectl delete pod}). The call matches the DSL rule
+\texttt{hold-kubectl-delete} (\texttt{then: decision pending}), so
+\system returns \texttt{pending} and the
 agent \emph{suspends}---the turn does not complete, and the attendee can
 see the agent waiting.
 
 The call appears in the Cockpit's approval queue with its full arguments
 and risk signals. A second attendee, at a second laptop, clicks Allow or
-Block. The first attendee's agent resumes within one polling cycle
-(2\,s). Passing the decision between two people is the part of the system
+Block. The first attendee's agent resumes within one or two polling cycles of
+2\,s (4.0\,s from hold to resume in the recorded runs). Passing the decision between two people is the part of the system
 that is hard to convey on paper and immediate in person.
 
 \subsection{What attendees can do themselves}
@@ -699,22 +731,28 @@ The session is adversarial by design. Attendees are invited to:
       catch what content inspection could not. This is the S4 column of
       the compatibility matrix (Appendix~\ref{app:compat}): a file the
       agent is asked to summarise tells it to forward its contents, and
-      the \texttt{send\_email} it emits is blocked by the provenance pack.
-\item \textbf{Verify the audit trail.} Each trace is Ed25519-signed and
-      chained; the Cockpit exports a PDF/CSV report, and a verifier
-      command recomputes the chain. Attendees are encouraged to edit a
-      record in the exported log and watch verification fail.
+      the \texttt{send\_email} it emits is blocked by the provenance pack
+      in six of the matrix's harnesses. The demonstration agent has no
+      e-mail tool, so this item is shown from the matrix's recorded runs.
+\item \textbf{Verify the audit trail.} Each trace is hash-chained to
+      the one before it (per-trace Ed25519 signatures exist but are off in
+      \texttt{auto()}); the Cockpit exports a PDF/CSV report, and
+      \texttt{agentguard verify} has the gateway recompute the chain.
+      Attendees are encouraged to edit a stored record's content and
+      watch verification fail.
 \item \textbf{Install it.} The two-line integration runs against an
-      attendee's own agent on their own laptop, offline.
+      attendee's own agent on their own laptop, with the gateway and
+      Cockpit local; only the agent's own model calls leave the machine.
 \end{enumerate}
 
 \subsection{Practical requirements}
 
 One laptop suffices; two make S3 better. The gateway is a single
-Node.js service, the Cockpit a Next.js app, and both run locally---no GPU, and no
-network except for the agent's own model calls. We bring a local model
-fallback so the demo survives a failed conference network. Total setup
-time from a cold machine is under two minutes.
+Node.js service, the Cockpit a Next.js app, and both run locally with no
+GPU. The demonstration agent calls Claude and so needs the network; the
+gateway's own model features (the auditor, the policy compiler) can run
+on a local model (\S\ref{sec:fallback}), and the recorded runs of
+Figure~\ref{fig:demo} stand in if the network fails.
 
 \input{sections/compat}
 
@@ -797,10 +835,7 @@ barely moves two-step false positives (23.7\% to 20.7\%), which is the
 honest shape of the trade.
 
 \paragraph{With the auditor as first reviewer.} A deployment does not
-leave holds unanswered, and the design's own answer is the alignment
-auditor (\S\ref{sec:judge}): in the last row each hold goes to the
-gateway's \texttt{/alignment/check} with the user's request as the
-declared goal, and is released if the auditor finds the call serves it.
+leave holds unanswered, and the design's own answer is the alignment auditor (\S\ref{sec:judge}): in the last row each hold goes to the gateway's \texttt{/alignment/check} with the user's request as the declared goal, and is released if the auditor finds the call serves it (not drifted, score $\geq 0.5$). The harness made that call itself; the gateway now does the same on its own when a deployment sets \texttt{AEGIS\_HOLD\_REVIEWER=auditor}, taking the request, the agent's recent reasoning and the tool output it read from the session's ledger, with the same release rule.
 Clean utility returns to \textbf{56.7\%}, inside the tool filter's
 interval, and only 11 of 97 tasks still reach a person. Its attack run
 did not complete---the OpenAI account ran out of credit before it
@@ -1394,7 +1429,7 @@ AgentDojo it brings attack success from 29.7\% to 1.4\%, mostly through
 asking which turn of the conversation authorised a call, in under a
 millisecond and without a model. Its cost is holds. The alignment auditor answering them first returns
 most of the utility on gpt-4o-mini; on a locally served 8B model, given
-the agent's evidence, it lets 1 of 249 attacks run, and on two held-out
+the agent's evidence, it lets 1 of 249 attacks execute, and on two held-out
 suites the gateway costs no utility while cutting attacks from 23 to 4 of
 700. What this version does not measure is an adaptive attacker, and
 that is the number the next one owes. Around the decision
@@ -1403,7 +1438,7 @@ layer that cannot block before it has learned, explicit fallback for a
 gateway that is slow, down or without a model, static analysis in the
 same policy vocabulary, and connectors into the identity, SIEM and
 compliance systems already in place. Running all of it under nineteen
-real agent harnesses found twenty-six defects no unit test had; the
+real agent harnesses found twenty-four defects no unit test had; the
 matrix stays in the repository so the next ones are found the same way.
 
 \medskip\noindent
