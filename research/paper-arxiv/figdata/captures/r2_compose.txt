@@ -1,0 +1,26 @@
+$ docker compose up -d
+time="2026-10-27T00:31:59Z" level=warning msg="/data/aegis-deploy/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Volume aegis-deploy_gateway-data Creating 
+ Network aegis-deploy_default Creating 
+ Volume aegis-deploy_gateway-data Creating 
+ Network aegis-deploy_default Creating 
+ Volume aegis-deploy_gateway-data Created 
+ Volume aegis-deploy_gateway-data Created 
+ Network aegis-deploy_default Created 
+ Network aegis-deploy_default Created 
+ Container aegis-deploy-gateway-1 Creating 
+ Container aegis-deploy-gateway-1 Created 
+ Container aegis-deploy-cockpit-1 Creating 
+ Container aegis-deploy-cockpit-1 Created 
+ Container aegis-deploy-gateway-1 Starting 
+ Container aegis-deploy-gateway-1 Started 
+ Container aegis-deploy-gateway-1 Waiting 
+ Container aegis-deploy-gateway-1 Healthy 
+ Container aegis-deploy-cockpit-1 Starting 
+ Container aegis-deploy-cockpit-1 Started 
+
+$ docker compose ps
+time="2026-10-27T00:32:26Z" level=warning msg="/data/aegis-deploy/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+SERVICE   STATUS                    PORTS
+cockpit   Up 20 seconds             127.0.0.1:18181->3000/tcp
+gateway   Up 26 seconds (healthy)   127.0.0.1:18180->8080/tcp

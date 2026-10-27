@@ -259,13 +259,13 @@ Three recorded terminal sessions, rendered from their captured output
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/deploy/compose.pdf}
-    \caption{\texttt{docker compose up}: the gateway and the Cockpit, then an agent instrumented with \texttt{agentguard.auto()} making one allowed and one blocked call.}
+    \caption{\texttt{docker compose up} on a rented Linux GPU host (Ubuntu 22.04; the services bound to loopback), then a Claude Haiku~4.5 agent instrumented with the two lines of \S\ref{sec:demo}: its file read is allowed, its \texttt{curl \ldots | sh} is blocked, and it tells its user why.}
     \label{fig:deploy-compose}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{images/deploy/receipt-verify.pdf}
-    \caption{An executor verifying a receipt offline against the gateway's published key: valid for the call it was issued for, not for the same call with a changed recipient.}
+    \caption{On the same deployment, an executor verifying a receipt offline against the gateway's published key: valid for the call it was issued for, not for the same call with its recipient changed after the check.}
     \label{fig:deploy-receipt}
 \end{figure}

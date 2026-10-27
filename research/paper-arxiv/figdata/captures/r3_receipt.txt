@@ -1,0 +1,11 @@
+$ curl -s -X POST $GW/api/v1/check -d {"agent_id":"billing","tool_name":"update_invoice",...}
+{"decision": "allow", "check_id": "412e4d6b-78cf-4609-8f67-6b20372e42f6", "receipt": "AEG1.eyJhZ2VudCI6ImJpbGxpbmc\u2026"}
+
+$ curl -s $GW/api/v1/check/receipt-key > gateway.pem
+ed25519 935672667054e414
+
+$ python   # the executor, offline, with the pinned key
+>>> verify_receipt(tok, pem, tool_name='update_invoice', arguments=args)
+valid=True  matches_call=True  check=412e4d6b…
+>>> ... same receipt, 'to' changed after the check
+valid=True  matches_call=False

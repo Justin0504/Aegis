@@ -424,22 +424,17 @@ that file (trim lines; do not edit them). Replace any key with `aegis_…` /
   received, from `figdata/captures/g9_run2.json` (`result`) and the two
   `[AEGIS]` lines of `g9_proxy.txt`. Claude Desktop is not installed on
   this machine; do not mock its UI.
-- **R2 `deploy/compose`** — needs the Docker daemon: `open -a Docker`, wait
-  for `docker info` to succeed. Then, at the repo root: `docker compose up
-  -d --build && docker compose ps` (services `gateway`, `cockpit`), then a
-  short agent run with `agentguard.auto()` against it printing one allowed
-  and one blocked call (`research/compat/.venv/bin/python`; a blocked call
-  is easiest with L1, e.g. a shell tool given `curl … | sh`). If Docker will
-  not start, **stop and report** — do not substitute a `node` launch under a
-  caption that says `docker compose`.
-- **R3 `deploy/receipt-verify`** — against any running gateway:
-  `curl -s -XPOST $GW/api/v1/check -H "x-api-key: $KEY" -H 'content-type:
-  application/json' -d '{"agent_id":"billing","tool_name":"send_email","arguments":{"to":"bob@acme.example","subject":"Q3"}}'`
-  (the response carries `receipt`; verified live 2026-10-26), `curl -s
-  $GW/api/v1/check/receipt-key`, then a short Python session with
-  `from agentguard.receipts import verify_receipt` printing `valid True,
-  matches_call True` for the same arguments and `matches_call False` with
-  `to` changed. Show the receipt truncated (`AEG1.eyJ…`).
+- **R2 `deploy/compose`** — **recorded 2026-10-26** on the blockelite host
+  (Ubuntu 22.04, Docker Compose v5.6, services on loopback):
+  `figdata/captures/r2_compose.txt` (`up -d` and `ps`, both healthy) and
+  `r2_agent.txt` (a Claude Haiku 4.5 agent: `allowed read_file`,
+  `BLOCKED run_shell(curl … | sh)`, then its explanation). Draw the card
+  from those two files; you may drop the compose `version` warning lines
+  and cut the agent's last sentence at a full stop, nothing else.
+- **R3 `deploy/receipt-verify`** — **recorded** on the same deployment:
+  `figdata/captures/r3_receipt.txt` (check → receipt, key id, then
+  `valid=True matches_call=True` and, with `to` changed,
+  `matches_call=False`). Draw it verbatim.
 
 ---
 
