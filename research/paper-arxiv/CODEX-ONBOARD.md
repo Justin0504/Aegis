@@ -10,10 +10,11 @@ goes in a caption that the product does not do.
 ## Read, in this order (≈20 min)
 
 1. This file, all of it.
-2. `CODEX-FIGURE-BRIEF-v3.md` — what to draw (every slot, its content, its data).
-3. `CODEX-FIGURE-BRIEF.md` — **only** "Palette and type" and "Checks"; they apply to every figure.
-4. `aegis.pdf` — find each grey `PLACEHOLDER` box and read the paragraph around it.
-5. `figdata/plots.json`, `figdata/gallery.json` (search `"pick"`), `figdata/captures/`.
+2. `CODEX-FIGURE-MANIFEST.md` — the authoritative index: every figure, its exact position in the paper, its status (real / placeholder / revise), and a pointer to its spec. **Start here.**
+3. `CODEX-FIGURE-BRIEF-v3.md` — the full spec for each slot the manifest points to.
+4. `CODEX-FIGURE-BRIEF.md` — **only** "Palette and type" and "Checks"; they apply to every figure.
+5. `aegis.pdf` — find each grey `PLACEHOLDER` box and read the paragraph around it.
+6. `figdata/plots.json`, `figdata/gallery.json` (search `"pick"`), `figdata/captures/`.
 
 ## Environment (verified on this machine 2026-10-26)
 
