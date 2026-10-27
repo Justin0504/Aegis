@@ -180,6 +180,17 @@ class AgentGuardBlockedError(RuntimeError):
         self.queued = queued
 
 
+def _patch_note(target: str, e: BaseException) -> None:
+    """A framework that is not installed is not a failure: most hosts have
+    one or two of the fifteen. Say so only when asked (AGENTGUARD_DEBUG);
+    a patch that fails on an installed framework is always reported."""
+    if isinstance(e, ImportError):
+        if os.environ.get("AGENTGUARD_DEBUG"):
+            print(f"[AEGIS] {target}: not installed, not patched")
+        return
+    print(f"[AEGIS] {target} auto-patch failed: {e}")
+
+
 def _refusal_text(e: BaseException) -> str:
     """What the model reads in the tool's result slot."""
     if getattr(e, "queued", None):
@@ -762,7 +773,7 @@ class AutoInstrument:
             _mod.Messages.create = patched_create
             return True
         except Exception as e:
-            print(f"[AEGIS] Anthropic sync auto-patch failed: {e}")
+            _patch_note("Anthropic sync", e)
             return False
 
     # ── Anthropic beta endpoint: request-side provenance only ──────────────
@@ -828,7 +839,7 @@ class AutoInstrument:
             _mod.AsyncMessages.create = patched_async_create
             return True
         except Exception as e:
-            print(f"[AEGIS] Anthropic async auto-patch failed: {e}")
+            _patch_note("Anthropic async", e)
             return False
 
     # ── OpenAI sync ─────────────────────────────────────────────────────────
@@ -895,7 +906,7 @@ class AutoInstrument:
             _mod.Completions.create = patched_create
             return True
         except Exception as e:
-            print(f"[AEGIS] OpenAI sync auto-patch failed: {e}")
+            _patch_note("OpenAI sync", e)
             return False
 
 
@@ -1043,7 +1054,7 @@ class AutoInstrument:
             import agents as _ag  # type: ignore
             import agents.tool as _at  # type: ignore
         except Exception as e:
-            print(f"[AEGIS] OpenAI Agents auto-patch skipped: {e}")
+            _patch_note("OpenAI Agents", e)
             return False
         instrument = self
         import json as _j
@@ -1087,7 +1098,7 @@ class AutoInstrument:
         try:
             import google.genai.models as _mod  # type: ignore
         except Exception as e:
-            print(f"[AEGIS] google-genai auto-patch skipped: {e}")
+            _patch_note("google-genai", e)
             return False
         instrument = self
 
@@ -1136,7 +1147,7 @@ class AutoInstrument:
             _mod.Models.generate_content = patched
             ok = True
         except Exception as e:
-            print(f"[AEGIS] google-genai sync auto-patch failed: {e}")
+            _patch_note("google-genai sync", e)
         try:
             original_async = _mod.AsyncModels.generate_content
 
@@ -1150,7 +1161,7 @@ class AutoInstrument:
             _mod.AsyncModels.generate_content = patched_async
             ok = True
         except Exception as e:
-            print(f"[AEGIS] google-genai async auto-patch failed: {e}")
+            _patch_note("google-genai async", e)
         return ok
 
     # ── OpenAI Responses API (used by the OpenAI Agents SDK) ─────────────────
@@ -1165,7 +1176,7 @@ class AutoInstrument:
         try:
             import openai.resources.responses as _mod  # type: ignore
         except Exception as e:
-            print(f"[AEGIS] OpenAI Responses auto-patch skipped: {e}")
+            _patch_note("OpenAI Responses", e)
             return False
         instrument = self
         import json as _j
@@ -1234,7 +1245,7 @@ class AutoInstrument:
             _mod.Responses.create = patched_create
             ok = True
         except Exception as e:
-            print(f"[AEGIS] OpenAI Responses sync auto-patch failed: {e}")
+            _patch_note("OpenAI Responses sync", e)
         try:
             original_async = _mod.AsyncResponses.create
 
@@ -1249,7 +1260,7 @@ class AutoInstrument:
             _mod.AsyncResponses.create = patched_async_create
             ok = True
         except Exception as e:
-            print(f"[AEGIS] OpenAI Responses async auto-patch failed: {e}")
+            _patch_note("OpenAI Responses async", e)
         return ok
 
     # ── OpenAI async ────────────────────────────────────────────────────────
@@ -1316,7 +1327,7 @@ class AutoInstrument:
             _mod.AsyncCompletions.create = patched_async_create
             return True
         except Exception as e:
-            print(f"[AEGIS] OpenAI async auto-patch failed: {e}")
+            _patch_note("OpenAI async", e)
             return False
 
     # ── LangGraph / LangChain ──────────────────────────────────────────────
@@ -1368,7 +1379,7 @@ class AutoInstrument:
             _mod.BaseTool.invoke = patched_invoke
             patched_any = True
         except Exception as e:
-            print(f"[AEGIS] LangGraph sync auto-patch failed: {e}")
+            _patch_note("LangGraph sync", e)
 
         # async ainvoke
         try:
@@ -1412,7 +1423,7 @@ class AutoInstrument:
 
             _mod.BaseTool.ainvoke = patched_ainvoke
         except Exception as e:
-            print(f"[AEGIS] LangGraph async auto-patch failed: {e}")
+            _patch_note("LangGraph async", e)
 
         return patched_any
 
@@ -1453,7 +1464,7 @@ class AutoInstrument:
                                        start_time=start, error=error)
             _st.CrewStructuredTool.invoke = _patched_invoke
         except Exception as e:
-            print(f"[AEGIS] CrewAI structured-tool auto-patch skipped: {e}")
+            _patch_note("CrewAI structured-tool", e)
         try:
             import crewai.tools.base_tool as _mod
             original_run = _mod.BaseTool.run
@@ -1521,7 +1532,7 @@ class AutoInstrument:
                 _tool_cls.run = patched_tool_run
             return True
         except Exception as e:
-            print(f"[AEGIS] CrewAI auto-patch failed: {e}")
+            _patch_note("CrewAI", e)
             return False
 
     # ── Google Gemini ───────────────────────────────────────────────────────
@@ -1559,7 +1570,7 @@ class AutoInstrument:
             _mod.GenerativeModel.generate_content = patched_generate
             patched_any = True
         except Exception as e:
-            print(f"[AEGIS] Gemini sync auto-patch failed: {e}")
+            _patch_note("Gemini sync", e)
 
         try:
             import google.generativeai.generative_models as _mod
@@ -1584,7 +1595,7 @@ class AutoInstrument:
 
             _mod.GenerativeModel.generate_content_async = patched_generate_async
         except Exception as e:
-            print(f"[AEGIS] Gemini async auto-patch failed: {e}")
+            _patch_note("Gemini async", e)
 
         return patched_any
 
@@ -1642,7 +1653,7 @@ class AutoInstrument:
             session.__class__.client = patched_client
             return True
         except Exception as e:
-            print(f"[AEGIS] Bedrock auto-patch failed: {e}")
+            _patch_note("Bedrock", e)
             return False
 
     # ── Mistral ─────────────────────────────────────────────────────────────
@@ -1712,7 +1723,7 @@ class AutoInstrument:
                 _mistral.Mistral.chat.complete = patched_complete
                 patched_any = True
         except Exception as e:
-            print(f"[AEGIS] Mistral auto-patch failed: {e}")
+            _patch_note("Mistral", e)
 
         return patched_any
 
@@ -1753,7 +1764,7 @@ class AutoInstrument:
             setattr(_mod.FunctionTool, '_call' if hasattr(_mod.FunctionTool, '_call') else 'call', patched_call)
             patched_any = True
         except Exception as e:
-            print(f"[AEGIS] LlamaIndex sync auto-patch failed: {e}")
+            _patch_note("LlamaIndex sync", e)
 
         try:
             import llama_index.core.tools.function_tool as _mod
@@ -1786,7 +1797,7 @@ class AutoInstrument:
 
             setattr(_mod.FunctionTool, '_acall' if hasattr(_mod.FunctionTool, '_acall') else 'acall', patched_acall)
         except Exception as e:
-            print(f"[AEGIS] LlamaIndex async auto-patch failed: {e}")
+            _patch_note("LlamaIndex async", e)
 
         return patched_any
 
@@ -1823,7 +1834,7 @@ class AutoInstrument:
             _mod.Tool.__call__ = patched_call
             return True
         except Exception as e:
-            print(f"[AEGIS] smolagents auto-patch failed: {e}")
+            _patch_note("smolagents", e)
             return False
 
     # ── Pydantic-AI ─────────────────────────────────────────────────────────
@@ -1864,7 +1875,7 @@ class AutoInstrument:
             toolset_cls.call_tool = patched_call_tool
             return True
         except Exception as e:
-            print(f"[AEGIS] Pydantic-AI auto-patch failed: {e}")
+            _patch_note("Pydantic-AI", e)
             return False
 
     # ── AutoGen 0.4+ ────────────────────────────────────────────────────────
@@ -1904,7 +1915,7 @@ class AutoInstrument:
             base.run_json = patched_run_json
             return True
         except Exception as e:
-            print(f"[AEGIS] AutoGen auto-patch failed: {e}")
+            _patch_note("AutoGen", e)
             return False
 
     def patch_litellm(self) -> bool:
@@ -2028,7 +2039,7 @@ class AutoInstrument:
             if original_async: litellm.acompletion = patched_async
             return True
         except Exception as e:
-            print(f'[AEGIS] LiteLLM auto-patch failed: {e}')
+            _patch_note("LiteLLM", e)
             return False
 
     # ── HTTP tool-endpoint interception ───────────────────────────────────
