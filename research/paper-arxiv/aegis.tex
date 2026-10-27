@@ -1277,9 +1277,11 @@ not as a new claim.
   found on banking and Slack; on the held-out workspace and travel suites
   they cost no utility and cut attacks from 23 to 4 of 700, with the same
   small auditor.
-\item \textbf{The adaptive attacker did not reach the gateway.} The harness (\texttt{research/selective/adaptive\_attacker.py}: an attacker model rewrites what the agent reads, an agent model emits the next call, and only a realised attack---same tool, the attacker's own arguments and destinations---counts) was run with a deployed model in the agent seat, Claude Haiku~4.5, and a local attacker (qwen3:8b), four rounds, with verdict-only and white-box feedback (Table~\ref{tab:adaptive}). Haiku did not act on any of the 237 original injections, and on none of the 1{,}420 rewrites; no attack the pack flagged escaped, but none was realised that the gateway then had to stop. With an 8B local agent the opposite held: it reproduced 5\% of the original attacks, too few to measure a defense. What the experiment needs is a capable agent that does act on injected instructions, and a stronger attacker; AgentDojo, where the undefended qwen3:8b agent carried out 47 of 249 attacks, is where we will run it next. Until then the pack's robustness to an attacker who sees it is unmeasured, and the flag rates in this paper are against injections as recorded.
+\item \textbf{The adaptive attacker.} We report two adaptive runs; both rewrite the untrusted text an agent reads, an agent model emits the next call, and only a realised attack---same sink tool, the attacker's destinations present---counts. On the corpus of \S\ref{sec:instantiate} with a deployed frontier agent, Claude Haiku~4.5, and a qwen3:8b attacker (Table~\ref{tab:adaptive}), Haiku acted on none of the 237 original injections and none of the 1{,}420 rewrites: that run measures the agent, not the gateway. So we re-ran it on AgentDojo with an agent that does comply, qwen3:8b, against the shipped gateway (Table~\ref{tab:adaptive-agentdojo}). Of the 249 banking and Slack attack pairs it carried out 61 undefended; the gateway flagged 60 of those 61, and across four rounds of rewriting---with the verdict, and with the rule that fired and a description of how the pack decides---the attacker turned \emph{none} of the 60 flagged attacks into an escape. The one attack that ran was allowed from round 0, not won by rewriting: the user's own task already sent a direct message to that recipient, so the injected link rode on an authorised send---the open class of \S\ref{sec:authority}, an injection inside a tool the user asked for, which provenance cannot separate. The attacker here is an 8B model; a frontier attacker, which we could not place in the role (Claude Haiku~4.5 declined it), is the stronger test still owed.
 
 \input{figures/table_adaptive}
+
+\input{figures/table_adaptive_agentdojo}
 \item \textbf{Delegation is indistinguishable from injection.} When the
   user tells the agent to follow a document (``do the tasks on my to-do
   list''), an instruction in that document has the user's authority by
@@ -1391,7 +1393,7 @@ reported near-zero attack success, fell at mostly above 90\%
 to attackers who tuned against each one~\cite{nasr2025attacker}. An
 independent adaptive evaluation of out-of-band enforcement found Progent
 held, while warning that one template on a weak model is weak evidence
-\cite{narisetty2026adaptive}. Our adaptive run (\S\ref{sec:scope}, Table~\ref{tab:adaptive}) did not reach the gateway: the deployed agent declined every rewrite itself. It is the number a reader should most want, and it is still owed.
+\cite{narisetty2026adaptive}. Against an adaptive attacker on AgentDojo, with a complying agent and either verdict or white-box feedback, the shipped gateway held: of 61 attacks the undefended agent carried out it flagged 60, and four rounds of rewriting turned none of those into an escape (\S\ref{sec:scope}, Table~\ref{tab:adaptive-agentdojo}); the attacker was an 8B model, and a frontier one is the test still owed.
 
 \paragraph{Guardrails and observability.} TrustLLM~\cite{huang2024position}
 and TrustEval~\cite{wang2024trusteval} evaluate trustworthiness at the
@@ -1416,7 +1418,7 @@ millisecond and without a model. Its cost is holds. The alignment auditor answer
 most of the utility on gpt-4o-mini; on a locally served 8B model, given
 the agent's evidence, it lets 1 of 249 attacks execute, and on two held-out
 suites the gateway costs no utility while cutting attacks from 23 to 4 of
-700. An adaptive attacker was run and never got past the agent, Claude Haiku~4.5, to the gateway; measuring the gateway against one needs an agent that complies, and that is the number the next version owes. Around the decision
+700. Against an adaptive attacker on AgentDojo---a complying agent, four rounds of rewriting, the rules in hand---it flagged 60 of the 61 attacks that agent carried out and the attacker escaped none of them by rewriting; the one that ran rode on a send the user had already authorised. The attacker was an 8B model, and a frontier one is the test still owed. Around the decision
 sit the parts an operator needs before it is deployable: a behavioural
 layer that cannot block before it has learned, explicit fallback for a
 gateway that is slow, down or without a model, static analysis in the
