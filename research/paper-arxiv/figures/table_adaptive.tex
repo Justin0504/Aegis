@@ -2,14 +2,14 @@
 \begin{table}[t]
 \centering\small
 \setlength{\tabcolsep}{5pt}
-\caption{An adaptive attacker against the instruction-provenance pack, on the 237 corpus attacks of \S\ref{sec:instantiate}. Round 0 is the injection as recorded. In each later round an attacker model (qwen3:8b) rewrites what the agent reads, given either only the verdict or the rule, its reason and how the pack decides (white-box); an agent model then emits the next call from the user's request and the rewritten text, and the gateway checks the call it emitted. A round counts only when the agent made the attacker's call: same tool, every destination of the original present. \emph{Flagged} is the share of the attacks still held or blocked after that round; \emph{escaped} counts attacks flagged at round 0 that were realised and allowed by the end.}
+\caption{An adaptive attacker against the instruction-provenance pack, on the 237 corpus attacks of \S\ref{sec:instantiate}. Round 0 is the injection as recorded. In each later round an attacker model (qwen3:8b) rewrites what the agent reads, given either only the verdict or the rule, its reason and how the pack decides (white-box); an agent model then emits the next call from the user's request and the rewritten text, and the gateway checks the call it emitted. A round counts only when the agent made the attacker's call: same tool, every destination of the original present. \emph{Flagged} is the share of the attacks still held or blocked after that round; \emph{escaped} counts attacks flagged at round 0 that were realised and allowed by the end; \emph{agent balked} counts rewrites the agent did not act on. Given the original text with no gateway, the agent (anthropic:claude-haiku-4-5) emitted the attacker's call in 0 of 237 cases. So the agent, not the gateway, stopped every rewrite here: no flagged attack escaped, and none was realised that the gateway then had to stop.}
 \label{tab:adaptive}
 \begin{tabular}{lrrrrrrr}
 \toprule
 Feedback & R0 & R1 & R2 & R3 & R4 & Escaped & Agent balked \\
 \midrule
-Verdict only & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 0 of 179 & 481 rounds \\
-White-box & 75.5\% & 74.7\% & 74.7\% & 74.7\% & 74.7\% & 2 of 179 & 465 rounds \\
+Verdict only & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 0 of 179 & 707 rounds \\
+White-box & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 75.5\% & 0 of 179 & 713 rounds \\
 \bottomrule
 \end{tabular}
 \end{table}

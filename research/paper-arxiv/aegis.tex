@@ -1277,18 +1277,9 @@ not as a new claim.
   found on banking and Slack; on the held-out workspace and travel suites
   they cost no utility and cut attacks from 23 to 4 of 700, with the same
   small auditor.
-\item \textbf{No adaptive attacker is reported.} Every injection above
-  is as recorded; an attacker who sees the verdict, or the rules, may do
-  better. The harness exists
-  (\texttt{research/selective/adaptive\_attacker.py}: an attacker model
-  rewrites what the agent reads, an agent model emits the next call, and
-  only a realised attack---same tool, the attacker's own arguments and
-  destinations---counts), and it taught us one thing before it taught us
-  anything about the defense: an 8B local agent offered the attacker's
-  tool among decoys reproduces the \emph{recorded} attack from the
-  \emph{original} injection in 5\% of cases, so with that victim the
-  loop measures the victim. The experiment needs a deployed model in the
-  agent seat and is the first thing the next version owes.
+\item \textbf{The adaptive attacker did not reach the gateway.} The harness (\texttt{research/selective/adaptive\_attacker.py}: an attacker model rewrites what the agent reads, an agent model emits the next call, and only a realised attack---same tool, the attacker's own arguments and destinations---counts) was run with a deployed model in the agent seat, Claude Haiku~4.5, and a local attacker (qwen3:8b), four rounds, with verdict-only and white-box feedback (Table~\ref{tab:adaptive}). Haiku did not act on any of the 237 original injections, and on none of the 1{,}420 rewrites; no attack the pack flagged escaped, but none was realised that the gateway then had to stop. With an 8B local agent the opposite held: it reproduced 5\% of the original attacks, too few to measure a defense. What the experiment needs is a capable agent that does act on injected instructions, and a stronger attacker; AgentDojo, where the undefended qwen3:8b agent carried out 47 of 249 attacks, is where we will run it next. Until then the pack's robustness to an attacker who sees it is unmeasured, and the flag rates in this paper are against injections as recorded.
+
+\input{figures/table_adaptive}
 \item \textbf{Delegation is indistinguishable from injection.} When the
   user tells the agent to follow a document (``do the tasks on my to-do
   list''), an instruction in that document has the user's authority by
@@ -1400,9 +1391,7 @@ reported near-zero attack success, fell at mostly above 90\%
 to attackers who tuned against each one~\cite{nasr2025attacker}. An
 independent adaptive evaluation of out-of-band enforcement found Progent
 held, while warning that one template on a weak model is weak evidence
-\cite{narisetty2026adaptive}. \system{} has not yet been measured against
-an adaptive attacker (\S\ref{sec:scope}); the harness is released, and
-that number is the one a reader should most want.
+\cite{narisetty2026adaptive}. Our adaptive run (\S\ref{sec:scope}, Table~\ref{tab:adaptive}) did not reach the gateway: the deployed agent declined every rewrite itself. It is the number a reader should most want, and it is still owed.
 
 \paragraph{Guardrails and observability.} TrustLLM~\cite{huang2024position}
 and TrustEval~\cite{wang2024trusteval} evaluate trustworthiness at the
@@ -1427,8 +1416,7 @@ millisecond and without a model. Its cost is holds. The alignment auditor answer
 most of the utility on gpt-4o-mini; on a locally served 8B model, given
 the agent's evidence, it lets 1 of 249 attacks execute, and on two held-out
 suites the gateway costs no utility while cutting attacks from 23 to 4 of
-700. What this version does not measure is an adaptive attacker, and
-that is the number the next one owes. Around the decision
+700. An adaptive attacker was run and never got past the agent, Claude Haiku~4.5, to the gateway; measuring the gateway against one needs an agent that complies, and that is the number the next version owes. Around the decision
 sit the parts an operator needs before it is deployable: a behavioural
 layer that cannot block before it has learned, explicit fallback for a
 gateway that is slow, down or without a model, static analysis in the
