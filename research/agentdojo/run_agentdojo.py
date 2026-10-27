@@ -64,6 +64,9 @@ MODEL = os.environ.get("AD_MODEL", "gpt-4o-mini-2024-07-18")
 # AgentDojo resolves the attack's "you are model X" from the pipeline name,
 # and knows a model called "local", so local pipelines are named local-<model>.
 BASE_URL = os.environ.get("AD_BASE_URL")
+# Extra body for every local-model call: the Qwen3 no-think toggle. Ollama
+# takes reasoning_effort; vLLM takes chat_template_kwargs.enable_thinking.
+AD_EXTRA_BODY = os.environ.get("AD_EXTRA_BODY", '{"reasoning_effort":"none"}')
 LOCAL = bool(BASE_URL)
 PIPE_MODEL = f"local-{MODEL.replace(':', '-')}" if LOCAL else MODEL
 TAG = os.environ.get("AD_TAG", "")  # suffix for result files, one set per agent model
@@ -117,7 +120,7 @@ class _NoThinkCompletions:
         self._inner = inner
 
     def create(self, **kw):
-        kw.setdefault("extra_body", {})["reasoning_effort"] = "none"
+        kw.setdefault("extra_body", {}).update(json.loads(AD_EXTRA_BODY))
         return self._inner.create(**kw)
 
 
@@ -160,7 +163,7 @@ class Gateway:
         db = f"/tmp/aegis-agentdojo-{self.tag}-{int(time.time())}.db"
         log = open(RESULTS / f"gateway-{self.tag}.log", "w")
         local = ({"AEGIS_LOCAL_LLM_URL": BASE_URL, "AEGIS_LOCAL_LLM_MODEL": MODEL, "AEGIS_LOCAL_LLM_TIMEOUT_MS": "600000",
-                  "AEGIS_LOCAL_LLM_EXTRA_BODY": '{"reasoning_effort":"none"}'} if LOCAL else {})
+                  "AEGIS_LOCAL_LLM_EXTRA_BODY": AD_EXTRA_BODY} if LOCAL else {})
         env = {**os.environ, **local, "PORT": str(self.port), "DB_PATH": db, "AEGIS_LICENSE_TIER": "enterprise",
                "RATE_LIMIT_MAX": "10000000", "LOG_LEVEL": "warn",
                **({"AEGIS_OFFLINE": "1"} if (self.offline or LOCAL) else {})}
