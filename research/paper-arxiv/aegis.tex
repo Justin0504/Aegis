@@ -124,8 +124,7 @@ Existing defenses sit at two extremes: rule-based layers are fast ($<$1\,ms) but
 agent and its tools, decides each call before it runs with layers ordered
 by \textbf{what they may observe}---the call string, the agent's history,
 the conversation's trust channels, the stated task---and returns the
-decision in-band, so a refusal reads to the agent like a tool error it can
-recover from, and a hold suspends the turn until someone answers.
+decision in-band, so a refusal reads to the agent like a tool error it can recover from, and a hold suspends the turn until a person---or the alignment auditor---answers.
 
 The question a deployment asks of such a system is not how a detector
 scores single calls but what happens to its agents. On AgentDojo
@@ -357,10 +356,7 @@ the fraction of the call's vocabulary (tool name split on case, argument
 keys, argument values) that each channel accounts for;
 \texttt{authority\_margin}, their difference; and
 \texttt{tool\_named\_in\_untrusted}, how much more untrusted text than
-the principal names the tool being called. A fifth fact,
-\texttt{untrusted\_only\_values}, lists the call's argument values that
-appear in untrusted text and nowhere in the user's turns; the pack's
-destination rules match on it. The licence measure is
+the principal names the tool being called. A further signal, \texttt{untrusted\_only\_values}, lists the call's argument values that appear in untrusted text and nowhere in the user's turns; the pack's destination rules match on it. The licence measure is
 asymmetric by design---it scores how much of the \emph{call} a channel
 explains, not how similar two texts are---which is what makes the
 obvious evasion (copying the user's request into the injection) inert
