@@ -739,10 +739,7 @@ The session is adversarial by design. Attendees are invited to:
 
 One laptop suffices; two make S3 better. The gateway is a single
 Node.js service, the Cockpit a Next.js app, and both run locally with no
-GPU. The demonstration agent calls Claude and so needs the network; the
-gateway's own model features (the auditor, the policy compiler) can run
-on a local model (\S\ref{sec:fallback}), and the recorded runs of
-Figure~\ref{fig:demo} stand in if the network fails.
+GPU. The demonstration agent calls Claude and so needs the network; the gateway's own model features (the auditor, the policy compiler) can run on a local model (\S\ref{sec:fallback}), and the recorded runs of Figure~\ref{fig:demo} stand in if the network fails. Beyond the demo laptop, the same build runs as a deployment: Appendix~\ref{app:deploy} brings it up on a Linux server with \texttt{docker compose}, instruments a live Claude agent with the two lines (a file read allowed, a \texttt{curl\,\textbar\,sh} blocked), and has a downstream executor verify an allow's receipt offline against the gateway's published key.
 
 \input{sections/compat}
 
@@ -754,9 +751,7 @@ We evaluate \system three ways, from the outside in. End to end
 still finish what its user asked, and does the attacker's goal still
 happen? In cost (\S\ref{sec:overhead}): what does a check add, and how
 does the gateway hold up under concurrent agents? And per call
-(\S\ref{sec:instantiate}--\S\ref{sec:authority}): on tool calls live
-agents emitted under attack, which layer separates them and why. Every
-number is produced by a command in the repository (\S\ref{sec:avail}).
+(\S\ref{sec:instantiate}--\S\ref{sec:authority}): on tool calls live agents emitted under attack, which layer separates them and why. Two further tests bound the result: an adaptive attacker that rewrites what the agent reads with the rules in hand (\S\ref{sec:scope}), and the nineteen agent frameworks of the compatibility matrix (Appendix~\ref{app:compat}) driving the shipping build on the same scenarios. Every number is produced by a command in the repository (\S\ref{sec:avail}).
 
 \subsection{End to End: AgentDojo}
 \label{sec:agentdojo}
