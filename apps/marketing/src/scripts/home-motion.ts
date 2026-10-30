@@ -156,20 +156,18 @@ function split() {
 }
 
 // ── block replay ─────────────────────────────────────────────────────
-// Each [data-at] element enters once progress passes its mark; CSS
-// transitions do the motion, so it replays in reverse on the way up.
-// The gate line fills with progress.
-function replay() {
-  const root = document.querySelector<HTMLElement>('[data-replay]');
-  if (!root) return;
+// Each [data-at] element is in between its mark and its optional
+// [data-out] mark; CSS transitions do the motion, so it replays in
+// reverse on the way up. The gate line fills with progress.
+function replay(root: HTMLElement) {
   const marks = Array.from(root.querySelectorAll<HTMLElement>('[data-at]')).map((el) => ({
-    el, at: parseFloat(el.dataset.at || '0'), on: false,
+    el, at: parseFloat(el.dataset.at || '0'), out: parseFloat(el.dataset.out || '2'), on: false,
   }));
   scenes.push(() => {
     const p = heldProgress(root);
     root.style.setProperty('--rp', p.toFixed(4));
     for (const m of marks) {
-      const on = p >= m.at;
+      const on = p >= m.at && p < m.out;
       if (on !== m.on) { m.on = on; m.el.classList.toggle('in', on); }
     }
   });
@@ -261,7 +259,8 @@ let lenis: Lenis | null = null;
 
 if (!reduce) {
   document.documentElement.classList.add('motion');
-  hero(); focus(); replay(); tour(); split(); drift(); grow();
+  hero(); focus(); tour(); split(); drift(); grow();
+  document.querySelectorAll<HTMLElement>('[data-replay]').forEach(replay);
 
   // The second headline line has its own entrance; the scroll scene
   // takes it over once that has finished.

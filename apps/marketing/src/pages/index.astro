@@ -298,7 +298,7 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
               </div>
               <p class="rc-arg">to: <strong>crypto-airdrop@gmail.com</strong></p>
               <p class="rc-arg">subject: Your reward</p>
-              <div class="stamp" data-at="0.6" aria-hidden="true">blocked</div>
+              <div class="stamp no" data-at="0.6" aria-hidden="true">blocked</div>
             </div>
             <ol class="checks">
               <li data-at="0.42"><span class="ck ok"></span>pattern rules<em>no SQL, path or shell pattern</em></li>
@@ -316,6 +316,80 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
           </div>
         </div>
         <p class="rp-note">The call and the refusal are verbatim from the demo trace; the conversation around them and the provenance scores are illustrative.</p>
+      </div>
+    </section>
+
+    <!-- ── REPLAY II: the same check, a hold instead ───────────────── -->
+    <section class="replay" data-replay>
+      <div class="rp-stage">
+        <div class="rp-head">
+          <p class="eyebrow-line">Replay · a hold from the demo fleet</p>
+          <h2 class="display rp-h">Or waits for a person.</h2>
+        </div>
+        <div class="rp-body">
+          <div class="rp-chat" aria-label="The data pipeline agent's conversation">
+            <p class="rp-label">agent · Data Pipeline</p>
+            <div class="msg user" data-at="0.04">
+              <span class="ch user">user</span>
+              Pay the Northwind invoice for October — $24,500.
+            </div>
+            <div class="msg call" data-at="0.14">
+              <span class="ch model">model → tool call</span>
+              <code><span class="fn">http_post</span>(url=<span class="s">"https://api.stripe.com/v1/transfers"</span>, amount=<span class="s">2450000</span>, currency=<span class="s">"usd"</span>)</code>
+            </div>
+            <div class="swap">
+              <div class="msg waiting" data-at="0.5" data-out="0.74">
+                <span class="ch hold">tool result · pending</span>
+                Held for review. The agent’s turn is suspended until someone decides.
+                <span class="spinner" aria-hidden="true"></span>
+              </div>
+              <div class="msg approved" data-at="0.74">
+                <span class="ch ok">tool result · allowed after review</span>
+                Transfer created. Receipt <code>AEG1.eyJjaGVjay…</code> signed by the gateway.
+              </div>
+            </div>
+            <div class="msg model" data-at="0.86">
+              <span class="ch model">model</span>
+              Paid — the transfer went through after approval, and the receipt is attached to the invoice.
+            </div>
+          </div>
+
+          <div class="rp-gate" aria-label="AEGIS checks the call">
+            <div class="gate-line" aria-hidden="true"><i></i></div>
+            <p class="rp-idle" aria-hidden="true"><i></i>aegis gateway · waiting for the next tool call</p>
+            <div class="rp-card" data-at="0.2">
+              <div class="rc-top">
+                <span class="rc-tool"><span class="rc-globe" aria-hidden="true"></span>http_post</span>
+                <span class="rc-agent">agent-data-pipeline</span>
+              </div>
+              <p class="rc-arg">url: api.stripe.com/v1/transfers</p>
+              <p class="rc-arg">amount: <strong>$24,500.00</strong> usd</p>
+              <div class="stamp hold" data-at="0.44" data-out="0.7" aria-hidden="true">held</div>
+              <div class="stamp ok" data-at="0.7" aria-hidden="true">allowed</div>
+            </div>
+            <ol class="checks">
+              <li data-at="0.26"><span class="ck ok"></span>pattern rules<em>nothing suspicious in the call</em></li>
+              <li data-at="0.31" class="prov">
+                <span class="ck ok"></span>provenance
+                <div class="bars">
+                  <span>user</span><i style="--v:0.86"></i><b>0.86</b>
+                  <span>tool text</span><i class="u" style="--v:0.0"></i><b>0.00</b>
+                </div>
+              </li>
+              <li data-at="0.38"><span class="ck warn"></span>policy<em>Transfer ≥ $10,000 requires named-approver per <code>payments-high-value</code></em></li>
+            </ol>
+            <div class="review" data-at="0.54">
+              <p class="rv-k rv-wait"><span class="dot hold"></span>Approvals · awaiting your decision</p>
+              <p class="rv-k rv-done"><span class="dot ok"></span>Approved by the payments reviewer</p>
+              <div class="rv-actions">
+                <span class="rv-btn allow" data-at="0.66">Allow</span>
+                <span class="rv-btn">Block</span>
+              </div>
+            </div>
+            <p class="rp-foot" data-at="0.8"><span class="dot ok"></span>reviewer and decision recorded in the trace chain</p>
+          </div>
+        </div>
+        <p class="rp-note">The call and the policy reason are verbatim from the demo approvals queue; the conversation, reviewer step and scores are illustrative.</p>
       </div>
     </section>
 
@@ -767,6 +841,7 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .rc-arg { margin: 0.15rem 0 0; font-size: 0.9rem; color: var(--ink); }
     .rc-arg strong { font-weight: 500; transition: color 0.4s ease; }
     .rp-card:has(.stamp.in) .rc-agent { opacity: 0; transition: opacity 0.2s ease; }
+    .rp-card:has(.stamp.no.in) .rc-arg strong { color: #a3362d; text-decoration: line-through; text-decoration-thickness: 1.5px; }
     .rp-idle {
       position: absolute; left: clamp(1.4rem, 0.8rem + 2vw, 3rem); right: 0; top: 0;
       display: flex; align-items: center; gap: 0.6rem; padding: 1.2rem 1.15rem;
@@ -786,14 +861,40 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       mix-blend-mode: multiply;
     }
     .stamp.in { opacity: 0.92; transform: translateY(-50%) rotate(-9deg) scale(1); }
-    .rp-card:has(.stamp.in) { border-color: #e6b8b0; background: #fffaf9; box-shadow: 0 0 0 6px #a3362d14, 0 30px 70px #a3362d24; animation: rp-hit 0.42s ease 0.12s; }
+    .stamp.hold { color: #9a6514; border-color: #9a6514; }
+    .stamp.ok { color: #2d5a4a; border-color: #2d5a4a; }
+    .rp-card:has(.stamp.in) { animation: rp-hit 0.42s ease 0.12s; }
+    .rp-card:has(.stamp.no.in) { border-color: #e6b8b0; background: #fffaf9; box-shadow: 0 0 0 6px #a3362d14, 0 30px 70px #a3362d24; }
+    .rp-card:has(.stamp.hold.in) { border-color: #ead3ad; background: #fffbf4; box-shadow: 0 0 0 6px #b07a1e14, 0 30px 70px #b07a1e22; }
+    .rp-card:has(.stamp.ok.in) { border-color: #bcd3c6; background: #f7fbf8; box-shadow: 0 0 0 6px #2d5a4a14, 0 30px 70px #2d5a4a22; }
+    .rc-globe { width: 16px; height: 16px; border-radius: 50%; border: 1.6px solid #3d6f8e; position: relative; }
+    .rc-globe::after { content: ""; position: absolute; inset: 0 4px; border: 1.4px solid #3d6f8e; border-radius: 50%; }
+
+    .msg.waiting { background: #fbf2e2; border-color: #ecd9b5; color: #6b430c; display: block; }
+    .msg.approved { background: #e7f0ea; border-color: #c8dccf; color: #1f4436; }
+    .msg.approved code { font-size: 0.86em; background: #ffffff90; color: #1f4436; }
+    .ch.hold { background: #b07a1e; color: #fff; }
+    .ch.ok { background: #2d5a4a; color: #fff; }
+    .spinner { display: inline-block; width: 0.8em; height: 0.8em; margin-left: 0.4rem; vertical-align: -0.1em; border: 2px solid #b07a1e55; border-top-color: #b07a1e; border-radius: 50%; animation: rp-spin 0.9s linear infinite; }
+    @keyframes rp-spin { to { transform: rotate(360deg); } }
+    .review { margin-top: 0.9rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 0.9rem; border-radius: 14px; background: #fff; border: 1px solid #e3dfd6; box-shadow: 0 18px 40px #152b2d14; }
+    .rv-k { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--ink); }
+    .rv-actions { display: flex; gap: 0.45rem; }
+    .rv-done { display: none; }
+    .review:has(.rv-btn.allow.in) .rv-wait { display: none; }
+    .review:has(.rv-btn.allow.in) .rv-done { display: flex; }
+    /* the pending and the allowed result share one slot */
+    .swap { display: grid; }
+    .swap > .msg { grid-area: 1 / 1; }
+    .rv-btn { font-size: 0.84rem; padding: 0.32rem 0.9rem; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); background: var(--paper-raised); transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease; }
+    .rv-btn.allow { border-color: #2d5a4a; color: #2d5a4a; }
+    .rv-btn.allow.in { background: #2d5a4a; color: #fff; box-shadow: 0 0 0 5px #2d5a4a22; }
     @keyframes rp-hit {
       0%, 100% { translate: 0 0; }
       25% { translate: -5px 1px; }
       50% { translate: 4px -1px; }
       75% { translate: -2px 0; }
     }
-    .rp-card:has(.stamp.in) .rc-arg strong { color: #a3362d; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 
     .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
     .checks li {
@@ -817,18 +918,24 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .rp-foot { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0 0; font-size: 0.86rem; color: var(--sage-text); }
 
     /* Entering: rise and come into focus. Only when the script runs. */
-    :global(html.motion) .replay [data-at]:not(mark):not(.stamp) {
+    :global(html.motion) .replay [data-at]:not(mark):not(.stamp):not(.rv-btn) {
       opacity: 0; transform: translateY(18px); filter: blur(6px);
       transition: opacity 0.55s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.55s ease, border-color 0.4s ease, box-shadow 0.4s ease, background-color 0.4s ease;
     }
     :global(html.motion) .replay .rp-card[data-at] { transform: translateX(-46px); }
-    :global(html.motion) .replay [data-at].in:not(mark):not(.stamp) { opacity: 1; transform: none; filter: none; }
+    :global(html.motion) .replay [data-at].in:not(mark):not(.stamp):not(.rv-btn) { opacity: 1; transform: none; filter: none; }
     /* Static: everything in its final state. */
     :global(html:not(.motion)) .replay mark { background: #f3e1c6; color: #6b430c; }
     :global(html:not(.motion)) .replay .stamp { opacity: 0.92; transform: translateY(-50%) rotate(-9deg); }
     :global(html:not(.motion)) .replay .prov .bars i::after { width: calc(var(--v) * 100%); }
+    :global(html:not(.motion)) .replay [data-out] { display: none; }
+    :global(html:not(.motion)) .replay .rv-btn.allow { background: #2d5a4a; color: #fff; }
+    :global(html:not(.motion)) .replay .rv-wait { display: none; }
+    :global(html:not(.motion)) .replay .rv-done { display: flex; }
+    :global(html:not(.motion)) .replay .rp-card:has(.stamp.no) { border-color: #e6b8b0; background: #fffaf9; }
+    :global(html:not(.motion)) .replay .rp-card:has(.stamp.ok) { border-color: #bcd3c6; background: #f7fbf8; }
     @media (prefers-color-scheme: dark) { .rp-h { color: var(--ink); } }
-    @media (max-width: 960px), (max-height: 640px) {
+    @media (max-width: 960px), (max-height: 640px), (prefers-reduced-motion: reduce) {
       .replay { height: auto; }
       .rp-stage { position: static; height: auto; padding: 8vh 1.25rem 4vh; }
       .rp-body { grid-template-columns: 1fr; }
@@ -839,6 +946,13 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       .replay .rp-card .stamp { opacity: 0.92 !important; transform: translateY(-50%) rotate(-9deg) !important; }
       .replay mark { background: #f3e1c6; color: #6b430c; }
       .replay .prov .bars i::after { width: calc(var(--v) * 100%); }
+      .replay [data-out] { display: none !important; }
+      .replay .rv-btn.allow { background: #2d5a4a; color: #fff; }
+      .replay .rv-wait { display: none !important; }
+      .replay .rv-done { display: flex !important; }
+      .replay .rp-card:has(.stamp.no) { border-color: #e6b8b0 !important; background: #fffaf9 !important; }
+      .replay .rp-card:has(.stamp.ok) { border-color: #bcd3c6 !important; background: #f7fbf8 !important; box-shadow: 0 30px 70px #2d5a4a22 !important; }
+      .replay .rc-agent { display: none; }
     }
 
     /* ── Tour (held, paged by scroll) ─────────────────────────────── */
