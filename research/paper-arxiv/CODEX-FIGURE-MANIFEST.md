@@ -26,6 +26,8 @@ a caption to fit a figure.
 | `demo_walkthrough.pdf` | fig:demo | §Walkthrough | done (rendered 2026-10-26) |
 | `ui/*.png`, `demo/*.png` | fig:ui-*, fig:demo-* | App. Cockpit | real screenshots, done |
 | `ui/mcp-tools.png` | fig:ui-mcp | App. Cockpit | real capture (U1), done |
+| `anomaly.pdf` | fig:anomaly | §2.3 L2, Fig. 3 | **done** (figkit `fig_anomaly.py`, 2026-10-28) — L2 pipeline: 16-d vector → 3 estimators → conformal p → cold-start cap + ADWIN/feedback loops |
+| `lifecycle.pdf` | fig:lifecycle | §2.3 end, Fig. 7 (`\textwidth`) | **done** (figkit `fig_lifecycle.py`, 2026-10-28) — one call across the trust boundary in time: request-side ledger write → /check layers → 3 return paths → trace append |
 
 ## Body — diagrams to draw (figkit, palette in brief)
 

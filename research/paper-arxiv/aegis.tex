@@ -319,7 +319,8 @@ ordinal and high-risk rate; the agent's call rate and this tool's rate
 against their baselines---is scored by an Isolation
 Forest~\cite{zhao2019pyod}, half-space trees and Mahalanobis distance,
 calibrated into conformal $p$-values, with ADWIN~\cite{bifet2007adwin}
-flagging drift so thresholds adapt rather than decay. A new agent is
+flagging drift so thresholds adapt rather than decay
+(Figure~\ref{fig:anomaly}). A new agent is
 observed, not scored, during a learning phase; once it is scored, an
 agent with too little history for statistics of its own is seeded from
 its tenant's aggregate baseline, and operator approve/reject feedback is
@@ -330,6 +331,22 @@ call, and \S\ref{sec:eval} measures that limit directly: on the rebuilt
 corpus no surface feature of the call (Table~\ref{tab:features}) exceeds
 AUC 0.585, because a successful injection does not make the call look
 unusual.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{images/anomaly.pdf}
+    \vspace{-0.15in}
+    \caption{The behavioural layer (L2) as a pipeline. A 16-dimensional
+    vector of the call against the agent's own baseline is scored by three
+    estimators into one anomaly score, with a split-conformal $p$-value
+    reported beside it; a cold-start cap forbids a young profile from
+    blocking, so the layer can tighten but never relax; and two feedback
+    paths keep it current---ADWIN resets the normalisation on drift, and an
+    operator's answer on a held call flows back into the reservoir. All
+    bounds shown are from the text.}
+    \vspace{-0.15in}
+    \label{fig:anomaly}
+\end{figure}
 
 \paragraph{Detector chain (proxy path).}
 On the egress proxy the same facts are produced by a registry of
@@ -370,6 +387,47 @@ behaviour change rather than a wall of false blocks. Ledgers are
 namespaced by tenant; without that, an attacker who guessed a session id
 could write a \texttt{user} event into another tenant's session and
 launder an injected instruction into an authority.
+
+\medskip
+\noindent\emph{The measure, precisely.} The licence is a set relation
+between the call and each channel, not a text similarity, and that is what
+makes the obvious evasion inert.
+
+\begin{definition}[Instruction licence and authority margin]
+\label{def:licence}
+Let a call $c$ have token set $V(c)$, obtained by normalising its tool
+name (split on case and underscores), argument keys and argument values.
+For a channel $\kappa\in\{\mathsf{user},\mathsf{untrusted}\}$, let
+$V_\kappa$ be the union of the token sets of the ledger spans tagged
+$\kappa$. The channel's \emph{licence} for the call and the
+\emph{authority margin} are
+\[
+  \lambda_\kappa(c)=\frac{|V(c)\cap V_\kappa|}{|V(c)|},
+  \qquad
+  m(c)=\lambda_{\mathsf{user}}(c)-\lambda_{\mathsf{untrusted}}(c).
+\]
+$\lambda_\kappa$ is the fraction of \emph{the call} that channel explains.
+The verdict is $\mathsf{user}$ when $m(c)$ clears a margin and the user
+channel is non-empty, $\mathsf{untrusted}$ when $-m(c)$ does, $\mathsf{unclear}$
+between the two, and $\mathsf{unknown}$ when no user span was ever reported.
+\end{definition}
+
+\begin{proposition}[Echoing the user does not buy authority]
+\label{prop:asym}
+Appending any text to an untrusted span leaves $V(c)$ and $V_{\mathsf{user}}$
+unchanged and can only enlarge $V_{\mathsf{untrusted}}$. Hence
+$\lambda_{\mathsf{user}}(c)$ is unchanged, $\lambda_{\mathsf{untrusted}}(c)$
+is non-decreasing, and the margin $m(c)$ cannot increase. In particular,
+copying the user's request into the injection---the obvious
+evasion---cannot raise the call's user-licence; only tokens that appear in
+the call's own arguments move $\lambda_{\mathsf{user}}$, which forces the
+adversary to carry the user's words into the side effect itself.
+\end{proposition}
+
+\noindent The proposition is the asymmetry drawn at the bottom of
+Figure~\ref{fig:provenance}, and \S\ref{sec:authority} measures its
+consequence: content features that read only the call string stay at
+chance while the margin separates injected calls from clean ones.
 
 \begin{figure*}[t]
     \centering
@@ -421,6 +479,38 @@ prose for operators who do not want to write it by hand; the compiled
 rule, not the prose, is what runs.
 \end{sloppypar}
 
+\noindent\emph{Why a rule can only tighten.} The ``fail-safe'' property is
+not a convention the policy author must remember; it is how the outcome is
+computed.
+
+\begin{definition}[Decision lattice]
+\label{def:lattice}
+Order the outcomes by severity,
+$\mathsf{allow}\sqsubseteq\mathsf{pending}\sqsubseteq\mathsf{block}$, a
+three-element chain and hence a bounded lattice whose join
+$\sqcup$ is the more severe of two outcomes and whose bottom is
+$\mathsf{allow}$. Each layer $\ell$ and each matched rule $r$ contributes
+an outcome $d_\ell,d_r\in\{\mathsf{allow},\mathsf{pending},\mathsf{block}\}$
+(a layer that only observes contributes $\mathsf{allow}$), and the call's
+outcome is their join over one bounded pass,
+$\mathrm{out}(c)=\bigsqcup_{\ell} d_\ell \;\sqcup\; \bigsqcup_{r} d_r$.
+\end{definition}
+
+\begin{proposition}[Fail-safe monotonicity]
+\label{prop:failsafe}
+$\mathrm{out}(c)\sqsupseteq x$ for every contribution $x$, and adding a
+layer, a fact or a rule can only raise the join. Therefore no fact and no
+policy rule can relax a $\mathsf{block}$ to $\mathsf{pending}$ or
+$\mathsf{allow}$, nor a $\mathsf{pending}$ to $\mathsf{allow}$: a rule may
+tighten a decision but never loosen one, and a block imposed by schema
+validation or the anomaly stack cannot be overridden to allow.
+\end{proposition}
+
+\noindent This is why the layer ordering of \S\ref{sec:pipeline} is safe to
+read as ``more observation can only add holds, never remove them,'' and why
+a mis-written or compromised rule degrades to \emph{more} friction rather
+than a silent opening.
+
 \paragraph{Decision.}
 The call resolves to one of three outcomes, each with a distinct return
 path. \texttt{allow}: the tool runs and its result returns normally,
@@ -436,10 +526,13 @@ returned \emph{in the slot a tool result would have occupied}---which is
 why a blocked agent explains itself and continues the conversation
 rather than failing (Figure~\ref{fig:demo}). \texttt{pending}: the turn
 suspends until a person decides.
-Figure~\ref{fig:cascade} draws the pipeline as a whole, and
+Figure~\ref{fig:cascade} draws the pipeline as a whole;
 Figure~\ref{fig:receipts-pins} the two mechanisms that reach past the
-call itself: the receipt an allowed call carries, and the pin on the
-description that induced it.
+call itself---the receipt an allowed call carries, and the pin on the
+description that induced it---and Figure~\ref{fig:lifecycle} follows a
+single call through the system in time, from the request-side ledger write
+that happens before the model is called to the trace the whole episode
+leaves.
 
 \begin{figure*}[t]
     \centering
@@ -454,6 +547,27 @@ description that induced it.
     \caption{Two things a check on the call cannot see. Top: an allowed call carries a receipt that binds the gateway's decision to this agent, tool and argument hash, so an executor refuses a call that skipped the check or changed an argument after it. Bottom: the MCP proxy pins each tool's description and schema; a description that changes after approval, or reads like an instruction to the model, is refused until an operator re-pins it (OWASP MCP03). Example descriptions are illustrative.}
     \label{fig:receipts-pins}
 \end{figure}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{images/lifecycle.pdf}
+    \caption{One tool call through \system, in time. Where
+    Figure~\ref{fig:cascade} says \emph{what} each layer may see and
+    Figure~\ref{fig:deployment} says \emph{where} each part runs, this says
+    \emph{when}. \textbf{(1)}~Before the model is called, the SDK's
+    request-side hook classifies the context into user, untrusted and model
+    spans and writes them to the per-session context ledger.
+    \textbf{(2)}~The model emits a tool call and dispatch is suspended.
+    \textbf{(3)}~\texttt{/check} runs the attributed call through the
+    ordered layers in one bounded pass, at 0.44\,ms median and no model
+    call. \textbf{(4)}~The decision returns in-band: an \texttt{allow}
+    carries an Ed25519 receipt an executor can verify offline; a
+    \texttt{block} comes back in the slot a result would occupy; a hold
+    goes to the auditor, then a person. The whole episode is appended to
+    the agent's SHA-256 trace chain, whose head is anchored in the Merkle
+    log.}
+    \label{fig:lifecycle}
+\end{figure*}
 
 \begin{table}[t]
 \centering

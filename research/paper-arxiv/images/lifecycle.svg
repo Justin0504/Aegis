@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="324" viewBox="0 0 1000 324" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/></marker><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.07"/></filter></defs>
+<rect width="1000" height="324" fill="#FFFFFF"/>
+<rect x="8" y="28" width="984" height="82" rx="8" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<rect x="8" y="28" width="148" height="82" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(20,39)"><svg width="16" height="16" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2zm6-4v2m-3 8v9m6-9v9M5 16l4-2m6 0l4 2M9 18h6M10 8v.01M14 8v.01"/></svg></svg></g>
+<text x="42" y="48" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Agent host</text>
+<text x="20" y="65" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">SDK, two lines</text>
+<rect x="8" y="118" width="984" height="84" rx="8" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<rect x="8" y="118" width="148" height="84" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(20,129)"><svg width="16" height="16" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3a12 12 0 0 0 8.5 3A12 12 0 0 1 12 21A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3m0 0v18"/></svg></svg></g>
+<text x="42" y="138" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">AEGIS gateway</text>
+<text x="20" y="155" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">operator side</text>
+<rect x="8" y="210" width="984" height="52" rx="8" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<rect x="8" y="210" width="148" height="52" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(20,221)"><svg width="16" height="16" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><path fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4m1 4l2 2l4-4"/></svg></svg></g>
+<text x="42" y="230" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Reviewer</text>
+<text x="20" y="247" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">auditor → person</text>
+<rect x="8" y="270" width="984" height="46" rx="8" fill="#FAFAFA" stroke="#F0F0F0" stroke-width="1.0"/>
+<rect x="8" y="270" width="148" height="46" rx="8" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="1.0"/>
+<g transform="translate(20,281)"><svg width="16" height="16" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#4D4D4D" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 6a8 3 0 1 0 16 0A8 3 0 1 0 4 6"/><path d="M4 6v6a8 3 0 0 0 16 0V6"/><path d="M4 12v6a8 3 0 0 0 16 0v-6"/></g></svg></svg></g>
+<text x="42" y="290" font-size="12.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Audit log</text>
+<text x="20" y="307" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">hash chain</text>
+<text x="938" y="18" font-size="11.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">time →</text>
+<rect x="166" y="32" width="17" height="17" rx="8.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="174.5" y="44" font-size="11" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">1</text>
+<rect x="188" y="40" width="130" height="52" rx="6" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="197" y="55" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">context spans</text>
+<text x="197" y="69" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">user / untrusted /</text>
+<text x="197" y="83" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">model · pre-call</text>
+<path d="M 252,92 L 252,132" fill="none" stroke="#0070F3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text x="256" y="115.0" font-size="11" fill="#0070F3" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">ledger write</text>
+<rect x="188" y="134" width="130" height="52" rx="6" fill="#FFFFFF" stroke="#0070F3" stroke-width="1.0"/>
+<text x="197" y="149" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">context ledger</text>
+<text x="197" y="163" font-size="10.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">64 events · 256 KB</text>
+<text x="197" y="177" font-size="11.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">per session · tenant</text>
+<rect x="326" y="32" width="17" height="17" rx="8.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="334.5" y="44" font-size="11" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">2</text>
+<rect x="348" y="40" width="130" height="52" rx="6" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="357" y="55" font-size="11.5" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">emits a tool call</text>
+<text x="357" y="69" font-size="11.5" fill="#D40000" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">dispatch</text>
+<text x="357" y="83" font-size="11.5" fill="#D40000" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">suspended</text>
+<path d="M 412,92 L 412,130" fill="none" stroke="#8A8A8A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text x="416" y="114.0" font-size="11" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">POST /check</text>
+<rect x="488" y="116" width="17" height="17" rx="8.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="496.5" y="128" font-size="11" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">3</text>
+<rect x="506" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="526.0" y="159" font-size="11" fill="#171717" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">id·scope</text>
+<line x1="546" y1="155" x2="550" y2="155" stroke="#8A8A8A" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="550" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="570.0" y="159" font-size="11" fill="#171717" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">extract</text>
+<line x1="590" y1="155" x2="594" y2="155" stroke="#8A8A8A" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="594" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="614.0" y="159" font-size="11" fill="#171717" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L1</text>
+<line x1="634" y1="155" x2="638" y2="155" stroke="#8A8A8A" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="638" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="658.0" y="159" font-size="11" fill="#171717" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">L2</text>
+<line x1="678" y1="155" x2="682" y2="155" stroke="#8A8A8A" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="682" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#0070F3" stroke-width="1.0"/>
+<text x="702.0" y="159" font-size="11" fill="#0070F3" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">Lp</text>
+<line x1="722" y1="155" x2="726" y2="155" stroke="#8A8A8A" stroke-width="1.1" stroke-linecap="round"/>
+<rect x="726" y="140" width="40" height="30" rx="5" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="746.0" y="159" font-size="11" fill="#171717" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">policy</text>
+<text x="506" y="184" font-size="11" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">one bounded pass · 0.44 ms median · no model call</text>
+<rect x="768" y="116" width="17" height="17" rx="8.5" fill="#171717" stroke="#171717" stroke-width="1.0"/>
+<text x="776.5" y="128" font-size="11" fill="#FFFFFF" font-weight="bold" text-anchor="middle" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">4</text>
+<path d="M 770,138 L 784.0,138.0 Q 790,138 790.0,132.0 L 790,63.0" fill="none" stroke="#0E8A5F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<g transform="translate(796,47.0)"><svg width="13" height="13" overflow="visible"><svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#0E8A5F" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.5 21H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v.5"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0m-3-5V7a4 4 0 1 1 8 0v4m-1 8l2 2l4-4"/></g></svg></svg></g>
+<text x="814" y="57.0" font-size="12" fill="#0E8A5F" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">allow</text>
+<text x="796" y="72.0" font-size="11" fill="#0E8A5F" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">+ Ed25519 receipt</text>
+<text x="796" y="86.0" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">executor verifies offline</text>
+<path d="M 770,158 L 773.0,158.0 Q 776,158 776.0,155.0 L 776,101.0" fill="none" stroke="#D40000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text x="788" y="105.0" font-size="12" fill="#D40000" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">block</text>
+<text x="826" y="105.0" font-size="10.5" fill="#8A8A8A" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">· refusal in the result slot</text>
+<path d="M 770,178 L 776.0,178.0 Q 782,178 782.0,184.0 L 782,230" fill="none" stroke="#A96500" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text x="770" y="214" font-size="12" fill="#A96500" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">hold</text>
+<rect x="796" y="218" width="190" height="38" rx="6" fill="#FFFFFF" stroke="#A96500" stroke-width="1.0"/>
+<text x="805" y="233" font-size="11.5" fill="#171717" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">auditor releases what serves</text>
+<text x="805" y="247" font-size="11.5" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">the task; person sees the rest</text>
+<path d="M 770,194 L 970.0,194.0 Q 976,194 976.0,200.0 L 976,279" fill="none" stroke="#8A8A8A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="796" y="275" width="190" height="36" rx="6" fill="#FFFFFF" stroke="#D8D8D8" stroke-width="1.0"/>
+<text x="805" y="290" font-size="11" fill="#171717" font-weight="bold" text-anchor="start" font-family="Geist, Inter, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif">append trace → SHA-256 chain</text>
+<text x="805" y="304" font-size="10" fill="#4D4D4D" font-weight="normal" text-anchor="start" font-family="'Geist Mono', 'SFMono-Regular', Menlo, Consolas, monospace">head → Merkle log / 10 min</text>
+</svg>
