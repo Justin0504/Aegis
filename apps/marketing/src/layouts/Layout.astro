@@ -152,8 +152,8 @@ const websiteLd = {
         subscribe without visiting the /changelog page first. */}
     <link rel="alternate" type="application/feed+json" title="AEGIS — JSON Feed" href="https://aegistraces.com/feed.json" />
     <link rel="alternate" type="application/atom+xml" title="AEGIS — Atom Feed" href="https://aegistraces.com/atom.xml" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f2efea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1d1e" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     {/* Open Graph — website by default, article when articleMeta is set.
@@ -183,7 +183,7 @@ const websiteLd = {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Belleza&family=Hanken+Grotesk:wght@300..600&family=JetBrains+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
 
@@ -245,7 +245,7 @@ const websiteLd = {
 
         // ── Scroll-triggered reveal ────────────────────────────────
         var targets = document.querySelectorAll(
-          '[data-reveal], section > h2, .bento-card, .vt-panel, .container-narrow > h2, article header, article h2',
+          '[data-reveal], [data-ghost], section > h2, .bento-card, .vt-panel, .container-narrow > h2, article header, article h2',
         );
         if (reduce || !('IntersectionObserver' in window)) {
           targets.forEach(function (el) { el.classList.add('in-view'); });
@@ -271,7 +271,7 @@ const websiteLd = {
         // them anyway).
         var mq = window.matchMedia('(hover: hover) and (pointer: fine)');
         if (mq.matches) {
-          document.querySelectorAll('.btn, .btn-secondary').forEach(function (btn) {
+          document.querySelectorAll('.btn, .btn-secondary, .btn-light, .btn-ghost-light').forEach(function (btn) {
             var maxPull = 5;
             function onMove(e) {
               var r = btn.getBoundingClientRect();
@@ -391,54 +391,76 @@ const websiteLd = {
       #aegis-scroll-progress {
         position: fixed;
         top: 0; left: 0; right: 0;
-        height: 3px;
+        height: 2px;
         z-index: 100;
-        background: linear-gradient(
-          90deg,
-          var(--hairline)  0%,
-          hsl(150 26% 56%) 45%,
-          var(--muted) 100%
-        );
+        background: var(--sage);
+        opacity: 0.55;
         transform-origin: left center;
         transform: scaleX(0);
         will-change: transform;
         pointer-events: none;
-        box-shadow: 0 1px 4px rgba(10, 10, 10, 0.10);
       }
 
+      /* Paper, ink and one green. Warm off-white ground, a deep green-black
+         ink instead of #000, sage for anything quiet, and colour spent only
+         on state. The old names (--bg, --text, --muted, --hairline …) are
+         kept because every page reads them; the new ones name the ramp. */
       :root {
-        --bg: #ffffff;
-        --surface: #fafafa;
-        --surface-2: #f5f5f5;
-        --text: #171717;
-        --muted: #666666;
-        --hairline: #ebebeb;
-        --hairline-strong: #d4d4d4;
-        --accent: #171717;
-        --accent-positive: #0e8a5f;
-        --accent-warn: #a96500;
-        --accent-error: #d40000;
-        --link: #171717;
-        --font-sans: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
-        --font-serif: 'Instrument Serif', "Iowan Old Style", Georgia, serif;
+        --paper: #f2efea;
+        --paper-raised: #ffffff;
+        --ink: #152b2d;
+        --ink-strong: #1e1e1e;
+        --sage: #577b6d;
+        --sage-text: #4f7063;
+        --mint: #e4eae3;
+        --leaf: #dde8d7;
+        --line: #dcd8cf;
+        --ghost: #577b6d6d;
+        --frost: #ffffff82;
+        --deep: #152b2d;
+        --accent-strong: #234839;
+
+        --bg: var(--paper);
+        --surface: #ebe8e1;
+        --surface-2: #e7e3db;
+        --text: var(--ink);
+        --muted: #63636b;
+        --hairline: var(--line);
+        --hairline-strong: #c9c4b8;
+        --accent: var(--ink);
+        --accent-positive: #2d5a4a;
+        --accent-warn: #8a5a12;
+        --accent-error: #a3362d;
+        --link: var(--ink);
+        --font-sans: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        --font-display: Optima, 'Belleza', Candara, 'Segoe UI', sans-serif;
+        --font-serif: var(--font-display);
         --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", monospace;
+        --radius-panel: clamp(0.75rem, 0.4rem + 1.5vw, 2.1875rem);
+        --shadow-card: 0 2px 4px #152b2d10, 0 1px 2px #0000000f, 0 0 1px #0000000f;
         color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #0a0a0a;
-          --surface: #141414;
-          --surface-2: #1c1c1c;
-          --text: #ededed;
-          --muted: #9a9a9a;
-          --hairline: #262626;
-          --hairline-strong: #3a3a3a;
-          --accent: #ededed;
-          --link: #ededed;
+          --bg: #0f1d1e;
+          --paper: #0f1d1e;
+          --paper-raised: #152b2d;
+          --surface: #152b2d;
+          --surface-2: #1b3436;
+          --text: #f2efea;
+          --ink: #f2efea;
+          --muted: #a9b3ad;
+          --line: #24393a;
+          --hairline: #24393a;
+          --hairline-strong: #35504f;
+          --accent: #f2efea;
+          --link: #f2efea;
+          --frost: #152b2d99;
           color-scheme: dark;
         }
       }
       * { box-sizing: border-box; }
+      ::selection { background: #bec3e9; color: #152b2d; }
       html, body {
         margin: 0;
         padding: 0;
@@ -446,7 +468,8 @@ const websiteLd = {
         color: var(--text);
         font-family: var(--font-sans);
         font-size: 16px;
-        line-height: 1.55;
+        font-weight: 400;
+        line-height: 1.5;
         -webkit-font-smoothing: antialiased;
       }
       a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
@@ -464,20 +487,46 @@ const websiteLd = {
         line-height: 1.55;
         border: 1px solid var(--hairline);
       }
-      /* Headings follow the reference language: a geometric sans set
-         tight and heavy, not an editorial serif. The serif token is kept
-         for pull quotes and the blog, where an editorial voice is the
-         point; a product page is not that. */
+      /* Headings are large and light, set tight: the size carries the
+         emphasis, so the weight does not have to. The display face
+         (Optima) is for lines meant to be read slowly. */
       h1, h2, h3 {
         font-family: var(--font-sans);
-        font-weight: 620;
-        letter-spacing: -0.025em;
-        line-height: 1.12;
+        font-weight: 380;
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+        color: var(--ink);
       }
-      h1 { letter-spacing: -0.03em; }
-      h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); line-height: 1.05; margin: 0.5rem 0 1rem; }
-      h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.15; margin: 0 0 1rem; }
-      h3 { font-size: 1.35rem; line-height: 1.3; margin: 0 0 0.6rem; }
+      h1 { font-size: clamp(2.6rem, 5.6vw, 4.6rem); line-height: 1.04; margin: 0.5rem 0 1rem; }
+      h2 { font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 1.08; margin: 0 0 1rem; }
+      h3 { font-size: 1.4rem; line-height: 1.25; margin: 0 0 0.6rem; font-weight: 450; letter-spacing: -0.015em; }
+      .display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+
+      /* Ghost reveal: a line arrives out of focus and settles. Used for
+         the second half of a statement, so the reader meets it a beat
+         after the first. */
+      [data-ghost] {
+        filter: blur(14px);
+        opacity: 0.28;
+        transition: filter 1.1s cubic-bezier(0.2, 0.7, 0.2, 1),
+                    opacity 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+      }
+      [data-ghost].in-view { filter: blur(0); opacity: 1; }
+      @media (prefers-reduced-motion: reduce) {
+        [data-ghost] { filter: none; opacity: 1; transition: none; }
+      }
+
+      /* Eyebrow: a small label with a hairline under it. */
+      .eyebrow-line {
+        display: inline-block;
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sage-text);
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid currentColor;
+        margin: 0 0 1.4rem;
+      }
       em { font-style: italic; }
 
       .container {
@@ -579,65 +628,47 @@ const websiteLd = {
          magnetic-buttons script below; the button uses them to lean
          2-3px toward the cursor on hover. On tap / active they
          snap back with a subtle press. */
-      .btn {
+      /* Buttons are pills: ink on paper for the one action, a hairline
+         outline for the other. No glow; the magnetic lean stays. */
+      .btn, .btn-secondary, .btn-light, .btn-ghost-light {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.4rem;
-        padding: 0.75rem 1.2rem;
-        background: var(--accent);
-        color: var(--bg);
-        border: 1px solid var(--accent);
-        border-radius: 8px;
+        min-height: 2.6rem;
+        padding: 0.6rem 1.25rem;
+        border-radius: 999px;
         text-decoration: none;
-        font-weight: 500;
-        font-size: 0.96rem;
+        font-family: var(--font-sans);
+        font-weight: 400;
+        font-size: 0.95rem;
+        letter-spacing: -0.01em;
         position: relative;
         transition:
-          background 0.18s ease,
-          color 0.18s ease,
-          transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
-          box-shadow 0.25s ease;
+          background 0.2s ease,
+          color 0.2s ease,
+          border-color 0.2s ease,
+          transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
         transform: translate(calc(var(--mx, 0px) * 0.35), calc(var(--my, 0px) * 0.35));
-        will-change: transform, box-shadow;
+        will-change: transform;
       }
-      .btn:hover {
-        background: transparent;
-        color: var(--accent);
-        box-shadow:
-          0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent),
-          0 8px 24px color-mix(in oklab, var(--accent) 22%, transparent);
-      }
-      .btn:active { transform: translate(0, 1px) scale(0.98); }
-      .btn-secondary {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.75rem 1.2rem;
-        background: transparent;
-        color: var(--accent);
-        border: 1px solid var(--hairline-strong);
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.96rem;
-        position: relative;
-        transition:
-          background 0.18s ease,
-          border-color 0.18s ease,
-          transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1),
-          box-shadow 0.25s ease;
-        transform: translate(calc(var(--mx, 0px) * 0.35), calc(var(--my, 0px) * 0.35));
-        will-change: transform, box-shadow;
-      }
-      .btn-secondary:hover {
-        border-color: var(--accent);
-        background: color-mix(in oklab, var(--accent) 5%, transparent);
-        box-shadow: 0 6px 18px color-mix(in oklab, var(--accent) 12%, transparent);
+      .btn { background: var(--deep); color: #f2efea; border: 1px solid var(--deep); }
+      .btn:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+      .btn-secondary { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+      .btn-secondary:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); }
+      .btn-light { background: #f2efea; color: #152b2d; border: 1px solid #f2efea; }
+      .btn-light:hover { background: #ffffff; }
+      .btn-ghost-light { background: transparent; color: #f2efea; border: 1px solid #f2efea99; }
+      .btn-ghost-light:hover { border-color: #f2efea; background: #f2efea14; }
+      .btn:active, .btn-secondary:active, .btn-light:active { transform: translate(0, 1px) scale(0.98); }
+      @media (prefers-color-scheme: dark) {
+        .btn { background: #f2efea; color: #152b2d; border-color: #f2efea; }
+        .btn:hover { background: #fff; border-color: #fff; }
       }
 
       /* Kill magnetic + glow when the user has opted out of motion. */
       @media (prefers-reduced-motion: reduce) {
-        .btn, .btn-secondary { transform: none !important; box-shadow: none !important; }
+        .btn, .btn-secondary, .btn-light, .btn-ghost-light { transform: none !important; }
       }
 
       hr { border: 0; border-top: 1px solid var(--hairline); margin: 3rem 0; }

@@ -21,9 +21,9 @@ const CAPS = [
   { row: 'License',                               aegis: 'MIT (core)', gr: 'Apache-2.0', note: 'Both fully open-source, both have hosted variants.', depth: 'core' },
   { row: 'Deployment',                            aegis: 'Self-host + hosted', gr: 'Self-host + hosted (guardrailsai.com)', note: 'Both deployable as a library in-process or as a hosted service.', depth: 'core' },
   { row: 'Cryptographic audit chain',             aegis: 'Yes (Ed25519 + SHA-256, RFC 6962 style)', gr: 'No', note: 'AEGIS ships a tamper-evident log verifiable by a 245-line Node stdlib verifier. Guardrails AI does not — its purpose stops at validation.', depth: 'core' },
-  { row: 'Peer-reviewed benchmark',               aegis: 'Yes (arXiv:2603.12621)', gr: 'No (product-driven)', note: 'AEGIS publishes head-to-head numbers on ToolGuard-Bench (5,525 records). Guardrails AI publishes validator quality but no gateway-level benchmark.', depth: 'core' },
-  { row: 'Prompt-injection defence',              aegis: 'L1 rules + L2 XGBoost + L3 LLM judge', gr: 'Validators (regex, classifier, LLM prompts)', note: 'AEGIS runs a documented cost-aware cascade. Guardrails AI has PI-specific validators the user composes into a Guard chain.', depth: 'core' },
-  { row: 'Framework SDK coverage',                aegis: '14 (2-line auto())', gr: 'Python-first + LiteLLM shims', note: 'AEGIS: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents, Vercel AI SDK, Go. Guardrails AI targets Python primarily; JS SDK is newer.', depth: 'core' },
+  { row: 'Published end-to-end evaluation',       aegis: 'Yes (arXiv:2603.12621 v2)', gr: 'No (product-driven)', note: 'AEGIS reports attack success, utility and holds on AgentDojo against AgentDojo\'s own defenses, and lists what it does not catch. Guardrails AI publishes validator quality but no gateway-level evaluation.', depth: 'core' },
+  { row: 'Prompt-injection defence',              aegis: 'Rules + anomaly + instruction provenance + policy', gr: 'Validators (regex, classifier, LLM prompts)', note: 'AEGIS decides a call by which channel of the conversation authorised it, with an optional alignment auditor as first reviewer of holds. Guardrails AI has PI-specific validators the user composes into a Guard chain.', depth: 'core' },
+  { row: 'Framework SDK coverage',                aegis: '15 (2-line auto())', gr: 'Python-first + LiteLLM shims', note: 'AEGIS: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents, Vercel AI SDK, Go. Guardrails AI targets Python primarily; JS SDK is newer.', depth: 'core' },
   { row: 'Human-in-the-loop approval queue',      aegis: 'Yes (Compliance Cockpit)', gr: 'No (not in scope)', note: 'AEGIS routes ambiguous/high-risk calls to a reviewer UI. Guardrails AI returns success/failure to the caller.', depth: 'core' },
   { row: 'Compliance evidence pack (EU AI Act)',  aegis: 'Yes (Article 12-15 signed export)', gr: 'No', note: 'AEGIS emits a signed JSON pack aligned to EU AI Act Articles 12-15. Guardrails AI does not.', depth: 'detail' },
   { row: 'Validator marketplace',                 aegis: 'No', gr: 'Yes (100+ community validators)', note: 'Guardrails AI Hub lets you install community validators. AEGIS ships fixed detectors; custom detectors are a Team-tier feature.', depth: 'detail' },
@@ -39,7 +39,7 @@ const FAQ = [
   { q: 'Is AEGIS a Guardrails AI alternative?',
     a: 'They are complementary layers, not alternatives. AEGIS gates tool-call execution and produces a cryptographic audit trail. Guardrails AI validates and repairs structured LLM output. Most production stacks that care about safety end up using both: Guardrails AI on the output side, AEGIS on the tool-call side.' },
   { q: 'Which one blocks prompt injection better?',
-    a: 'For the tool-call runtime path, AEGIS wins on the ToolGuard-Bench benchmark (99.9% block at 1.06 ms P50). Guardrails AI does not publish comparable per-call runtime numbers on that benchmark, since its scope is output validation rather than gateway mediation.' },
+    a: 'They answer different questions. On the tool-call runtime path, AEGIS reports AgentDojo attack success falling from 29.7% to 1.4% at 0.44 ms median per check, at the cost of holds that a reviewer must answer. Guardrails AI does not publish comparable gateway-level numbers, since its scope is output validation rather than tool-call mediation.' },
   { q: 'Can I use them together?',
     a: 'Yes and it is common. A typical topology: Guardrails AI validates and, if needed, repairs the LLM output before it emits a tool_use block; AEGIS then intercepts the tool_use block and applies runtime firewall policy (block / pending / allow) before execution. Risk signals from Guardrails validators can also feed AEGIS as additional detector input.' },
   { q: 'Is Guardrails AI free?',
@@ -53,7 +53,7 @@ const productLd = {
   '@type': 'Product',
   '@id': `${canonicalUrl}#product`,
   name: 'AEGIS',
-  description: 'MIT-licensed pre-execution firewall for LLM tool calls with peer-reviewed cost-aware cascade and cryptographic audit chain.',
+  description: 'MIT-licensed pre-execution firewall for LLM tool calls with a published, layered decision pipeline and cryptographic audit chain.',
   brand: { '@type': 'Organization', name: 'AEGIS' },
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
 };
@@ -63,7 +63,7 @@ const articleLd = {
   '@type': 'TechArticle',
   '@id': `${canonicalUrl}#article`,
   headline: 'AEGIS vs Guardrails AI — Runtime firewall vs structured-output validator',
-  description: 'AEGIS mediates the tool-call execution path with a peer-reviewed cost-aware cascade and cryptographic audit chain. Guardrails AI validates structured LLM output against Pydantic-style schemas with a community validator hub. Complementary, not competing.',
+  description: 'AEGIS mediates the tool-call execution path with a published, layered decision pipeline and cryptographic audit chain. Guardrails AI validates structured LLM output against Pydantic-style schemas with a community validator hub. Complementary, not competing.',
   url: canonicalUrl,
   datePublished: '2026-09-05',
   dateModified: '2026-09-06',
@@ -90,7 +90,7 @@ const faqLd = {
 
 <Layout
   title="AEGIS vs Guardrails AI — Runtime firewall vs structured-output validator (2026)"
-  description="AEGIS is a runtime firewall for LLM tool calls (MIT, cryptographic audit, peer-reviewed cascade). Guardrails AI is an Apache-2.0 output-validation library. Different layers of the stack — most teams use both. Head-to-head matrix + FAQ."
+  description="AEGIS is a runtime firewall for LLM tool calls (MIT, cryptographic audit, published end-to-end evaluation). Guardrails AI is an Apache-2.0 output-validation library. Different layers of the stack — most teams use both. Head-to-head matrix + FAQ."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >

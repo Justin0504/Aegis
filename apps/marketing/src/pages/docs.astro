@@ -240,9 +240,10 @@ const quickRefs = [
     .install-grid {
       display: grid;
       gap: 1.2rem;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
     .install {
+      min-width: 0;
       background: var(--surface);
       border: 1px solid var(--hairline);
       border-radius: 10px;

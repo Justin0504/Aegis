@@ -5,7 +5,7 @@
 // filter: users are pre-committed to self-hosting and want a survey
 // of options. Serves that filter by naming the projects, honestly
 // noting where each excels, and steering toward AEGIS as the only
-// runtime firewall with a peer-reviewed cascade.
+// runtime firewall with a published end-to-end evaluation.
 
 import Layout from '@/layouts/Layout.astro';
 import Header from '@/components/Header.astro';
@@ -18,9 +18,9 @@ const PROJECTS = [
     name: 'AEGIS',
     license: 'MIT (core)',
     repo: 'github.com/Justin0504/Aegis',
-    stars: '1.2k+',
+    stars: '500+',
     scope: 'Runtime firewall + cryptographic audit',
-    when: 'You need pre-execution mediation of tool calls with tamper-evident evidence. Only open-source runtime firewall with a peer-reviewed cost-aware cascade (arXiv:2603.12621). 99.9% block at 1.06 ms P50 and $0.05 total cost on ToolGuard-Bench.',
+    when: 'You need pre-execution mediation of tool calls with tamper-evident evidence. Decides each call by which turn of the conversation authorised it (arXiv:2603.12621 v2): AgentDojo attack success 29.7% → 1.4% at 0.44 ms median per check.',
     caveat: 'Content-safety detectors are English-centric today; multi-lingual detectors are on the roadmap.',
   },
   {
@@ -82,7 +82,7 @@ const PROJECTS = [
 const FAQ = [
   {
     q: 'What is the best open-source AI agent guardrail in 2026?',
-    a: 'It depends on which layer you\'re defending. For pre-execution enforcement of tool calls, AEGIS (MIT) is the only open-source runtime firewall with a peer-reviewed benchmark. For structured-output validation, Guardrails AI (Apache-2.0). For conversational flow control, NeMo Guardrails (Apache-2.0). For content-safety classification, Llama Guard. Most production stacks compose several.',
+    a: 'It depends on which layer you\'re defending. For pre-execution enforcement of tool calls, AEGIS (MIT) is an open-source runtime control point with a published end-to-end evaluation. For structured-output validation, Guardrails AI (Apache-2.0). For conversational flow control, NeMo Guardrails (Apache-2.0). For content-safety classification, Llama Guard. Most production stacks compose several.',
   },
   {
     q: 'How is AEGIS different from Guardrails AI and NeMo Guardrails?',
@@ -90,7 +90,7 @@ const FAQ = [
   },
   {
     q: 'Is Llama Guard a substitute for a runtime firewall?',
-    a: 'No. Llama Guard is a trained classifier — good baseline signal for content safety, but it does not sit on the tool-call execution path and does not produce third-party-verifiable audit trails. On our benchmark, Llama Guard 3-8B blocks 67.1% of malicious tool calls at 73 ms P50 latency; a full three-layer cascade (AEGIS) reaches 99.9% at 1.06 ms.',
+    a: 'No. Llama Guard is a trained classifier — good baseline signal for content safety, but it does not sit on the tool-call execution path and does not produce third-party-verifiable audit trails. It also reads content, and on tool calls live agents actually emitted under attack, content inspection is at chance in our measurements (arXiv:2603.12621 v2): the call an injection produces looks ordinary. AEGIS asks which turn authorised the call instead.',
   },
   {
     q: 'Can I deploy multiple guardrails together?',
@@ -136,7 +136,7 @@ const faqLd = {
 
 <Layout
   title="Open-Source AI Agent Guardrails — 2026 Field Guide"
-  description="Curated open-source AI agent guardrails in 2026 with honest scope + caveats. AEGIS (MIT runtime firewall, peer-reviewed cascade), Guardrails AI, NeMo Guardrails, Llama Guard, Rebuff, Langfuse, Helicone. Deploy several — they defend at different points."
+  description="Curated open-source AI agent guardrails in 2026 with honest scope + caveats. AEGIS (MIT runtime firewall, published end-to-end evaluation), Guardrails AI, NeMo Guardrails, Llama Guard, Rebuff, Langfuse, Helicone. Deploy several — they defend at different points."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >

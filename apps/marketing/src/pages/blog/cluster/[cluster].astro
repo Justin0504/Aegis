@@ -36,7 +36,7 @@ const CLUSTER_META: Record<string, { title: string; blurb: string; intro: string
   'agent-safety': {
     title: 'Agent Safety',
     blurb: 'Runtime defence for LLM agents: prompt injection, indirect PI, tool-call gating, taint propagation.',
-    intro: 'The load-bearing question in agent safety is not whether the LLM will hallucinate — it will — but whether that hallucination can trigger side effects before a human catches it. On the 5,525-record ToolGuard-Bench (arXiv:2603.12621), rules-only defences block just 1.2% of malicious tool calls; the three-layer cascade shipping in AEGIS reaches 99.9% at 1.06 ms P50 latency. These articles cover the underlying attack surface and the defensive patterns that hold up in production.',
+    intro: 'The load-bearing question in agent safety is not whether the LLM will hallucinate — it will — but whether that hallucination can trigger side effects before a human catches it. On tool calls live agents emitted under attack, content patterns catch 0.4% of them; on AgentDojo, AEGIS cuts attack success from 29.7% to 1.4% by asking which turn authorised each call (arXiv:2603.12621 v2). These articles cover the underlying attack surface and the defensive patterns that hold up in production.',
   },
   'verticals': {
     title: 'Verticals + Compliance',
@@ -51,7 +51,7 @@ const CLUSTER_META: Record<string, { title: string; blurb: string; intro: string
   'deep-dive': {
     title: 'Deep Dives',
     blurb: 'Technical deep dives on cryptographic audit primitives, LLM judge calibration, and evaluation methodology.',
-    intro: 'The load-bearing technical questions behind AEGIS: how do you build a third-party-verifiable audit log (RFC 6962 Merkle + Sigstore witness), how well are LLM judges actually calibrated as pre-execution gates (Expected Calibration Error on GPT-4o-mini and Claude Haiku), and how does the ToolGuard-Bench evaluation protocol work.',
+    intro: 'The load-bearing technical questions behind AEGIS: how do you build a third-party-verifiable audit log (RFC 6962 Merkle + Sigstore witness), how well are LLM judges actually calibrated as pre-execution gates (Expected Calibration Error on GPT-4o-mini and Claude Haiku), and why the ToolGuard-Bench numbers were withdrawn in favour of an end-to-end evaluation on AgentDojo.',
   },
 };
 

@@ -21,7 +21,7 @@ const CAPS = [
   { row: 'License',                               aegis: 'MIT (core)', ng: 'Apache-2.0', note: 'Both fully open-source.', depth: 'core' },
   { row: 'Deployment',                            aegis: 'Self-host + hosted', ng: 'Self-host (library or NIM microservice)', note: 'AEGIS runs as a binary + optional Postgres. NeMo ships as a Python library and as a NIM inference microservice.', depth: 'core' },
   { row: 'Cryptographic audit chain',             aegis: 'Yes (Ed25519 + SHA-256, RFC 6962 style)', ng: 'No', note: 'AEGIS ships a tamper-evident log verifiable by third parties. NeMo focuses on runtime enforcement, not evidence generation.', depth: 'core' },
-  { row: 'Peer-reviewed benchmark',               aegis: 'Yes (arXiv:2603.12621)', ng: 'No (docs-driven)', note: 'AEGIS publishes head-to-head numbers on ToolGuard-Bench. NeMo publishes technical reports and blog posts; no peer-reviewed gateway benchmark.', depth: 'core' },
+  { row: 'Published end-to-end evaluation',       aegis: 'Yes (arXiv:2603.12621 v2)', ng: 'No (docs-driven)', note: 'AEGIS reports attack success, utility and holds on AgentDojo, and the attacks it cannot see. NeMo publishes technical reports and blog posts; no comparable gateway-level evaluation.', depth: 'core' },
   { row: 'Human-in-the-loop approval queue',      aegis: 'Yes (Compliance Cockpit)', ng: 'No (not in scope)', note: 'AEGIS routes ambiguous / high-risk calls to a reviewer UI. NeMo returns a rail decision to the caller.', depth: 'core' },
   { row: 'EU AI Act / SOC 2 evidence pack',       aegis: 'Yes (Article 12-15 signed export)', ng: 'No', note: 'AEGIS emits a signed compliance pack. NeMo does not — this is an add-on the deployer builds on top.', depth: 'core' },
   { row: 'Dialog-flow control (topical rails)',   aegis: 'No', ng: 'Yes (Colang native strength)', note: 'NeMo excels at conversational flow constraints ("do not discuss competitors", "always answer in Spanish first"). AEGIS scope is tool-call enforcement, not dialog shaping.', depth: 'core' },
@@ -40,7 +40,7 @@ const FAQ = [
   { q: 'Do I need Colang to use AEGIS?',
     a: 'No. AEGIS policies are declarative JSON Schema (with an optional natural-language authoring UI); there is no new language to learn. NeMo requires Colang for its rules.' },
   { q: 'Which one has better prompt-injection defence?',
-    a: 'On the ToolGuard-Bench runtime path, AEGIS is the only system that publishes head-to-head numbers (99.9% block at 1.06 ms P50). NeMo\'s input rails can block obvious prompt-injection attempts before they reach the model; AEGIS blocks them at the tool-call boundary after they cause the model to emit a malicious call. Different points of intervention.' },
+    a: 'On the tool-call path, AEGIS reports AgentDojo attack success falling from 29.7% to 1.4% at 0.44 ms median per check, and the holds that cost. NeMo\'s input rails can block obvious prompt-injection attempts before they reach the model; AEGIS blocks them at the tool-call boundary after they cause the model to emit a malicious call. Different points of intervention.' },
   { q: 'Can I use them together?',
     a: 'Yes. A common pattern: NeMo input rails filter user turns for obvious PI + topical rails constrain the conversation → the model produces tool calls → AEGIS mediates each tool call with cascade classification + cryptographic audit → human reviewer approves pending calls. NeMo\'s input safety + AEGIS\'s execution-path enforcement are additive.' },
   { q: 'Is NeMo Guardrails free?',
@@ -52,7 +52,7 @@ const productLd = {
   '@type': 'Product',
   '@id': `${canonicalUrl}#product`,
   name: 'AEGIS',
-  description: 'MIT-licensed pre-execution firewall for LLM tool calls with peer-reviewed cost-aware cascade and cryptographic audit chain.',
+  description: 'MIT-licensed pre-execution firewall for LLM tool calls with a published, layered decision pipeline and cryptographic audit chain.',
   brand: { '@type': 'Organization', name: 'AEGIS' },
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
 };
@@ -62,7 +62,7 @@ const articleLd = {
   '@type': 'TechArticle',
   '@id': `${canonicalUrl}#article`,
   headline: 'AEGIS vs NeMo Guardrails — Runtime tool-call firewall vs conversational flow control',
-  description: 'AEGIS mediates the tool-call execution path with a peer-reviewed cost-aware cascade and cryptographic audit chain. NVIDIA NeMo Guardrails uses the Colang DSL to shape conversational flow. Different points of intervention.',
+  description: 'AEGIS mediates the tool-call execution path with a published, layered decision pipeline and cryptographic audit chain. NVIDIA NeMo Guardrails uses the Colang DSL to shape conversational flow. Different points of intervention.',
   url: canonicalUrl,
   datePublished: '2026-09-05',
   dateModified: '2026-09-06',
@@ -89,7 +89,7 @@ const faqLd = {
 
 <Layout
   title="AEGIS vs NeMo Guardrails — Runtime tool-call firewall vs conversational flow control (2026)"
-  description="AEGIS mediates the LLM tool-call execution path with a peer-reviewed cost-aware cascade and cryptographic audit chain. NVIDIA NeMo Guardrails uses the Colang DSL to shape conversational flow. Head-to-head matrix + honest deltas + FAQ."
+  description="AEGIS mediates the LLM tool-call execution path with a published, layered decision pipeline and cryptographic audit chain. NVIDIA NeMo Guardrails uses the Colang DSL to shape conversational flow. Head-to-head matrix + honest deltas + FAQ."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >
@@ -121,7 +121,7 @@ const faqLd = {
         <h2>TL;DR</h2>
         <ul class="tldr-list">
           <li><strong>NeMo Guardrails</strong> = <em>dialog flow</em>: Colang DSL for topical / input / output / retrieval / execution rails. Great for content shaping and conversation constraints.</li>
-          <li><strong>AEGIS</strong> = <em>tool-call firewall</em>: pre-execution block, cost-aware cascade (rules → XGBoost → LLM), cryptographic audit chain, human-review queue.</li>
+          <li><strong>AEGIS</strong> = <em>tool-call firewall</em>: pre-execution block, layered decisions (rules → anomaly → instruction provenance → policy), cryptographic audit chain, human-review queue.</li>
           <li><strong>Together</strong>: NeMo input rails filter the user turn → model emits tool call → AEGIS mediates the call → reviewer approves pending. Additive, not competing.</li>
         </ul>
       </div>

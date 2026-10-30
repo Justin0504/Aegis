@@ -1,7 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import { getPublicSupabaseUrl, getPublicSupabaseAnonKey } from '@/lib/supabase';
-import { TESTIMONIALS } from '@/data/testimonials';
 
 // If already signed in, jump straight to `next` (or /account by default).
 // /account is the real post-login home — profile + license keys +
@@ -40,51 +39,25 @@ const supabaseUrl  = getPublicSupabaseUrl(Astro.locals);
 const supabaseAnon = getPublicSupabaseAnonKey(Astro.locals);
 const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
 
-// Split testimonials into 2 columns for the vertical marquee. Odd
-// indices go right, even go left — gives visual balance without
-// having to hand-tune which quote lives in which column.
-const colA = TESTIMONIALS.filter((_, i) => i % 2 === 0);
-const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
 ---
 <Layout title="Sign in — AEGIS" description="Sign in to your AEGIS account.">
   <main class="split">
     <aside class="left">
       <a href="/" class="brand" aria-label="AEGIS home">
-        <span class="mark" aria-hidden="true">⌬</span>
-        <span class="brand-name">AEGIS</span>
+        <svg class="mark" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 15 L14 3 L27 15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <span class="brand-name">aegis</span>
       </a>
-      <div class="marquee">
-        <!-- Testimonials duplicated for seamless loop; identical copies
-             so the halfway wrap-point is invisible. Data comes from
-             src/data/testimonials.ts — same source as the homepage. -->
-        <div class="col col-a">
-          {[...colA, ...colA].map((t) => (
-            <article class="card">
-              <blockquote class="tm-quote" set:html={t.quote.replaceAll('@AEGIS', '<span class="tm-mention">@AEGIS</span>')} />
-              <footer>
-                <img class="avatar" src={t.photo} alt={t.name} loading="lazy" width="44" height="44" />
-                <div>
-                  <div class="who">{t.name} <span class="handle">{t.handle}</span></div>
-                  <div class="role">{t.title}</div>
-                </div>
-              </footer>
-            </article>
-          ))}
-        </div>
-        <div class="col col-b">
-          {[...colB, ...colB].map((t) => (
-            <article class="card">
-              <blockquote class="tm-quote" set:html={t.quote.replaceAll('@AEGIS', '<span class="tm-mention">@AEGIS</span>')} />
-              <footer>
-                <img class="avatar" src={t.photo} alt={t.name} loading="lazy" width="44" height="44" />
-                <div>
-                  <div class="who">{t.name} <span class="handle">{t.handle}</span></div>
-                  <div class="role">{t.title}</div>
-                </div>
-              </footer>
-            </article>
-          ))}
-        </div>
+      <div class="pitch">
+        <p class="pitch-h">
+          <span>Not what the call says.</span>
+          <span class="dim">Who authorised it.</span>
+        </p>
+        <ul class="facts">
+          <li><strong>29.7% → 1.4%</strong> attack success on AgentDojo</li>
+          <li><strong>0.44 ms</strong> median per check, no model call</li>
+          <li><strong>Ed25519</strong> receipt on every allowed call</li>
+        </ul>
+        <p class="src">From <a href="https://arxiv.org/abs/2603.12621" rel="noopener">arXiv:2603.12621 v2</a>, which also reports what it costs and what it misses.</p>
       </div>
     </aside>
 
@@ -252,148 +225,50 @@ const colB = TESTIMONIALS.filter((_, i) => i % 2 === 1);
       background: var(--bg);
     }
     aside.left {
-      background: var(--surface-2);
-      padding: 3rem 3rem 4rem;
       position: relative;
       overflow: hidden;
-      border-right: 1px solid var(--hairline);
+      margin: clamp(0.6rem, 0.3rem + 1.3vw, 1.9rem);
+      margin-right: 0;
+      border-radius: var(--radius-panel);
+      padding: 2.4rem 2.6rem 3rem;
+      color: #f2efea;
+      background: #152b2d url('/images/tex-water.jpg') center / cover no-repeat;
+      display: flex;
+      flex-direction: column;
+      isolation: isolate;
     }
-    /* Match the Header component's brand styling exactly so the
-       login-page top-left logo reads as the SAME wordmark used site-
-       wide (serif, 400 weight, hairline letter-spacing). */
+    aside.left::before {
+      content: "";
+      position: absolute; inset: 0; z-index: -1;
+      background: linear-gradient(180deg, #0f1d1e33, #0f1d1e99);
+    }
     aside .brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       text-decoration: none;
-      color: var(--text);
-      font-family: var(--font-sans); font-weight: 600;
-      font-size: 1.4rem;
-      letter-spacing: -0.01em;
+      color: #f2efea;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 1.45rem;
+      letter-spacing: -0.04em;
     }
-    aside .brand-name { font-weight: 400; }
-    aside .brand .mark { font-size: 1.6rem; line-height: 1; }
-    /* Vertical auto-scrolling marquee, 2 columns. The card list is
-       duplicated in markup so `translateY(-50%)` at the animation
-       endpoint wraps seamlessly to the top. Slight per-column speed
-       difference gives the layout an organic staggered feel. Mask
-       fades top + bottom so cards "appear" from behind the edge
-       instead of popping in.
-
-       Respects prefers-reduced-motion: freezes at frame 0 so users
-       with vestibular sensitivity see a static wall of cards. */
-    .marquee {
-      margin-top: 2.5rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      max-width: 44rem;
-      /* Container height caps at viewport minus the brand row + padding.
-         min-height keeps two full cards visible even on short screens. */
-      height: calc(100vh - 10rem);
-      min-height: 34rem;
-      overflow: hidden;
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
-              mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    aside .brand .mark { width: 1.35rem; height: auto; }
+    .pitch { margin-top: auto; max-width: 34rem; }
+    .pitch-h {
+      font-size: clamp(2rem, 1.2rem + 2.4vw, 3.4rem);
+      font-weight: 340;
+      line-height: 1.04;
+      letter-spacing: -0.035em;
+      margin: 0 0 2.2rem;
     }
-    .marquee .col {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      will-change: transform;
-    }
-    .marquee .col-a { animation: aegis-marquee-up 40s linear infinite; }
-    .marquee .col-b { animation: aegis-marquee-up 48s linear infinite; }
-
-    @keyframes aegis-marquee-up {
-      from { transform: translateY(0); }
-      /* Cards are duplicated 2x in markup, so the loop endpoint is
-         -50% of the total height — that's exactly one full cycle,
-         and the second copy lands seamlessly where the first began. */
-      to   { transform: translateY(-50%); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .marquee .col-a, .marquee .col-b { animation: none; }
-    }
-    /* Card matches the homepage "From the field" style — real photo
-       avatar top-left of the footer, name + handle + title, quote as
-       the body. Same tokens as Testimonials.astro so the two surfaces
-       feel like one product. */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--hairline);
-      border-radius: 14px;
-      padding: 1.25rem 1.25rem 1rem;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.9rem;
-    }
-    .card .tm-quote {
-      margin: 0;
-      color: var(--text);
-      font-size: 0.95rem;
-      line-height: 1.5;
-      /* Left-aligned mark-like feel without the giant curly glyph —
-         a subtle italic serif accent keeps the composed magazine feel
-         of the homepage cards. */
-    }
-    .card .tm-quote::before {
-      content: '\201C';
-      font-family: var(--font-sans); font-weight: 600;
-      font-weight: 700;
-      font-size: 1.1rem;
-      line-height: 0;
-      margin-right: 0.15rem;
-      color: var(--muted);
-    }
-    .card .tm-quote::after {
-      content: '\201D';
-      font-family: var(--font-sans); font-weight: 600;
-      font-weight: 700;
-      font-size: 1.1rem;
-      line-height: 0;
-      margin-left: 0.15rem;
-      color: var(--muted);
-    }
-    .card .tm-mention {
-      font-weight: 600;
-      color: var(--accent-warn);
-      font-family: var(--font-mono);
-      font-size: 0.9em;
-    }
-    .card footer {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      border-top: 1px solid var(--hairline);
-      padding-top: 0.85rem;
-    }
-    .card .avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      object-fit: cover;
-      background: var(--surface-2);
-      flex-shrink: 0;
-      /* Subtle warm ring matches the homepage cards. */
-      box-shadow: 0 0 0 1px var(--hairline);
-    }
-    .card .who {
-      font-weight: 600;
-      color: var(--text);
-      font-size: 0.85rem;
-      display: flex;
-      align-items: baseline;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-    }
-    .card .handle {
-      font-weight: 400;
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-family: var(--font-mono);
-    }
-    .card .role { color: var(--muted); font-size: 0.78rem; margin-top: 0.1rem; }
+    .pitch-h span { display: block; }
+    .pitch-h .dim { color: #dbdfda; opacity: 0.75; }
+    .facts { list-style: none; padding: 0; margin: 0 0 1.6rem; border-top: 1px solid #f2efea2e; }
+    .facts li { padding: 0.8rem 0; border-bottom: 1px solid #f2efea2e; color: #dbdfda; font-size: 0.95rem; }
+    .facts strong { color: #f2efea; font-weight: 500; margin-right: 0.4rem; }
+    .src { color: #dbdfda; opacity: 0.8; font-size: 0.82rem; margin: 0; line-height: 1.5; }
+    .src a { color: #f2efea; }
 
     section.right {
       display: flex;

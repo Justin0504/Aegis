@@ -21,7 +21,7 @@ howToSteps:
   - "Rule Lakera in when: you want a hosted managed API with zero infra, multi-lingual content-safety detectors matter more than architectural transparency, and per-call pricing (~$2k/mo baseline) is within budget."
   - "Rule AEGIS in when: you need open-source auditability, cryptographic tamper-evidence for regulators, air-gap deploy without an enterprise sales cycle, or per-call cost matters at scale (>100k calls/mo self-hosted is $0)."
   - "Deploy both if the requirement is composite: Lakera for content-safety detection on the input/output surface + AEGIS as the tool-call runtime firewall + audit layer. Risk signals from Lakera can feed AEGIS as an additional detector input."
-  - "Benchmark on your own traffic before committing: run 1,000 real tool calls through each and record block precision + FP rate + P50/P95 latency + total cost. On the public ToolGuard-Bench (arXiv:2603.12621), AEGIS cascade+XGB is 99.9% at 1.06 ms; Lakera does not publish a comparable public benchmark."
+  - "Benchmark on your own traffic before committing: run 1,000 real tool calls through each and record block precision + FP rate + P50/P95 latency + total cost. AEGIS reports its end-to-end numbers on AgentDojo in arXiv:2603.12621 v2 (attack success 29.7% → 1.4%, 0.44 ms median per check, and the holds that cost); Lakera does not publish a comparable public evaluation, so measure both on your own traffic."
 keyTakeaways:
   - "Lakera Guard wins on detector maturity, managed-service ergonomics, and enterprise procurement support."
   - "AEGIS wins on data sovereignty (MIT engine on your hardware) and cryptographic audit trails."

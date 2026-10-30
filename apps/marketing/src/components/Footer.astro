@@ -1,111 +1,152 @@
 ---
+// The footer is one dark panel inset from the page edge. A page can put
+// its closing call to action at the top of that panel through the `cta`
+// slot, so the last thing a reader sees and the links under it share one
+// surface instead of two stacked bands.
 const year = new Date().getFullYear();
+const hasCta = Astro.slots.has('cta');
 ---
-<footer class="site-footer">
-  <div class="container footer-inner">
-    <div class="col">
-      <div class="brand">
-        <span class="mark" aria-hidden="true">⌬</span>
-        <span class="brand-name">AEGIS</span>
+<footer class:list={['site-footer', { 'has-cta': hasCta }]}>
+  <div class="panel">
+    {hasCta && (
+      <div class="footer-cta">
+        <slot name="cta" />
       </div>
-      <p class="tagline">
-        Open-source runtime safety layer for AI agents.
-      </p>
+    )}
+    <div class="footer-inner">
+      <div class="col col-brand">
+        <div class="brand">
+          <svg class="mark" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 15 L14 3 L27 15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          <span class="brand-name">aegis</span>
+        </div>
+        <p class="tagline">
+          A pre-execution control point and audit layer for AI agents. Open source, MIT.
+        </p>
+      </div>
+      <div class="col">
+        <h4>Product</h4>
+        <a href="/features/scanner">Workflow scanner</a>
+        <a href="/features/policy-generator">Policy generator</a>
+        <a href="/features/predeploy">Pre-deploy scan</a>
+        <a href="/features/customize">Customize</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/download">Download</a>
+      </div>
+      <div class="col">
+        <h4>Resources</h4>
+        <a href="/docs">Docs</a>
+        <a href="/blog">Blog</a>
+        <a href="/security">Security</a>
+        <a href="/faq">FAQ</a>
+        <a href="https://arxiv.org/abs/2603.12621" rel="noopener">Paper</a>
+      </div>
+      <div class="col">
+        <h4>Project</h4>
+        <a href="https://github.com/Justin0504/Aegis" target="_blank" rel="noopener">GitHub</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/roadmap">Roadmap</a>
+        <a href="/status">Status</a>
+      </div>
+      <div class="col">
+        <h4>Legal</h4>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/dpa">DPA</a>
+        <a href="mailto:aojieyuan04@gmail.com">Contact</a>
+      </div>
     </div>
-    <div class="col">
-      <h4>Product</h4>
-      <a href="/features/scanner">Workflow scanner</a>
-      <a href="/features/policy-generator">Policy generator</a>
-      <a href="/features/predeploy">Pre-deploy scan</a>
-      <a href="/features/customize">Customize</a>
-      <a href="/pricing">Pricing</a>
-      <a href="/download">Download</a>
+    <div class="colophon">
+      <span>© {year} AEGIS · MIT licensed</span>
+      <span>Built by <a href="https://aojieyuan.com" rel="noopener">Justin Yuan</a></span>
     </div>
-    <div class="col">
-      <h4>Resources</h4>
-      <a href="/docs">Docs</a>
-      <a href="/security">Security</a>
-      <a href="/status">Status</a>
-      <a href="/signup">Sign up free</a>
-    </div>
-    <div class="col">
-      <h4>Project</h4>
-      <a href="https://github.com/Justin0504/Aegis" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/Justin0504/Aegis/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
-      <a href="https://github.com/Justin0504/Aegis/blob/main/ROADMAP.md" target="_blank" rel="noopener">Roadmap</a>
-      <a href="/status">Status</a>
-    </div>
-    <div class="col">
-      <h4>Legal</h4>
-      <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/dpa">DPA</a>
-      <a href="mailto:aojieyuan04@gmail.com">aojieyuan04@gmail.com</a>
-    </div>
-  </div>
-  <div class="container colophon">
-    <span>© {year} AEGIS · MIT licensed</span>
-    <span class="muted">v0.1.0 — built by <a href="https://aojieyuan.com" rel="noopener">Justin Yuan</a></span>
   </div>
   <style>
     .site-footer {
-      border-top: 1px solid var(--hairline);
-      padding: 3rem 0 2rem;
-      margin-top: 5rem;
-      background: var(--surface);
+      padding: clamp(0.6rem, 0.3rem + 1.3vw, 1.9rem);
+      margin-top: clamp(4rem, 2.8rem + 6vw, 10rem);
+    }
+    .panel {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-panel);
+      color: #f2efea;
+      background: #152b2d url('/images/tex-water.jpg') center / cover no-repeat;
+      padding: clamp(2.6rem, 1.6rem + 4vw, 5rem) clamp(1.25rem, 0.4rem + 3.5vw, 4rem) clamp(1rem, 0.8rem + 0.8vw, 1.6rem);
+      isolation: isolate;
+    }
+    /* A wash from the top keeps the link text legible over the ripples. */
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(180deg, #152b2d00 0%, #152b2d55 55%, #0f1d1ecc 100%);
+    }
+    .footer-cta {
+      text-align: center;
+      padding: clamp(2rem, 1rem + 6vw, 7rem) 0 clamp(3rem, 2rem + 6vw, 8rem);
     }
     .footer-inner {
       display: grid;
-      grid-template-columns: 1.5fr repeat(4, 1fr);
+      grid-template-columns: 1.6fr repeat(4, 1fr);
       gap: 2rem;
-      padding-bottom: 2rem;
+      padding-bottom: 2.4rem;
+    }
+    .has-cta .footer-inner {
+      border-top: 1px solid #f2efea2e;
+      padding-top: 2.4rem;
     }
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      font-family: var(--font-sans); font-weight: 600;
-      font-size: 1.3rem;
+      gap: 0.45rem;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 1.45rem;
+      letter-spacing: -0.04em;
     }
-    .mark { font-size: 1.5rem; }
+    .mark { width: 1.35rem; height: auto; }
     .tagline {
-      color: var(--muted);
-      margin: 0.4rem 0 0;
+      color: #dbdfda;
+      opacity: 0.85;
+      margin: 0.6rem 0 0;
       font-size: 0.92rem;
-      max-width: 26ch;
+      line-height: 1.5;
+      max-width: 30ch;
     }
     .col h4 {
       font-family: var(--font-sans);
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin: 0 0 0.7rem;
-      font-weight: 500;
+      color: #dbdfda;
+      opacity: 0.7;
+      margin: 0 0 0.8rem;
+      font-weight: 400;
     }
     .col a {
       display: block;
-      color: var(--text);
+      color: #f2efea;
       text-decoration: none;
-      padding: 0.18rem 0;
+      padding: 0.2rem 0;
       font-size: 0.92rem;
     }
-    .col a:hover { text-decoration: underline; }
+    .col a:hover { text-decoration: underline; text-underline-offset: 4px; }
     .colophon {
-      border-top: 1px solid var(--hairline);
-      padding-top: 1.4rem;
       display: flex;
       justify-content: space-between;
-      color: var(--muted);
-      font-size: 0.82rem;
+      gap: 1rem;
+      border-top: 1px solid #f2efea2e;
+      padding-top: 1.1rem;
+      color: #dbdfda;
+      font-size: 0.8rem;
+      opacity: 0.85;
     }
-    .colophon a { color: var(--text); }
+    .colophon a { color: #f2efea; }
     @media (max-width: 760px) {
-      .footer-inner {
-        grid-template-columns: 1fr 1fr;
-        gap: 1.6rem;
-      }
-      .colophon { flex-direction: column; gap: 0.4rem; }
+      .footer-inner { grid-template-columns: 1fr 1fr; gap: 1.6rem; }
+      .col-brand { grid-column: 1 / -1; }
+      .colophon { flex-direction: column; gap: 0.3rem; }
     }
   </style>
 </footer>

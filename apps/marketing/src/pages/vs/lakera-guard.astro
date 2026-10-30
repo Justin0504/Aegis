@@ -27,10 +27,10 @@ const CAPS = [
   { row: 'Air-gap / no-egress deploy',            aegis: 'Yes (single binary, verifier in Node stdlib)', lg: 'Enterprise only, contract-gated', note: 'AEGIS enforcement + audit verification work with zero outbound network. Lakera on-prem is offered but requires an enterprise sales conversation and contract.', depth: 'core' },
 
   // ── Detection technique ──────────────────────────────────────
-  { row: 'Detection technique',                   aegis: 'Cost-aware cascade (rules → XGBoost L2 → LLM judge)', lg: 'Proprietary detector stack + LLM classifiers', note: 'AEGIS uses a documented three-layer cascade published in arXiv:2603.12621, short-circuiting at the cheapest confident layer. Lakera runs a proprietary detector stack; detector composition is not fully documented publicly.', depth: 'core' },
-  { row: 'Peer-reviewed benchmark',               aegis: 'Yes (arXiv:2603.12621, v2)', lg: 'No', note: 'The AEGIS cascade is evaluated on ToolGuard-Bench (5,525 records from InjecAgent + ToolEmu + OWASP LLM Top-10). Lakera publishes case studies and dataset counts but no peer-reviewed benchmark with head-to-head baselines.', depth: 'core' },
-  { row: 'Published block rate on public bench',  aegis: '99.9% at 1.06 ms P50 (cascade full)', lg: 'Not published', note: 'AEGIS numbers on ToolGuard-Bench: rules-only 1.2%, cascade + XGB no-LLM 99.8% @ 0.82 ms, cascade + XGB + Haiku 99.9% @ 1.06 ms @ $0.05 total. Adversarial (10 obfuscation transforms) block rate ≥ 97.5%. Lakera does not publish comparable per-call numbers on a public benchmark.', depth: 'core' },
-  { row: 'Latency (P50)',                         aegis: '~1 ms local cascade', lg: 'Managed API round-trip (network-dependent)', note: 'AEGIS runs the cascade in-process for the L1/L2 hot path; only the L3 fallback (LLM judge) crosses the network, and only for the small ambiguous residual. Lakera Guard is a hosted API — every call is an HTTPS round-trip to their region.', depth: 'core' },
+  { row: 'Detection technique',                   aegis: 'Ordered layers: rules → behavioural anomaly → instruction provenance → policy', lg: 'Proprietary detector stack + LLM classifiers', note: 'AEGIS decides each call with layers ordered by what they may observe, including which channel of the conversation authorised it (arXiv:2603.12621 v2); an LLM alignment auditor can review holds first. Lakera runs a proprietary detector stack; detector composition is not fully documented publicly.', depth: 'core' },
+  { row: 'Published end-to-end evaluation',       aegis: 'Yes (arXiv:2603.12621 v2)', lg: 'No', note: 'AEGIS is evaluated end to end on AgentDojo against AgentDojo\'s own defenses, with utility and holds reported, an adaptive attacker, and the attacks it cannot see. Lakera publishes case studies and dataset counts but no comparable public evaluation.', depth: 'core' },
+  { row: 'Attack success on a public benchmark',  aegis: '29.7% → 1.4% on AgentDojo (gpt-4o-mini)', lg: 'Not published', note: 'The cost is holds: clean-task utility is 69.1% undefended, 38.1% with no reviewer and 56.7% with the alignment auditor as first reviewer. Earlier ToolGuard-Bench figures (99.9% at 1.06 ms) are withdrawn; see /changelog. Lakera does not publish comparable numbers on a public benchmark.', depth: 'core' },
+  { row: 'Latency (P50)',                         aegis: '0.44 ms median per check', lg: 'Managed API round-trip (network-dependent)', note: 'AEGIS decides in-process with no model call on the check path; one gateway process sustains about 2,300–3,000 checks per second. The LLM alignment auditor is optional and sits off the check path. Lakera Guard is a hosted API — every call is an HTTPS round-trip to their region.', depth: 'core' },
 
   // ── Audit + evidence ────────────────────────────────────────
   { row: 'Cryptographic audit chain',             aegis: 'Yes (Ed25519 + SHA-256 hash chain, RFC 6962 style)', lg: 'No', note: 'AEGIS produces a tamper-evident log verifiable by any third party with a 245-line Node stdlib verifier. Lakera stores decision logs but does not ship a third-party-verifiable audit primitive.', depth: 'core' },
@@ -47,7 +47,7 @@ const CAPS = [
 
   // ── Pricing ─────────────────────────────────────────────────
   { row: 'Pricing',                               aegis: 'Free forever (self-host) · Pro $29/mo · Team $99/mo · Enterprise custom', lg: 'Not publicly listed (typical starts around $2k/mo, custom)', note: 'AEGIS pricing is public and open-core: full engine is MIT, paid tiers unlock advanced detectors, SSO, longer retention, and support. Lakera pricing is quote-based; publicly reported deals start around $2k/mo and scale with call volume.', depth: 'detail' },
-  { row: 'Cost per call at 100k/mo',              aegis: '$0 (self-host) or ~$0.05 total (cascade with LLM tier)', lg: 'Scales with volume (per-request pricing)', note: 'Because most AEGIS calls resolve in L1/L2 (regex + XGBoost, $0), only the small ambiguous residual invokes the LLM. Lakera charges per request regardless of which detector fires.', depth: 'detail' },
+  { row: 'Cost per call at 100k/mo',              aegis: '$0 marginal on the check path (self-host); auditor model cost only on holds', lg: 'Scales with volume (per-request pricing)', note: 'The AEGIS check path makes no model call; the optional alignment auditor is called only for held calls. Lakera charges per request regardless of which detector fires.', depth: 'detail' },
 ];
 
 const CORE   = CAPS.filter((c) => c.depth === 'core');
@@ -59,13 +59,13 @@ const FAQ = [
   { q: 'Is AEGIS a Lakera Guard alternative?',
     a: 'Yes, both mediate at the LLM tool-call boundary. AEGIS differs on three axes: it ships an MIT-licensed engine (Lakera is closed-source), it produces a cryptographically verifiable audit chain (Lakera does not), and it can run air-gapped with no outbound network. Lakera wins on managed-service ergonomics and content-safety detector maturity for non-English languages.' },
   { q: 'Does AEGIS block prompt injection like Lakera Guard?',
-    a: 'Yes. On the 5,525-record ToolGuard-Bench (InjecAgent + ToolEmu + OWASP LLM Top-10), the AEGIS cost-aware cascade achieves 99.9% block rate at 1.06 ms P50 and $0.05 total run cost. Under 10 obfuscation transforms (base64, hex, Unicode homoglyphs, paraphrase, …) the block rate never drops below 97.5%. Full ablation and adversarial numbers in arXiv:2603.12621.' },
+    a: 'At a different point. On AgentDojo with a gpt-4o-mini agent, AEGIS cuts attack success from 29.7% to 1.4%, the lowest of the defenses compared, by asking which turn of the conversation authorised each tool call; the cost is holds a reviewer must answer. It does not catch an injection that stays inside the tool the user already asked for. Details and limits in arXiv:2603.12621 v2.' },
   { q: 'How does AEGIS pricing compare to Lakera Guard?',
     a: 'AEGIS is open-core: the engine is free forever with unlimited self-host. Paid tiers are Pro $29/mo, Team $99/mo, Enterprise custom. Lakera pricing is quote-based; publicly reported deals start around $2k/mo and scale with call volume. For teams with 100k+ calls/month, self-hosted AEGIS is materially cheaper.' },
   { q: 'Can I run AEGIS in air-gapped or on-prem environments?',
     a: 'Yes, by default. AEGIS is a single Go/Node binary plus optional Postgres; the audit chain uses Ed25519 signatures verifiable with a 245-line Node stdlib verifier. Lakera on-prem is available on enterprise contracts.' },
   { q: 'Should I deploy AEGIS or Lakera Guard?',
-    a: 'Choose AEGIS if data sovereignty, open-source auditability, cryptographic evidence, or air-gap deployment are hard requirements; if you want a peer-reviewed benchmark to point at; or if cost-per-call at high volume matters. Choose Lakera if you prefer a managed service with a broader multi-lingual content-safety detector catalogue and can accept vendor lock-in on decisions and logs.' },
+    a: 'Choose AEGIS if data sovereignty, open-source auditability, cryptographic evidence, or air-gap deployment are hard requirements; if you want a published end-to-end evaluation to point at; or if cost-per-call at high volume matters. Choose Lakera if you prefer a managed service with a broader multi-lingual content-safety detector catalogue and can accept vendor lock-in on decisions and logs.' },
 ];
 
 const productLd = {
@@ -73,7 +73,7 @@ const productLd = {
   '@type': 'Product',
   '@id': `${canonicalUrl}#product`,
   name: 'AEGIS',
-  description: 'Open-source pre-execution firewall + cryptographic audit for LLM tool calls. MIT-licensed engine with a peer-reviewed cost-aware cascade.',
+  description: 'Open-source pre-execution firewall + cryptographic audit for LLM tool calls. MIT-licensed engine with a published, layered decision pipeline.',
   brand: { '@type': 'Organization', name: 'AEGIS' },
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', url: 'https://aegistraces.com/pricing' },
 };
@@ -122,7 +122,7 @@ const faqLd = {
 
 <Layout
   title="AEGIS vs Lakera Guard — Open-source runtime firewall + cryptographic audit vs managed content safety"
-  description="Honest AEGIS vs Lakera Guard comparison. MIT-licensed engine, peer-reviewed cascade (99.9% block @ 1.06 ms), cryptographic audit chain, air-gap deployable vs managed API with mature multi-lingual content detectors. Updated Sept 2026."
+  description="Honest AEGIS vs Lakera Guard comparison. MIT-licensed engine, instruction-provenance enforcement (AgentDojo attack success 29.7% → 1.4%), cryptographic audit chain, air-gap deployable vs managed API with mature multi-lingual content detectors. Updated Oct 2026."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >
@@ -134,7 +134,7 @@ const faqLd = {
         <h1>AEGIS <span class="vs-word">vs</span> Lakera Guard</h1>
         <p class="lede">
           Both mediate LLM tool calls at runtime. AEGIS is an
-          MIT-licensed engine with a peer-reviewed cost-aware cascade
+          MIT-licensed engine with a published, layered decision pipeline
           and a cryptographic audit chain that can be verified by
           anyone. Lakera Guard is a mature managed API with a broad
           multi-lingual content-safety detector catalogue. The choice
@@ -155,7 +155,7 @@ const faqLd = {
       <div class="container container-narrow">
         <h2>TL;DR</h2>
         <ul class="tldr-list">
-          <li><strong>AEGIS wins on</strong> open-source engine, cryptographic audit, air-gap deploy, peer-reviewed benchmark, and cost-per-call at volume.</li>
+          <li><strong>AEGIS wins on</strong> open-source engine, cryptographic audit, air-gap deploy, published end-to-end evaluation, and cost-per-call at volume.</li>
           <li><strong>Lakera wins on</strong> managed-service ergonomics, multi-lingual content-safety detectors, and a longer commercial track record.</li>
           <li><strong>They agree on</strong> the category (runtime mediation at the LLM boundary) and on the need for enterprise-grade compliance evidence.</li>
         </ul>
@@ -223,7 +223,7 @@ const faqLd = {
               <li>Data sovereignty (banks, health, government) is non-negotiable.</li>
               <li>Regulators require cryptographic tamper-evidence, not just log storage.</li>
               <li>You need air-gap or on-prem deploy without an enterprise sales cycle.</li>
-              <li>You want a peer-reviewed benchmark to point auditors at.</li>
+              <li>You want a published end-to-end evaluation to point auditors at.</li>
               <li>Call volume is high (&gt; 100k/mo) and per-call pricing gets expensive.</li>
               <li>You want to inspect and modify the engine (MIT).</li>
             </ul>

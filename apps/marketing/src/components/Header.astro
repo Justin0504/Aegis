@@ -30,8 +30,8 @@ const displayName = user
 <header class="site-header">
   <div class="container header-inner">
     <a href="/" class="brand" aria-label="AEGIS home">
-      <span class="mark" aria-hidden="true">⌬</span>
-      <span class="brand-name">AEGIS</span>
+      <svg class="mark" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 15 L14 3 L27 15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span class="brand-name">aegis</span>
     </a>
     <nav class="primary">
       <a href="/demo"     class:list={[{ active: current === 'demo' }]}>Demo</a>
@@ -76,110 +76,95 @@ const displayName = user
     </div>
   </div>
   <style>
+    /* No rule under the header: it sits on the paper and only frosts
+       once content scrolls beneath it. */
     .site-header {
-      border-bottom: 1px solid var(--hairline);
-      padding: 1rem 0;
+      padding: clamp(0.8rem, 0.6rem + 0.9vw, 1.6rem) 0;
       position: sticky;
       top: 0;
-      background: var(--bg);
+      background: transparent;
       z-index: 50;
-      /* Scroll-driven backdrop-blur — nav softens the content behind
-         it once the page has scrolled past ~48px. Pure CSS via
-         `animation-timeline: scroll()` (Chrome 115+, Safari 26+).
-         @supports gate keeps older browsers on the flat bg. */
-      transition: box-shadow 0.25s ease;
     }
     @supports (animation-timeline: scroll()) {
       .site-header {
-        background: color-mix(in oklab, var(--bg) 82%, transparent);
-        -webkit-backdrop-filter: saturate(1.1) blur(10px);
-                backdrop-filter: saturate(1.1) blur(10px);
         animation: header-scrolled linear both;
         animation-timeline: scroll(root);
-        animation-range: 0 96px;
+        animation-range: 0 120px;
       }
       @keyframes header-scrolled {
-        from {
-          background: var(--bg);
-          box-shadow: 0 0 0 rgba(10, 10, 10, 0);
-        }
+        from { background: transparent; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
         to {
-          background: color-mix(in oklab, var(--bg) 72%, transparent);
-          box-shadow: 0 1px 0 var(--hairline), 0 8px 22px rgba(10, 10, 10, 0.05);
+          background: color-mix(in oklab, var(--bg) 74%, transparent);
+          -webkit-backdrop-filter: saturate(1.1) blur(14px);
+                  backdrop-filter: saturate(1.1) blur(14px);
         }
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      .site-header {
-        animation: none !important;
-        -webkit-backdrop-filter: none;
-                backdrop-filter: none;
-        background: var(--bg);
-      }
+      .site-header { animation: none !important; background: var(--bg); }
     }
     .header-inner {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
       gap: 2rem;
+      max-width: none;
+      padding: 0 clamp(1.1rem, 0.4rem + 3vw, 3.75rem);
     }
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
+      justify-self: start;
       text-decoration: none;
-      color: var(--text);
-      font-family: var(--font-sans); font-weight: 600;
-      font-size: 1.4rem;
-      letter-spacing: -0.01em;
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 1.45rem;
+      letter-spacing: -0.04em;
     }
-    .brand-name { font-weight: 400; }
-    .mark { font-size: 1.6rem; line-height: 1; }
+    .mark { width: 1.35rem; height: auto; margin-top: 0.05rem; }
     .primary {
       display: flex;
-      gap: 1.5rem;
-      margin-left: auto;
-      font-size: 0.95rem;
+      gap: clamp(1.2rem, 0.6rem + 1.4vw, 2.2rem);
+      font-size: 0.92rem;
     }
     .primary a {
-      color: var(--muted);
+      color: var(--ink);
       text-decoration: none;
       padding: 0.3rem 0;
+      opacity: 0.86;
+      transition: opacity 0.15s ease;
     }
-    .primary a:hover, .primary a.active {
-      color: var(--text);
-    }
+    .primary a:hover, .primary a.active { opacity: 1; text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 1px; }
     .cta {
       display: flex;
       gap: 0.6rem;
-      margin-left: 1rem;
+      justify-self: end;
     }
     .cta .btn,
     .cta .btn-secondary {
-      padding: 0.55rem 0.95rem;
-      font-size: 0.92rem;
+      min-height: 2.35rem;
+      padding: 0.45rem 1.05rem;
+      font-size: 0.9rem;
     }
-    @media (max-width: 760px) {
-      .header-inner { flex-wrap: wrap; gap: 1rem; }
-      .primary { order: 3; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 1rem; }
-      .cta { margin-left: 0; }
+    @media (max-width: 900px) {
+      .header-inner { grid-template-columns: 1fr auto; gap: 0.9rem 1rem; }
+      .primary { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; gap: 0.6rem 1.1rem; }
     }
-    /* Below iPhone 15 — tighten everything so brand + CTAs fit in
-       one row without the primary nav wrapping the header height. */
     @media (max-width: 500px) {
-      .header-inner { gap: 0.7rem; }
-      .brand { font-size: 1.15rem; gap: 0.3rem; }
-      .mark { font-size: 1.35rem; }
-      .primary { gap: 0.9rem; font-size: 0.88rem; }
-      .cta { gap: 0.4rem; }
-      .cta .btn, .cta .btn-secondary {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.85rem;
-        /* Apple HIG: touch target ≥44px. padding+font gets us to ~40 —
-           bump min-height explicitly. */
-        min-height: 40px;
-        display: inline-flex;
-        align-items: center;
+      .brand { font-size: 1.2rem; }
+      .primary {
+        font-size: 0.86rem;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+                mask-image: linear-gradient(90deg, #000 85%, transparent);
       }
+      .primary a { flex: none; }
+      .cta { gap: 0.4rem; }
+      .cta .btn, .cta .btn-secondary { padding: 0.45rem 0.8rem; font-size: 0.85rem; min-height: 40px; }
     }
 
     /* ── User chip (logged-in state) ───────────────────────── */

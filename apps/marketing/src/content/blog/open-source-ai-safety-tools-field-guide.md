@@ -18,7 +18,7 @@ howToDuration: "PT2H"
 howToSteps:
   - "Enumerate your agent's safety surface: user input, model output, tool-call arguments, retrieval passages, output side effects. Each surface has different open-source tools that address it best — do not expect one project to cover all five."
   - "Cover input/output validation with NeMo Guardrails (Colang DSL, best for chat-style agents) or Guardrails AI (Pydantic-style validation + validator hub, best for structured-output pipelines)."
-  - "Cover the tool-call execution path with AEGIS — the only open-source runtime firewall with a peer-reviewed cost-aware cascade (arXiv:2603.12621). 99.9% block rate at 1.06 ms P50 latency on the 5,525-record ToolGuard-Bench."
+  - "Cover the tool-call execution path with AEGIS — an open-source pre-execution control point that decides each call by which turn of the conversation authorised it (arXiv:2603.12621 v2). On AgentDojo it cuts attack success from 29.7% to 1.4% at 0.44 ms median per check; the cost is holds a reviewer must answer."
   - "Add a content-safety classifier (Llama Guard 3-8B via HF Inference or vLLM) as an additional signal into the gateway's L2 layer for scenarios where content classification matters more than tool-call structure."
   - "Instrument observability with Langfuse (MIT) or Helicone (Apache-2.0) — post-execution logging complements the runtime firewall by giving you offline analytics, prompt versioning, and evaluation datasets."
   - "Configure cross-tool signal flow: validator failures from Guardrails AI + classifier hits from Llama Guard both feed AEGIS as additional risk signals; AEGIS decisions stream into Langfuse for offline analysis. No project is a substitute for another; the value is in the composition."

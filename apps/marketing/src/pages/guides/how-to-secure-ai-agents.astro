@@ -31,10 +31,10 @@ const STEPS = [
     concrete: 'Supported frameworks: Anthropic, OpenAI, LangChain, CrewAI, Gemini, Bedrock, Mistral, LlamaIndex, smolagents (Python); Anthropic, OpenAI, LangChain, Vercel AI SDK (JS/TS); Go. See https://github.com/Justin0504/Aegis for the full list.',
   },
   {
-    title: 'Configure a three-layer classification cascade',
+    title: 'Order the layers by what they can see',
     duration: '30 min',
-    body: 'A single detector is either too brittle (regex misses 98%+ of real attacks in our benchmark) or too expensive (LLM judges cost $0.36–$5.32 per run at 1–2 s latency). The Pareto-optimal defence is a cost-aware cascade: deterministic rules for known-bad patterns (L1), a supervised classifier over structural features (L2), and an LLM judge for the small ambiguous residual (L3).',
-    concrete: 'AEGIS ships this cascade out of the box: L1 = 22 patterns × 7 categories, L2 = XGBoost over 15 features, L3 = Claude Haiku. On the 5,525-record ToolGuard-Bench (arXiv:2603.12621), the cascade achieves 99.9% block rate at 1.06 ms P50 latency and $0.05 total run cost.',
+    body: 'A content detector alone is not enough: on tool calls live agents emitted under attack, content patterns catch 0.4% of them, because the injected call looks ordinary, and an LLM judge adds 1–2 s per call. Order the layers by what each may observe — the call string, the agent\'s own history, which channel of the conversation authorised the call — and let one fail-safe policy turn their facts into a decision.',
+    concrete: 'AEGIS ships this out of the box: 28 risk patterns in 11 types, a behavioural anomaly stack over a 16-dimensional vector, instruction provenance over a per-session context ledger, and a policy DSL in which a rule can tighten a decision but never relax it; the alignment auditor can review holds first. On AgentDojo (arXiv:2603.12621 v2) it cuts attack success from 29.7% to 1.4% at 0.44 ms median per check.',
   },
   {
     title: 'Add a human-in-the-loop approval queue for high-risk calls',
@@ -59,7 +59,7 @@ const STEPS = [
 const FAQ = [
   {
     q: 'What is the fastest way to secure an AI agent?',
-    a: 'Add a tool-call gateway with a two-line SDK change (import agentguard; agentguard.auto()). Deploy the three-layer cascade (rules → XGBoost → LLM judge) which reaches 99.9% block rate on ToolGuard-Bench at 1.06 ms P50 latency and $0.05 total cost. The Compliance Cockpit provides the human-review UI and tamper-evident audit chain out of the box.',
+    a: 'Add a tool-call gateway with a two-line SDK change (import agentguard; agentguard.auto()). The gateway orders its layers — rules, behavioural anomaly, instruction provenance, policy — and on AgentDojo cuts attack success from 29.7% to 1.4% at 0.44 ms median per check. The Compliance Cockpit provides the human-review UI and tamper-evident audit chain out of the box.',
   },
   {
     q: 'Do I need to change my agent code?',
@@ -169,7 +169,7 @@ const courseLd = {
 
 <Layout
   title="How to Secure an AI Agent — 6 Steps (2026 Guide)"
-  description="Six practical steps to deploy runtime safety on an LLM agent: enumerate tool-call surface, instrument with a gateway, configure a three-layer cascade (99.9% block at 1.06 ms), route pending calls to a reviewer, log to a tamper-evident audit chain, alert on repeated blocks. Facts anchored to arXiv:2603.12621."
+  description="Six practical steps to deploy runtime safety on an LLM agent: enumerate tool-call surface, instrument with a gateway, order the layers by what they can see, route pending calls to a reviewer, log to a tamper-evident audit chain, alert on repeated blocks. Facts anchored to arXiv:2603.12621."
   canonical={canonicalUrl}
   ogImage="/og-image.png"
 >
@@ -183,8 +183,8 @@ const courseLd = {
           Six steps, roughly 100 minutes to complete, one file to
           change. If you have five minutes: install the AEGIS SDK,
           run <code>agentguard.auto()</code>, and every tool call
-          your agent makes is now mediated by a three-layer cascade
-          that blocks 99.9% of malicious calls at 1.06 ms P50 latency
+          your agent makes is now decided before it runs, by which turn of the
+          conversation authorised it, at 0.44 ms median per check
           (see <a href="https://arxiv.org/abs/2603.12621">arXiv:2603.12621</a>).
         </p>
       </div>

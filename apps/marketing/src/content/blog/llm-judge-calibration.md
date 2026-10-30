@@ -17,7 +17,7 @@ oneSentenceAnswer: "LLM guard models are overconfident by 20 to 30 percentage po
 coverImage: "1551288049-bebda4e38f71"
 howToDuration: "PT90M"
 howToSteps:
-  - "Assemble a held-out calibration set of 500-1,000 tool-call examples with ground-truth labels (benign / malicious). Use ToolGuard-Bench slice-500 or your own production traces with expert annotation."
+  - "Assemble a held-out calibration set of 500-1,000 tool-call examples with ground-truth labels (benign / malicious). Use your own production traces with expert annotation, or the clean and attack cases of a public benchmark such as AgentDojo."
   - "Run each candidate LLM judge (GPT-4o-mini, Claude Haiku 4.5, Llama Guard, Gemini Flash) against the calibration set. For each prediction, record the raw model probability + the sample label."
   - "Compute Expected Calibration Error (ECE) using the Guo et al. 2017 methodology: bin probabilities into 15 equal-width bins, compute per-bin (accuracy − confidence), weight by bin size, sum. Report ECE + Brier score + reliability diagram."
   - "Apply post-hoc calibration if ECE > 5%: temperature scaling on a validation set is the cheapest fix and typically halves ECE without changing decision boundaries. Platt scaling is the next step if temperature alone is insufficient."

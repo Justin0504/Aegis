@@ -61,9 +61,9 @@ const CATEGORIES = [
     title: 'Evaluation benchmarks (offline)',
     blurb: 'Emulate an environment and score an agent. Do not run at inference time. Used to validate runtime firewalls, not replace them.',
     tools: [
-      { name: 'AgentDojo',   license: 'MIT', deployment: 'Research', highlight: 'Dynamic prompt-injection benchmark. Used as an out-of-distribution split in ToolGuard-Bench.' },
-      { name: 'InjecAgent',  license: 'MIT', deployment: 'Research', highlight: 'Indirect-prompt-injection dataset (~3,400 malicious tool calls). Largest single contributor to ToolGuard-Bench.' },
-      { name: 'ToolEmu',     license: 'MIT', deployment: 'Research', highlight: 'Tool-execution emulator with LLM-based risk scoring. Contributes 144 records to ToolGuard-Bench.' },
+      { name: 'AgentDojo',   license: 'MIT', deployment: 'Research', highlight: 'Dynamic prompt-injection benchmark. AEGIS reports its end-to-end numbers on it (arXiv:2603.12621 v2).' },
+      { name: 'InjecAgent',  license: 'MIT', deployment: 'Research', highlight: 'Indirect-prompt-injection dataset (~3,400 malicious tool calls). Its cases seed the per-call corpus in the AEGIS paper, rebuilt by running a live agent.' },
+      { name: 'ToolEmu',     license: 'MIT', deployment: 'Research', highlight: 'Tool-execution emulator with LLM-based risk scoring.' },
     ],
   },
 ];
@@ -76,7 +76,7 @@ const FAQ = [
   },
   {
     q: 'How is AEGIS different from Lakera Guard?',
-    a: 'Lakera Guard is a hosted, commercial detector service; AEGIS is an MIT-licensed self-hostable runtime firewall with a published benchmark and cryptographic audit chain. Lakera wins on managed-service ergonomics + detector maturity for content safety. AEGIS wins on data sovereignty, Ed25519-signed audit trails required for regulated deployments, and a cost-aware cascade that combines rules + supervised classifier + LLM judge — reaching Lakera-class coverage without paying the LLM latency (1.06 ms P50 vs a hosted-LLM round-trip).',
+    a: 'Lakera Guard is a hosted, commercial detector service; AEGIS is an MIT-licensed, self-hostable control point with a cryptographic audit chain. Lakera wins on managed-service ergonomics and detector maturity for content safety. AEGIS wins on data sovereignty, Ed25519-signed receipts and hash-chained audit for regulated deployments, and an instruction-provenance layer that decides a call by which turn authorised it — 0.44 ms median per check, with no model call.',
   },
   {
     q: 'How is AEGIS different from Langfuse?',
@@ -173,8 +173,8 @@ const itemListLd = {
         <ul class="tldr-list">
           <li>
             <strong>Runtime firewalls</strong> (block before execution) —
-            AEGIS is the only open-source option with a peer-reviewed
-            cascade and cryptographic audit. Lakera Guard and Robust
+            AEGIS is an open-source option that decides by which turn
+            authorised a call, with cryptographic audit. Lakera Guard and Robust
             Intelligence are commercial alternatives with mature
             detector catalogues.
           </li>
@@ -191,8 +191,7 @@ const itemListLd = {
           <li>
             <strong>Evaluation benchmarks</strong> (offline scoring) —
             AgentDojo, InjecAgent, ToolEmu. Validate firewalls; do not run
-            at inference time. All three feed AEGIS's
-            <em>ToolGuard-Bench</em>.
+            at inference time. AEGIS reports end to end on AgentDojo.
           </li>
         </ul>
       </div>
