@@ -1,212 +1,82 @@
 [
- {
-  "name": "f-water",
-  "id": 4460485,
-  "w": 5472,
-  "h": 3648,
-  "by": "Wendy Wei",
-  "page": "https://www.pexels.com/photo/body-of-water-4460485/",
-  "alt": "Peaceful ocean surface with gentle ripples and a turquoise hue, capturing a tranquil moment.",
-  "src": "https://images.pexels.com/photos/4460485/pexels-photo-4460485.jpeg"
- },
- {
-  "name": "f-shallows",
-  "id": 18104593,
-  "w": 4000,
-  "h": 6000,
-  "by": "Karina Dashkina",
-  "page": "https://www.pexels.com/photo/photo-of-a-rocky-shallow-18104593/",
-  "alt": "Shallow clear sea water over a rocky beach captured from above.",
-  "src": "https://images.pexels.com/photos/18104593/pexels-photo-18104593.jpeg"
- },
- {
-  "name": "f-leafwall",
-  "id": 35650476,
-  "w": 4672,
-  "h": 7008,
-  "by": "\u5149\u672f \u5c71\u5f71",
-  "page": "https://www.pexels.com/photo/plant-shadows-on-sunlit-wall-35650476/",
-  "alt": "Sunlit wall with plant shadows casting a natural pattern indoors.",
-  "src": "https://images.pexels.com/photos/35650476/pexels-photo-35650476.jpeg"
- },
- {
-  "name": "f-palm",
-  "id": 14046317,
-  "w": 8256,
-  "h": 5504,
-  "by": "Tim Mossholder",
-  "page": "https://www.pexels.com/photo/shadow-of-palm-leaf-on-a-wall-14046317/",
-  "alt": "Dramatic palm leaf shadows cast on a textured concrete wall, creating an artistic and moody effect.",
-  "src": "https://images.pexels.com/photos/14046317/pexels-photo-14046317.jpeg"
- },
- {
-  "name": "f-fern",
-  "id": 12695823,
-  "w": 6000,
-  "h": 4000,
-  "by": "Ankit Rainloure",
-  "page": "https://www.pexels.com/photo/green-fern-plant-12695823/",
-  "alt": "Sunlight streaming through vibrant green leaves creating a natural pattern in a serene outdoor setting.",
-  "src": "https://images.pexels.com/photos/12695823/pexels-photo-12695823.jpeg"
- },
- {
-  "name": "c-typing-plant",
-  "id": 29485953,
-  "w": 3000,
-  "h": 2001,
-  "by": "Jakub Zerdzicki",
-  "page": "https://www.pexels.com/photo/hands-typing-on-laptop-with-green-plant-nearby-29485953/",
-  "alt": "Hands typing on a laptop in an indoor setting with a green plant. Perfect for work from home concepts.",
-  "src": "https://images.pexels.com/photos/29485953/pexels-photo-29485953.jpeg"
- },
- {
-  "name": "c-typing-warm",
-  "id": 6773645,
-  "w": 2920,
-  "h": 4474,
-  "by": "Kindel Media",
-  "page": "https://www.pexels.com/photo/a-person-typing-on-a-laptop-6773645/",
-  "alt": "A close-up shot of hands typing on a laptop keyboard, highlighting productivity and technology.",
-  "src": "https://images.pexels.com/photos/6773645/pexels-photo-6773645.jpeg"
- },
- {
-  "name": "c-typing-bright",
-  "id": 36764552,
-  "w": 3840,
-  "h": 2160,
-  "by": "Vitaly Gariev",
-  "page": "https://www.pexels.com/photo/close-up-of-hands-typing-on-laptop-keyboard-indoors-36764552/",
-  "alt": "Hands typing on a laptop keyboard indoors with blurred background and natural lighting.",
-  "src": "https://images.pexels.com/photos/36764552/pexels-photo-36764552.jpeg"
- },
- {
-  "name": "c-window-man",
-  "id": 4939631,
-  "w": 3736,
-  "h": 5604,
-  "by": "Vlada Karpovich",
-  "page": "https://www.pexels.com/photo/a-man-sitting-on-windowsill-while-using-a-laptop-4939631/",
-  "alt": "A man sits on a window sill, using a laptop for remote work or study, surrounded by minimal decor.",
-  "src": "https://images.pexels.com/photos/4939631/pexels-photo-4939631.jpeg"
- },
- {
-  "name": "c-window-bed",
-  "id": 7901756,
-  "w": 5842,
-  "h": 3895,
-  "by": "Ivan S",
-  "page": "https://www.pexels.com/photo/a-woman-in-brown-robe-sitting-on-the-floor-while-using-her-laptop-7901756/",
-  "alt": "A woman in a robe sits by a window, using a laptop with a cup of coffee nearby.",
-  "src": "https://images.pexels.com/photos/7901756/pexels-photo-7901756.jpeg"
- },
- {
-  "name": "c-window-forest",
-  "id": 9222393,
-  "w": 4000,
-  "h": 6000,
-  "by": "Ron Lach",
-  "page": "https://www.pexels.com/photo/man-with-his-hand-on-his-chin-while-using-a-laptop-9222393/",
-  "alt": "Man working on a laptop in a sunlit forest setting, hand on chin, contemplating.",
-  "src": "https://images.pexels.com/photos/9222393/pexels-photo-9222393.jpeg"
- },
- {
-  "name": "c-coffee",
-  "id": 7657972,
-  "w": 5464,
-  "h": 8192,
-  "by": "Cup of  Couple",
-  "page": "https://www.pexels.com/photo/a-cup-of-coffee-and-writing-materials-on-a-table-7657972/",
-  "alt": "A clean, minimalistic desk with coffee, notebooks, and pen, perfect for inspired writing.",
-  "src": "https://images.pexels.com/photos/7657972/pexels-photo-7657972.jpeg"
- },
- {
-  "name": "c-coffee-top",
-  "id": 7657877,
-  "w": 8192,
-  "h": 5464,
-  "by": "Cup of  Couple",
-  "page": "https://www.pexels.com/photo/a-cup-of-coffee-on-a-table-7657877/",
-  "alt": "A minimalist setup with a cup of coffee, a notebook, and a pen on a white tabletop.",
-  "src": "https://images.pexels.com/photos/7657877/pexels-photo-7657877.jpeg"
- },
- {
-  "name": "c-field-walk",
-  "id": 29715955,
-  "w": 4771,
-  "h": 3578,
-  "by": "Alexandr Meadow",
-  "page": "https://www.pexels.com/photo/person-walking-on-golf-course-at-sunset-29715955/",
-  "alt": "A person walks on a sunny golf course with long shadows at sunset.",
-  "src": "https://images.pexels.com/photos/29715955/pexels-photo-29715955.png"
- },
- {
-  "name": "c-field-path",
-  "id": 36779128,
-  "w": 2639,
-  "h": 3519,
-  "by": "Almuntadhar  Faris",
-  "page": "https://www.pexels.com/photo/solitary-figure-with-umbrella-in-rainy-landscape-36779128/",
-  "alt": "A lone person with an umbrella walks through a lush, rainy landscape, offering a serene and contemplative scene.",
-  "src": "https://images.pexels.com/photos/36779128/pexels-photo-36779128.jpeg"
- },
- {
-  "name": "c-grass-read",
-  "id": 17066345,
-  "w": 7728,
-  "h": 5152,
-  "by": "Vika Glitter",
-  "page": "https://www.pexels.com/photo/woman-lying-down-with-book-on-grass-in-park-17066345/",
-  "alt": "A woman leisurely reading a book while lying on grass in a park, enjoying a sunny day.",
-  "src": "https://images.pexels.com/photos/17066345/pexels-photo-17066345.jpeg"
- },
- {
-  "name": "c-grass-sit",
-  "id": 39107359,
-  "w": 4480,
-  "h": 6720,
-  "by": "iddea photo",
-  "page": "https://www.pexels.com/photo/woman-reading-book-outdoors-on-a-sunny-day-39107359/",
-  "alt": "A woman enjoying a book while sitting on grass in a sunlit park.",
-  "src": "https://images.pexels.com/photos/39107359/pexels-photo-39107359.jpeg"
- },
- {
-  "name": "c-phone",
-  "id": 5357816,
-  "w": 6000,
-  "h": 4000,
-  "by": "Roberto Hund",
-  "page": "https://www.pexels.com/photo/woman-leaning-on-metal-railings-looking-at-mobile-phone-5357816/",
-  "alt": "Portrait of a young woman with curly hair using her smartphone on an urban bridge during daylight.",
-  "src": "https://images.pexels.com/photos/5357816/pexels-photo-5357816.jpeg"
- },
- {
-  "name": "c-sign",
-  "id": 7054510,
-  "w": 5184,
-  "h": 2920,
-  "by": "Kindel Media",
-  "page": "https://www.pexels.com/photo/a-person-writing-on-a-paper-7054510/",
-  "alt": "A close-up image showing a hand holding a pen while signing a document.",
-  "src": "https://images.pexels.com/photos/7054510/pexels-photo-7054510.jpeg"
- },
- {
-  "name": "c-arch",
-  "id": 13523326,
-  "w": 4896,
-  "h": 3264,
-  "by": "\ud835\udddb&\ud835\uddd6\ud835\udde2 \u3000",
-  "page": "https://www.pexels.com/photo/white-wooden-wall-13523326/",
-  "alt": "A minimalist capture of a building's geometric corner with subtle shadows.",
-  "src": "https://images.pexels.com/photos/13523326/pexels-photo-13523326.jpeg"
- },
- {
-  "name": "c-leafshadow",
-  "id": 33351396,
-  "w": 6000,
-  "h": 4000,
-  "by": "Bruno Casttro",
-  "page": "https://www.pexels.com/photo/shadow-of-leaves-on-a-cream-wall-nature-s-art-33351396/",
-  "alt": "Soft focus abstract of leaves casting shadows on a sunlit wall, evoking tranquility.",
-  "src": "https://images.pexels.com/photos/33351396/pexels-photo-33351396.jpeg"
- }
+  {
+    "name": "f-water",
+    "id": 4460485,
+    "w": 5472,
+    "h": 3648,
+    "by": "Wendy Wei",
+    "page": "https://www.pexels.com/photo/body-of-water-4460485/",
+    "alt": "Peaceful ocean surface with gentle ripples and a turquoise hue, capturing a tranquil moment.",
+    "src": "https://images.pexels.com/photos/4460485/pexels-photo-4460485.jpeg"
+  },
+  {
+    "name": "f-shallows",
+    "id": 18104593,
+    "w": 4000,
+    "h": 6000,
+    "by": "Karina Dashkina",
+    "page": "https://www.pexels.com/photo/photo-of-a-rocky-shallow-18104593/",
+    "alt": "Shallow clear sea water over a rocky beach captured from above.",
+    "src": "https://images.pexels.com/photos/18104593/pexels-photo-18104593.jpeg"
+  },
+  {
+    "name": "f-leafwall",
+    "id": 35650476,
+    "w": 4672,
+    "h": 7008,
+    "by": "\u5149\u672f \u5c71\u5f71",
+    "page": "https://www.pexels.com/photo/plant-shadows-on-sunlit-wall-35650476/",
+    "alt": "Sunlit wall with plant shadows casting a natural pattern indoors.",
+    "src": "https://images.pexels.com/photos/35650476/pexels-photo-35650476.jpeg"
+  },
+  {
+    "name": "f-fern",
+    "id": 12695823,
+    "w": 6000,
+    "h": 4000,
+    "by": "Ankit Rainloure",
+    "page": "https://www.pexels.com/photo/green-fern-plant-12695823/",
+    "alt": "Sunlight streaming through vibrant green leaves creating a natural pattern in a serene outdoor setting.",
+    "src": "https://images.pexels.com/photos/12695823/pexels-photo-12695823.jpeg"
+  },
+  {
+    "name": "c-typing-plant",
+    "id": 29485953,
+    "w": 3000,
+    "h": 2001,
+    "by": "Jakub Zerdzicki",
+    "page": "https://www.pexels.com/photo/hands-typing-on-laptop-with-green-plant-nearby-29485953/",
+    "alt": "Hands typing on a laptop in an indoor setting with a green plant. Perfect for work from home concepts.",
+    "src": "https://images.pexels.com/photos/29485953/pexels-photo-29485953.jpeg"
+  },
+  {
+    "name": "c-typing-bright",
+    "id": 36764552,
+    "w": 3840,
+    "h": 2160,
+    "by": "Vitaly Gariev",
+    "page": "https://www.pexels.com/photo/close-up-of-hands-typing-on-laptop-keyboard-indoors-36764552/",
+    "alt": "Hands typing on a laptop keyboard indoors with blurred background and natural lighting.",
+    "src": "https://images.pexels.com/photos/36764552/pexels-photo-36764552.jpeg"
+  },
+  {
+    "name": "c-coffee-top",
+    "id": 7657877,
+    "w": 8192,
+    "h": 5464,
+    "by": "Cup of  Couple",
+    "page": "https://www.pexels.com/photo/a-cup-of-coffee-on-a-table-7657877/",
+    "alt": "A minimalist setup with a cup of coffee, a notebook, and a pen on a white tabletop.",
+    "src": "https://images.pexels.com/photos/7657877/pexels-photo-7657877.jpeg"
+  },
+  {
+    "name": "c-phone",
+    "id": 5357816,
+    "w": 6000,
+    "h": 4000,
+    "by": "Roberto Hund",
+    "page": "https://www.pexels.com/photo/woman-leaning-on-metal-railings-looking-at-mobile-phone-5357816/",
+    "alt": "Portrait of a young woman with curly hair using her smartphone on an urban bridge during daylight.",
+    "src": "https://images.pexels.com/photos/5357816/pexels-photo-5357816.jpeg"
+  }
 ]
