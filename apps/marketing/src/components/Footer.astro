@@ -7,7 +7,7 @@ const year = new Date().getFullYear();
 const hasCta = Astro.slots.has('cta');
 ---
 <footer class:list={['site-footer', { 'has-cta': hasCta }]}>
-  <div class="panel">
+  <div class="panel" data-grow>
     {hasCta && (
       <div class="footer-cta">
         <slot name="cta" />
@@ -70,7 +70,8 @@ const hasCta = Astro.slots.has('cta');
       overflow: hidden;
       border-radius: var(--radius-panel);
       color: #f2efea;
-      background: #152b2d url('/images/tex-water.jpg') center / cover no-repeat;
+      background: #152b2d url('/images/photo/f-fern.webp') center / cover no-repeat;
+      transform-origin: 50% 0;
       padding: clamp(2.6rem, 1.6rem + 4vw, 5rem) clamp(1.25rem, 0.4rem + 3.5vw, 4rem) clamp(1rem, 0.8rem + 0.8vw, 1.6rem);
       isolation: isolate;
     }
