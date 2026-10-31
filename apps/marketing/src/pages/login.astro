@@ -43,6 +43,7 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
 <Layout title="Sign in — AEGIS" description="Sign in to your AEGIS account.">
   <main class="split">
     <aside class="left">
+      <canvas class="field" data-field aria-hidden="true"></canvas>
       <a href="/" class="brand" aria-label="AEGIS home">
         <svg class="mark" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 15 L14 3 L27 15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
         <span class="brand-name">aegis</span>
@@ -127,6 +128,9 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
     </section>
   </main>
 
+  <script>
+    import '../scripts/field';
+  </script>
   <script is:inline define:vars={{ supabaseUrl, supabaseAnon, nextParam }}>
     // Astro's `define:vars` wraps this whole block in a plain (non-async)
     // IIFE, which means `await` at top level is a hard SyntaxError and
@@ -232,14 +236,14 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       border-radius: var(--radius-panel);
       padding: 2.4rem 2.6rem 3rem;
       color: #f2efea;
-      /* Ink ruled like a ledger, as on the footer panel. */
-      background:
-        repeating-linear-gradient(180deg, transparent 0 calc(2.6rem - 1px), #f2efea0f calc(2.6rem - 1px) 2.6rem),
-        radial-gradient(90% 70% at 30% 0%, #24453f 0%, #152b2d 60%, #0f1d1e 100%);
+      /* Ink, with a field of strokes (src/scripts/field.ts) that swirls
+         around the pointer. */
+      background: radial-gradient(120% 80% at 20% 100%, #1f3d39 0%, #152b2d 50%, #0f1d1e 100%);
       display: flex;
       flex-direction: column;
       isolation: isolate;
     }
+    .field { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
     aside .brand {
       display: inline-flex;
       align-items: center;

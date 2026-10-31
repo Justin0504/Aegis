@@ -8,6 +8,7 @@ const hasCta = Astro.slots.has('cta');
 ---
 <footer class:list={['site-footer', { 'has-cta': hasCta }]}>
   <div class="panel" data-grow>
+    <canvas class="field" data-field aria-hidden="true"></canvas>
     {hasCta && (
       <div class="footer-cta">
         <slot name="cta" />
@@ -70,15 +71,14 @@ const hasCta = Astro.slots.has('cta');
       overflow: hidden;
       border-radius: var(--radius-panel);
       color: #f2efea;
-      /* Ink ruled like a ledger: the same sheet as the homepage's trace
-         chain. */
-      background:
-        repeating-linear-gradient(180deg, transparent 0 calc(2.6rem - 1px), #f2efea0f calc(2.6rem - 1px) 2.6rem),
-        radial-gradient(90% 70% at 50% 0%, #24453f 0%, #152b2d 60%, #0f1d1e 100%);
+      /* Ink, with a field of strokes (src/scripts/field.ts) that swirls
+         around the pointer. */
+      background: radial-gradient(90% 70% at 50% 0%, #1f3d39 0%, #152b2d 55%, #0f1d1e 100%);
       transform-origin: 50% 0;
       padding: clamp(2.6rem, 1.6rem + 4vw, 5rem) clamp(1.25rem, 0.4rem + 3.5vw, 4rem) clamp(1rem, 0.8rem + 0.8vw, 1.6rem);
       isolation: isolate;
     }
+    .field { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
     .footer-cta {
       text-align: center;
       padding: clamp(2rem, 1rem + 6vw, 7rem) 0 clamp(3rem, 2rem + 6vw, 8rem);
@@ -147,3 +147,7 @@ const hasCta = Astro.slots.has('cta');
     }
   </style>
 </footer>
+
+<script>
+  import '../scripts/field';
+</script>
