@@ -232,15 +232,13 @@ const supabaseConfigured = Boolean(supabaseUrl && supabaseAnon);
       border-radius: var(--radius-panel);
       padding: 2.4rem 2.6rem 3rem;
       color: #f2efea;
-      background: #152b2d url('/images/photo/f-fern.webp') center / cover no-repeat;
+      /* Ink ruled like a ledger, as on the footer panel. */
+      background:
+        repeating-linear-gradient(180deg, transparent 0 calc(2.6rem - 1px), #f2efea0f calc(2.6rem - 1px) 2.6rem),
+        radial-gradient(90% 70% at 30% 0%, #24453f 0%, #152b2d 60%, #0f1d1e 100%);
       display: flex;
       flex-direction: column;
       isolation: isolate;
-    }
-    aside.left::before {
-      content: "";
-      position: absolute; inset: 0; z-index: -1;
-      background: linear-gradient(180deg, #0f1d1e33, #0f1d1e99);
     }
     aside .brand {
       display: inline-flex;
