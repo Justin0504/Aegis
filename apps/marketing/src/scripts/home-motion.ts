@@ -7,7 +7,7 @@
  * scrolling back plays everything in reverse for free, and a resize only
  * has to re-measure.
  *
- *   hero    the headline is held (CSS sticky) while a field of photographs
+ *   hero    the headline is held (CSS sticky) while a field of demo crops
  *           and product cards drifts up past it at three depths; the
  *           headline then goes out of focus line by line.
  *   focus   any [data-focus] line is sharp in the middle band of the
@@ -17,8 +17,9 @@
  *           returning to the agent.
  *   tour    the live demo, held: a browser frame grows in and pages
  *           through the cockpit's screens as the chapter list advances.
- *   split   a held two-column stage: the photograph on the left grows in,
- *           then the steps cross-fade in place, picture and text together.
+ *   split   a held two-column stage: the trace field on the left grows in
+ *           and scrolls, while the steps cross-fade in place, panel and
+ *           text together.
  *   drift   [data-drift] elements move at their own speed relative to the
  *           page (the evidence card's ghost words).
  *   grow    [data-grow] panels scale up to full width as they arrive.
@@ -115,6 +116,7 @@ function split() {
   const root = document.querySelector<HTMLElement>('[data-split]');
   if (!root) return;
   const media = root.querySelector<HTMLElement>('.split-media');
+  const tex = root.querySelector<HTMLElement>('.trace-tex');
   const layers = Array.from(root.querySelectorAll<HTMLElement>('.sm-layer'));
   const texts = Array.from(root.querySelectorAll<HTMLElement>('.st-step'));
   const n = layers.length;
@@ -122,18 +124,20 @@ function split() {
   scenes.push(() => {
     if (!wide.matches) {
       // Stacked on small screens: undo anything a wide layout set.
-      [media, ...layers, ...texts].forEach((el) => { if (el) { el.style.cssText = ''; } });
+      [media, tex, ...layers, ...texts].forEach((el) => { if (el) { el.style.cssText = ''; } });
       return;
     }
-    // Entry: the picture grows from an inset frame to the full half.
+    // Entry: the trace field grows from an inset frame to the full half,
+    // and its log rows scroll up as the steps go by.
     const top = root.getBoundingClientRect().top;
     const e = smooth(ramp(1 - top / vh, 0, 1));
     if (media) {
       const i = (1 - e);
       media.style.clipPath = `inset(${(14 * i).toFixed(2)}% ${(22 * i).toFixed(2)}% ${(14 * i).toFixed(2)}% 0 round ${(18 + 10 * i).toFixed(1)}px)`;
     }
-    // Steps cross-fade in place.
     const s = heldProgress(root) * n;
+    if (tex) tex.style.transform = `translateY(${(-s * 9).toFixed(2)}vh)`;
+    // Steps cross-fade in place.
     for (let k = 0; k < n; k++) {
       const t = s - k;
       const inn = k === 0 ? 1 : smooth(ramp(t, -0.12, 0.12));

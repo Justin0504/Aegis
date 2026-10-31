@@ -70,18 +70,14 @@ const hasCta = Astro.slots.has('cta');
       overflow: hidden;
       border-radius: var(--radius-panel);
       color: #f2efea;
-      background: #152b2d url('/images/photo/f-fern.webp') center / cover no-repeat;
+      /* Ink ruled like a ledger: the same sheet as the homepage's trace
+         chain. */
+      background:
+        repeating-linear-gradient(180deg, transparent 0 calc(2.6rem - 1px), #f2efea0f calc(2.6rem - 1px) 2.6rem),
+        radial-gradient(90% 70% at 50% 0%, #24453f 0%, #152b2d 60%, #0f1d1e 100%);
       transform-origin: 50% 0;
       padding: clamp(2.6rem, 1.6rem + 4vw, 5rem) clamp(1.25rem, 0.4rem + 3.5vw, 4rem) clamp(1rem, 0.8rem + 0.8vw, 1.6rem);
       isolation: isolate;
-    }
-    /* A wash from the top keeps the link text legible over the ripples. */
-    .panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background: linear-gradient(180deg, #152b2d00 0%, #152b2d55 55%, #0f1d1ecc 100%);
     }
     .footer-cta {
       text-align: center;

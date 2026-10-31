@@ -45,36 +45,34 @@ const softwareLd = {
   keywords: 'AI agent safety, tool call firewall, prompt injection, instruction provenance, tool call auditing, cryptographic audit log, MCP security, MIT open source',
 };
 
-// The hero's field: real crops from the public demo fleet, a few product
-// cards, and a little photography. x/y place a card on the held stage
+// The hero's field: real crops from the public demo fleet and a few product
+// cards. x/y place a card on the held stage
 // (vw / vh; y past 100 starts off-screen and drifts up into view); z is
 // depth, 0 far … 1 near: near cards travel faster and are out of focus.
 // The middle column is left to far cards so the headline stays clear.
 type Card =
   | { kind: 'bit'; src: string; x: number; y: number; z: number; w: number }
   | { kind: 'shot'; src: string; x: number; y: number; z: number; w: number }
-  | { kind: 'photo'; src: string; x: number; y: number; z: number; w: number; r: string }
-  | { kind: 'ui'; ui: 'allow' | 'held' | 'prov' | 'receipt' | 'chain'; x: number; y: number; z: number };
+  | { kind: 'ui'; ui: 'allow' | 'held' | 'prov' | 'receipt' | 'chain' | 'link'; x: number; y: number; z: number };
 const cloud: Card[] = [
   { kind: 'shot',  src: 'approvals-sm',      x: 2,  y: 4,   z: 0.16, w: 17 },
   { kind: 'bit',   src: 'trace-row',         x: 68, y: 7,   z: 0.5,  w: 24 },
   { kind: 'ui',    ui: 'allow',              x: 80, y: 34,  z: 0.62 },
   { kind: 'bit',   src: 'approval-wire',     x: 1,  y: 62,  z: 0.56, w: 31 },
-  { kind: 'photo', src: 'c-typing-plant',    x: 86, y: 54,  z: 0.4,  w: 11, r: '3 / 2' },
+  { kind: 'ui',    ui: 'link',               x: 82, y: 58,  z: 0.4 },
   { kind: 'bit',   src: 'trace-ssh-row',     x: 68, y: 84,  z: 0.66, w: 25 },
   { kind: 'bit',   src: 'graph-step',        x: 38, y: 98,  z: 0.12, w: 20 },
   { kind: 'ui',    ui: 'held',               x: 5,  y: 112, z: 0.5 },
   { kind: 'bit',   src: 'violation-email',   x: 62, y: 124, z: 0.44, w: 30 },
   { kind: 'shot',  src: 'decision-graph-sm', x: -3, y: 140, z: 0.88, w: 27 },
-  { kind: 'photo', src: 'c-phone',           x: 86, y: 152, z: 0.86, w: 15, r: '3 / 2' },
+  { kind: 'bit',   src: 'violation-file',    x: 70, y: 150, z: 0.86, w: 30 },
   { kind: 'ui',    ui: 'prov',               x: 74, y: 178, z: 0.52 },
   { kind: 'bit',   src: 'approval-kubectl',  x: 3,  y: 188, z: 0.46, w: 31 },
   { kind: 'bit',   src: 'activity-chart',    x: 40, y: 200, z: 0.14, w: 24 },
-  { kind: 'photo', src: 'c-typing-bright',   x: 22, y: 228, z: 0.64, w: 14, r: '16 / 9' },
   { kind: 'bit',   src: 'violation-sql',     x: 60, y: 214, z: 0.3,  w: 34 },
+  { kind: 'bit',   src: 'approval-bulk',     x: 14, y: 228, z: 0.64, w: 26 },
   { kind: 'ui',    ui: 'receipt',            x: 72, y: 248, z: 0.5 },
   { kind: 'bit',   src: 'trace-error',       x: 2,  y: 258, z: 0.34, w: 24 },
-  { kind: 'photo', src: 'c-coffee-top',      x: 83, y: 272, z: 0.72, w: 12, r: '3 / 2' },
   { kind: 'ui',    ui: 'chain',              x: 44, y: 288, z: 0.16 },
   { kind: 'shot',  src: 'policies-sm',       x: 60, y: 294, z: 0.36, w: 22 },
 ];
@@ -146,20 +144,43 @@ const platforms: { name: string; logo?: string; note?: string }[] = [
 
 const steps = [
   {
-    eyebrow: 'Instruction provenance', photo: 'f-water', panel: 'ledger',
+    eyebrow: 'Instruction provenance', panel: 'ledger',
     h: [['r', 'Not the content.'], ['l', 'The authority.']],
     body: 'Every span that enters the agent’s context is tagged as it arrives — what the user typed, what came back from a tool, what the model wrote. A call is scored by how much of it each channel explains. An injection can copy the user’s words; it cannot make the call come from the user. Under a millisecond, with no model call.',
   },
   {
-    eyebrow: 'In-band decisions', photo: 'f-shallows', panel: 'decision',
+    eyebrow: 'In-band decisions', panel: 'decision',
     h: [['r', 'Allow. Block.'], ['m', 'Or wait'], ['l', 'for a person.']],
     body: 'The decision returns where a tool result would. A blocked agent reads the refusal, explains itself and carries on. A held call suspends the turn until a reviewer answers — the alignment auditor first, if you want it, so a person sees only what it would not release. For actions that cannot be undone, an outbox delays dispatch so an operator can still cancel.',
   },
   {
-    eyebrow: 'Cryptographic audit', photo: 'f-leafwall', panel: 'chain',
+    eyebrow: 'Cryptographic audit', panel: 'chain',
     h: [['r', 'Signed.'], ['m', 'Chained.'], ['l', 'Anchored.']],
     body: 'Every allow carries a receipt signed with the gateway’s key, so an executor can verify offline that this call was checked with these arguments. Each trace commits to the one before it; chain heads go into a Merkle transparency log that external witnesses countersign. Edit one record and verification fails from that record on.',
   },
+];
+
+// Texture behind the feature panels: rows of a trace log, as the chain
+// would print them. Decorative and seeded, so every build draws the same.
+let seed = 0x2603;
+const hex = (n: number) => Array.from({ length: n }, () => ((seed = (seed * 1103515245 + 12345) >>> 0) >>> 12 & 15).toString(16)).join('');
+const verbs = ['allow', 'allow', 'allow', 'block', 'hold', 'allow'];
+let prevHash = hex(16);
+const traceTexture = Array.from({ length: 44 }, (_, i) => {
+  const h = hex(16);
+  const row = `${String(380 + i).padStart(4, '0')}  ${h}  ← ${prevHash}  ${verbs[i % verbs.length]}`;
+  prevHash = h;
+  return row;
+}).join('\n');
+
+// The tamper ledger: calls from the demo fleet, chained in the browser.
+const ledger = [
+  { seq: '0412', agent: 'support-bot',     verdict: 'allow', call: 'read_file("kb/refunds.md")' },
+  { seq: '0413', agent: 'support-bot',     verdict: 'block', call: 'send_email(to="crypto-airdrop@gmail.com")' },
+  { seq: '0414', agent: 'data-pipeline',   verdict: 'hold',  call: 'http_post("api.stripe.com/v1/transfers", amount=2450000)' },
+  { seq: '0415', agent: 'security-triage', verdict: 'block', call: 'write_file("/root/.ssh/id_rsa")' },
+  { seq: '0416', agent: 'devops-agent',    verdict: 'hold',  call: 'shell("kubectl delete deployment payments-api -n prod")' },
+  { seq: '0417', agent: 'devops-agent',    verdict: 'allow', call: 'shell("git status")' },
 ];
 
 const faqs = [
@@ -177,9 +198,9 @@ const faqs = [
     a: 'Yes. The engine is MIT-licensed and runs with docker compose on your own machine; the gateway, its store and its signing key stay on your side of the trust boundary. A managed control plane is available if you would rather not run it.' },
 ];
 
-// Two rows for the voices wall, each doubled so the loop is seamless.
-const half = Math.ceil(VOICES.length / 2);
-const rows = [VOICES.slice(0, half), VOICES.slice(half)];
+// Quotes lead; contributions follow as a log of what people sent.
+const quotes = VOICES.filter((v) => v.kind === 'quote');
+const sent = VOICES.filter((v) => v.kind === 'contribution');
 ---
 <Layout
   title="AEGIS — a control point for AI agents' tool calls"
@@ -201,7 +222,6 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
             >
               {c.kind === 'bit' && <img src={`/screenshots/demo/bits/${c.src}.webp`} alt="" loading="eager" decoding="async" />}
               {c.kind === 'shot' && <img src={`/screenshots/demo/${c.src}.webp`} alt="" loading="eager" decoding="async" />}
-              {c.kind === 'photo' && <img src={`/images/photo/${c.src}.webp`} alt="" style={`aspect-ratio:${c.r}`} loading="eager" decoding="async" />}
               {c.kind === 'ui' && c.ui === 'allow' && (
                 <div class="ui"><p class="ui-k"><span class="dot ok"></span>allow · <code>read_file</code></p><p class="ui-v">receipt <code>AEG1.eyJjaGVjay…</code></p><p class="ui-s">verifies offline</p></div>
               )}
@@ -213,6 +233,9 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
               )}
               {c.kind === 'ui' && c.ui === 'receipt' && (
                 <div class="ui"><p class="ui-k"><span class="dot ok"></span>receipt verified</p><p class="ui-v"><code>Ed25519 · check 7f3a…</code></p></div>
+              )}
+              {c.kind === 'ui' && c.ui === 'link' && (
+                <div class="ui"><p class="ui-k">trace <code>#0413</code> · sha-256</p><p class="ui-v"><code>9f2c1a7e40b3…</code></p><p class="ui-s">← prev <code>3b88d0c41f92…</code></p></div>
               )}
               {c.kind === 'ui' && c.ui === 'chain' && (
                 <div class="ui"><p class="ui-k"><span class="dot ok"></span>chain intact</p><p class="ui-v">head anchored · Merkle log</p></div>
@@ -465,8 +488,9 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
     <section class="split" data-split style={`--steps:${steps.length}`}>
       <div class="split-stage">
         <div class="split-media">
+          <pre class="trace-tex" aria-hidden="true">{traceTexture}</pre>
           {steps.map((s) => (
-            <div class="sm-layer" style={`background-image:url('/images/photo/${s.photo}.webp')`}>
+            <div class="sm-layer">
               {s.panel === 'ledger' && (
                 <div class="glass ledger">
                   <div class="g-head"><span>context ledger</span><span class="g-muted">session · illustrative</span></div>
@@ -501,7 +525,6 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
         <div class="split-text">
           {steps.map((s) => (
             <div class="st-step">
-              <img class="st-photo" src={`/images/photo/${s.photo}.webp`} alt="" loading="lazy" />
               <p class="eyebrow-line">{s.eyebrow}</p>
               <h2 class="f-h display">{s.h.map(([a, t]) => <span class={a}>{t}</span>)}</h2>
               <p class="f-body">{s.body}</p>
@@ -509,6 +532,46 @@ const rows = [VOICES.slice(0, half), VOICES.slice(half)];
           ))}
         </div>
       </div>
+    </section>
+
+    <!-- ── TAMPER: rewrite one line of the trace chain ────────────── -->
+    <section class="tamper" data-tamper>
+      <div class="tp-copy">
+        <p class="eyebrow-line">Try it</p>
+        <h2 class="display">Rewrite one line<br />of history.</h2>
+        <p class="tp-sub">
+          Turn a <em>block</em> into an <em>allow</em>, or edit what the agent called. Each hash below
+          covers its row and the hash above it, computed in your browser with SHA-256 — so the
+          record you touch, and every one after it, stops verifying.
+        </p>
+      </div>
+      <div class="tp-sheet">
+        <div class="tp-cols" aria-hidden="true"><span>#</span><span>verdict</span><span>call</span><span>sha-256</span></div>
+        <ol class="tp-rows">
+          {ledger.map((r) => (
+            <li class="tp-row" data-row data-seq={r.seq} data-agent={r.agent} data-state="ok">
+              <span class="tp-seq">{r.seq}</span>
+              <button type="button" class="tp-v" data-verdict={r.verdict} aria-label={`Verdict for record ${r.seq}; click to change`}>{r.verdict}</button>
+              <span class="tp-call">
+                <span class="tp-agent">{r.agent}</span>
+                <span class="tp-edit" data-call contenteditable="plaintext-only" spellcheck="false" role="textbox" aria-label={`Call for record ${r.seq}; editable`}>{r.call}</span>
+              </span>
+              <span class="tp-h"><code data-hash>············</code><code class="tp-now" data-now></code></span>
+            </li>
+          ))}
+        </ol>
+        <div class="tp-foot">
+          <p class="tp-status" data-status aria-live="polite">Computing the chain…</p>
+          <div class="tp-btns">
+            <button type="button" class="tp-btn" data-forge hidden>Forge the hashes too</button>
+            <button type="button" class="tp-btn tp-alt" data-reset hidden>Restore</button>
+          </div>
+        </div>
+      </div>
+      <p class="tp-note">
+        A toy chain over calls from the demo fleet. In AEGIS the chain is kept per agent, and each
+        head goes into a Merkle transparency log that external witnesses countersign.
+      </p>
     </section>
 
     <!-- ── PLATFORMS ───────────────────────────────────────────────── -->
@@ -583,25 +646,34 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       <div class="vo-head">
         <p class="eyebrow-line">In the open</p>
         <h2 class="display">Said and sent by<br />the people using it.</h2>
-        <p class="vo-sub">500+ stars and 56 forks on GitHub. Every card links to the comment, issue or pull request it comes from.</p>
+        <p class="vo-sub">500+ stars and 56 forks on GitHub. Every quote and every line below links to the comment, issue or pull request it comes from.</p>
       </div>
-      <div class="vo-rows">
-        {rows.map((row, ri) => (
-          <div class:list={['vo-row', { rev: ri === 1 }]}>
-            <div class="vo-track">
-              {[...row, ...row].map((v, k) => (
-                <a class:list={['vo', v.kind]} href={v.href} target="_blank" rel="noopener" aria-hidden={k >= row.length ? 'true' : undefined} tabindex={k >= row.length ? -1 : undefined}>
-                  <p class="vo-text">{v.kind === 'quote' ? `“${v.text}”` : v.text}</p>
-                  <div class="vo-who">
-                    <img src={v.avatar} alt="" width="40" height="40" loading="lazy" />
-                    <span class="vo-name">{v.name}{v.role && <em>{v.role}</em>}</span>
-                    <span class="vo-src">{v.source}</span>
-                  </div>
-                </a>
-              ))}
+      <div class="vo-quotes">
+        {quotes.map((v) => (
+          <a class="vq" href={v.href} target="_blank" rel="noopener">
+            <p class="vq-text">“{v.text}”</p>
+            <div class="vo-who">
+              <img src={v.avatar} alt="" width="44" height="44" loading="lazy" />
+              <span class="vo-name">{v.name}{v.role && <em>{v.role}</em>}</span>
+              <span class="vo-src">{v.source} ↗</span>
             </div>
-          </div>
+          </a>
         ))}
+      </div>
+      <div class="vo-log">
+        <p class="vl-h"><span>Built in the open</span><span>{sent.length} contributions</span></p>
+        <ol>
+          {sent.map((v) => (
+            <li>
+              <a href={v.href} target="_blank" rel="noopener">
+                <img src={v.avatar} alt="" width="28" height="28" loading="lazy" />
+                <span class="vl-who">{v.handle}</span>
+                <span class="vl-ref">{v.source.replace('Pull request', 'PR').replace(' · merged', ' ✓')}</span>
+                <span class="vl-what">{v.text}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
       </div>
       <p class="vo-ask">Using AEGIS? <a href="https://github.com/Justin0504/Aegis/issues/new" rel="noopener">Tell us what broke, or what worked.</a></p>
     </section>
@@ -1095,7 +1167,24 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       opacity: 0;
       will-change: opacity, transform, filter;
     }
-    .sm-layer:first-child { opacity: 1; }
+    .sm-layer:nth-child(2) { opacity: 1; }
+    .split-media { background: radial-gradient(120% 90% at 30% 40%, #1d3a3a 0%, #132628 55%, #0e1d1f 100%); }
+    .trace-tex {
+      position: absolute;
+      inset: -2rem 0 0 -1rem;
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 2.1;
+      letter-spacing: 0.04em;
+      color: #9fb4a7;
+      opacity: 0.16;
+      white-space: pre;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+              mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+      pointer-events: none;
+    }
     .split-text { position: relative; }
     .st-step {
       position: absolute;
@@ -1109,7 +1198,6 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       will-change: opacity, transform, filter;
     }
     .st-step:first-child { opacity: 1; }
-    .st-photo { display: none; }
     .eyebrow-line { align-self: flex-start; }
     .f-h {
       font-size: clamp(2.2rem, 1.3rem + 3vw, 4.6rem);
@@ -1134,7 +1222,6 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       .split-stage { position: static; height: auto; display: block; }
       .split-media { display: none; }
       .st-step { position: static; opacity: 1; padding: 2.5rem 1.25rem 3.5rem; }
-      .st-photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 18px; margin-bottom: 1.6rem; }
       .f-h .r, .f-h .m { text-align: left; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -1142,15 +1229,14 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       .split-stage { position: static; height: auto; display: block; }
       .split-media { display: none; }
       .st-step { position: static; opacity: 1; max-width: 52rem; margin: 0 auto; padding: 3rem 1.25rem; }
-      .st-photo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 18px; margin-bottom: 1.6rem; }
     }
 
-    /* Frosted panels on the photography */
+    /* Paper panels on the ink field */
     .glass {
       width: min(100%, 36rem);
       border-radius: 22px;
-      background: #ffffff66;
-      border: 1px solid #ffffff8c;
+      background: #f2efeaeb;
+      border: 1px solid #ffffff40;
       -webkit-backdrop-filter: blur(18px) saturate(1.1);
               backdrop-filter: blur(18px) saturate(1.1);
       box-shadow: 0 30px 70px #0c1a1b40;
@@ -1178,6 +1264,98 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .seq { font-family: var(--font-mono); opacity: 0.7; }
     .ok-t { color: #234839; font-size: 0.8rem; }
     .g-anchor { font-family: var(--font-mono); font-size: 0.78rem; margin: 0 0.15rem 0.7rem; opacity: 0.85; }
+
+    /* ── Tamper ledger (an ink sheet ruled like a ledger) ─────────── */
+    .tamper {
+      max-width: 82rem;
+      margin: 0 auto;
+      padding: 16vh clamp(1rem, 0.4rem + 2.4vw, 3rem) 0;
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+      gap: clamp(2rem, 1rem + 3vw, 5rem);
+      align-items: start;
+    }
+    .tp-copy { position: sticky; top: 7rem; }
+    .tamper h2 { font-size: clamp(2rem, 1.2rem + 2.8vw, 4.2rem); line-height: 1; margin: 0 0 1.4rem; color: var(--ink-strong); }
+    .tp-sub { color: var(--muted); line-height: 1.55; margin: 0; max-width: 30rem; }
+    .tp-sub em { font-style: normal; font-family: var(--font-mono); font-size: 0.88em; color: var(--ink); }
+    .tp-sheet {
+      --rule: 3.4rem;
+      position: relative;
+      border-radius: 22px;
+      color: #e8e4dc;
+      background:
+        linear-gradient(90deg, transparent 4.6rem, #c96a4a55 4.6rem, #c96a4a55 calc(4.6rem + 1px), transparent calc(4.6rem + 1px)),
+        #132628;
+      box-shadow: 0 40px 80px -30px #0c1a1b80;
+      overflow: hidden;
+    }
+    .tp-cols, .tp-row { display: grid; grid-template-columns: 4.6rem 5.2rem minmax(0, 1fr) 8.6rem; align-items: center; }
+    .tp-cols { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: #8fa39b; padding: 1.1rem 1.2rem 0.6rem 0; border-bottom: 1px solid #f2efea26; }
+    .tp-cols span:first-child, .tp-seq { text-align: right; padding-right: 1rem; }
+    .tp-cols span:nth-child(2) { padding-left: 0.8rem; }
+    .tp-rows { list-style: none; margin: 0; padding: 0; }
+    .tp-row {
+      min-height: var(--rule);
+      padding-right: 1.2rem;
+      border-bottom: 1px solid #f2efea14;
+      transition: background 0.35s ease;
+    }
+    .tp-seq { font-family: var(--font-mono); font-size: 0.78rem; color: #8fa39b; }
+    .tp-v {
+      justify-self: start; margin-left: 0.8rem;
+      font: inherit; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+      padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid transparent; cursor: pointer;
+      background: #2c4a3f; color: #b8d8c6;
+      transition: transform 0.15s ease, border-color 0.2s ease;
+    }
+    .tp-v:hover { border-color: #f2efea66; }
+    .tp-v:active { transform: scale(0.94); }
+    .tp-v[data-verdict="block"] { background: #4a2a26; color: #f0b8a8; }
+    .tp-v[data-verdict="hold"] { background: #4a3d22; color: #f0d29a; }
+    .tp-call { display: grid; gap: 0.1rem; min-width: 0; padding: 0.55rem 0.8rem 0.55rem 0.2rem; }
+    .tp-agent { font-size: 0.7rem; color: #8fa39b; font-family: var(--font-mono); }
+    .tp-edit {
+      font-family: var(--font-mono); font-size: 0.82rem; color: #f2efea;
+      overflow-wrap: anywhere; outline: none; border-radius: 6px; padding: 0.05rem 0.25rem; margin-left: -0.25rem;
+      cursor: text; transition: background 0.2s ease;
+    }
+    .tp-edit:hover { background: #f2efea12; }
+    .tp-edit:focus { background: #f2efea1c; box-shadow: inset 0 -1px 0 #f2efea80; }
+    .tp-h { display: grid; justify-items: end; gap: 0.1rem; font-size: 0.74rem; }
+    .tp-h code { color: #9fb4a7; letter-spacing: 0.02em; }
+    .tp-now { color: #f0b8a8 !important; }
+    .tp-now:empty { display: none; }
+    .tp-row[data-state="bad"] { background: #c96a4a24; }
+    .tp-row[data-state="bad"] [data-hash] { text-decoration: line-through; opacity: 0.6; }
+    .tp-row[data-state="lost"] { background: #c96a4a10; }
+    .tp-row[data-state="lost"] .tp-call, .tp-row[data-state="lost"] .tp-h { opacity: 0.45; }
+    .tp-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.8rem 1.4rem; padding: 1.1rem 1.2rem 1.2rem 4.6rem; min-height: 4.6rem; }
+    .tp-status { margin: 0; flex: 1 1 22rem; font-size: 0.9rem; line-height: 1.45; color: #c9d3cd; padding-left: 0.2rem; }
+    .tp-status b { font-weight: 500; color: #b8d8c6; }
+    .tamper[data-state="bad"] .tp-status b, .tamper[data-state="head"] .tp-status b { color: #f0b8a8; }
+    .tp-status code { font-size: 0.86em; }
+    .tp-btns { display: flex; gap: 0.5rem; }
+    .tp-btn { font: inherit; font-size: 0.84rem; padding: 0.5rem 1rem; border-radius: 999px; cursor: pointer; border: 1px solid #f2efea; background: #f2efea; color: #132628; }
+    .tp-btn.tp-alt { background: transparent; color: #f2efea; border-color: #f2efea55; }
+    .tp-btn[hidden] { display: none; }
+    .tp-note { grid-column: 2; margin: 0.9rem 0.2rem 0; font-size: 0.8rem; line-height: 1.5; color: var(--muted); max-width: 46rem; }
+    @media (prefers-color-scheme: dark) { .tamper h2 { color: var(--ink); } .tp-sheet { background-color: #0b1718; } }
+    @media (max-width: 1000px) {
+      .tamper { grid-template-columns: minmax(0, 1fr); }
+      .tp-copy { position: static; }
+      .tp-note { grid-column: 1; }
+    }
+    @media (max-width: 640px) {
+      .tp-sheet { background: #132628; }
+      .tp-cols { display: none; }
+      .tp-row { grid-template-columns: 3.2rem auto minmax(0, 1fr); grid-template-areas: "s v h" "c c c"; padding: 0.6rem 0.9rem; row-gap: 0.2rem; }
+      .tp-seq { grid-area: s; text-align: left; padding: 0; }
+      .tp-v { grid-area: v; margin-left: 0; }
+      .tp-h { grid-area: h; }
+      .tp-call { grid-area: c; padding: 0; }
+      .tp-foot { padding: 1rem 0.9rem; }
+    }
 
     /* ── Platforms ────────────────────────────────────────────────── */
     .platforms {
@@ -1266,47 +1444,45 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .ev-links { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
     .quiet { color: var(--sage-text); font-size: 0.92rem; }
 
-    /* ── Voices (two counter-scrolling rows) ──────────────────────── */
-    .voices { padding: 14vh 0 4vh; overflow: hidden; }
-    .vo-head { text-align: center; padding: 0 1.25rem; margin-bottom: clamp(2.4rem, 1.6rem + 3vw, 4rem); }
+    /* ── Voices: quotes, then the contribution log ───────────────── */
+    .voices { max-width: 82rem; margin: 0 auto; padding: 14vh clamp(1rem, 0.4rem + 2.4vw, 3rem) 4vh; }
+    .vo-head { margin-bottom: clamp(2rem, 1.4rem + 2.6vw, 3.6rem); max-width: 46rem; }
     .vo-head .eyebrow-line { display: inline-flex; margin: 0 0 1rem; }
     .vo-head h2 { font-size: clamp(2rem, 1.2rem + 3vw, 4.4rem); line-height: 1; margin: 0 0 1.1rem; color: var(--ink-strong); }
-    .vo-sub { color: var(--muted); margin: 0 auto; max-width: 40rem; line-height: 1.5; }
-    .vo-rows {
-      display: grid; gap: 1rem;
-      -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-              mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    .vo-sub { color: var(--muted); margin: 0; max-width: 40rem; line-height: 1.5; }
+    .vo-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; }
+    .vq {
+      display: flex; flex-direction: column; justify-content: space-between; gap: 2.4rem;
+      padding: clamp(1.6rem, 1.2rem + 1.4vw, 2.6rem); border-radius: 22px; background: #152b2d;
+      color: inherit; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .vo-row { overflow: hidden; }
-    .vo-track { display: flex; gap: 1rem; width: max-content; animation: vo-scroll 70s linear infinite; }
-    .vo-row.rev .vo-track { animation-direction: reverse; animation-duration: 80s; }
-    .vo-rows:hover .vo-track, .vo-rows:focus-within .vo-track { animation-play-state: paused; }
-    @keyframes vo-scroll { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 0.5rem)); } }
-    .vo {
-      flex: none; width: 24rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.2rem;
-      padding: 1.4rem 1.5rem 1.2rem; border-radius: 20px; background: var(--paper-raised); border: 1px solid var(--line);
-      color: inherit; text-decoration: none; transition: border-color 0.25s ease, transform 0.3s ease;
+    .vq:hover { transform: translateY(-3px); box-shadow: 0 24px 50px -24px #0c1a1b99; }
+    .vq-text { margin: 0; color: #f2efea; font-family: var(--font-display); font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.95rem); line-height: 1.28; }
+    .vo-who { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 0.8rem; align-items: center; }
+    .vo-who img { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+    .vo-name { font-size: 0.95rem; color: #f2efea; display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
+    .vo-name em { font-style: normal; color: #b9c6bf; }
+    .vo-src { font-family: var(--font-mono); font-size: 0.72rem; color: #b9c6bf; }
+    .vo-log { margin-top: clamp(2.4rem, 1.8rem + 2vw, 3.6rem); border-top: 1px solid var(--ink); }
+    .vl-h { display: flex; justify-content: space-between; gap: 1rem; margin: 0; padding: 0.8rem 0; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sage-text); border-bottom: 1px solid var(--line); }
+    .vo-log ol { list-style: none; margin: 0; padding: 0; }
+    .vo-log li { border-bottom: 1px solid var(--line); }
+    .vo-log a {
+      display: grid; grid-template-columns: 28px 9.5rem 7.5rem minmax(0, 1fr); align-items: center; column-gap: 1rem;
+      padding: 0.85rem 0.4rem; color: inherit; text-decoration: none; transition: background 0.2s ease;
     }
-    .vo:hover { border-color: var(--sage); transform: translateY(-2px); }
-    .vo.quote { background: #152b2d; border-color: #152b2d; }
-    .vo.quote .vo-text { color: #f2efea; font-family: var(--font-display); font-size: 1.22rem; line-height: 1.32; }
-    .vo.quote .vo-name { color: #f2efea; }
-    .vo.quote .vo-name em, .vo.quote .vo-src { color: #b9c6bf; }
-    .vo-text { margin: 0; color: var(--ink); font-size: 0.98rem; line-height: 1.5; }
-    .vo-who { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: 0.75rem; align-items: center; }
-    .vo-who img { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-    .vo-name { font-size: 0.9rem; color: var(--ink); display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
-    .vo-name em { font-style: normal; color: var(--muted); }
-    .vo-src { font-family: var(--font-mono); font-size: 0.72rem; color: var(--sage-text); }
-    .vo-ask { text-align: center; margin: 2.4rem 1.25rem 0; color: var(--muted); font-size: 0.94rem; }
+    .vo-log a:hover { background: var(--paper-raised); }
+    .vo-log img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+    .vl-who { font-size: 0.9rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vl-ref { font-family: var(--font-mono); font-size: 0.74rem; color: var(--sage-text); }
+    .vl-what { font-size: 0.92rem; line-height: 1.45; color: var(--muted); }
+    .vo-ask { margin: 2rem 0 0; color: var(--muted); font-size: 0.94rem; }
     .vo-ask a { color: var(--ink); }
-    @media (prefers-color-scheme: dark) { .vo-head h2 { color: var(--ink); } }
-    @media (prefers-reduced-motion: reduce) {
-      .vo-rows { -webkit-mask-image: none; mask-image: none; padding: 0 1.25rem; }
-      .vo-track { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
-      .vo[aria-hidden="true"] { display: none; }
+    @media (prefers-color-scheme: dark) { .vo-head h2 { color: var(--ink); } .vo-log { border-top-color: var(--line); } }
+    @media (max-width: 760px) {
+      .vo-log a { grid-template-columns: 28px minmax(0, 1fr) auto; row-gap: 0.3rem; }
+      .vl-what { grid-column: 2 / -1; }
     }
-    @media (max-width: 560px) { .vo { width: 19rem; } }
 
     /* ── FAQ ──────────────────────────────────────────────────────── */
     .faq { padding: 16vh 1.25rem 0; }
@@ -1337,6 +1513,7 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
 
 <script>
   import '../scripts/home-motion';
+  import '../scripts/tamper';
 
   // The copied string lives on the button, not in this script, so what a
   // reader sees and what lands on their clipboard cannot diverge.
