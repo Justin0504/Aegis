@@ -198,9 +198,14 @@ const faqs = [
     a: 'Yes. The engine is MIT-licensed and runs with docker compose on your own machine; the gateway, its store and its signing key stay on your side of the trust boundary. A managed control plane is available if you would rather not run it.' },
 ];
 
-// Quotes lead; contributions follow as a log of what people sent.
+// Two counter-scrolling rows, each led by a quote and doubled so the loop
+// is seamless.
 const quotes = VOICES.filter((v) => v.kind === 'quote');
 const sent = VOICES.filter((v) => v.kind === 'contribution');
+const rows = [0, 1].map((r) => [
+  ...quotes.filter((_, i) => i % 2 === r),
+  ...sent.filter((_, i) => i % 2 === r),
+]);
 ---
 <Layout
   title="AEGIS — a control point for AI agents' tool calls"
@@ -646,34 +651,25 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
       <div class="vo-head">
         <p class="eyebrow-line">In the open</p>
         <h2 class="display">Said and sent by<br />the people using it.</h2>
-        <p class="vo-sub">500+ stars and 56 forks on GitHub. Every quote and every line below links to the comment, issue or pull request it comes from.</p>
+        <p class="vo-sub">500+ stars and 56 forks on GitHub. Every card links to the comment, issue or pull request it comes from.</p>
       </div>
-      <div class="vo-quotes">
-        {quotes.map((v) => (
-          <a class="vq" href={v.href} target="_blank" rel="noopener">
-            <p class="vq-text">“{v.text}”</p>
-            <div class="vo-who">
-              <img src={v.avatar} alt="" width="44" height="44" loading="lazy" />
-              <span class="vo-name">{v.name}{v.role && <em>{v.role}</em>}</span>
-              <span class="vo-src">{v.source} ↗</span>
+      <div class="vo-rows">
+        {rows.map((row, ri) => (
+          <div class:list={['vo-row', { rev: ri === 1 }]}>
+            <div class="vo-track">
+              {[...row, ...row].map((v, k) => (
+                <a class:list={['vo', v.kind]} href={v.href} target="_blank" rel="noopener" aria-hidden={k >= row.length ? 'true' : undefined} tabindex={k >= row.length ? -1 : undefined}>
+                  <p class="vo-text">{v.kind === 'quote' ? `“${v.text}”` : v.text}</p>
+                  <div class="vo-who">
+                    <img src={v.avatar} alt="" width="40" height="40" loading="lazy" />
+                    <span class="vo-name">{v.name}{v.role && <em>{v.role}</em>}</span>
+                    <span class="vo-src">{v.source} ↗</span>
+                  </div>
+                </a>
+              ))}
             </div>
-          </a>
+          </div>
         ))}
-      </div>
-      <div class="vo-log">
-        <p class="vl-h"><span>Built in the open</span><span>{sent.length} contributions</span></p>
-        <ol>
-          {sent.map((v) => (
-            <li>
-              <a href={v.href} target="_blank" rel="noopener">
-                <img src={v.avatar} alt="" width="28" height="28" loading="lazy" />
-                <span class="vl-who">{v.handle}</span>
-                <span class="vl-ref">{v.source.replace('Pull request', 'PR').replace(' · merged', ' ✓')}</span>
-                <span class="vl-what">{v.text}</span>
-              </a>
-            </li>
-          ))}
-        </ol>
       </div>
       <p class="vo-ask">Using AEGIS? <a href="https://github.com/Justin0504/Aegis/issues/new" rel="noopener">Tell us what broke, or what worked.</a></p>
     </section>
@@ -1444,46 +1440,45 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .ev-links { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
     .quiet { color: var(--sage-text); font-size: 0.92rem; }
 
-    /* ── Voices: quotes, then the contribution log ───────────────── */
-    .voices { max-width: 82rem; margin: 0 auto; padding: 14vh clamp(1rem, 0.4rem + 2.4vw, 3rem) 4vh; }
-    .vo-head { margin-bottom: clamp(2rem, 1.4rem + 2.6vw, 3.6rem); max-width: 46rem; }
+    /* ── Voices: two counter-scrolling rows ──────────────────────── */
+    .voices { padding: 14vh 0 4vh; overflow: hidden; }
+    .vo-head { max-width: 82rem; margin: 0 auto clamp(2.4rem, 1.6rem + 3vw, 4rem); padding: 0 clamp(1rem, 0.4rem + 2.4vw, 3rem); }
     .vo-head .eyebrow-line { display: inline-flex; margin: 0 0 1rem; }
     .vo-head h2 { font-size: clamp(2rem, 1.2rem + 3vw, 4.4rem); line-height: 1; margin: 0 0 1.1rem; color: var(--ink-strong); }
     .vo-sub { color: var(--muted); margin: 0; max-width: 40rem; line-height: 1.5; }
-    .vo-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; }
-    .vq {
-      display: flex; flex-direction: column; justify-content: space-between; gap: 2.4rem;
-      padding: clamp(1.6rem, 1.2rem + 1.4vw, 2.6rem); border-radius: 22px;
-      background: var(--paper-raised); border: 1px solid var(--line);
-      color: inherit; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    .vo-rows {
+      display: grid; gap: 1rem;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
     }
-    .vq:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -28px #152b2d40; }
-    .vq-text { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.95rem); line-height: 1.28; }
-    .vo-who { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 0.8rem; align-items: center; }
-    .vo-who img { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
-    .vo-name { font-size: 0.95rem; color: var(--ink); display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
+    .vo-row { overflow: hidden; padding: 4px 0; }
+    .vo-track { display: flex; align-items: stretch; gap: 1rem; width: max-content; animation: vo-scroll 75s linear infinite; }
+    .vo-row.rev .vo-track { animation-direction: reverse; animation-duration: 85s; }
+    .vo-rows:hover .vo-track, .vo-rows:focus-within .vo-track { animation-play-state: paused; }
+    @keyframes vo-scroll { from { transform: translateX(0); } to { transform: translateX(calc(-50% - 0.5rem)); } }
+    .vo {
+      flex: none; width: 24rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.4rem;
+      padding: 1.5rem 1.6rem 1.3rem; border-radius: 20px; background: var(--paper-raised); border: 1px solid var(--line);
+      color: inherit; text-decoration: none; transition: border-color 0.25s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .vo:hover { border-color: var(--sage); transform: translateY(-2px); box-shadow: 0 18px 36px -26px #152b2d40; }
+    .vo.quote { width: 30rem; }
+    .vo.quote .vo-text { font-family: var(--font-display); font-size: 1.3rem; line-height: 1.3; }
+    .vo-text { margin: 0; color: var(--ink); font-size: 0.98rem; line-height: 1.5; }
+    .vo-who { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: 0.75rem; align-items: center; }
+    .vo-who img { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+    .vo-name { font-size: 0.9rem; color: var(--ink); display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
     .vo-name em { font-style: normal; color: var(--muted); }
     .vo-src { font-family: var(--font-mono); font-size: 0.72rem; color: var(--sage-text); }
-    .vo-log { margin-top: clamp(2.4rem, 1.8rem + 2vw, 3.6rem); border-top: 1px solid var(--ink); }
-    .vl-h { display: flex; justify-content: space-between; gap: 1rem; margin: 0; padding: 0.8rem 0; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sage-text); border-bottom: 1px solid var(--line); }
-    .vo-log ol { list-style: none; margin: 0; padding: 0; }
-    .vo-log li { border-bottom: 1px solid var(--line); }
-    .vo-log a {
-      display: grid; grid-template-columns: 28px 9.5rem 7.5rem minmax(0, 1fr); align-items: center; column-gap: 1rem;
-      padding: 0.85rem 0.4rem; color: inherit; text-decoration: none; transition: background 0.2s ease;
-    }
-    .vo-log a:hover { background: var(--paper-raised); }
-    .vo-log img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-    .vl-who { font-size: 0.9rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .vl-ref { font-family: var(--font-mono); font-size: 0.74rem; color: var(--sage-text); }
-    .vl-what { font-size: 0.92rem; line-height: 1.45; color: var(--muted); }
-    .vo-ask { margin: 2rem 0 0; color: var(--muted); font-size: 0.94rem; }
+    .vo-ask { max-width: 82rem; margin: 2.4rem auto 0; padding: 0 clamp(1rem, 0.4rem + 2.4vw, 3rem); color: var(--muted); font-size: 0.94rem; }
     .vo-ask a { color: var(--ink); }
-    @media (prefers-color-scheme: dark) { .vo-head h2 { color: var(--ink); } .vo-log { border-top-color: var(--line); } }
-    @media (max-width: 760px) {
-      .vo-log a { grid-template-columns: 28px minmax(0, 1fr) auto; row-gap: 0.3rem; }
-      .vl-what { grid-column: 2 / -1; }
+    @media (prefers-color-scheme: dark) { .vo-head h2 { color: var(--ink); } }
+    @media (prefers-reduced-motion: reduce) {
+      .vo-rows { -webkit-mask-image: none; mask-image: none; padding: 0 1.25rem; }
+      .vo-track { animation: none; width: auto; flex-wrap: wrap; }
+      .vo[aria-hidden="true"] { display: none; }
     }
+    @media (max-width: 560px) { .vo, .vo.quote { width: 19rem; } }
 
     /* ── FAQ ──────────────────────────────────────────────────────── */
     .faq { padding: 16vh 1.25rem 0; }
