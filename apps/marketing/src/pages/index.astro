@@ -1453,16 +1453,17 @@ agentguard.auto()   <span class="cm"># that's the integration</span></code></pre
     .vo-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; }
     .vq {
       display: flex; flex-direction: column; justify-content: space-between; gap: 2.4rem;
-      padding: clamp(1.6rem, 1.2rem + 1.4vw, 2.6rem); border-radius: 22px; background: #152b2d;
-      color: inherit; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease;
+      padding: clamp(1.6rem, 1.2rem + 1.4vw, 2.6rem); border-radius: 22px;
+      background: var(--paper-raised); border: 1px solid var(--line);
+      color: inherit; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     }
-    .vq:hover { transform: translateY(-3px); box-shadow: 0 24px 50px -24px #0c1a1b99; }
-    .vq-text { margin: 0; color: #f2efea; font-family: var(--font-display); font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.95rem); line-height: 1.28; }
+    .vq:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -28px #152b2d40; }
+    .vq-text { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.95rem); line-height: 1.28; }
     .vo-who { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 0.8rem; align-items: center; }
-    .vo-who img { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
-    .vo-name { font-size: 0.95rem; color: #f2efea; display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
-    .vo-name em { font-style: normal; color: #b9c6bf; }
-    .vo-src { font-family: var(--font-mono); font-size: 0.72rem; color: #b9c6bf; }
+    .vo-who img { grid-row: 1 / span 2; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+    .vo-name { font-size: 0.95rem; color: var(--ink); display: flex; flex-wrap: wrap; column-gap: 0.45rem; }
+    .vo-name em { font-style: normal; color: var(--muted); }
+    .vo-src { font-family: var(--font-mono); font-size: 0.72rem; color: var(--sage-text); }
     .vo-log { margin-top: clamp(2.4rem, 1.8rem + 2vw, 3.6rem); border-top: 1px solid var(--ink); }
     .vl-h { display: flex; justify-content: space-between; gap: 1rem; margin: 0; padding: 0.8rem 0; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sage-text); border-bottom: 1px solid var(--line); }
     .vo-log ol { list-style: none; margin: 0; padding: 0; }
