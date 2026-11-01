@@ -8,6 +8,7 @@ import { initializeDatabase } from '../db/database'
 import { PolicyEngine } from '../policies/policy-engine'
 import { CheckAPI } from '../api/check'
 import { TraceAPI } from '../api/traces'
+import { ProfileManager } from '../services/profile-manager'
 
 const logger = pino({ level: 'silent' })
 
@@ -118,6 +119,17 @@ describe('gateway API smoke tests', () => {
     expect(body.status).toBe('ok')
     expect(body.db).toBe('connected')
     expect(typeof body.timestamp).toBe('string')
+  })
+
+  test('fresh database initializes the profile manager', async () => {
+    const profileManager = new ProfileManager(harness.db, logger)
+
+    try {
+      await expect(profileManager.initialize()).resolves.toBeUndefined()
+      expect(profileManager.size).toBe(0)
+    } finally {
+      profileManager.shutdown()
+    }
   })
 
   test('check endpoint allows a benign tool call', async () => {
