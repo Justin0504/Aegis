@@ -217,6 +217,9 @@ The signals that don't fit an activity row: **tainted memory recall**, **undecla
   &nbsp;
   <a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/Justin0504/Aegis/tree/main">
     <img src="https://www.deploytodo.com/do-btn-blue.svg" alt="Deploy to DO" height="32"></a>
+  &nbsp;
+  <a href="https://zop.dev/zopday/app/deploy?image=ghcr.io/justin0504/aegis-gateway&port=8080&name=aegis&env=DB_PATH=/data/agentguard.db&utm_source=github&utm_medium=one_click&utm_content=aegis">
+    <img src="https://zop.dev/deploytozopday-inkhard.svg" alt="Deploy to ZopDay" height="32"></a>
 </p>
 
 <p align="center">
